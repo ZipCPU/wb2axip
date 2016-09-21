@@ -1,4 +1,4 @@
-# WB2AXISP: A Wishbone B4 to AXI4 bridge
+# WB2AXIP: A Wishbone B4 to AXI4 bridge
 
 This project provides for the conversion of wishbone bus accesses to ARM AMBA
 AXI4 bus accesses.  Eventually, I hope to have an AXI4 master to Wishbone slave
