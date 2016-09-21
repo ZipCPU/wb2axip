@@ -1,13 +1,13 @@
 CAPI=1
 [main]
-description = "Pipelined Wishbone to AXI converter"
+description = Pipelined Wishbone to AXI converter
 
-[verilog]
-src_files = rtl/wbm2axisp.v
+[fileset rtl]
+files = rtl/wbm2axisp.v
+file_type = verilogSource
 
 [provider]
 name=github
 user=ZipCPU
 repo=wb2axip
 version = master
-cachable = true

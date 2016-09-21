@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	wbm2axisp.v
+// Filename: 	wbm2axisp.v (Wishbone master to AXI slave, pipelined)
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
@@ -52,7 +52,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-module wbm2axisp #(
+module wbm2axip #(
 	parameter C_AXI_ID_WIDTH	= 6, // The AXI id width used for R&W
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 128,// Width of the AXI R&W data
