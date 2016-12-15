@@ -14,7 +14,7 @@ although (due to Xilinx's design) the delay may be up to 27 clocks.  (Ouch!)
 
 Since the project began, a full-fledged AXI4 to Wishbone bridge has been 
 added to the project.  Check out the core
-[here](https:blob/master/rtl/axim2wbsp.v).
+[here](https:wb2axip/blob/master/rtl/axim2wbsp.v).
 This converter handles synchronizing the write channels, turning AXI read/write
 requests into pipeline wishbone requests, maintaining the AXI ID fields, etc.
 It ignores the AXI xSIZE, xLOCK, xCACHE, xPROT, and xQOS fields.  It supports
@@ -26,7 +26,7 @@ AXI4 is a complicated protocol, however, especially when compared to WB.
 
 _Finally, whereas the bridge has been written, it has yet to be significantly
 tested.  If you are interested in helping to test it, please contact me at
-(mailto:dgisselq@yahoo.com).  Until that time, it must be said that the result
+(dgisselq (at) yahoo.com).  Until that time, it must be said that the result
 is subject to change._
 
 # Thanks
