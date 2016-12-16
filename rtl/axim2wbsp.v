@@ -53,7 +53,7 @@ module axim2wbsp #(
 	input				i_axi_reset_n,
 
 // AXI write address channel signals
-	output				o_axi_awready, // Slave is ready to accept
+	output	wire			o_axi_awready, // Slave is ready to accept
 	input		[C_AXI_ID_WIDTH-1:0]	i_axi_awid,	// Write ID
 	input		[C_AXI_ADDR_WIDTH-1:0]	i_axi_awaddr,	// Write address
 	input		[7:0]		i_axi_awlen,	// Write Burst Length
@@ -66,20 +66,20 @@ module axim2wbsp #(
 	input				i_axi_awvalid,	// Write address valid
   
 // AXI write data channel signals
-	output				o_axi_wready,  // Write data ready
+	output	wire			o_axi_wready,  // Write data ready
 	input		[C_AXI_DATA_WIDTH-1:0]	i_axi_wdata,	// Write data
 	input		[C_AXI_DATA_WIDTH/8-1:0] i_axi_wstrb,	// Write strobes
 	input				i_axi_wlast,	// Last write transaction   
 	input				i_axi_wvalid,	// Write valid
   
 // AXI write response channel signals
-	output	[C_AXI_ID_WIDTH-1:0]	o_axi_bid,	// Response ID
-	output	[1:0]			o_axi_bresp,	// Write response
-	output				o_axi_bvalid,  // Write reponse valid
+	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_bid,	// Response ID
+	output	wire [1:0]		o_axi_bresp,	// Write response
+	output	wire 			o_axi_bvalid,  // Write reponse valid
 	input				i_axi_bready,  // Response ready
   
 // AXI read address channel signals
-	output				o_axi_arready,	// Read address ready
+	output	wire			o_axi_arready,	// Read address ready
 	input		[C_AXI_ID_WIDTH-1:0]	i_axi_arid,	// Read ID
 	input		[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr,	// Read address
 	input		[7:0]		i_axi_arlen,	// Read Burst Length
@@ -92,11 +92,11 @@ module axim2wbsp #(
 	input				i_axi_arvalid,	// Read address valid
   
 // AXI read data channel signals   
-	output	[C_AXI_ID_WIDTH-1:0]	o_axi_rid,     // Response ID
-	output	[1:0]			o_axi_rresp,   // Read response
-	output				o_axi_rvalid,  // Read reponse valid
-	output	[C_AXI_DATA_WIDTH-1:0]	o_axi_rdata,    // Read data
-	output				o_axi_rlast,    // Read last
+	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_rid,     // Response ID
+	output	wire [1:0]		o_axi_rresp,   // Read response
+	output	wire			o_axi_rvalid,  // Read reponse valid
+	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata,    // Read data
+	output	wire			o_axi_rlast,    // Read last
 	input				i_axi_rready,  // Read Response ready
 
 	// We'll share the clock and the reset

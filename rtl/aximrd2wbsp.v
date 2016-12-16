@@ -49,7 +49,7 @@ module	aximrd2wbsp #(
 	input				i_axi_reset_n,	// Bus reset
 
 // AXI read address channel signals
-	output				o_axi_arready,	// Read address ready
+	output	wire			o_axi_arready,	// Read address ready
 	input		[C_AXI_ID_WIDTH-1:0]	i_axi_arid,	// Read ID
 	input		[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr,	// Read address
 	input		[7:0]		i_axi_arlen,	// Read Burst Length
@@ -62,17 +62,17 @@ module	aximrd2wbsp #(
 	input				i_axi_arvalid,	// Read address valid
   
 // AXI read data channel signals   
-	output	[C_AXI_ID_WIDTH-1:0]	o_axi_rid,     // Response ID
-	output	[1:0]			o_axi_rresp,   // Read response
-	output				o_axi_rvalid,  // Read reponse valid
-	output	[C_AXI_DATA_WIDTH-1:0]	o_axi_rdata,    // Read data
-	output				o_axi_rlast,    // Read last
+	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_rid,     // Response ID
+	output	wire [1:0]		o_axi_rresp,   // Read response
+	output	reg			o_axi_rvalid,  // Read reponse valid
+	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata,    // Read data
+	output	wire 			o_axi_rlast,    // Read last
 	input				i_axi_rready,  // Read Response ready
 
 	// We'll share the clock and the reset
-	output					o_wb_cyc,
-	output					o_wb_stb,
-	output	[(C_AXI_ADDR_WIDTH-1):0]	o_wb_addr,
+	output	reg				o_wb_cyc,
+	output	reg				o_wb_stb,
+	output	wire [(C_AXI_ADDR_WIDTH-1):0]	o_wb_addr,
 	input					i_wb_ack,
 	input					i_wb_stall,
 	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,

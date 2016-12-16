@@ -50,7 +50,7 @@ module aximwr2wbsp #(
 	input				i_axi_reset_n,
 
 // AXI write address channel signals
-	output				o_axi_awready, // Slave is ready to accept
+	output	wire			o_axi_awready, // Slave is ready to accept
 	input		[C_AXI_ID_WIDTH-1:0]	i_axi_awid,	// Write ID
 	input		[C_AXI_ADDR_WIDTH-1:0]	i_axi_awaddr,	// Write address
 	input		[7:0]		i_axi_awlen,	// Write Burst Length
@@ -63,24 +63,24 @@ module aximwr2wbsp #(
 	input				i_axi_awvalid,	// Write address valid
   
 // AXI write data channel signals
-	output				o_axi_wready,  // Write data ready
+	output	wire			o_axi_wready,  // Write data ready
 	input		[C_AXI_DATA_WIDTH-1:0]	i_axi_wdata,	// Write data
 	input		[C_AXI_DATA_WIDTH/8-1:0] i_axi_wstrb,	// Write strobes
 	input				i_axi_wlast,	// Last write transaction   
 	input				i_axi_wvalid,	// Write valid
   
 // AXI write response channel signals
-	output	[C_AXI_ID_WIDTH-1:0]	o_axi_bid,	// Response ID
-	output	[1:0]			o_axi_bresp,	// Write response
-	output				o_axi_bvalid,  // Write reponse valid
+	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_bid,	// Response ID
+	output	wire [1:0]		o_axi_bresp,	// Write response
+	output	wire			o_axi_bvalid,  // Write reponse valid
 	input				i_axi_bready,  // Response ready
   
 	// We'll share the clock and the reset
-	output				o_wb_cyc,
-	output				o_wb_stb,
-	output	[(C_AXI_ADDR_WIDTH-1):0]	o_wb_addr,
-	output	[(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
-	output	[(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
+	output	reg			o_wb_cyc,
+	output	reg			o_wb_stb,
+	output	wire [(C_AXI_ADDR_WIDTH-1):0]	o_wb_addr,
+	output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
+	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
 	input				i_wb_ack,
 	input				i_wb_stall,
 	// input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
@@ -229,6 +229,8 @@ module aximwr2wbsp #(
 
 	always @(posedge i_axi_clk)
 		afifo_at_neck <= afifo[fifo_neck];
+	assign	o_wb_addr = afifo_at_neck[(AW-1):0];
+
 	always @(posedge i_axi_clk)
 		dfifo_at_neck <= dfifo[fifo_neck];
 	assign	o_wb_data = dfifo_at_neck[DW-1:0];
