@@ -1,0 +1,5 @@
+read_verilog -D WBM2AXISP -formal ../../rtl/wbm2axisp.v
+prep -top wbm2axisp -nordff
+clk2fflogic
+opt clean
+write_smt2 -wires wbm2axisp.smt2

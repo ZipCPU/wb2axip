@@ -29,6 +29,17 @@ tested.  If you are interested in helping to test it, please contact me at
 (dgisselq (at) yahoo.com).  Until that time, it must be said that the result
 is subject to change._
 
+# Formal Verification
+
+This particular version of the tools includes an initial attempt at
+formally proving that the core(s) work.
+
+# Commercial Applications
+
+Should you find the GPLv3 license insufficient for your needs, other licenses
+can be purchased from Gisselquist Technology, LLc.
+
 # Thanks
 
 I'd like to thank @wallento for his initial work on a Wishbone to AXI converter (https://github.com/wallento/wb2axi), and his encouragement to improve upon it.  While this isn't a fork of his work, it takes its motivation from his work.
+

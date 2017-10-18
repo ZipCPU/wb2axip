@@ -30,7 +30,7 @@
 ## for more details.
 ##
 ## You should have received a copy of the GNU General Public License along
-## with this program.  (It's in the $(ROOT)/doc directory, run make with no
+## with this program.  (It's in the $(ROOT)/doc directory.  Run make with no
 ## target there if the PDF file isn't present.)  If not, see
 ## <http://www.gnu.org/licenses/> for a copy.
 ##
@@ -51,6 +51,12 @@ test: testwb testaxi
 
 .PHONY: testwb
 .PHONY: testaxi
+
+.PHONY: wbm2axisp
+wbm2axisp: testwb
+
+.PHONY: axim2wbsp
+axim2wbsp: testaxi
 
 testwb:  $(VDIRFB)/Vwbm2axisp__ALL.a
 testaxi: $(VDIRFB)/Vaxim2wbsp__ALL.a
