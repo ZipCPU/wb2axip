@@ -39,10 +39,11 @@ CXX	:= g++
 FLAGS	:= -Wall -Og -g
 OBJDIR  := obj-pc
 RTLD	:= ../verilog
-INCS	:= -I$(RTLD)/obj_dir/ -I/usr/share/verilator/include
+VERILATOR_ROOT ?= $(shell bash -c 'verilator -V|grep VERILATOR_ROOT| head -1 | sed -e " s/^.*=\s*//"')
+INCS	:= -I$(RTLD)/obj_dir/ -I$(VROOT)/include
 SOURCES := # testset.cpp
 VOBJDR	:= $(RTLD)/obj_dir
-VLIB	:= /usr/share/verilator/include/verilated.cpp
+VLIB	:= $(VROOT)/include/verilated.cpp
 SIMSRCS := aximemsim.cpp # testset.cpp
 SIMOBJ := $(subst .cpp,.o,$(SIMSRCS))
 SIMOBJS:= $(addprefix $(OBJDIR)/,$(SIMOBJ))
