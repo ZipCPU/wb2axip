@@ -22,7 +22,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2015-2016, Gisselquist Technology, LLC
+// Copyright (C) 2015-2017, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -35,7 +35,7 @@
 // for more details.
 //
 // You should have received a copy of the GNU General Public License along
-// with this program.  (It's in the $(ROOT)/doc directory, run make with no
+// with this program.  (It's in the $(ROOT)/doc directory.  Run make with no
 // target there if the PDF file isn't present.)  If not, see
 // <http://www.gnu.org/licenses/> for a copy.
 //
@@ -45,6 +45,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
+//
+`default_nettype	none
 //
 module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 	// Wishbone components
@@ -78,14 +80,14 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 				: RAMABITS-5)); // (WBDATAWIDTH==256)
 	localparam	SELW= (WBDATAWIDTH/8);
 	//
-	input			i_clk, i_clk_200mhz, i_rst;
-	output			o_sys_clk;
+	input	wire		i_clk, i_clk_200mhz, i_rst;
+	output	wire		o_sys_clk;
 	output	reg		o_sys_reset;
 	//
-	input			i_wb_cyc, i_wb_stb, i_wb_we;
-	input		[(AW-1):0]	i_wb_addr;
-	input		[(DW-1):0]	i_wb_data;
-	input		[(SELW-1):0]	i_wb_sel;
+	input	wire		i_wb_cyc, i_wb_stb, i_wb_we;
+	input	wire	[(AW-1):0]	i_wb_addr;
+	input	wire	[(DW-1):0]	i_wb_data;
+	input	wire	[(SELW-1):0]	i_wb_sel;
 	output	wire			o_wb_ack, o_wb_stall;
 	output	wire	[(DW-1):0]	o_wb_data;
 	output	wire			o_wb_err;
@@ -142,12 +144,14 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 	wire	[2:0]			s_axi_arprot;
 	wire	[3:0]			s_axi_arqos;
 	wire				s_axi_arvalid;
+	wire				s_axi_arready;
 	// Read response/data channel
 	wire	[(AXIDWIDTH-1):0]	s_axi_rid;
 	wire	[(AXIWIDTH-1):0]	s_axi_rdata;
 	wire	[1:0]			s_axi_rresp;
 	wire				s_axi_rlast;
 	wire				s_axi_rvalid;
+	wire				s_axi_rready;
 
 	// Other wires ...
 	wire		init_calib_complete, mmcm_locked;
