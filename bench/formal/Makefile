@@ -38,32 +38,56 @@
 ################################################################################
 ##
 ##
-TESTS := wbm2axisp
+TESTS := wbm2axisp wbarbiter # axim2wbsp
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL := ../../rtl
 SMTBMC  := yosys-smtbmc
 # SOLVER  := -s z3
-# SOLVER  := -s yices
-SOLVER  := -s boolector
+SOLVER  := -s yices
+# SOLVER  := -s boolector
 BMCARGS := --presat $(SOLVER)
 # BMCARGS := $(SOLVER)
 INDARGS := $(SOLVER) -i
 
-WB2AXI    := wbm2axisp
-WB2AXIBMC := $(WB2AXI)_bmc
-WB2AXIIND := $(WB2AXI)_ind
+WBARB    := wbarbiter
+WB2AXI   := wbm2axisp
+AXI2WB   := axim2wbsp
 
-$(WB2AXI).smt2: $(RTL)/$(WB2AXI).v
+$(WBARB).smt2: $(RTL)/$(WBARB).v fwb_master.v fwb_slave.v $(WBARB).ys
+	yosys -ql $(WBARB).yslog -s $(WBARB).ys
+
+$(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
 	yosys -ql $(WB2AXI).yslog -s $(WB2AXI).ys
+
+$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys fwb_master.v faxi_slave.v
+$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
+	yosys -ql $(AXI2WB).yslog -s $(AXI2WB).ys
+
+$(WBARB) : $(WBARB).check
+$(WBARB).check: $(WBARB).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WBARB).vcd $(WBARB).smt2
+	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WBARB).vcd $(WBARB).smt2
+	touch $@
 
 $(WB2AXI) : $(WB2AXI).check
 $(WB2AXI).check: $(WB2AXI).smt2
-	$(SMTBMC) $(BMCARGS) -t 24 --dump-smt2 $(WB2AXIBMC).smt2 --dump-vcd $(WB2AXIBMC).vcd $(WB2AXI).smt2
-	$(SMTBMC) $(INDARGS) -t 24 --dump-smt2 $(WB2AXIIND).smt2 --dump-vcd $(WB2AXIIND).vcd $(WB2AXI).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
+	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
+	touch $@
+
+$(AXI2WB) : $(AXI2WB).check
+$(AXI2WB).check: $(AXI2WB).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
+	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
 	touch $@
 
 .PHONY: clean
 clean:
-	rm -f  $(WB2AXI).smt2  $(WB2AXIBMC).smt2  $(WB2AXIIND).smt2  $(WB2AXI)*.vcd
+	rm -f  $(WBARB).smt2  $(WBARB).yslog   $(WBARB)*.vcd
+	rm -f  $(WB2AXI).smt2 $(WB2AXI).yslog  $(WB2AXI)*.vcd
+	rm -f  $(AXI2WB).smt2 $(AXI2WB).yslog  $(AXI2WB)*.vcd
 	rm -f *.check
