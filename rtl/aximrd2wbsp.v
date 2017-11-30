@@ -36,30 +36,33 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
+`default_nettype	none
+//
 module	aximrd2wbsp #(
 	parameter C_AXI_ID_WIDTH	= 6, // The AXI id width used for R&W
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
+	parameter AW			= 26,	// AXI Address width
 	parameter LGFIFO                =  4
 	// parameter	WBMODE		= "B4PIPELINE"
 		// Could also be "BLOCK"
 	) (
-	input				i_axi_clk,	// Bus clock
-	input				i_axi_reset_n,	// Bus reset
+	input	wire			i_axi_clk,	// Bus clock
+	input	wire			i_axi_reset_n,	// Bus reset
 
 // AXI read address channel signals
 	output	wire			o_axi_arready,	// Read address ready
-	input		[C_AXI_ID_WIDTH-1:0]	i_axi_arid,	// Read ID
-	input		[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr,	// Read address
-	input		[7:0]		i_axi_arlen,	// Read Burst Length
-	input		[2:0]		i_axi_arsize,	// Read Burst size
-	input		[1:0]		i_axi_arburst,	// Read Burst type
-	input		[0:0]		i_axi_arlock,	// Read lock type
-	input		[3:0]		i_axi_arcache,	// Read Cache type
-	input		[2:0]		i_axi_arprot,	// Read Protection type
-	input		[3:0]		i_axi_arqos,	// Read Protection type
-	input				i_axi_arvalid,	// Read address valid
+	input	wire	[C_AXI_ID_WIDTH-1:0]	i_axi_arid,	// Read ID
+	input	wire	[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr,	// Read address
+	input	wire	[7:0]		i_axi_arlen,	// Read Burst Length
+	input	wire	[2:0]		i_axi_arsize,	// Read Burst size
+	input	wire	[1:0]		i_axi_arburst,	// Read Burst type
+	input	wire	[0:0]		i_axi_arlock,	// Read lock type
+	input	wire	[3:0]		i_axi_arcache,	// Read Cache type
+	input	wire	[2:0]		i_axi_arprot,	// Read Protection type
+	input	wire	[3:0]		i_axi_arqos,	// Read Protection type
+	input	wire			i_axi_arvalid,	// Read address valid
   
 // AXI read data channel signals   
 	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_rid,     // Response ID
@@ -67,20 +70,19 @@ module	aximrd2wbsp #(
 	output	reg			o_axi_rvalid,  // Read reponse valid
 	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata,    // Read data
 	output	wire 			o_axi_rlast,    // Read last
-	input				i_axi_rready,  // Read Response ready
+	input	wire			i_axi_rready,  // Read Response ready
 
 	// We'll share the clock and the reset
 	output	reg				o_wb_cyc,
 	output	reg				o_wb_stb,
-	output	wire [(C_AXI_ADDR_WIDTH-1):0]	o_wb_addr,
-	input					i_wb_ack,
-	input					i_wb_stall,
+	output	wire [(AW-1):0]	o_wb_addr,
+	input	wire				i_wb_ack,
+	input	wire				i_wb_stall,
 	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
-	input					i_wb_err
+	input	wire				i_wb_err
 	);
 
 	localparam	DW = C_AXI_DATA_WIDTH;
-	localparam	AW = C_AXI_ADDR_WIDTH;
 
 	wire	w_reset;
 	assign	w_reset = (i_axi_reset_n == 1'b0);
@@ -166,7 +168,7 @@ module	aximrd2wbsp #(
 				wr_last <= (len == 1);
 			end
 		end else begin
-			wr_fifo_addr <= i_axi_araddr;
+			wr_fifo_addr <= i_axi_araddr[(C_AXI_ADDR_WIDTH-1):(C_AXI_ADDR_WIDTH-AW)];
 			wr_fifo_id <= i_axi_arid;
 			incr <= i_axi_arburst[0];
 			if ((o_axi_arready)&&(i_axi_arvalid))
@@ -258,7 +260,6 @@ module	aximrd2wbsp #(
 
 	always @(posedge i_axi_clk)
 	begin
-		o_axi_rvalid <= (fifo_tail != fifo_neck)&&(!w_reset);
 		afifo_at_tail <= afifo[fifo_tail];
 		dfifo_at_tail <= dfifo[fifo_tail];
 		// o_axi_rdata <= dfifo[fifo_tail];
@@ -270,6 +271,7 @@ module	aximrd2wbsp #(
 	assign	o_axi_rresp = { (2){dfifo_at_tail[DW]} };
 	assign	o_axi_rdata = dfifo_at_tail[(DW-1):0];
 
+	initial	o_axi_rvalid = 1'b0;
 	always @(posedge i_axi_clk)
 		if (w_reset)
 			o_axi_rvalid <= 0;
@@ -278,4 +280,14 @@ module	aximrd2wbsp #(
 
 	assign o_axi_arready = (!fifo_full)&&(!filling_fifo);
 
+	// Make Verilator happy
+	// verilator lint_off UNUSED
+	wire	[(C_AXI_ID_WIDTH+1)+(C_AXI_ADDR_WIDTH-AW)
+		+3+1+1+4+3+4-1:0]	unused;
+	assign	unused = { i_axi_arsize, i_axi_arburst[1],
+			i_axi_arlock, i_axi_arcache, i_axi_arprot,
+			i_axi_arqos,
+			fifo_at_neck[(C_AXI_ID_WIDTH+AW+1)-1:AW],
+			i_axi_araddr[(C_AXI_ADDR_WIDTH-AW-1):0] };
+	// verilator lint_on  UNUSED
 endmodule

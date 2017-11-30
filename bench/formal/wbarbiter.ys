@@ -1,0 +1,7 @@
+read_verilog -D WBARBITER -formal ../../rtl/wbarbiter.v
+read_verilog -formal /home/dan/work/rnd/zipcpu/trunk/rtl/aux/fwb_master.v
+read_verilog -formal /home/dan/work/rnd/zipcpu/trunk/rtl/aux/fwb_slave.v
+prep -top wbarbiter -nordff
+clk2fflogic
+opt -share_all
+write_smt2 -wires wbarbiter.smt2
