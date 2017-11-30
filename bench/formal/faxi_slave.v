@@ -109,6 +109,7 @@ module faxi_slave #(
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_outstanding
 
 );
+	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_complete;
 
 //*****************************************************************************
 // Parameter declarations
@@ -407,7 +408,8 @@ module faxi_slave #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// Count outstanding transactions
+	// Count outstanding transactions.  With these measures, we count
+	// once per any burst.
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -415,28 +417,29 @@ module faxi_slave #(
 	always @(posedge i_clk)
 		if (!i_axi_reset_n)
 			f_axi_awr_outstanding <= 0;
-		else if ((axi_awr_req)&&(!axi_wr_ack))
-			f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
-		else if ((!axi_awr_req)&&(axi_wr_ack))
-			f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
+		else case({ (axi_awr_req), (axi_wr_ack) })
+			2'b10: f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
+			2'b01: f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
+			default: begin end
+		endcase
 
 	initial	f_axi_wr_outstanding = 0;
 	always @(posedge i_clk)
 		if (!i_axi_reset_n)
 			f_axi_wr_outstanding <= 0;
-		else if ((axi_wr_req)&&(!axi_wr_ack))
-			f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
-		else if ((!axi_wr_req)&&(axi_wr_ack))
-			f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
+		else case({ (axi_wr_req)&&(i_axi_wlast), (axi_wr_ack) })
+		2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
+		2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
+		endcase
 
 	initial	f_axi_rd_outstanding = 0;
 	always @(posedge i_clk)
 		if (!i_axi_reset_n)
 			f_axi_rd_outstanding <= 0;
-		else if ((axi_ard_req)&&(!axi_rd_ack))
-			f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
-		else if ((!axi_ard_req)&&(axi_rd_ack))
-			f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
+		else case({ (axi_ard_req), (axi_rd_ack)&&(i_axi_rlast) })
+		2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
+		2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
+		endcase
 
 	// Do not let the number of outstanding requests overflow
 	always @(posedge i_clk)
@@ -450,6 +453,8 @@ module faxi_slave #(
 	//
 	//
 	// Insist that all responses are returned in less than a maximum delay
+	// In this case, we count responses within a burst, rather than entire
+	// bursts.
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -493,6 +498,11 @@ module faxi_slave #(
 	//
 	// Assume all acknowledgements must follow requests
 	//
+	// The outstanding count is a count of bursts, but the acknowledgements
+	// we are looking for are individual.  Hence, there should be no
+	// individual acknowledgements coming back if there's no outstanding
+	// burst.
+	//
 	//
 	////////////////////////////////////////////////////////////////////////
 
@@ -517,7 +527,12 @@ module faxi_slave #(
 	///////////////////////////////////////////////////////////////////
 	//
 	//
+	// Manage the ID buffer.  Basic rules apply such as you can't
+	// make a request of an already requested ID # before that ID
+	// is returned, etc.
 	//
+	// Elements in this buffer reference transactions--possibly burst
+	// transactions and not necessarily the individual values.
 	//
 	//
 	/////////////////////////////////////////////////////////////////// 
@@ -527,11 +542,13 @@ module faxi_slave #(
 	initial f_axi_rd_id_outstanding = 0;
 	initial f_axi_wr_id_outstanding = 0;
 	initial f_axi_awr_id_outstanding = 0;
+	initial f_axi_wr_id_complete = 0;
 	always @(posedge i_clk)
 		if (!i_axi_reset_n)
 		begin
 			f_axi_rd_id_outstanding <= 0;
 			f_axi_wr_id_outstanding <= 0;
+			f_axi_wr_id_complete <= 0;
 			f_axi_awr_id_outstanding <= 0;
 		end else begin
 		// When issuing a write
@@ -541,7 +558,10 @@ module faxi_slave #(
 				assume(f_axi_awr_id_outstanding[i_axi_awid+1'b1] == 1'b0);
 			assume((!F_CHECK_IDS)
 				||(f_axi_awr_id_outstanding[i_axi_awid] == 1'b0));
+			assume((!F_CHECK_IDS)
+				||(f_axi_wr_id_complete[i_axi_awid] == 1'b0));
 			f_axi_awr_id_outstanding[i_axi_awid] <= 1'b1;
+			f_axi_wr_id_complete[i_axi_awid] <= 1'b0;
 		end
 
 		if (axi_wr_req)
@@ -550,8 +570,12 @@ module faxi_slave #(
 				assume(f_axi_wr_id_outstanding[i_axi_awid+1'b1] == 1'b0);
 			assume((!F_CHECK_IDS)
 				||(f_axi_wr_id_outstanding[i_axi_awid] == 1'b0));
+			f_axi_wr_id_outstanding[i_axi_awid] <= 1'b1;
 			if (i_axi_wlast)
-				f_axi_wr_id_outstanding[i_axi_awid] <= 1'b1;
+			begin
+				assert(f_axi_wr_id_complete[i_axi_awid] == 1'b0);
+				f_axi_wr_id_complete[i_axi_awid] <= 1'b1;
+			end
 		end
 
 		// When issuing a read
@@ -575,9 +599,11 @@ module faxi_slave #(
 					||(!f_axi_wr_id_outstanding[i_axi_bid-1'b1]));
 				assert((!F_STRICT_ORDER)||(!F_CONSECUTIVE_IDS)
 					||(!f_axi_awr_id_outstanding[i_axi_bid-1'b1]));
+				assert(f_axi_wr_id_complete[i_axi_bid]);
 			end
 			f_axi_awr_id_outstanding[i_axi_bid] <= 1'b0;
-			f_axi_wr_id_outstanding[i_axi_bid] <= 1'b0;
+			f_axi_wr_id_outstanding[i_axi_bid]  <= 1'b0;
+			f_axi_wr_id_complete[i_axi_bid]     <= 1'b0;
 		end
 
 		// When a read is acknowledged
@@ -630,6 +656,9 @@ module faxi_slave #(
 
 	always @(*)
 		assume((!F_CHECK_IDS)||(f_axi_rd_outstanding == f_axi_rd_id_outstanding_count));
+
+	always @(*)
+		assume( ((f_axi_wr_id_complete)&(~f_axi_awr_id_outstanding)) == 0);
 
 	generate if (F_OPT_BURSTS)
 	begin

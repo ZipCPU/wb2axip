@@ -152,8 +152,8 @@ module wbm2axisp #(
 //*****************************************************************************
 
 // Things we're not changing ...
-	assign o_axi_awlen = 8'h0;	// Burst length is one
-	assign o_axi_awsize = 3'b101;	// maximum bytes per burst is 32
+	assign o_axi_awlen   = 8'h0;	// Burst length is one
+	assign o_axi_awsize  = 3'b101;	// maximum bytes per burst is 32
 	assign o_axi_awburst = 2'b01;	// Incrementing address (ignored)
 	assign o_axi_arburst = 2'b01;	// Incrementing address (ignored)
 	assign o_axi_awlock  = 1'b0;	// Normal signaling
@@ -162,8 +162,8 @@ module wbm2axisp #(
 	assign o_axi_arcache = 4'h2;	// Normal: no cache, no buffer
 	assign o_axi_awprot  = 3'b010;	// Unpriviledged, unsecure, data access
 	assign o_axi_arprot  = 3'b010;	// Unpriviledged, unsecure, data access
-	assign o_axi_awqos  = 4'h0;	// Lowest quality of service (unused)
-	assign o_axi_arqos  = 4'h0;	// Lowest quality of service (unused)
+	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
+	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
 	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort;
 	wire	wb_cyc_stb;

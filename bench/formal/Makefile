@@ -61,7 +61,8 @@ $(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
 	yosys -ql $(WB2AXI).yslog -s $(WB2AXI).ys
 
 $(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys fwb_master.v faxi_slave.v
-$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
+$(AXI2WB).smt2: $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
+$(AXI2WB).smt2: $(RTL)/wbarbiter.v
 	yosys -ql $(AXI2WB).yslog -s $(AXI2WB).ys
 
 $(WBARB) : $(WBARB).check
