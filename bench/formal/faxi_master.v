@@ -136,22 +136,6 @@ module faxi_master #(
 // Internal register and wire declarations
 //*****************************************************************************
 
-// Things we're not changing ...
-	always @(*)
-	begin
-	assert(i_axi_awlen   == 8'h0);	// Burst length is one
-	assert(i_axi_awsize  == 3'b101);	// maximum bytes per burst is 32
-	assert(i_axi_awburst == 2'b01);	// Incrementing address (ignored)
-	assert(i_axi_arburst == 2'b01);	// Incrementing address (ignored)
-	assert(i_axi_awlock  == 1'b0);	// Normal signaling
-	assert(i_axi_arlock  == 1'b0);	// Normal signaling
-	assert(i_axi_awcache == 4'h2);	// Normal: no cache, no buffer
-	assert(i_axi_arcache == 4'h2);	// Normal: no cache, no buffer
-	assert(i_axi_awprot  == 3'b010);// Unpriviledged, unsecure, data access
-	assert(i_axi_arprot  == 3'b010);// Unpriviledged, unsecure, data access
-	assert(i_axi_awqos   == 4'h0);	// Lowest quality of service (unused)
-	assert(i_axi_arqos   == 4'h0);	// Lowest quality of service (unused)
-	end
 
 	// wire	w_fifo_full;
 	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req,
@@ -240,13 +224,13 @@ module faxi_master #(
 		end
 	end
 
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Reset properties
 	//
 	//
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_axi_reset_n)))
@@ -258,18 +242,18 @@ module faxi_master #(
 		assume(!i_axi_rvalid);
 	end
 
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Stability assumptions, AXI inputs/responses
 	//
 	//
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	// Assume any response from the bus will not change prior to that
 	// response being accepted
 	always @(posedge i_clk)
-	if (f_past_valid)
+	if ((f_past_valid)&&($past(i_axi_reset_n)))
 	begin
 		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
@@ -294,13 +278,13 @@ module faxi_master #(
 	initial	assert(!i_axi_awvalid);
 	initial	assert(!i_axi_wvalid);
 
-	//////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Stability assumptions, AXI outputs/requests
 	//
 	//
-	//////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	// Read address chanel
 	always @(posedge i_clk)
@@ -349,13 +333,13 @@ module faxi_master #(
 	//
 	//
 
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Insist upon a maximum delay before a request is accepted
 	//
 	//
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	//
 	// AXI write address channel
@@ -408,7 +392,8 @@ module faxi_master #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// Count outstanding transactions
+	// Count outstanding transactions.  With these measures, we count
+	// once per any burst.
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -523,7 +508,7 @@ module faxi_master #(
 		if ((!axi_ard_req)&&(axi_rd_ack))
 			assume(f_axi_rd_outstanding > 0);
 
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Manage the ID buffer.  Basic rules apply such as you can't
@@ -534,7 +519,7 @@ module faxi_master #(
 	// transactions and not necessarily the individual values.
 	//
 	//
-	/////////////////////////////////////////////////////////////////// 
+	////////////////////////////////////////////////////////////////////////
 	// Now, let's look into that FIFO.  Without it, we know nothing about
 	// the ID's
 
