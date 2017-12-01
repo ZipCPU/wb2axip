@@ -82,8 +82,8 @@ $(WB2AXI).check: $(WB2AXI).smt2
 $(AXI2WB) : $(AXI2WB).check
 $(AXI2WB).check: $(AXI2WB).smt2
 	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
+	$(SMTBMC) $(BMCARGS) -t 60 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
+	$(SMTBMC) $(INDARGS) -t 58 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
 	touch $@
 
 .PHONY: clean
