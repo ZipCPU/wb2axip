@@ -48,8 +48,9 @@ module faxi_slave #(
 	parameter	[(C_AXI_ID_WIDTH-1):0]	F_AXI_MAXDELAY = 3,
 	parameter [0:0] F_STRICT_ORDER	= 0,	// Reorder, or not? 0 -> Reorder
 	parameter [0:0] F_CONSECUTIVE_IDS= 0,	// 0=ID's must be consecutive
-	parameter [0:0] F_OPT_BURSTS    = 1'b1,	// Check burst lengths
-	parameter [0:0] F_CHECK_IDS	= 1'b1	// Check ID's upon issue&return
+	parameter [0:0] F_OPT_BURSTS    = 1'b0,	// Check burst lengths
+	parameter [0:0] F_CHECK_IDS	= 1'b1,	// Check ID's upon issue&return
+	parameter [7:0] F_AXI_MAXBURST	= 8'hff	// Maximum burst length, minus 1
 	) (
 	input				i_clk,	// System clock
 	input				i_axi_reset_n,
@@ -106,8 +107,10 @@ module faxi_slave #(
 	output	reg	[(C_AXI_ID_WIDTH-1):0]	f_axi_awr_outstanding,
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_rd_id_outstanding,
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_awr_id_outstanding,
-	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_outstanding
-
+	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_outstanding,
+	output	reg	[(9-1):0]	f_axi_wr_pending,
+	output	reg	[(9-1):0]	f_axi_rd_count,
+	output	reg	[(9-1):0]	f_axi_wr_count
 );
 	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_complete;
 
@@ -136,22 +139,6 @@ module faxi_slave #(
 // Internal register and wire declarations
 //*****************************************************************************
 
-// Things we're not changing ...
-	always @(*)
-	begin
-	assume(i_axi_awlen   == 8'h0);	// Burst length is one
-	assume(i_axi_awsize  == 3'b101);	// maximum bytes per burst is 32
-	assume(i_axi_awburst == 2'b01);	// Incrementing address (ignored)
-	assume(i_axi_arburst == 2'b01);	// Incrementing address (ignored)
-	assume(i_axi_awlock  == 1'b0);	// Normal signaling
-	assume(i_axi_arlock  == 1'b0);	// Normal signaling
-	assume(i_axi_awcache == 4'h2);	// Normal: no cache, no buffer
-	assume(i_axi_arcache == 4'h2);	// Normal: no cache, no buffer
-	assume(i_axi_awprot  == 3'b010);// Unpriviledged, unsecure, data access
-	assume(i_axi_arprot  == 3'b010);// Unpriviledged, unsecure, data access
-	assume(i_axi_awqos   == 4'h0);	// Lowest quality of service (unused)
-	assume(i_axi_arqos   == 4'h0);	// Lowest quality of service (unused)
-	end
 
 	// wire	w_fifo_full;
 	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req,
@@ -177,76 +164,76 @@ module faxi_slave #(
 		f_past_valid <= 1'b1;
 	always @(*)
 		if (!f_past_valid)
-			assume(!i_axi_reset_n);
+			assert(!i_axi_reset_n);
 
 	//
 	// All signals must be synchronous with the clock
-	//
-	always @($global_clock)
-	if (f_past_valid) begin
 		// Assume our inputs will only change on the positive edge
 		// of the clock
-		if (!$rose(i_clk))
-		begin
-			// AXI inputs
-			assert($stable(i_axi_awready));
-			assert($stable(i_axi_wready));
-			//
-			assert($stable(i_axi_bid));
-			assert($stable(i_axi_bresp));
-			assert($stable(i_axi_bvalid));
-			assert($stable(i_axi_arready));
-			//
-			assert($stable(i_axi_rid));
-			assert($stable(i_axi_rresp));
-			assert($stable(i_axi_rvalid));
-			assert($stable(i_axi_rdata));
-			assert($stable(i_axi_rlast));
-			//
-			// AXI outputs
-			//
-			assume($stable(i_axi_awvalid));
-			assume($stable(i_axi_awid));
-			assume($stable(i_axi_awlen));
-			assume($stable(i_axi_awsize));
-			assume($stable(i_axi_awlock));
-			assume($stable(i_axi_awcache));
-			assume($stable(i_axi_awprot));
-			assume($stable(i_axi_awqos));
-			//
-			assume($stable(i_axi_wvalid));
-			assume($stable(i_axi_wdata));
-			assume($stable(i_axi_wstrb));
-			assume($stable(i_axi_wlast));
-			//
-			assume($stable(i_axi_arvalid));
-			assume($stable(i_axi_arid));
-			assume($stable(i_axi_arlen));
-			assume($stable(i_axi_arsize));
-			assume($stable(i_axi_arburst));
-			assume($stable(i_axi_arlock));
-			assume($stable(i_axi_arprot));
-			assume($stable(i_axi_arqos));
-			//
-			assume($stable(i_axi_bready));
-			//
-			assume($stable(i_axi_rready));
-			//
-			// Formal outputs
-			//
-			assume($stable(f_axi_rd_outstanding));
-			assume($stable(f_axi_wr_outstanding));
-			assume($stable(f_axi_awr_outstanding));
-		end
+	//
+	always @($global_clock)
+	if ((f_past_valid)&&(!$rose(i_clk)))
+	begin
+		// AXI inputs
+		assert($stable(i_axi_reset_n));
+		//
+		assert($stable(i_axi_awready));
+		assert($stable(i_axi_wready));
+		//
+		assert($stable(i_axi_bid));
+		assert($stable(i_axi_bresp));
+		assert($stable(i_axi_bvalid));
+		assert($stable(i_axi_arready));
+		//
+		assert($stable(i_axi_rid));
+		assert($stable(i_axi_rresp));
+		assert($stable(i_axi_rvalid));
+		assert($stable(i_axi_rdata));
+		assert($stable(i_axi_rlast));
+		//
+		// AXI outputs
+		//
+		assume($stable(i_axi_awvalid));
+		assume($stable(i_axi_awid));
+		assume($stable(i_axi_awlen));
+		assume($stable(i_axi_awsize));
+		assume($stable(i_axi_awlock));
+		assume($stable(i_axi_awcache));
+		assume($stable(i_axi_awprot));
+		assume($stable(i_axi_awqos));
+		//
+		assume($stable(i_axi_wvalid));
+		assume($stable(i_axi_wdata));
+		assume($stable(i_axi_wstrb));
+		assume($stable(i_axi_wlast));
+		//
+		assume($stable(i_axi_arvalid));
+		assume($stable(i_axi_arid));
+		assume($stable(i_axi_arlen));
+		assume($stable(i_axi_arsize));
+		assume($stable(i_axi_arburst));
+		assume($stable(i_axi_arlock));
+		assume($stable(i_axi_arprot));
+		assume($stable(i_axi_arqos));
+		//
+		assume($stable(i_axi_bready));
+		//
+		assume($stable(i_axi_rready));
+		//
+		// Formal outputs
+		//
+		assume($stable(f_axi_rd_outstanding));
+		assume($stable(f_axi_wr_outstanding));
+		assume($stable(f_axi_awr_outstanding));
 	end
 
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Reset properties
 	//
 	//
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_axi_reset_n)))
@@ -258,18 +245,18 @@ module faxi_slave #(
 		assert(!i_axi_rvalid);
 	end
 
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Stability assumptions, AXI inputs/responses
 	//
 	//
-	////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	// Assume any response from the bus will not change prior to that
 	// response being accepted
 	always @(posedge i_clk)
-	if (f_past_valid)
+	if ((f_past_valid)&&($past(i_axi_reset_n)))
 	begin
 		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
@@ -294,13 +281,13 @@ module faxi_slave #(
 	initial	assume(!i_axi_awvalid);
 	initial	assume(!i_axi_wvalid);
 
-	//////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Stability assumptions, AXI outputs/requests
 	//
 	//
-	//////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	// Read address chanel
 	always @(posedge i_clk)
@@ -349,13 +336,13 @@ module faxi_slave #(
 	//
 	//
 
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Insist upon a maximum delay before a request is accepted
 	//
 	//
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 
 	//
 	// AXI write address channel
@@ -524,7 +511,7 @@ module faxi_slave #(
 		if ((!axi_ard_req)&&(axi_rd_ack))
 			assert(f_axi_rd_outstanding > 0);
 
-	///////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	// Manage the ID buffer.  Basic rules apply such as you can't
@@ -535,7 +522,7 @@ module faxi_slave #(
 	// transactions and not necessarily the individual values.
 	//
 	//
-	/////////////////////////////////////////////////////////////////// 
+	////////////////////////////////////////////////////////////////////////
 	// Now, let's look into that FIFO.  Without it, we know nothing about
 	// the ID's
 
@@ -663,8 +650,6 @@ module faxi_slave #(
 	generate if (F_OPT_BURSTS)
 	begin
 		reg	[(8-1):0]	f_rd_pending	[0:(FIFOLN-1)];
-		reg	[(8-1):0]	f_wr_pending,
-					f_rd_count, f_wr_count;
 
 		reg	r_last_rd_id_valid,
 			r_last_wr_id_valid;
@@ -673,40 +658,69 @@ module faxi_slave #(
 
 		initial	r_last_wr_id_valid = 1'b0;
 		initial	r_last_rd_id_valid = 1'b0;
+		always @(*)
+			assert(f_axi_wr_pending < 9'h101);
+
+		wire	[(C_AXI_ID_WIDTH-1):0]	any_rid = $anyseq;
+		always @(posedge i_clk)
+		begin
+			assert(f_rd_pending[any_rid] < 9'h101);
+			if (!f_axi_rd_id_outstanding[any_rid])
+				assert(f_rd_pending[any_rid]== 0);
+			assert(f_rd_pending[any_rid] <= F_AXI_MAXBURST+9'h1);
+		end
+
+		initial	f_axi_wr_pending = 0;
+		initial begin
+			for(k=0; k<(1<<C_AXI_ID_WIDTH); k=k+1)
+				f_rd_pending[k] <= 0;
+		end
+
+		initial	r_last_wr_id_valid = 1'b0;
+		initial	r_last_rd_id_valid = 1'b0;
+		initial	f_axi_wr_count     = 9'h0;
+		initial	f_axi_rd_count     = 9'h0;
 		always @(posedge i_clk)
 		if (!i_axi_reset_n)
 		begin
 			r_last_wr_id_valid <= 1'b0;
 			r_last_rd_id_valid <= 1'b0;
-			f_wr_count <= 0;
-			f_rd_count <= 0;
+			f_axi_wr_count <= 0;
+			f_axi_rd_count <= 0;
 		end else begin
 			if (axi_awr_req)
 			begin
-				f_wr_pending <= i_axi_awlen+9'h1;
-				assume(f_wr_pending == 0);
+				f_axi_wr_pending <= i_axi_awlen+9'h1;
+				assume(f_axi_wr_pending == 0);
 				r_last_wr_id_valid <= 1'b1;
+				assume(i_axi_awlen <= F_AXI_MAXBURST);
 			end
 
 			if (axi_ard_req)
+			begin
+				assume(i_axi_arlen <= F_AXI_MAXBURST);
 				f_rd_pending[i_axi_arid] <= i_axi_arlen+9'h1;
+			end
 
 
 			if ((axi_wr_req)&&(i_axi_wlast))
 			begin
-				f_wr_count <= 0;
+				f_axi_wr_count <= 0;
 				r_last_wr_id_valid <= 1'b0;
 				assume(
 					// Either this is the last
 					// of a series of requests we've
 					// been waiting for,
-					(f_wr_pending == f_wr_count - 9'h1)
+					(f_axi_wr_pending == f_axi_wr_count - 9'h1)
 					// *or* the only value
 					// associated with an as yet
 					// to be counted request
 					||((axi_awr_req)&&(i_axi_awlen == 0)));
 			end else if (axi_wr_req)
-				f_wr_count <= f_wr_count + 1'b1;
+			begin
+				f_axi_wr_count <= f_axi_wr_count + 1'b1;
+				assert(f_axi_wr_count < f_axi_wr_pending);
+			end
 
 			if (axi_rd_ack)
 			begin
@@ -721,11 +735,14 @@ module faxi_slave #(
 			end
 
 			if ((axi_rd_ack)&&(i_axi_rlast))
-				assume(f_rd_count == f_rd_pending[i_axi_rid]-9'h1);
+			begin
+				assert(f_axi_rd_count == f_rd_pending[i_axi_rid]-9'h1);
+			end else if (axi_rd_ack)
+				assert(f_axi_rd_count < f_rd_pending[i_axi_rid]-9'h1);
 			if ((axi_rd_ack)&&(i_axi_rlast))
-				f_rd_count <= 0;
+				f_axi_rd_count <= 0;
 			else if (axi_rd_ack)
-				f_rd_count <= f_rd_count + 1'b1;
+				f_axi_rd_count <= f_axi_rd_count + 1'b1;
 		end
 	end else begin
 		always @(*) begin
@@ -751,6 +768,13 @@ module faxi_slave #(
 		always @(posedge i_clk)
 			if (i_axi_rvalid)
 				assert(i_axi_rlast);
+
+		always @(*)
+			f_axi_wr_pending <= 0;
+		always @(*)
+			f_axi_rd_count   <= 0;
+		always @(*)
+			f_axi_wr_count   <= 0;
 	end endgenerate
 
 `endif
