@@ -49,7 +49,8 @@ module faxi_master #(
 	parameter [0:0] F_STRICT_ORDER	= 0,	// Reorder, or not? 0 -> Reorder
 	parameter [0:0] F_CONSECUTIVE_IDS= 0,	// 0=ID's must be consecutive
 	parameter [0:0] F_OPT_BURSTS    = 1'b1,	// Check burst lengths
-	parameter [0:0] F_CHECK_IDS	= 1'b1	// Check ID's upon issue&return
+	parameter [0:0] F_CHECK_IDS	= 1'b1,	// Check ID's upon issue&return
+	parameter [0:0]	F_OPT_CLK2FFLOGIC=1'b1
 	) (
 	input				i_clk,	// System clock
 	input				i_axi_reset_n,
@@ -166,63 +167,66 @@ module faxi_master #(
 	//
 	// All signals must be synchronous with the clock
 	//
-	always @($global_clock)
-	if (f_past_valid) begin
-		// Assume our inputs will only change on the positive edge
-		// of the clock
-		if (!$rose(i_clk))
-		begin
-			// AXI inputs
-			assume($stable(i_axi_awready));
-			assume($stable(i_axi_wready));
-			//
-			assume($stable(i_axi_bid));
-			assume($stable(i_axi_bresp));
-			assume($stable(i_axi_bvalid));
-			assume($stable(i_axi_arready));
-			//
-			assume($stable(i_axi_rid));
-			assume($stable(i_axi_rresp));
-			assume($stable(i_axi_rvalid));
-			assume($stable(i_axi_rdata));
-			assume($stable(i_axi_rlast));
-			//
-			// AXI outputs
-			//
-			assert($stable(i_axi_awvalid));
-			assert($stable(i_axi_awid));
-			assert($stable(i_axi_awlen));
-			assert($stable(i_axi_awsize));
-			assert($stable(i_axi_awlock));
-			assert($stable(i_axi_awcache));
-			assert($stable(i_axi_awprot));
-			assert($stable(i_axi_awqos));
-			//
-			assert($stable(i_axi_wvalid));
-			assert($stable(i_axi_wdata));
-			assert($stable(i_axi_wstrb));
-			assert($stable(i_axi_wlast));
-			//
-			assert($stable(i_axi_arvalid));
-			assert($stable(i_axi_arid));
-			assert($stable(i_axi_arlen));
-			assert($stable(i_axi_arsize));
-			assert($stable(i_axi_arburst));
-			assert($stable(i_axi_arlock));
-			assert($stable(i_axi_arprot));
-			assert($stable(i_axi_arqos));
-			//
-			assert($stable(i_axi_bready));
-			//
-			assert($stable(i_axi_rready));
-			//
-			// Formal outputs
-			//
-			assert($stable(f_axi_rd_outstanding));
-			assert($stable(f_axi_wr_outstanding));
-			assert($stable(f_axi_awr_outstanding));
+	generate if (F_OPT_CLK2FFLOGIC)
+	begin
+		always @($global_clock)
+		if (f_past_valid) begin
+			// Assume our inputs will only change on the positive
+			// edge of the clock
+			if (!$rose(i_clk))
+			begin
+				// AXI inputs
+				assume($stable(i_axi_awready));
+				assume($stable(i_axi_wready));
+				//
+				assume($stable(i_axi_bid));
+				assume($stable(i_axi_bresp));
+				assume($stable(i_axi_bvalid));
+				assume($stable(i_axi_arready));
+				//
+				assume($stable(i_axi_rid));
+				assume($stable(i_axi_rresp));
+				assume($stable(i_axi_rvalid));
+				assume($stable(i_axi_rdata));
+				assume($stable(i_axi_rlast));
+				//
+				// AXI outputs
+				//
+				assert($stable(i_axi_awvalid));
+				assert($stable(i_axi_awid));
+				assert($stable(i_axi_awlen));
+				assert($stable(i_axi_awsize));
+				assert($stable(i_axi_awlock));
+				assert($stable(i_axi_awcache));
+				assert($stable(i_axi_awprot));
+				assert($stable(i_axi_awqos));
+				//
+				assert($stable(i_axi_wvalid));
+				assert($stable(i_axi_wdata));
+				assert($stable(i_axi_wstrb));
+				assert($stable(i_axi_wlast));
+				//
+				assert($stable(i_axi_arvalid));
+				assert($stable(i_axi_arid));
+				assert($stable(i_axi_arlen));
+				assert($stable(i_axi_arsize));
+				assert($stable(i_axi_arburst));
+				assert($stable(i_axi_arlock));
+				assert($stable(i_axi_arprot));
+				assert($stable(i_axi_arqos));
+				//
+				assert($stable(i_axi_bready));
+				//
+				assert($stable(i_axi_rready));
+				//
+				// Formal outputs
+				//
+				assert($stable(f_axi_rd_outstanding));
+				assert($stable(f_axi_wr_outstanding));
+				assert($stable(f_axi_awr_outstanding));
+			end
 		end
-	end
+	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -291,16 +295,16 @@ module faxi_master #(
 	if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 	begin
 		assert(i_axi_arvalid);
-		assert($stable(i_axi_arid));
-		assert($stable(i_axi_araddr));
-		assert($stable(i_axi_arlen));
-		assert($stable(i_axi_arsize));
-		assert($stable(i_axi_arburst));
-		assert($stable(i_axi_arlock));
-		assert($stable(i_axi_arcache));
-		assert($stable(i_axi_arprot));
-		assert($stable(i_axi_arqos));
-		assert($stable(i_axi_arvalid));
+		assert(i_axi_arid   == $past(i_axi_arid));
+		assert(i_axi_araddr == $past(i_axi_araddr));
+		assert(i_axi_arlen  == $past(i_axi_arlen));
+		assert(i_axi_arsize == $past(i_axi_arsize));
+		assert(i_axi_arburst == $past(i_axi_arburst));
+		assert(i_axi_arlock  == $past(i_axi_arlock));
+		assert(i_axi_arcache == $past(i_axi_arcache));
+		assert(i_axi_arprot  == $past(i_axi_arprot));
+		assert(i_axi_arqos   == $past(i_axi_arqos));
+		assert(i_axi_arvalid == $past(i_axi_arvalid));
 	end
 
 	// If valid, but not ready, on any channel is true, nothing changes
@@ -308,26 +312,26 @@ module faxi_master #(
 	always @(posedge i_clk)
 	if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 	begin
-		assert($stable(i_axi_awid));
-		assert($stable(i_axi_awaddr));
-		assert($stable(i_axi_awlen));
-		assert($stable(i_axi_awsize));
-		assert($stable(i_axi_awburst));
-		assert($stable(i_axi_awlock));
-		assert($stable(i_axi_awcache));
-		assert($stable(i_axi_awprot));
-		assert($stable(i_axi_awqos));
-		assert($stable(i_axi_awvalid));
+		assert(i_axi_awid    == $past(i_axi_awid));
+		assert(i_axi_awaddr  == $past(i_axi_awaddr));
+		assert(i_axi_awlen   == $past(i_axi_awlen));
+		assert(i_axi_awsize  == $past(i_axi_awsize));
+		assert(i_axi_awburst == $past(i_axi_awburst));
+		assert(i_axi_awlock  == $past(i_axi_awlock));
+		assert(i_axi_awcache == $past(i_axi_awcache));
+		assert(i_axi_awprot  == $past(i_axi_awprot));
+		assert(i_axi_awqos   == $past(i_axi_awqos));
+		assert(i_axi_awvalid == $past(i_axi_awvalid));
 	end
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
 	begin
 		// AXI write data channel signals
-		assert($stable(i_axi_wdata));
-		assert($stable(i_axi_wstrb));
-		assert($stable(i_axi_wlast));
-		assert($stable(i_axi_wvalid));
+		assert(i_axi_wdata  == $past(i_axi_wdata));
+		assert(i_axi_wstrb  == $past(i_axi_wstrb));
+		assert(i_axi_wlast  == $past(i_axi_wlast));
+		assert(i_axi_wvalid == $past(i_axi_wvalid));
 	end
 
 	//
