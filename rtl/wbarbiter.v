@@ -52,10 +52,19 @@ module	wbarbiter(i_clk, i_reset,
 	i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
 		o_b_ack, o_b_stall, o_b_err,
 	// Combined/arbitrated bus
-	o_cyc, o_stb, o_we, o_adr, o_dat, o_sel, i_ack, i_stall, i_err);
+	o_cyc, o_stb, o_we, o_adr, o_dat, o_sel, i_ack, i_stall, i_err
+`ifdef	FORMAL
+	,
+	f_a_nreqs, f_a_nacks, f_a_outstanding,
+	f_b_nreqs, f_b_nacks, f_b_outstanding,
+	f_nreqs,   f_nacks,   f_outstanding
+`endif
+	);
 	parameter			DW=32, AW=32;
 	parameter			SCHEME="ALTERNATING";
 	parameter	[0:0]		OPT_ZERO_ON_IDLE = 1'b0;
+	parameter			F_MAX_STALL = 3;
+	parameter			F_MAX_ACK_DELAY = 3;
 `ifdef	FORMAL
 	parameter			F_LGDEPTH=3;
 `endif
@@ -80,6 +89,11 @@ module	wbarbiter(i_clk, i_reset,
 	output	wire	[(DW-1):0]	o_dat;
 	output	wire	[(DW/8-1):0]	o_sel;
 	input	wire			i_ack, i_stall, i_err;
+	//
+	output	wire	[(F_LGDEPTH-1):0] f_nreqs, f_nacks, f_outstanding,
+			f_a_nreqs, f_a_nacks, f_a_outstanding,
+			f_b_nreqs, f_b_nacks, f_b_outstanding;
+
 
 	// Go high immediately (new cycle) if ...
 	//	Previous cycle was low and *someone* is requesting a bus cycle
@@ -87,8 +101,9 @@ module	wbarbiter(i_clk, i_reset,
 	//	We were just high and the owner no longer wants the bus
 	// WISHBONE Spec recommends no logic between a FF and the o_cyc
 	//	This violates that spec.  (Rec 3.15, p35)
-	assign o_cyc = (r_a_owner) ? i_a_cyc : i_b_cyc;
 	reg	r_a_owner;
+
+	assign o_cyc = (r_a_owner) ? i_a_cyc : i_b_cyc;
 	initial	r_a_owner = 1'b1;
 
 	generate if (SCHEME == "PRIORITY")
@@ -208,9 +223,9 @@ module	wbarbiter(i_clk, i_reset,
 		assume(i_clk != f_last_clk);
 		f_last_clk <= i_clk;
 	end
-`define	`ASSUME	assume
+`define	ASSUME	assume
 `else
-`define	`ASSUME	assert
+`define	ASSUME	assert
 `endif
 
 	reg	f_past_valid;
@@ -218,14 +233,14 @@ module	wbarbiter(i_clk, i_reset,
 	always @($global_clock)
 		f_past_valid <= 1'b1;
 
-	initial	assume(!i_a_cyc);
-	initial	assume(!i_a_stb);
+	initial	`ASSUME(!i_a_cyc);
+	initial	`ASSUME(!i_a_stb);
 
-	initial	assume(!i_b_cyc);
-	initial	assume(!i_b_stb);
+	initial	`ASSUME(!i_b_cyc);
+	initial	`ASSUME(!i_b_stb);
 
-	initial	assume(!i_ack);
-	initial	assume(!i_err);
+	initial	`ASSUME(!i_ack);
+	initial	`ASSUME(!i_err);
 
 	always @(posedge i_clk)
 	begin
@@ -235,14 +250,10 @@ module	wbarbiter(i_clk, i_reset,
 			assert($past(r_a_owner) == r_a_owner);
 	end
 
-	wire	[(F_LGDEPTH-1):0]	f_nreqs, f_nacks, f_outstanding,
-			f_a_nreqs, f_a_nacks, f_a_outstanding,
-			f_b_nreqs, f_b_nacks, f_b_outstanding;
-
 	fwb_master #(.DW(DW), .AW(AW),
-			.F_MAX_STALL(0),
+			.F_MAX_STALL(F_MAX_STALL),
 			.F_LGDEPTH(F_LGDEPTH),
-			.F_MAX_ACK_DELAY(0),
+			.F_MAX_ACK_DELAY(F_MAX_ACK_DELAY),
 			.F_OPT_RMW_BUS_OPTION(1),
 			.F_OPT_DISCONTINUOUS(1))
 		f_wbm(i_clk, i_reset,
@@ -292,6 +303,10 @@ module	wbarbiter(i_clk, i_reset,
 	if ((f_past_valid)&&(!$past(i_reset))
 			&&(!$past(i_a_cyc))&&($past(i_b_stb)))
 		assert(!r_a_owner);
+
+	always @(posedge i_clk)
+		if ((f_past_valid)&&(r_a_owner != $past(r_a_owner)))
+			assert(!$past(o_cyc));
 
 `endif
 endmodule

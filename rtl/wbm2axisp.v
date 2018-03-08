@@ -63,11 +63,11 @@ module wbm2axisp #(
 	parameter AW			= 26,	// Wishbone address width (log wordsize)
 	parameter [0:0] STRICT_ORDER	= 1	// Reorder, or not? 0 -> Reorder
 	) (
-	input				i_clk,	// System clock
-	// input			i_reset,// Wishbone reset signal--unused
+	input	wire			i_clk,	// System clock
+	// input wire			i_reset,// Wishbone reset signal--unused
 
 // AXI write address channel signals
-	input				i_axi_awready, // Slave is ready to accept
+	input	wire			i_axi_awready, // Slave is ready to accept
 	output	reg	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,	// Write address
 	output	wire	[7:0]		o_axi_awlen,	// Write Burst Length
@@ -80,20 +80,20 @@ module wbm2axisp #(
 	output	reg			o_axi_awvalid,	// Write address valid
 
 // AXI write data channel signals
-	input				i_axi_wready,  // Write data ready
+	input	wire			i_axi_wready,  // Write data ready
 	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,	// Write data
 	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,	// Write strobes
-	output	wire			o_axi_wlast,	// Last write transaction
+	output	wire			o_axi_wlast,	// Last write transaction   
 	output	reg			o_axi_wvalid,	// Write valid
 
 // AXI write response channel signals
-	input	[C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
-	input	[1:0]			i_axi_bresp,	// Write response
-	input				i_axi_bvalid,  // Write reponse valid
+	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
+	input	wire [1:0]		i_axi_bresp,	// Write response
+	input	wire			i_axi_bvalid,  // Write reponse valid
 	output	wire			o_axi_bready,  // Response ready
 
 // AXI read address channel signals
-	input				i_axi_arready,	// Read address ready
+	input	wire			i_axi_arready,	// Read address ready
 	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_arid,	// Read ID
 	output	wire	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
 	output	wire	[7:0]		o_axi_arlen,	// Read Burst Length
@@ -105,21 +105,21 @@ module wbm2axisp #(
 	output	wire	[3:0]		o_axi_arqos,	// Read Protection type
 	output	reg			o_axi_arvalid,	// Read address valid
 
-// AXI read data channel signals
-	input	[C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
-	input	[1:0]			i_axi_rresp,   // Read response
-	input				i_axi_rvalid,  // Read reponse valid
-	input	[C_AXI_DATA_WIDTH-1:0]	i_axi_rdata,    // Read data
-	input				i_axi_rlast,    // Read last
+// AXI read data channel signals   
+	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
+	input	wire	[1:0]		i_axi_rresp,   // Read response
+	input	wire			i_axi_rvalid,  // Read reponse valid
+	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,    // Read data
+	input	wire			i_axi_rlast,    // Read last
 	output	wire			o_axi_rready,  // Read Response ready
 
 	// We'll share the clock and the reset
-	input				i_wb_cyc,
-	input				i_wb_stb,
-	input				i_wb_we,
-	input		[(AW-1):0]	i_wb_addr,
-	input		[(DW-1):0]	i_wb_data,
-	input		[(DW/8-1):0]	i_wb_sel,
+	input	wire			i_wb_cyc,
+	input	wire			i_wb_stb,
+	input	wire			i_wb_we,
+	input	wire	[(AW-1):0]	i_wb_addr,
+	input	wire	[(DW-1):0]	i_wb_data,
+	input	wire	[(DW/8-1):0]	i_wb_sel,
 	output	reg			o_wb_ack,
 	output	wire			o_wb_stall,
 	output	reg	[(DW-1):0]	o_wb_data,
@@ -165,8 +165,9 @@ module wbm2axisp #(
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort;
-	wire	wb_cyc_stb;
+	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort, wb_cyc_stb;
+	wire	wb_abort;
+
 // Command logic
 // Transaction ID logic
 	wire	[(LGFIFOLN-1):0]	fifo_head;
@@ -532,8 +533,10 @@ module wbm2axisp #(
 				reorder_fifo_err   <= 1'b0;
 			end
 
+`ifdef	FORMAL
 		always @(*)
 			reorder_count = (reorder_fifo_valid) ? 1 : 0;
+`endif
 
 		initial	fifo_tail = 0;
 		always @(posedge i_clk)
@@ -557,7 +560,7 @@ module wbm2axisp #(
 				r_fifo_full <= (fifo_tail==n_fifo_head);
 			else if ((i_wb_stb)&&(!o_wb_stall))
 				r_fifo_full <= (fifo_tail==nn_fifo_head);
-			else if (reorder_fifo_valid[fifo_tail])
+			else if (reorder_fifo_valid)
 				r_fifo_full <= 1'b0;
 			else
 				r_fifo_full <= (fifo_tail==n_fifo_head);
@@ -571,6 +574,7 @@ module wbm2axisp #(
 	//
 
 	// Did we just accept something?
+	initial	wb_cyc_stb = 1'b0;
 	always @(posedge i_clk)
 		wb_cyc_stb <= (i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall);
 
@@ -591,7 +595,6 @@ module wbm2axisp #(
 		else
 			wb_mid_abort <= 1'b0;
 
-	wire	wb_abort;
 	assign	wb_abort = ((wb_mid_cycle)&&(!i_wb_cyc))||(wb_mid_abort);
 
 	// Now, the difficult signal ... the stall signal
