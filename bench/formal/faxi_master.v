@@ -292,7 +292,8 @@ module faxi_master #(
 
 	// Read address chanel
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
+	if ((f_past_valid)&&($past(i_axi_reset_n))
+			&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 	begin
 		assert(i_axi_arvalid);
 		assert(i_axi_arid   == $past(i_axi_arid));
@@ -307,10 +308,21 @@ module faxi_master #(
 		assert(i_axi_arvalid == $past(i_axi_arvalid));
 	end
 
+	always @(posedge i_clk)
+	if ((!f_past_valid)||(!$past(i_axi_reset_n)))
+	begin
+		assert(!i_axi_awvalid);
+		assert(!i_axi_wvalid);
+		assert(!i_axi_arvalid);
+		assert(!i_axi_rvalid);
+		assert(!i_axi_bvalid);
+	end
+
 	// If valid, but not ready, on any channel is true, nothing changes
 	// until valid && ready
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
+	if ((f_past_valid)&&($past(i_axi_reset_n))
+		&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 	begin
 		assert(i_axi_awid    == $past(i_axi_awid));
 		assert(i_axi_awaddr  == $past(i_axi_awaddr));
@@ -321,7 +333,8 @@ module faxi_master #(
 		assert(i_axi_awcache == $past(i_axi_awcache));
 		assert(i_axi_awprot  == $past(i_axi_awprot));
 		assert(i_axi_awqos   == $past(i_axi_awqos));
-		assert(i_axi_awvalid == $past(i_axi_awvalid));
+		if ($past(i_axi_reset_n))
+			assert(i_axi_awvalid == $past(i_axi_awvalid));
 	end
 
 	always @(posedge i_clk)
@@ -331,7 +344,8 @@ module faxi_master #(
 		assert(i_axi_wdata  == $past(i_axi_wdata));
 		assert(i_axi_wstrb  == $past(i_axi_wstrb));
 		assert(i_axi_wlast  == $past(i_axi_wlast));
-		assert(i_axi_wvalid == $past(i_axi_wvalid));
+		if ($past(i_axi_reset_n))
+			assert(i_axi_wvalid == $past(i_axi_wvalid));
 	end
 
 	//
