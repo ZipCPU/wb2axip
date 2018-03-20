@@ -165,7 +165,7 @@ module wbm2axisp #(
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort, wb_cyc_stb;
+	reg	wb_mid_cycle, wb_mid_abort;
 	wire	wb_abort;
 
 // Command logic
@@ -584,14 +584,6 @@ module wbm2axisp #(
 	// Wishbone abort logic
 	//
 
-	// Did we just accept something?
-	initial	wb_cyc_stb = 1'b0;
-	always @(posedge i_clk)
-	if (i_reset)
-		wb_cyc_stb <= 1'b0;
-	else
-		wb_cyc_stb <= (i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall);
-
 	// Else, are we mid-cycle?
 	initial	wb_mid_cycle = 0;
 	always @(posedge i_clk)
@@ -625,6 +617,11 @@ module wbm2axisp #(
 				||((o_axi_wvalid )&&(!i_axi_wready ))
 				||((o_axi_arvalid)&&(!i_axi_arready)));
 
+	// Make Verilator happy
+	// verilator lint_off UNUSED
+	wire    [2:0]   unused;
+	assign  unused = { i_axi_bresp[0], i_axi_rresp[0], i_axi_rlast };
+	// verilator lint_on  UNUSED
 
 /////////////////////////////////////////////////////////////////////////
 //
