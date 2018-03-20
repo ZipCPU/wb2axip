@@ -28,7 +28,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016, Gisselquist Technology, LLC
+// Copyright (C) 2016-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -64,7 +64,7 @@ module wbm2axisp #(
 	parameter [0:0] STRICT_ORDER	= 1	// Reorder, or not? 0 -> Reorder
 	) (
 	input	wire			i_clk,	// System clock
-	// input wire			i_reset,// Wishbone reset signal--unused
+	input	wire			i_reset,// Reset signal,drives AXI rst
 
 // AXI write address channel signals
 	input	wire			i_axi_awready, // Slave is ready to accept
@@ -175,8 +175,10 @@ module wbm2axisp #(
 
 	initial	transaction_id = 0;
 	always @(posedge i_clk)
-		if ((i_wb_stb)&&(!o_wb_stall))
-			transaction_id <= transaction_id + 1'b1;
+	if (i_reset)
+		transaction_id <= 0;
+	else if ((i_wb_stb)&&(!o_wb_stall))
+		transaction_id <= transaction_id + 1'b1;
 
 	assign	fifo_head = transaction_id;
 
@@ -190,6 +192,9 @@ module wbm2axisp #(
 
 	initial	o_axi_awvalid = 0;
 	always @(posedge i_clk)
+	if (i_reset)
+		o_axi_awvalid <= 1'b0;
+	else
 		o_axi_awvalid <= (!o_wb_stall)&&(i_wb_stb)&&(i_wb_we)
 			||(o_axi_awvalid)&&(!i_axi_awready);
 
@@ -197,8 +202,10 @@ module wbm2axisp #(
 
 	initial	o_axi_awid = -1;
 	always @(posedge i_clk)
-		if ((i_wb_stb)&&(!o_wb_stall))
-			o_axi_awid <= transaction_id;
+	if (i_reset)
+		o_axi_awid <= -1;
+	else if ((i_wb_stb)&&(!o_wb_stall))
+		o_axi_awid <= transaction_id;
 
 	if (C_AXI_DATA_WIDTH == DW)
 	begin
@@ -227,6 +234,9 @@ module wbm2axisp #(
 	assign	o_axi_arsize = 3'b101;	// maximum bytes per burst is 32
 	initial	o_axi_arvalid = 1'b0;
 	always @(posedge i_clk)
+	if (i_reset)
+		o_axi_arvalid <= 1'b0;
+	else
 		o_axi_arvalid <= (!o_wb_stall)&&(i_wb_stb)&&(!i_wb_we)
 			||(o_axi_arvalid)&&(!i_axi_arready);
 
@@ -278,6 +288,9 @@ module wbm2axisp #(
 	assign	o_axi_wlast = 1'b1;
 	initial	o_axi_wvalid = 0;
 	always @(posedge i_clk)
+	if (i_reset)
+		o_axi_wvalid <= 0;
+	else
 		o_axi_wvalid <= ((!o_wb_stall)&&(i_wb_stb)&&(i_wb_we))
 			||(o_axi_wvalid)&&(!i_axi_wready);
 
@@ -435,7 +448,14 @@ module wbm2axisp #(
 		initial	o_wb_ack  = 0;
 		initial	o_wb_err  = 0;
 		always @(posedge i_clk)
+		if (i_reset)
 		begin
+			reorder_fifo_valid <= 0;
+			reorder_fifo_err   <= 0;
+			o_wb_ack <= 1'b0;
+			o_wb_err <= 1'b0;
+			fifo_tail <= 1'b0;
+		end else begin
 			if (axi_rd_ack)
 			begin
 				reorder_fifo_valid[i_axi_rid] <= 1'b1;
@@ -471,7 +491,10 @@ module wbm2axisp #(
 		reg	r_fifo_full;
 		initial	r_fifo_full = 0;
 		always @(posedge i_clk)
+		if (i_reset)
 		begin
+			r_fifo_full <= 1'b0;
+		end else begin
 			if ((i_wb_stb)&&(!o_wb_stall)
 					&&(reorder_fifo_valid[fifo_tail]))
 				r_fifo_full <= (fifo_tail==n_fifo_head);
@@ -493,6 +516,11 @@ module wbm2axisp #(
 		initial	reorder_fifo_valid = 1'b0;
 		initial	reorder_fifo_err   = 1'b0;
 		always @(posedge i_clk)
+		if (i_reset)
+		begin
+			reorder_fifo_valid <= 1'b0;
+			reorder_fifo_err   <= 1'b0;
+		end else begin
 			if (axi_rd_ack)
 			begin
 				reorder_fifo_valid <= 1'b1;
@@ -505,24 +533,35 @@ module wbm2axisp #(
 				reorder_fifo_valid <= 1'b0;
 				reorder_fifo_err   <= 1'b0;
 			end
+		end
 
 		initial	fifo_tail = 0;
 		always @(posedge i_clk)
-			if (reorder_fifo_valid)
-				fifo_tail <= fifo_tail + 1'b1;
+		if (i_reset)
+			fifo_tail <= 0;
+		else if (reorder_fifo_valid)
+			fifo_tail <= fifo_tail + 1'b1;
 
 		initial	o_wb_ack  = 0;
 		always @(posedge i_clk)
+		if (i_reset)
+			o_wb_ack <= 0;
+		else
 			o_wb_ack <= (reorder_fifo_valid)&&(i_wb_cyc)&&(!wb_abort);
 
 		initial	o_wb_err  = 0;
 		always @(posedge i_clk)
+		if (i_reset)
+			o_wb_err <= 0;
+		else
 			o_wb_err <= (reorder_fifo_err)&&(i_wb_cyc)&&(!wb_abort);
 
 		reg	r_fifo_full;
 		initial	r_fifo_full = 0;
 		always @(posedge i_clk)
-		begin
+		if (i_reset)
+			r_fifo_full <= 0;
+		else begin
 			if ((i_wb_stb)&&(!o_wb_stall)
 					&&(reorder_fifo_valid))
 				r_fifo_full <= (fifo_tail==n_fifo_head);
@@ -549,19 +588,25 @@ module wbm2axisp #(
 	// Are we mid-cycle?
 	initial	wb_mid_cycle = 0;
 	always @(posedge i_clk)
-		if ((fifo_head != fifo_tail)
-				||(o_axi_arvalid)||(o_axi_awvalid)
-				||(o_axi_wvalid)
-				||(i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall))
-			wb_mid_cycle <= 1'b1;
-		else
-			wb_mid_cycle <= 1'b0;
+	if (i_reset)
+		wb_mid_cycle <= 0;
+	else if ((fifo_head != fifo_tail)
+			||(o_axi_arvalid)||(o_axi_awvalid)
+			||(o_axi_wvalid)
+			||(i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall))
+		wb_mid_cycle <= 1'b1;
+	else
+		wb_mid_cycle <= 1'b0;
 
 	always @(posedge i_clk)
+	if (i_reset)
+		wb_mid_abort <= 0;
+	else begin
 		if (wb_mid_cycle)
 			wb_mid_abort <= (wb_mid_abort)||(!i_wb_cyc);
 		else
 			wb_mid_abort <= 1'b0;
+	end
 
 	assign	wb_abort = ((wb_mid_cycle)&&(!i_wb_cyc))||(wb_mid_abort);
 
