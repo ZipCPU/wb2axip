@@ -165,7 +165,7 @@ module wbm2axisp #(
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	reg	wb_mid_cycle, wb_mid_abort;
+	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort, wb_cyc_stb;
 	wire	wb_abort;
 
 // Command logic
@@ -193,7 +193,7 @@ module wbm2axisp #(
 	initial	o_axi_awvalid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
-		o_axi_awvalid <= 1'b0;
+		o_axi_awvalid <= 0;
 	else
 		o_axi_awvalid <= (!o_wb_stall)&&(i_wb_stb)&&(i_wb_we)
 			||(o_axi_awvalid)&&(!i_axi_awready);
@@ -210,14 +210,14 @@ module wbm2axisp #(
 	if (C_AXI_DATA_WIDTH == DW)
 	begin
 		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
-				o_axi_awaddr <= { i_wb_addr[AW-1:0], axi_bottom_addr };
+		if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
+			o_axi_awaddr <= { i_wb_addr[AW-1:0], axi_bottom_addr };
 	end else if (C_AXI_DATA_WIDTH / DW == 2)
 	begin
 
 		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
-				o_axi_awaddr <= { i_wb_addr[AW-1:1], axi_bottom_addr };
+		if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
+			o_axi_awaddr <= { i_wb_addr[AW-1:1], axi_bottom_addr };
 
 	end else if (C_AXI_DATA_WIDTH / DW == 4)
 	begin
@@ -451,10 +451,10 @@ module wbm2axisp #(
 		if (i_reset)
 		begin
 			reorder_fifo_valid <= 0;
-			reorder_fifo_err   <= 0;
-			o_wb_ack <= 1'b0;
-			o_wb_err <= 1'b0;
-			fifo_tail <= 1'b0;
+			reorder_fifo_err <= 0;
+			o_wb_ack  <= 0;
+			o_wb_err  <= 0;
+			fifo_tail <= 0;
 		end else begin
 			if (axi_rd_ack)
 			begin
@@ -492,9 +492,8 @@ module wbm2axisp #(
 		initial	r_fifo_full = 0;
 		always @(posedge i_clk)
 		if (i_reset)
-		begin
-			r_fifo_full <= 1'b0;
-		end else begin
+			r_fifo_full <= 0;
+		else begin
 			if ((i_wb_stb)&&(!o_wb_stall)
 					&&(reorder_fifo_valid[fifo_tail]))
 				r_fifo_full <= (fifo_tail==n_fifo_head);
@@ -518,8 +517,8 @@ module wbm2axisp #(
 		always @(posedge i_clk)
 		if (i_reset)
 		begin
-			reorder_fifo_valid <= 1'b0;
-			reorder_fifo_err   <= 1'b0;
+			reorder_fifo_valid <= 0;
+			reorder_fifo_err   <= 0;
 		end else begin
 			if (axi_rd_ack)
 			begin
@@ -585,7 +584,15 @@ module wbm2axisp #(
 	// Wishbone abort logic
 	//
 
-	// Are we mid-cycle?
+	// Did we just accept something?
+	initial	wb_cyc_stb = 1'b0;
+	always @(posedge i_clk)
+	if (i_reset)
+		wb_cyc_stb <= 1'b0;
+	else
+		wb_cyc_stb <= (i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall);
+
+	// Else, are we mid-cycle?
 	initial	wb_mid_cycle = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -598,15 +605,14 @@ module wbm2axisp #(
 	else
 		wb_mid_cycle <= 1'b0;
 
+	initial	wb_mid_abort = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 		wb_mid_abort <= 0;
-	else begin
-		if (wb_mid_cycle)
-			wb_mid_abort <= (wb_mid_abort)||(!i_wb_cyc);
-		else
-			wb_mid_abort <= 1'b0;
-	end
+	else if (wb_mid_cycle)
+		wb_mid_abort <= (wb_mid_abort)||(!i_wb_cyc);
+	else
+		wb_mid_abort <= 1'b0;
 
 	assign	wb_abort = ((wb_mid_cycle)&&(!i_wb_cyc))||(wb_mid_abort);
 
@@ -619,12 +625,6 @@ module wbm2axisp #(
 				||((o_axi_wvalid )&&(!i_axi_wready ))
 				||((o_axi_arvalid)&&(!i_axi_arready)));
 
-
-	// Make Verilator happy
-	// verilator lint_off UNUSED
-	wire	[2:0]	unused;
-	assign	unused = { i_axi_bresp[0], i_axi_rresp[0], i_axi_rlast };
-	// verilator lint_on  UNUSED
 
 /////////////////////////////////////////////////////////////////////////
 //
