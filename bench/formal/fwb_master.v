@@ -31,7 +31,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2017, Gisselquist Technology, LLC
+// Copyright (C) 2017-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -73,6 +73,7 @@ module	fwb_master(i_clk, i_reset,
 	// requests.  This is useful for any master that might execute a
 	// read modify write cycle, such as an atomic add.
 	parameter [0:0]		F_OPT_RMW_BUS_OPTION = 1;
+	parameter [0:0]		F_OPT_CLK2FFLOGIC = 0;
 	//
 	// 
 	parameter [0:0]		F_OPT_SHORT_CIRCUIT_PROOF = 0;
@@ -87,6 +88,19 @@ module	fwb_master(i_clk, i_reset,
 	// requests are outstanding
 	parameter	[0:0]	F_OPT_DISCONTINUOUS = 0;
 	//
+	//
+	// If true, insist that there be a minimum of a single clock delay
+	// between request and response.  This defaults to off since the
+	// wishbone specification specifically doesn't require this.  However,
+	// some interfaces do, so we allow it as an option here.
+	parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0;
+	//
+	//
+	// F_OPT_CLK2FFLOGIC needs to be set to true any time the clk2fflogic
+	// command is present in the yosys script.  If clk2fflogic isn't used,
+	// then setting this parameter to zero will eliminate some formal
+	// tests which would then be inappropriate.
+	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b1;
 	//
 	localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING = {(F_LGDEPTH){1'b1}};
 	localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
@@ -166,18 +180,23 @@ module	fwb_master(i_clk, i_reset,
 	end
 
 	// Things can only change on the positive edge of the clock
-	always @($global_clock)
-	if ((f_past_valid)&&(!$rose(i_clk)))
-	begin
-		assert($stable(i_reset));
-		assert($stable(i_wb_cyc));
-		assert($stable(f_request)); // The entire request should b stabl
-		//
-		assume($stable(i_wb_ack));
-		assume($stable(i_wb_stall));
-		assume($stable(i_wb_idata));
-		assume($stable(i_wb_err));
-	end
+	generate if (F_OPT_CLK2FFLOGIC)
+	begin : CHECK_ASYNC
+
+		always @($global_clock)
+		if ((f_past_valid)&&(!$rose(i_clk)))
+		begin
+			assert($stable(i_reset));
+			assert($stable(i_wb_cyc));
+			assert($stable(f_request)); // The entire request should b stabl
+			//
+			assume($stable(i_wb_ack));
+			assume($stable(i_wb_stall));
+			assume($stable(i_wb_idata));
+			assume($stable(i_wb_err));
+		end
+
+	end endgenerate
 
 	//
 	//
@@ -192,7 +211,7 @@ module	fwb_master(i_clk, i_reset,
 		assert(!i_wb_cyc);
 
 	// STB can only be true if CYC is also true
-	always @(posedge i_clk)
+	always @(*)
 		if (i_wb_stb)
 			assert(i_wb_cyc);
 
@@ -203,7 +222,11 @@ module	fwb_master(i_clk, i_reset,
 			&&($past(i_wb_stall))&&(i_wb_cyc))
 	begin
 		assert(i_wb_stb);
-		assert($stable(f_request));
+		assert(i_wb_we   == $past(i_wb_we));
+		assert(i_wb_addr == $past(i_wb_addr));
+		assert(i_wb_sel  == $past(i_wb_sel));
+		if (i_wb_we)
+			assert(i_wb_data == $past(i_wb_data));
 	end
 
 	// Within any series of STB/requests, the direction of the request
@@ -220,7 +243,7 @@ module	fwb_master(i_clk, i_reset,
 			assert(i_wb_we == $past(i_wb_we));
 
 	// Write requests must also set one (or more) of i_wb_sel
-	always @(posedge i_clk)
+	always @(*)
 		if ((i_wb_stb)&&(i_wb_we))
 			assert(|i_wb_sel);
 
@@ -261,7 +284,7 @@ module	fwb_master(i_clk, i_reset,
 				f_stall_count <= f_stall_count + 1'b1;
 			else
 				f_stall_count <= 0;
-		always @(posedge i_clk)
+		always @(*)
 			if (i_wb_cyc)
 				assume(f_stall_count < F_MAX_STALL);
 	end endgenerate
@@ -278,12 +301,17 @@ module	fwb_master(i_clk, i_reset,
 		initial	f_ackwait_count = 0;
 		always @(posedge i_clk)
 			if ((!i_reset)&&(i_wb_cyc)&&(!i_wb_stb)
-					&&(!i_wb_ack)&&(!i_wb_err))
-			begin
+					&&(!i_wb_ack)&&(!i_wb_err)
+					&&(f_outstanding > 0))
 				f_ackwait_count <= f_ackwait_count + 1'b1;
-				assume(f_ackwait_count < F_MAX_ACK_DELAY);
-			end else
+			else
 				f_ackwait_count <= 0;
+
+		always @(*)
+		if ((!i_reset)&&(i_wb_cyc)&&(!i_wb_stb)
+					&&(!i_wb_ack)&&(!i_wb_err)
+					&&(f_outstanding > 0))
+			assume(f_ackwait_count < F_MAX_ACK_DELAY);
 	end endgenerate
 
 	//
@@ -291,10 +319,10 @@ module	fwb_master(i_clk, i_reset,
 	//
 	initial	f_nreqs = 0;
 	always @(posedge i_clk)
-		if ((i_reset)||(!i_wb_cyc))
-			f_nreqs <= 0;
-		else if ((i_wb_stb)&&(!i_wb_stall))
-			f_nreqs <= f_nreqs + 1'b1;
+	if ((i_reset)||(!i_wb_cyc))
+		f_nreqs <= 0;
+	else if ((i_wb_stb)&&(!i_wb_stall))
+		f_nreqs <= f_nreqs + 1'b1;
 
 
 	//
@@ -302,10 +330,12 @@ module	fwb_master(i_clk, i_reset,
 	//
 	initial	f_nacks = 0;
 	always @(posedge i_clk)
-		if (!i_wb_cyc)
-			f_nacks <= 0;
-		else if ((i_wb_ack)||(i_wb_err))
-			f_nacks <= f_nacks + 1'b1;
+	if (i_reset)
+		f_nacks <= 0;
+	else if (!i_wb_cyc)
+		f_nacks <= 0;
+	else if ((i_wb_ack)||(i_wb_err))
+		f_nacks <= f_nacks + 1'b1;
 
 	//
 	// The number of outstanding requests is the difference between
@@ -313,7 +343,7 @@ module	fwb_master(i_clk, i_reset,
 	//
 	assign	f_outstanding = (i_wb_cyc) ? (f_nreqs - f_nacks):0;
 
-	always @(posedge i_clk)
+	always @(*)
 		if ((i_wb_cyc)&&(F_MAX_REQUESTS > 0))
 		begin
 			if (i_wb_stb)
@@ -325,17 +355,23 @@ module	fwb_master(i_clk, i_reset,
 		end else
 			assume(f_outstanding < (1<<F_LGDEPTH)-1);
 
-	always @(posedge i_clk)
+	always @(*)
 		if ((i_wb_cyc)&&(f_outstanding == 0))
 		begin
 			// If nothing is outstanding, then there should be
 			// no acknowledgements ... however, an acknowledgement
 			// *can* come back on the same clock as the stb is
 			// going out.
-			assume((!i_wb_ack)||((i_wb_stb)&&(!i_wb_stall)));
-			// The same is true of errors.  They may not be
-			// created before the request gets through
-			assume((!i_wb_err)||((i_wb_stb)&&(!i_wb_stall)));
+			if (F_OPT_MINCLOCK_DELAY)
+			begin
+				assume(!i_wb_ack);
+				assume(!i_wb_err);
+			end else begin
+				assume((!i_wb_ack)||((i_wb_stb)&&(!i_wb_stall)));
+				// The same is true of errors.  They may not be
+				// created before the request gets through
+				assume((!i_wb_err)||((i_wb_stb)&&(!i_wb_stall)));
+			end
 		end
 
 	generate if (F_OPT_SOURCE)
@@ -357,7 +393,7 @@ module	fwb_master(i_clk, i_reset,
 		// If we aren't waiting for anything, and we aren't issuing
 		// any requests, then then our transaction is over and we
 		// should be dropping the CYC line.
-		always @(posedge i_clk)
+		always @(*)
 			if (f_outstanding == 0)
 				assert((i_wb_stb)||(!i_wb_cyc));
 		// Not all masters will abide by this restriction.  Some
