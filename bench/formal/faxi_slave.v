@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2017, Gisselquist Technology, LLC
+// Copyright (C) 2017-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -50,7 +50,8 @@ module faxi_slave #(
 	parameter [0:0] F_CONSECUTIVE_IDS= 0,	// 0=ID's must be consecutive
 	parameter [0:0] F_OPT_BURSTS    = 1'b0,	// Check burst lengths
 	parameter [0:0] F_CHECK_IDS	= 1'b1,	// Check ID's upon issue&return
-	parameter [7:0] F_AXI_MAXBURST	= 8'hff	// Maximum burst length, minus 1
+	parameter [7:0] F_AXI_MAXBURST	= 8'hff,// Maximum burst length, minus 1
+	parameter [0:0] F_OPT_CLK2FFLOGIC= 1'b0 // Multiple clock testing?
 	) (
 	input				i_clk,	// System clock
 	input				i_axi_reset_n,
@@ -171,61 +172,65 @@ module faxi_slave #(
 		// Assume our inputs will only change on the positive edge
 		// of the clock
 	//
-	always @($global_clock)
-	if ((f_past_valid)&&(!$rose(i_clk)))
+	generate if (F_OPT_CLK2FFLOGIC)
 	begin
-		// AXI inputs
-		assert($stable(i_axi_reset_n));
-		//
-		assert($stable(i_axi_awready));
-		assert($stable(i_axi_wready));
-		//
-		assert($stable(i_axi_bid));
-		assert($stable(i_axi_bresp));
-		assert($stable(i_axi_bvalid));
-		assert($stable(i_axi_arready));
-		//
-		assert($stable(i_axi_rid));
-		assert($stable(i_axi_rresp));
-		assert($stable(i_axi_rvalid));
-		assert($stable(i_axi_rdata));
-		assert($stable(i_axi_rlast));
-		//
-		// AXI outputs
-		//
-		assume($stable(i_axi_awvalid));
-		assume($stable(i_axi_awid));
-		assume($stable(i_axi_awlen));
-		assume($stable(i_axi_awsize));
-		assume($stable(i_axi_awlock));
-		assume($stable(i_axi_awcache));
-		assume($stable(i_axi_awprot));
-		assume($stable(i_axi_awqos));
-		//
-		assume($stable(i_axi_wvalid));
-		assume($stable(i_axi_wdata));
-		assume($stable(i_axi_wstrb));
-		assume($stable(i_axi_wlast));
-		//
-		assume($stable(i_axi_arvalid));
-		assume($stable(i_axi_arid));
-		assume($stable(i_axi_arlen));
-		assume($stable(i_axi_arsize));
-		assume($stable(i_axi_arburst));
-		assume($stable(i_axi_arlock));
-		assume($stable(i_axi_arprot));
-		assume($stable(i_axi_arqos));
-		//
-		assume($stable(i_axi_bready));
-		//
-		assume($stable(i_axi_rready));
-		//
-		// Formal outputs
-		//
-		assume($stable(f_axi_rd_outstanding));
-		assume($stable(f_axi_wr_outstanding));
-		assume($stable(f_axi_awr_outstanding));
-	end
+
+		always @($global_clock)
+		if ((f_past_valid)&&(!$rose(i_clk)))
+		begin
+			// AXI inputs
+			assert($stable(i_axi_reset_n));
+			//
+			assert($stable(i_axi_awready));
+			assert($stable(i_axi_wready));
+			//
+			assert($stable(i_axi_bid));
+			assert($stable(i_axi_bresp));
+			assert($stable(i_axi_bvalid));
+			assert($stable(i_axi_arready));
+			//
+			assert($stable(i_axi_rid));
+			assert($stable(i_axi_rresp));
+			assert($stable(i_axi_rvalid));
+			assert($stable(i_axi_rdata));
+			assert($stable(i_axi_rlast));
+				//
+			// AXI outputs
+			//
+			assume($stable(i_axi_awvalid));
+			assume($stable(i_axi_awid));
+			assume($stable(i_axi_awlen));
+			assume($stable(i_axi_awsize));
+			assume($stable(i_axi_awlock));
+			assume($stable(i_axi_awcache));
+			assume($stable(i_axi_awprot));
+			assume($stable(i_axi_awqos));
+			//
+			assume($stable(i_axi_wvalid));
+			assume($stable(i_axi_wdata));
+			assume($stable(i_axi_wstrb));
+			assume($stable(i_axi_wlast));
+			//
+			assume($stable(i_axi_arvalid));
+			assume($stable(i_axi_arid));
+			assume($stable(i_axi_arlen));
+			assume($stable(i_axi_arsize));
+			assume($stable(i_axi_arburst));
+			assume($stable(i_axi_arlock));
+			assume($stable(i_axi_arprot));
+			assume($stable(i_axi_arqos));
+			//
+			assume($stable(i_axi_bready));
+			//
+			assume($stable(i_axi_rready));
+			//
+			// Formal outputs
+			//
+			assume($stable(f_axi_rd_outstanding));
+			assume($stable(f_axi_wr_outstanding));
+			assume($stable(f_axi_awr_outstanding));
+		end
+	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
 	//

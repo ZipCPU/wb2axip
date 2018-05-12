@@ -16,7 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2015,2017, Gisselquist Technology, LLC
+// Copyright (C) 2015-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -67,6 +67,7 @@ module	wbarbiter(i_clk, i_reset,
 	parameter			F_MAX_ACK_DELAY = 3;
 `ifdef	FORMAL
 	parameter			F_LGDEPTH=3;
+	parameter			F_OPT_CLK2FFLOGIC=1'b0;
 `endif
 
 	//
@@ -216,13 +217,17 @@ module	wbarbiter(i_clk, i_reset,
 `ifdef	FORMAL
 
 `ifdef	WBARBITER
-	reg	f_last_clk;
-	initial	assume(!i_clk);
-	always @($global_clock)
+	generate if (F_OPT_CLK2FFLOGIC)
 	begin
-		assume(i_clk != f_last_clk);
-		f_last_clk <= i_clk;
-	end
+		reg	f_last_clk;
+		initial	assume(!i_clk);
+		always @($global_clock)
+		begin
+			assume(i_clk != f_last_clk);
+			f_last_clk <= i_clk;
+		end
+	end endgenerate
+
 `define	ASSUME	assume
 `else
 `define	ASSUME	assert
@@ -230,7 +235,7 @@ module	wbarbiter(i_clk, i_reset,
 
 	reg	f_past_valid;
 	initial	f_past_valid = 1'b0;
-	always @($global_clock)
+	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
 
 	initial	`ASSUME(!i_a_cyc);
@@ -241,6 +246,10 @@ module	wbarbiter(i_clk, i_reset,
 
 	initial	`ASSUME(!i_ack);
 	initial	`ASSUME(!i_err);
+
+	always @(*)
+	if (!f_past_valid)
+		`ASSUME(i_reset);
 
 	always @(posedge i_clk)
 	begin
@@ -255,7 +264,8 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(F_MAX_ACK_DELAY),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
+			.F_OPT_DISCONTINUOUS(1),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
 		f_wbm(i_clk, i_reset,
 			o_cyc, o_stb, o_we, o_adr, o_dat, o_sel,
 			i_ack, i_stall, 32'h0, i_err,
@@ -266,7 +276,8 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(0),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
+			.F_OPT_DISCONTINUOUS(1),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
 		f_wba(i_clk, i_reset,
 			i_a_cyc, i_a_stb, i_a_we, i_a_adr, i_a_dat, i_a_sel, 
 			o_a_ack, o_a_stall, 32'h0, o_a_err,
@@ -277,7 +288,8 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(0),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
+			.F_OPT_DISCONTINUOUS(1),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
 		f_wbb(i_clk, i_reset,
 			i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
 			o_b_ack, o_b_stall, 32'h0, o_b_err,

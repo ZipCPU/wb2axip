@@ -2,12 +2,9 @@ read_verilog -D AXIM2WBSP -formal ../../rtl/axim2wbsp.v
 read_verilog -D AXIM2WBSP -formal ../../rtl/aximwr2wbsp.v
 read_verilog -D AXIM2WBSP -formal ../../rtl/aximrd2wbsp.v
 read_verilog -D AXIM2WBSP -formal ../../rtl/wbarbiter.v
-read_verilog -D AXIM2WBSP -formal fwb_master.v
-read_verilog -D AXIM2WBSP -formal fwb_slave.v
+read_verilog -D AXIM2WBSP -formal ../../../../../zipcpu/trunk/rtl/ex/fwb_master.v
+read_verilog -D AXIM2WBSP -formal ../../../../../zipcpu/trunk/rtl/ex/fwb_slave.v
 read_verilog -D AXIM2WBSP -formal faxi_slave.v
 read_verilog -D AXIM2WBSP -formal f_order.v
 prep -top axim2wbsp -nordff
-clk2fflogic
-opt -share_all
 write_smt2 -wires axim2wbsp.smt2
-write_verilog axim2wbsp.ys.v

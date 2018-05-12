@@ -50,7 +50,7 @@ module faxi_master #(
 	parameter [0:0] F_CONSECUTIVE_IDS= 0,	// 0=ID's must be consecutive
 	parameter [0:0] F_OPT_BURSTS    = 1'b1,	// Check burst lengths
 	parameter [0:0] F_CHECK_IDS	= 1'b1,	// Check ID's upon issue&return
-	parameter [0:0]	F_OPT_CLK2FFLOGIC=1'b1
+	parameter [0:0]	F_OPT_CLK2FFLOGIC=1'b0
 	) (
 	input				i_clk,	// System clock
 	input				i_axi_reset_n,

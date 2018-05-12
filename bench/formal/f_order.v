@@ -4,7 +4,7 @@
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	
+// Purpose:
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -104,5 +104,5 @@ module	f_order(i_clk, i_reset, i_head, i_neck, i_torso, i_tail);
 			||(i_torso== $past(f_next_torso)));
 		assert((i_tail== $past(i_tail))||(i_tail== $past(f_next_tail)));
 	end
-		
+
 endmodule

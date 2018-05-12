@@ -12,7 +12,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016, Gisselquist Technology, LLC
+// Copyright (C) 2016-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -75,7 +75,7 @@ module	aximrd2wbsp #(
 	// We'll share the clock and the reset
 	output	reg				o_wb_cyc,
 	output	reg				o_wb_stb,
-	output	wire [(AW-1):0]	o_wb_addr,
+	output	wire [(AW-1):0]			o_wb_addr,
 	input	wire				i_wb_ack,
 	input	wire				i_wb_stall,
 	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
@@ -222,7 +222,7 @@ module	aximrd2wbsp #(
 		end
 
 	always @(posedge i_axi_clk)
-		if ((!o_wb_cyc)&&(fifo_head != fifo_neck)||(!i_wb_stall))
+		if ((!o_wb_cyc)&&(!i_wb_stall))
 			fifo_at_neck <= afifo[fifo_neck];
 
 	reg	err_state;	
@@ -245,7 +245,7 @@ module	aximrd2wbsp #(
 			if (!i_wb_stall)
 				o_wb_stb <= (fifo_head != fifo_neck);
 			if ((fifo_head == fifo_neck)
-				&&(next_neck == fifo_torso)
+				&&(fifo_neck == next_torso)
 				&&(i_wb_ack))
 			begin
 				o_wb_stb <= 1'b0;
@@ -254,18 +254,16 @@ module	aximrd2wbsp #(
 
 			if (i_wb_err)
 			begin
-				o_wb_cyc <= 1'b0;
-				o_wb_stb <= 1'b0;
+				o_wb_cyc  <= 1'b0;
+				o_wb_stb  <= 1'b0;
 				err_state <= 1'b1;
 			end
-
-			assert(!err_state);
-
+`ifdef	FORMAL
+	assert(!err_state);
+`endif
 		end else if (err_state)
 		begin
 			if (fifo_neck == next_torso)
-				err_state <= 1'b0;
-			else if (fifo_neck == fifo_torso)
 				err_state <= 1'b0;
 			o_wb_cyc <= 1'b0;
 			o_wb_stb <= 1'b0;
@@ -292,6 +290,8 @@ module	aximrd2wbsp #(
 			o_wb_stb <= 1'b1;
 		end
 	end
+
+assume property(!i_wb_err);
 
 	assign	o_wb_addr = fifo_at_neck[(AW-1):0];
 
@@ -336,7 +336,7 @@ module	aximrd2wbsp #(
 		else if ((!o_axi_rvalid)||(i_axi_rready))
 			o_axi_rvalid <= (fifo_tail != fifo_torso);
 
-	assign o_axi_arready = (!fifo_full)&&(!filling_fifo);
+	assign o_axi_arready = (!fifo_full)&&(!filling_fifo)&&(!err_state);
 
 	// Make Verilator happy
 	// verilator lint_off UNUSED

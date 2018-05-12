@@ -4,9 +4,9 @@
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	So ... this converter works in the other direction.  This
-//		converter takes AXI commands, and organizes them into pipelined
-//	wishbone commands.
+// Purpose:	So ... this converter works in the other direction from
+//		wbm2axisp.  This converter takes AXI commands, and organizes
+//	them into pipelined wishbone commands.
 //
 //
 //	We'll treat AXI as two separate busses: one for writes, another for
@@ -19,7 +19,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016, Gisselquist Technology, LLC
+// Copyright (C) 2016-2018, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -67,12 +67,12 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 	i_axi_arqos,	// Read Protection type
 	i_axi_arvalid,	// Read address valid
 	//
-	o_axi_rid,     // Response ID
-	o_axi_rresp,   // Read response
-	o_axi_rvalid,  // Read reponse valid
-	o_axi_rdata,    // Read data
-	o_axi_rlast,    // Read last
-	i_axi_rready,  // Read Response ready
+	o_axi_rid,	// Response ID
+	o_axi_rresp,	// Read response
+	o_axi_rvalid,	// Read reponse valid
+	o_axi_rdata,	// Read data
+	o_axi_rlast,	// Read last
+	i_axi_rready,	// Read Response ready
 	// Wishbone interface
 	o_reset, o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data, o_wb_sel,
 	i_wb_ack, i_wb_stall, i_wb_data, i_wb_err);
@@ -92,6 +92,7 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 	parameter	[0:0]	F_STRICT_ORDER    = 0;
 	parameter	[0:0]	F_CONSECUTIVE_IDS = 0;
 	parameter	[0:0]	F_OPT_BURSTS      = 1'b0;
+	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b0;
 	parameter		F_MAXSTALL = 3;
 	parameter		F_MAXDELAY = 3;
 	parameter	[0:0]	OPT_READONLY  = 1'b1;
@@ -346,7 +347,8 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 		fwb_master #(.DW(DW), .AW(AW),
 			.F_LGDEPTH(LGFIFO),
 			.F_MAX_STALL(F_MAXSTALL),
-			.F_MAX_ACK_DELAY(F_MAXDELAY))
+			.F_MAX_ACK_DELAY(F_MAXDELAY),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
 		f_wb(i_clk, !i_axi_reset_n,
 			o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data,
 				o_wb_sel,
@@ -389,6 +391,7 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 		wbarbiter	#(.DW(DW), .AW(AW),
 			.F_LGDEPTH(LGFIFO),
 			.F_MAX_STALL(F_MAXSTALL),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC),
 			.F_MAX_ACK_DELAY(F_MAXDELAY))
 			readorwrite(i_clk, !i_axi_reset_n,
 			r_wb_cyc, r_wb_stb, 1'b0, r_wb_addr, w_wb_data, w_wb_sel,
@@ -411,18 +414,20 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 `ifdef	FORMAL
 
 `ifdef	AXIM2WBSP
-	reg	f_last_clk;
-
-	initial	f_last_clk = 0;
-	always @($global_clock)
+	generate if (F_OPT_CLK2FFLOGIC)
 	begin
-		assume(i_clk == f_last_clk);
-		f_last_clk <= !f_last_clk;
+		reg	f_last_clk;
 
-		if ((f_past_valid)&&(!$rose(i_clk)))
-			assume($stable(i_axi_reset_n));
-	end
+		initial	f_last_clk = 0;
+		always @($global_clock)
+		begin
+			assume(i_clk == f_last_clk);
+			f_last_clk <= !f_last_clk;
 
+			if ((f_past_valid)&&(!$rose(i_clk)))
+				assume($stable(i_axi_reset_n));
+		end
+	end endgenerate
 `else
 `endif
 
@@ -437,9 +442,13 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 		if (!f_past_valid)
 			assume(!i_axi_reset_n);
 
-	always @($global_clock)
-		if ((f_past_valid)&&(!$rose(i_clk)))
-			assert($stable(i_axi_reset_n));
+	generate if (F_OPT_CLK2FFLOGIC)
+	begin
+
+		always @($global_clock)
+			if ((f_past_valid)&&(!$rose(i_clk)))
+				assert($stable(i_axi_reset_n));
+	end endgenerate
 
 	wire	[(C_AXI_ID_WIDTH-1):0]		f_axi_rd_outstanding,
 						f_axi_wr_outstanding,
@@ -510,7 +519,8 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 			.F_AXI_MAXSTALL(0),
 			.F_AXI_MAXDELAY(0),
-			.F_AXI_MAXBURST(OPT_MAXBURST))
+			.F_AXI_MAXBURST(OPT_MAXBURST),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
 		f_axi(.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 			// AXI write address channnel
 			.i_axi_awready(o_axi_awready),
