@@ -53,6 +53,7 @@ INDARGS := $(SOLVER) -i
 WBARB    := wbarbiter
 WB2AXI   := wbm2axisp
 AXI2WB   := axim2wbsp
+WB2LITE  := wbm2axilite
 
 $(WBARB).smt2: $(RTL)/$(WBARB).v fwb_master.v fwb_slave.v $(WBARB).ys
 	yosys -ql $(WBARB).yslog -s $(WBARB).ys
@@ -60,7 +61,14 @@ $(WBARB).smt2: $(RTL)/$(WBARB).v fwb_master.v fwb_slave.v $(WBARB).ys
 $(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
 	yosys -ql $(WB2AXI).yslog -s $(WB2AXI).ys
 
-$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys fwb_master.v faxi_slave.v
+$(WB2LITE).smt2: $(RTL)/$(WB2LITE).v $(WB2LITE).ys fwb_slave.v faxil_master.v
+	yosys -ql $(WB2LITE).yslog -s $(WB2LITE).ys
+
+$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
+$(AXI2WB).smt2: ../../../../../zipcpu/trunk/rtl/ex/fwb_slave.v
+$(AXI2WB).smt2: ../../../../../zipcpu/trunk/rtl/ex/fwb_master.v
+$(AXI2WB).smt2: faxi_slave.v
+$(AXI2WB).smt2: f_order.v
 $(AXI2WB).smt2: $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
 $(AXI2WB).smt2: $(RTL)/wbarbiter.v
 	yosys -ql $(AXI2WB).yslog -s $(AXI2WB).ys
@@ -68,15 +76,22 @@ $(AXI2WB).smt2: $(RTL)/wbarbiter.v
 $(WBARB) : $(WBARB).check
 $(WBARB).check: $(WBARB).smt2
 	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WBARB).vcd $(WBARB).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WBARB).vcd $(WBARB).smt2
+	$(SMTBMC) $(BMCARGS) -t 12 --dump-vcd $(WBARB).vcd $(WBARB).smt2
+	$(SMTBMC) $(INDARGS) -t 10 --dump-vcd $(WBARB).vcd $(WBARB).smt2
 	touch $@
 
 $(WB2AXI) : $(WB2AXI).check
 $(WB2AXI).check: $(WB2AXI).smt2
 	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
+	$(SMTBMC) $(BMCARGS) -t 12 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
+	$(SMTBMC) $(INDARGS) -t 10 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
+	touch $@
+
+$(WB2LITE) : $(WB2LITE).check
+$(WB2LITE).check: $(WB2LITE).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(WB2LITE).vcd $(WB2LITE).smt2
+	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(WB2LITE).vcd $(WB2LITE).smt2
 	touch $@
 
 $(AXI2WB) : $(AXI2WB).check
