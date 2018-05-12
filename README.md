@@ -14,6 +14,10 @@ one transaction clock at a sustained or pipelined rate.  This
 transaction per clock (pipelined), although [(due to Xilinx's MIG design)
 the delay may be up to 27 clocks](http://opencores.org/project,wbddr3).  (Ouch!)
 
+Since the initial build of the core, I've added the
+[WB to AXI lite](rtl/wbm2axilite.v) bridge.  This is also a pipelined bridge,
+and like the original one it is also formally verified.
+
 # AXI to Wishbone conversion
 
 Since the project began, a full-fledged [AXI4 to Wishbone bridge](rtl/axim2wbsp.v) has been added to the project.
