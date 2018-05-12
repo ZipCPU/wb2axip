@@ -73,7 +73,6 @@ module	fwb_master(i_clk, i_reset,
 	// requests.  This is useful for any master that might execute a
 	// read modify write cycle, such as an atomic add.
 	parameter [0:0]		F_OPT_RMW_BUS_OPTION = 1;
-	parameter [0:0]		F_OPT_CLK2FFLOGIC = 0;
 	//
 	// 
 	parameter [0:0]		F_OPT_SHORT_CIRCUIT_PROOF = 0;
@@ -100,7 +99,7 @@ module	fwb_master(i_clk, i_reset,
 	// command is present in the yosys script.  If clk2fflogic isn't used,
 	// then setting this parameter to zero will eliminate some formal
 	// tests which would then be inappropriate.
-	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b1;
+	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b0;
 	//
 	localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING = {(F_LGDEPTH){1'b1}};
 	localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
