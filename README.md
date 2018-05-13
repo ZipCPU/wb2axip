@@ -20,37 +20,32 @@ and like the original one it is also formally verified.
 
 # AXI to Wishbone conversion
 
-Since the project began, a full-fledged [AXI4 to Wishbone bridge](rtl/axim2wbsp.v) has been added to the project.
-This converter handles synchronizing the write channels, turning AXI read/write
-requests into pipeline wishbone requests, maintaining the AXI ID fields, etc.
-It ignores the AXI xSIZE, xLOCK, xCACHE, xPROT, and xQOS fields.  It supports
-xBURST types of FIXED (2'b00) and INCR (2'b01), but not WRAP (2'b10) or
-reserved (2'b11).  It does not (yet) support bridging between busses of
-different widths, so both the AXI and the WB bus must have the same width.
+As of 20180512, the project now contains an
+[AXI4 lite read channel to wishbone interface](rtl/axilrd2wbsp.v), and also an
+[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).  While
+neither of these designs has (yet) to hit silicon, both have passed their
+formal verification step, so I have a lot of confidence in them.
 
-AXI4 is a complicated protocol, however, especially when
-[compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).
-
-_Finally, whereas the [bridge](rtl/axim2wbsp.v) has been written, it has yet
-to be significantly tested or formally proven.  If you are interested in
-helping to test it, please contact me at (zipcpu (at) gmail.com).  Until
-that time, it must be said that the result is subject to change._
+The full AXI4 protocol, however, is rather complicated--especially when
+[compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
+result, while there is a full-fledged
+[AXI4 to Wishbone bridge](rtl/axim2wbsp.v) within this project,
+this bridge is still not ready for prime time.  It is designed to
+synchronize the write channels, turning AXI read/write requests into pipeline
+wishbone requests, maintaining the AXI ID fields, handle burst transactions,
+etc.  As designed, it ignores the AXI xSIZE, xLOCK, xCACHE, xPROT, and xQOS
+fields, while supporting xBURST types of FIXED (2'b00) and INCR (2'b01)
+but not WRAP (2'b10) or reserved (2'b11).  The design supports bridging
+between busses of different widths.  The only problem is ...
+this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
+doesn't yet pass formal verification.
 
 # Formal Verification
 
-This particular version of the tools includes an initial attempt at
-formally proving that the core(s) work.
-
 Currently, the project contains formal specifications for
 [Avalon](bench/formal/fav_slave.v), [Wishbone](bench/formal/fwb_slave.v), and
-[AXI](bench/formal/faxi_slave.v) busses.  Components with working proofs
-include the [WB to AXI](rtl/wbm2axisp.v) bridge as well as the
-[WB arbiter](rtl/wbarbiter.v) needed for the [AXI to WB](rtl/axim2wbsp.v).
-I also have a working proof for an Avalon to WB bridge that isn't posted
-here.
-
-The [AXI4 to Wishbone bridge](rtl/axim2wbsp.v) remains a work in progress
-that isn't getting a lot of attention.
+[AXI](bench/formal/faxi_slave.v) busses.  A separate repository contains the
+formal properties for the various bridges.
 
 # Commercial Applications
 
@@ -61,5 +56,6 @@ can be purchased from Gisselquist Technology, LLc.
 
 I'd like to thank @wallento for his initial work on a
 [Wishbone to AXI converter](https://github.com/wallento/wb2axi), and his
-encouragement to improve upon it.  While this isn't a fork of his work, it
-takes its motivation from his work.
+encouragement to improve upon it.  While this isn't a fork of his work, the
+[pipelined wishbone to AXI bridge](rtl/wbm2axisp.v) took its initial
+motivation from his work.

@@ -17,7 +17,7 @@
 ##
 ################################################################################
 ##
-## Copyright (C) 2016, Gisselquist Technology, LLC
+## Copyright (C) 2016,2018, Gisselquist Technology, LLC
 ##
 ## This program is free software (firmware): you can redistribute it and/or
 ## modify it under the terms of  the GNU General Public License as published
@@ -58,12 +58,37 @@ wbm2axisp: testwb
 .PHONY: axim2wbsp
 axim2wbsp: testaxi
 
+.PHONY: axilite
+
 testwb:  $(VDIRFB)/Vwbm2axisp__ALL.a
 testaxi: $(VDIRFB)/Vaxim2wbsp__ALL.a
+axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
+axilite: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
+axilite: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
 
+.PHONY: wbm2axisp
+wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a
 $(VDIRFB)/Vwbm2axisp__ALL.a: $(VDIRFB)/Vwbm2axisp.h $(VDIRFB)/Vwbm2axisp.cpp
 $(VDIRFB)/Vwbm2axisp__ALL.a: $(VDIRFB)/Vwbm2axisp.mk
 $(VDIRFB)/Vwbm2axisp.h $(VDIRFB)/Vwbm2axisp.cpp $(VDIRFB)/Vwbm2axisp.mk: wbm2axisp.v
+
+.PHONY: wbm2axilite
+wbm2axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
+$(VDIRFB)/Vwbm2axilite__ALL.a: $(VDIRFB)/Vwbm2axilite.h $(VDIRFB)/Vwbm2axilite.cpp
+$(VDIRFB)/Vwbm2axilite__ALL.a: $(VDIRFB)/Vwbm2axilite.mk
+$(VDIRFB)/Vwbm2axilite.h $(VDIRFB)/Vwbm2axilite.cpp $(VDIRFB)/Vwbm2axilite.mk: wbm2axilite.v
+
+.PHONY: axilrd2wbsp
+axilrd2wbsp: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
+$(VDIRFB)/Vaxilrd2wbsp__ALL.a: $(VDIRFB)/Vaxilrd2wbsp.h $(VDIRFB)/Vaxilrd2wbsp.cpp
+$(VDIRFB)/Vaxilrd2wbsp__ALL.a: $(VDIRFB)/Vaxilrd2wbsp.mk
+$(VDIRFB)/Vaxilrd2wbsp.h $(VDIRFB)/Vaxilrd2wbsp.cpp $(VDIRFB)/Vaxilrd2wbsp.mk: axilrd2wbsp.v
+
+.PHONY: axilwr2wbsp
+axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
+$(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.cpp
+$(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.mk
+$(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.cpp $(VDIRFB)/Vaxilwr2wbsp.mk: axilwr2wbsp.v
 
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.mk
