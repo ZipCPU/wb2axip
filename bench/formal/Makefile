@@ -38,7 +38,7 @@
 ################################################################################
 ##
 ##
-TESTS := wbm2axisp wbarbiter # axim2wbsp
+TESTS := wbm2axisp wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp # axim2wbsp
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL := ../../rtl
@@ -54,6 +54,8 @@ WBARB    := wbarbiter
 WB2AXI   := wbm2axisp
 AXI2WB   := axim2wbsp
 WB2LITE  := wbm2axilite
+RDLITE   := axilrd2wbsp
+WRLITE   := axilwr2wbsp
 
 $(WBARB).smt2: $(RTL)/$(WBARB).v fwb_master.v fwb_slave.v $(WBARB).ys
 	yosys -ql $(WBARB).yslog -s $(WBARB).ys
@@ -63,6 +65,12 @@ $(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
 
 $(WB2LITE).smt2: $(RTL)/$(WB2LITE).v $(WB2LITE).ys fwb_slave.v faxil_master.v
 	yosys -ql $(WB2LITE).yslog -s $(WB2LITE).ys
+
+$(RDLITE).smt2: $(RTL)/$(RDLITE).v $(RDLITE).ys fwb_master.v faxil_slave.v
+	yosys -ql $(RDLITE).yslog -s $(RDLITE).ys
+
+$(WRLITE).smt2: $(RTL)/$(WRLITE).v $(WRLITE).ys fwb_master.v faxil_slave.v
+	yosys -ql $(WRLITE).yslog -s $(WRLITE).ys
 
 $(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
 $(AXI2WB).smt2: ../../../../../zipcpu/trunk/rtl/ex/fwb_slave.v
@@ -94,6 +102,20 @@ $(WB2LITE).check: $(WB2LITE).smt2
 	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(WB2LITE).vcd $(WB2LITE).smt2
 	touch $@
 
+$(RDLITE) : $(RDLITE).check
+$(RDLITE).check: $(RDLITE).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(RDLITE).vcd $(RDLITE).smt2
+	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(RDLITE).vcd $(RDLITE).smt2
+	touch $@
+
+$(WRLITE) : $(WRLITE).check
+$(WRLITE).check: $(WRLITE).smt2
+	rm -f $@
+	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(WRLITE).vcd $(WRLITE).smt2
+	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(WRLITE).vcd $(WRLITE).smt2
+	touch $@
+
 $(AXI2WB) : $(AXI2WB).check
 $(AXI2WB).check: $(AXI2WB).smt2
 	rm -f $@
@@ -103,7 +125,10 @@ $(AXI2WB).check: $(AXI2WB).smt2
 
 .PHONY: clean
 clean:
-	rm -f  $(WBARB).smt2  $(WBARB).yslog   $(WBARB)*.vcd
-	rm -f  $(WB2AXI).smt2 $(WB2AXI).yslog  $(WB2AXI)*.vcd
-	rm -f  $(AXI2WB).smt2 $(AXI2WB).yslog  $(AXI2WB)*.vcd
+	rm -f  $(WBARB).smt2   $(WBARB).yslog    $(WBARB)*.vcd
+	rm -f  $(WB2AXI).smt2  $(WB2AXI).yslog   $(WB2AXI)*.vcd
+	rm -f  $(WB2LITE).smt2 $(WB2LITE).yslog  $(WB2LITE)*.vcd
+	rm -f  $(RDLITE).smt2  $(RDLITE).yslog   $(RDLITE)*.vcd
+	rm -f  $(WRLITE).smt2  $(WRLITE).yslog   $(WRLITE)*.vcd
+	rm -f  $(AXI2WB).smt2  $(AXI2WB).yslog   $(AXI2WB)*.vcd
 	rm -f *.check

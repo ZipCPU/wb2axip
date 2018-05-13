@@ -37,14 +37,15 @@
 //
 `default_nettype	none
 //
-module faxi_slave #(
+module faxil_slave #(
 	localparam C_AXI_DATA_WIDTH	= 32,// Fixed, width of the AXI R&W data
 	parameter  C_AXI_ADDR_WIDTH	= 28,// AXI Address width (log wordsize)
 	localparam DW			= C_AXI_DATA_WIDTH,
 	localparam AW			= C_AXI_ADDR_WIDTH,
 	parameter [0:0]	F_OPT_AXI_WSTRB = 1'b1,
 	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
-	parameter [0:0]	F_OPT_BRESP = 1'b0,
+	parameter [0:0]	F_OPT_BRESP = 1'b1,
+	parameter [0:0]	F_OPT_RRESP = 1'b1,
 	// parameter [0:0]	F_OPT_HAS_PROT = 1'b0,
 	parameter	F_LGDEPTH	= 4,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT = 3,
@@ -114,6 +115,9 @@ module faxi_slave #(
 	assign	axi_rd_err = (axi_rd_ack)&&(i_axi_rresp[1]);
 	assign	axi_wr_err = (axi_wr_ack)&&(i_axi_bresp[1]);
 
+`define	SLAVE_ASSUME	assume
+`define	SLAVE_ASSERT	assert
+
 	//
 	// Setup
 	//
@@ -124,8 +128,8 @@ module faxi_slave #(
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
 	always @(*)
-		if (!f_past_valid)
-			assert(!i_axi_reset_n);
+	if (!f_past_valid)
+		assert(!i_axi_reset_n);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -147,20 +151,21 @@ module faxi_slave #(
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_axi_reset_n))&&(!$past(&f_reset_length)))
-		assume(!i_axi_reset_n);
+		`SLAVE_ASSUME(!i_axi_reset_n);
 
 	always @(*)
 	if ((f_reset_length > 0)&&(f_reset_length < 4'hf))
-		assert(!i_axi_reset_n);
+		`SLAVE_ASSUME(!i_axi_reset_n);
 
 	always @(posedge i_clk)
 	if ((!f_past_valid)||(!$past(i_axi_reset_n)))
 	begin
-		assume(!i_axi_arvalid);
-		assume(!i_axi_awvalid);
-		assume(!i_axi_wvalid);
-		assert(!i_axi_bvalid);
-		assert(!i_axi_rvalid);
+		`SLAVE_ASSUME(!i_axi_arvalid);
+		`SLAVE_ASSUME(!i_axi_awvalid);
+		`SLAVE_ASSUME(!i_axi_wvalid);
+		//
+		`SLAVE_ASSERT(!i_axi_bvalid);
+		`SLAVE_ASSERT(!i_axi_rvalid);
 	end
 
 	////////////////////////////////////////////////////////////////////////
@@ -175,43 +180,43 @@ module faxi_slave #(
 	if (i_axi_awvalid)
 	begin
 		// if (F_OPT_HAS_PROT) else
-		assume(i_axi_awprot  == 3'h0);
+		`SLAVE_ASSUME(i_axi_awprot  == 3'h0);
 		if (!F_OPT_AXI_WSTRB)
-			assume(&i_axi_wstrb);
+			`SLAVE_ASSUME(&i_axi_wstrb);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
-			assume(i_axi_awcache == 4'h3);
+			`SLAVE_ASSUME(i_axi_awcache == 4'h3);
 		else
 			// No caching capability
-			assume(i_axi_awcache == 4'h0);
+			`SLAVE_ASSUME(i_axi_awcache == 4'h0);
 	end
 
 	always @(*)
 	if (i_axi_arvalid)
 	begin
 		// if (F_OPT_HAS_PROT) else
-		assume(i_axi_arprot  == 3'h0);
-		assume(i_axi_arcache == 4'h3);
+		`SLAVE_ASSUME(i_axi_arprot  == 3'h0);
+		`SLAVE_ASSUME(i_axi_arcache == 4'h3);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
-			assume(i_axi_arcache == 4'h3);
+			`SLAVE_ASSUME(i_axi_arcache == 4'h3);
 		else
 			// No caching capability
-			assume(i_axi_arcache == 4'h0);
+			`SLAVE_ASSUME(i_axi_arcache == 4'h0);
 	end
 
 	always @(*)
 	if ((i_axi_bvalid)&&(!F_OPT_BRESP))
-		assert(i_axi_bresp == 0);
+		`SLAVE_ASSERT(i_axi_bresp == 0);
 	always @(*)
-	if ((i_axi_bvalid)&&(!F_OPT_RRESP))
-		assert(i_axi_rresp == 0);
+	if ((i_axi_rvalid)&&(!F_OPT_RRESP))
+		`SLAVE_ASSERT(i_axi_rresp == 0);
 	always @(*)
 	if (i_axi_bvalid)
-		assert(i_axi_bresp != 2'b01); // Exclusive access not allowed
+		`SLAVE_ASSERT(i_axi_bresp != 2'b01); // Exclusive access not allowed
 	always @(*)
 	if (i_axi_rvalid)
-		assert(i_axi_rresp != 2'b01); // Exclusive access not allowed
+		`SLAVE_ASSERT(i_axi_rresp != 2'b01); // Exclusive access not allowed
 
 
 	////////////////////////////////////////////////////////////////////////
@@ -231,46 +236,46 @@ module faxi_slave #(
 		// Incoming Write address channel
 		if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 		begin
-			assume(i_axi_awvalid);
-			assume(i_axi_awaddr  == $past(i_axi_awaddr));
+			`SLAVE_ASSUME(i_axi_awvalid);
+			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
 		end
 
 		// Incoming Write data channel
 		if ((f_past_valid)&&($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
 		begin
-			assume(i_axi_wvalid);
-			assume(i_axi_wstrb  == $past(i_axi_wstrb));
-			assume(i_axi_wdata  == $past(i_axi_wdata));
+			`SLAVE_ASSUME(i_axi_wvalid);
+			`SLAVE_ASSUME(i_axi_wstrb  == $past(i_axi_wstrb));
+			`SLAVE_ASSUME(i_axi_wdata  == $past(i_axi_wdata));
 		end
 
 		// Incoming Read address channel
 		if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 		begin
-			assume(i_axi_arvalid);
-			assume(i_axi_araddr  == $past(i_axi_araddr));
+			`SLAVE_ASSUME(i_axi_arvalid);
+			`SLAVE_ASSUME(i_axi_araddr  == $past(i_axi_araddr));
 		end
 
 		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
-			assert(i_axi_rready);
-			assert(i_axi_rresp  == $past(i_axi_rresp));
-			assert(i_axi_rdata  == $past(i_axi_rdata));
+			`SLAVE_ASSERT(i_axi_rvalid);
+			`SLAVE_ASSERT(i_axi_rresp  == $past(i_axi_rresp));
+			`SLAVE_ASSERT(i_axi_rdata  == $past(i_axi_rdata));
 		end
 
 		if ((f_past_valid)&&($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
 		begin
-			assert(i_axi_bvalid);
-			assert(i_axi_bresp  == $past(i_axi_bresp));
+			`SLAVE_ASSERT(i_axi_bvalid);
+			`SLAVE_ASSERT(i_axi_bresp  == $past(i_axi_bresp));
 		end
 	end
 
 	// Nothing should be returning a result on the first clock
-	initial	assume(!i_axi_arvalid);
-	initial	assume(!i_axi_awvalid);
-	initial	assume(!i_axi_wvalid);
+	initial	`SLAVE_ASSUME(!i_axi_arvalid);
+	initial	`SLAVE_ASSUME(!i_axi_awvalid);
+	initial	`SLAVE_ASSUME(!i_axi_wvalid);
 	//
-	initial	assert(!i_axi_bvalid);
-	initial	assert(!i_axi_rvalid);
+	initial	`SLAVE_ASSERT(!i_axi_bvalid);
+	initial	`SLAVE_ASSERT(!i_axi_rvalid);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -369,22 +374,11 @@ module faxi_slave #(
 
 	// Do not let the number of outstanding requests overflow
 	always @(posedge i_clk)
-		assume(f_axi_wr_outstanding  < {(F_LGDEPTH){1'b1}});
+		`SLAVE_ASSERT(f_axi_wr_outstanding  < {(F_LGDEPTH){1'b1}});
 	always @(posedge i_clk)
-		assume(f_axi_awr_outstanding < {(F_LGDEPTH){1'b1}});
+		`SLAVE_ASSERT(f_axi_awr_outstanding < {(F_LGDEPTH){1'b1}});
 	always @(posedge i_clk)
-		assume(f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
-	//
-	// That means that requests need to stop when we're almost full
-	always @(posedge i_clk)
-	if (f_axi_awr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assume(!i_axi_awvalid);
-	always @(posedge i_clk)
-	if (f_axi_wr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assume(!i_axi_wvalid);
-	always @(posedge i_clk)
-	if (f_axi_rd_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assume(!i_axi_arvalid);
+		`SLAVE_ASSERT(f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -417,10 +411,10 @@ module faxi_slave #(
 			f_axi_wr_ack_delay <= f_axi_wr_ack_delay + 1'b1;
 
 		always @(*)
-			assert(f_axi_rd_ack_delay < F_AXI_MAXDELAY);
+			`SLAVE_ASSERT(f_axi_rd_ack_delay < F_AXI_MAXDELAY);
 
 		always @(*)
-			assert(f_axi_wr_ack_delay < F_AXI_MAXDELAY);
+			`SLAVE_ASSERT(f_axi_wr_ack_delay < F_AXI_MAXDELAY);
 
 	end endgenerate
 
@@ -442,17 +436,17 @@ module faxi_slave #(
 	//
 	always @(posedge i_clk)
 	if ((!axi_awr_req)&&(i_axi_bvalid))
-		assert(f_axi_awr_outstanding > 0);
+		`SLAVE_ASSERT(f_axi_awr_outstanding > 0);
 
 	always @(posedge i_clk)
 	if ((!axi_wr_req)&&(i_axi_bvalid))
-		assert(f_axi_wr_outstanding > 0);
+		`SLAVE_ASSERT(f_axi_wr_outstanding > 0);
 
 	//
 	// AXI read data channel signals
 	//
 	always @(posedge i_clk)
 	if ((!axi_ard_req)&&(i_axi_rvalid))
-		assert(f_axi_rd_outstanding > 0);
+		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
 `endif
 endmodule
