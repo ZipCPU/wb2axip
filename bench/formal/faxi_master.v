@@ -296,10 +296,10 @@ module faxi_master #(
 			&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 	begin
 		assert(i_axi_arvalid);
-		assert(i_axi_arid   == $past(i_axi_arid));
-		assert(i_axi_araddr == $past(i_axi_araddr));
-		assert(i_axi_arlen  == $past(i_axi_arlen));
-		assert(i_axi_arsize == $past(i_axi_arsize));
+		assert(i_axi_arid    == $past(i_axi_arid));
+		assert(i_axi_araddr  == $past(i_axi_araddr));
+		assert(i_axi_arlen   == $past(i_axi_arlen));
+		assert(i_axi_arsize  == $past(i_axi_arsize));
 		assert(i_axi_arburst == $past(i_axi_arburst));
 		assert(i_axi_arlock  == $past(i_axi_arlock));
 		assert(i_axi_arcache == $past(i_axi_arcache));
@@ -314,8 +314,8 @@ module faxi_master #(
 		assert(!i_axi_awvalid);
 		assert(!i_axi_wvalid);
 		assert(!i_axi_arvalid);
-		assert(!i_axi_rvalid);
-		assert(!i_axi_bvalid);
+		assume(!i_axi_rvalid);
+		assume(!i_axi_bvalid);
 	end
 
 	// If valid, but not ready, on any channel is true, nothing changes
