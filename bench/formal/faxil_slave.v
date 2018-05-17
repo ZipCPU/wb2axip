@@ -303,7 +303,7 @@ module faxil_slave #(
 				f_axi_awstall <= f_axi_awstall + 1'b1;
 
 		always @(*)
-			assert(f_axi_awstall < F_AXI_MAXWAIT);
+			`SLAVE_ASSERT(f_axi_awstall < F_AXI_MAXWAIT);
 
 		//
 		// AXI write data channel
@@ -317,7 +317,7 @@ module faxil_slave #(
 			f_axi_wstall <= f_axi_wstall + 1'b1;
 
 		always @(*)
-			assert(f_axi_wstall < F_AXI_MAXWAIT);
+			`SLAVE_ASSERT(f_axi_wstall < F_AXI_MAXWAIT);
 
 
 		//
@@ -332,7 +332,7 @@ module faxil_slave #(
 			f_axi_arstall <= f_axi_arstall + 1'b1;
 
 		always @(*)
-			assert(f_axi_arstall < F_AXI_MAXWAIT);
+			`SLAVE_ASSERT(f_axi_arstall < F_AXI_MAXWAIT);
 	end endgenerate
 
 
@@ -379,6 +379,17 @@ module faxil_slave #(
 		`SLAVE_ASSERT(f_axi_awr_outstanding < {(F_LGDEPTH){1'b1}});
 	always @(posedge i_clk)
 		`SLAVE_ASSERT(f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
+	//
+	// That means that requests need to stop when we're almost full
+	always @(posedge i_clk)
+	if (f_axi_awr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
+		assert(!i_axi_awvalid);
+	always @(posedge i_clk)
+	if (f_axi_wr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
+		assert(!i_axi_wvalid);
+	always @(posedge i_clk)
+	if (f_axi_rd_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
+		assert(!i_axi_arvalid);
 
 	////////////////////////////////////////////////////////////////////////
 	//
