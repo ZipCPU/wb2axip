@@ -575,7 +575,7 @@ module wbm2axisp #(
 		if (i_reset)
 			fifo_tail <= 0;
 		else if (reorder_fifo_valid)
-			fifo_tail <= fifo_tail + 6'h1;
+			fifo_tail <= fifo_tail + 1'b1;
 
 		initial	o_wb_ack  = 0;
 		always @(posedge i_clk)

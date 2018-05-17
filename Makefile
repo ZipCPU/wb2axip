@@ -34,7 +34,7 @@
 ##
 ##
 .PHONY: all
-all:	archive rtl bench
+all:	archive rtl formal
 # all:	verilated sw bench bit
 #
 # Could also depend upon load, if desired, but not necessary
@@ -57,6 +57,10 @@ rtl: verilated
 .PHONY: bench
 bench: rtl
 	cd bench/cpp ; $(MAKE) --no-print-directory
+
+.PHONY: formal
+formal:
+	$(MAKE) --no-print-directory -C bench/formal
 
 .PHONY: doc
 doc:

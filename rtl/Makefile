@@ -47,7 +47,7 @@ FBDIR := .
 VDIRFB:= $(FBDIR)/obj_dir
 
 .PHONY: test
-test: testwb testaxi
+test: testwb
 
 .PHONY: testwb
 .PHONY: testaxi

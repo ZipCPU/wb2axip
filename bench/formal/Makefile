@@ -73,8 +73,8 @@ $(WRLITE).smt2: $(RTL)/$(WRLITE).v $(WRLITE).ys fwb_master.v faxil_slave.v
 	yosys -ql $(WRLITE).yslog -s $(WRLITE).ys
 
 $(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
-$(AXI2WB).smt2: ../../../../../zipcpu/trunk/rtl/ex/fwb_slave.v
-$(AXI2WB).smt2: ../../../../../zipcpu/trunk/rtl/ex/fwb_master.v
+$(AXI2WB).smt2: fwb_slave.v
+$(AXI2WB).smt2: fwb_master.v
 $(AXI2WB).smt2: faxi_slave.v
 $(AXI2WB).smt2: f_order.v
 $(AXI2WB).smt2: $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
