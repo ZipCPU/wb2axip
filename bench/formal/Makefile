@@ -15,7 +15,7 @@
 ##
 ################################################################################
 ##
-## Copyright (C) 2017, Gisselquist Technology, LLC
+## Copyright (C) 2017-2018, Gisselquist Technology, LLC
 ##
 ## This program is free software (firmware): you can redistribute it and/or
 ## modify it under the terms of  the GNU General Public License as published
@@ -66,11 +66,14 @@ $(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
 $(WB2LITE).smt2: $(RTL)/$(WB2LITE).v $(WB2LITE).ys fwb_slave.v faxil_master.v
 	yosys -ql $(WB2LITE).yslog -s $(WB2LITE).ys
 
-$(RDLITE).smt2: $(RTL)/$(RDLITE).v $(RDLITE).ys fwb_master.v faxil_slave.v
-	yosys -ql $(RDLITE).yslog -s $(RDLITE).ys
+.PHONY: $(RDLITE) $(WRLITE)
+$(RDLITE): $(RDLITE)/PASS
+$(RDLITE)/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v fwb_master.v faxil_slave.v
+	sby -f $(RDLITE).sby
 
-$(WRLITE).smt2: $(RTL)/$(WRLITE).v $(WRLITE).ys fwb_master.v faxil_slave.v
-	yosys -ql $(WRLITE).yslog -s $(WRLITE).ys
+$(WRLITE): $(WRLITE)/PASS
+$(WRLITE)/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v fwb_master.v faxil_slave.v
+	sby -f $(WRLITE).sby
 
 $(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
 $(AXI2WB).smt2: fwb_slave.v
@@ -100,20 +103,6 @@ $(WB2LITE).check: $(WB2LITE).smt2
 	rm -f $@
 	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(WB2LITE).vcd $(WB2LITE).smt2
 	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(WB2LITE).vcd $(WB2LITE).smt2
-	touch $@
-
-$(RDLITE) : $(RDLITE).check
-$(RDLITE).check: $(RDLITE).smt2
-	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(RDLITE).vcd $(RDLITE).smt2
-	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(RDLITE).vcd $(RDLITE).smt2
-	touch $@
-
-$(WRLITE) : $(WRLITE).check
-$(WRLITE).check: $(WRLITE).smt2
-	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 30 --dump-vcd $(WRLITE).vcd $(WRLITE).smt2
-	$(SMTBMC) $(INDARGS) -t 30 --dump-vcd $(WRLITE).vcd $(WRLITE).smt2
 	touch $@
 
 $(AXI2WB) : $(AXI2WB).check
