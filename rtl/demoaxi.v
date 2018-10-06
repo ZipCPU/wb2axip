@@ -282,6 +282,8 @@ module	demoaxi
 	always @(posedge S_AXI_ACLK)
 		f_past_valid <= 1'b1;
 
+	///////
+	//
 	// Create/assume an AXI reset signal
 	reg	[4:0]	reset_ctr;
 	initial	reset_ctr = 0;
@@ -296,10 +298,9 @@ module	demoaxi
 	if ($past(S_AXI_ARESETN))
 		assume((S_AXI_RREADY)&&(S_AXI_BREADY));
 
-///////
-//
-// Properties necessary to pass induction
-// always @(posedge S_AXI_ACLK)
+	///////
+	//
+	// Properties necessary to pass induction
 	always @(*)
 	if (S_AXI_ARESETN)
 	begin
@@ -310,5 +311,43 @@ module	demoaxi
 
 	always @(*)
 		assert(f_axi_awr_outstanding == f_axi_wr_outstanding);
+
+	///////
+	//
+	// Cover properties
+	// In addition to making sure the design returns a value, any value,
+	// let's cover returning three values on adjacent clocks--just to prove
+	// we can.
+	always @( posedge S_AXI_ACLK )
+	if ((f_past_valid)&&(S_AXI_ARESETN))
+		cover(($past((S_AXI_BVALID && S_AXI_BREADY)))
+			&&($past((S_AXI_BVALID && S_AXI_BREADY),2))
+			&&(S_AXI_BVALID && S_AXI_BREADY));
+
+	always @( posedge S_AXI_ACLK )
+	if ((f_past_valid)&&(S_AXI_ARESETN))
+		cover(($past((S_AXI_RVALID && S_AXI_RREADY)))
+			&&($past((S_AXI_RVALID && S_AXI_RREADY),2))
+			&&(S_AXI_RVALID && S_AXI_RREADY));
+
+	// Let's go just one further, and verify we can do three returns in a
+	// row.  Why?  It might just be possible that one value was waiting
+	// already, and so we haven't yet tested that two requests could be
+	// made in a row.
+	always @( posedge S_AXI_ACLK )
+	if ((f_past_valid)&&(S_AXI_ARESETN))
+		cover(($past((S_AXI_BVALID && S_AXI_BREADY)))
+			&&($past((S_AXI_BVALID && S_AXI_BREADY),2))
+			&&($past((S_AXI_BVALID && S_AXI_BREADY),3))
+			&&(S_AXI_BVALID && S_AXI_BREADY));
+
+	always @( posedge S_AXI_ACLK )
+	if ((f_past_valid)&&(S_AXI_ARESETN))
+		cover(($past((S_AXI_RVALID && S_AXI_RREADY)))
+			&&($past((S_AXI_RVALID && S_AXI_RREADY),2))
+			&&($past((S_AXI_RVALID && S_AXI_RREADY),3))
+			&&(S_AXI_RVALID && S_AXI_RREADY));
+
+
 `endif
 endmodule
