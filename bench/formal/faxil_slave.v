@@ -51,11 +51,11 @@ module faxil_slave #(
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12
 	) (
-	input				i_clk,	// System clock
-	input				i_axi_reset_n,
+	input	wire			i_clk,	// System clock
+	input	wire			i_axi_reset_n,
 
 // AXI write address channel signals
-	input				i_axi_awready,//Slave is ready to accept
+	input	wire			i_axi_awready,//Slave is ready to accept
 	input	wire	[AW-1:0]	i_axi_awaddr,	// Write address
 	input	wire	[3:0]		i_axi_awcache,	// Write Cache type
 	input	wire	[2:0]		i_axi_awprot,	// Write Protection type
@@ -146,7 +146,7 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if (i_axi_reset_n)
 		f_reset_length <= 0;
-	else if (!&f_reset_length)
+	else if (!(&f_reset_length))
 		f_reset_length <= f_reset_length + 1'b1;
 
 	always @(posedge i_clk)
@@ -511,5 +511,4 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if ((!axi_ard_req)&&(i_axi_rvalid))
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
-`endif
 endmodule
