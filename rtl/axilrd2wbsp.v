@@ -410,5 +410,14 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	if (err_state)
 		assert(f_mid_minus_err <= f_first_minus_err);
 
+	always @(*)
+	if ((f_past_valid)&&(i_axi_reset_n)&&(f_axi_rd_outstanding > 0))
+	begin
+		if (err_state)
+			assert((!o_wb_cyc)&&(f_wb_outstanding == 0));
+		else if (!o_wb_cyc)
+			assert((o_axi_rvalid)&&(f_axi_rd_outstanding>0)
+					&&(wb_fill == 0));
+	end
 `endif
 endmodule
