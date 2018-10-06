@@ -48,14 +48,14 @@ module faxil_master #(
 	parameter [0:0]	F_OPT_RRESP = 1'b1,
 	// parameter [0:0]	F_OPT_HAS_PROT = 1'b0,
 	parameter	F_LGDEPTH	= 4,
-	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT = 3,
-	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 3
+	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
+	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12
 	) (
-	input				i_clk,	// System clock
-	input				i_axi_reset_n,
+	input	wire			i_clk,	// System clock
+	input	wire			i_axi_reset_n,
 
 // AXI write address channel signals
-	input				i_axi_awready,//Slave is ready to accept
+	input	wire			i_axi_awready,//Slave is ready to accept
 	input	wire	[AW-1:0]	i_axi_awaddr,	// Write address
 	input	wire	[3:0]		i_axi_awcache,	// Write Cache type
 	input	wire	[2:0]		i_axi_awprot,	// Write Protection type
@@ -146,7 +146,7 @@ module faxil_master #(
 	always @(posedge i_clk)
 	if (i_axi_reset_n)
 		f_reset_length <= 0;
-	else if (!&f_reset_length)
+	else if (!(&f_reset_length))
 		f_reset_length <= f_reset_length + 1'b1;
 
 	always @(posedge i_clk)
@@ -196,7 +196,6 @@ module faxil_master #(
 	begin
 		// if (F_OPT_HAS_PROT) else
 		`SLAVE_ASSUME(i_axi_arprot  == 3'h0);
-		`SLAVE_ASSUME(i_axi_arcache == 4'h3);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
 			`SLAVE_ASSUME(i_axi_arcache == 4'h3);
@@ -234,14 +233,14 @@ module faxil_master #(
 	begin
 
 		// Incoming Write address channel
-		if (($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
+		if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 		begin
 			`SLAVE_ASSUME(i_axi_awvalid);
 			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
 		end
 
 		// Incoming Write data channel
-		if (($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
+		if ((f_past_valid)&&($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
 		begin
 			`SLAVE_ASSUME(i_axi_wvalid);
 			`SLAVE_ASSUME(i_axi_wstrb  == $past(i_axi_wstrb));
@@ -249,20 +248,20 @@ module faxil_master #(
 		end
 
 		// Incoming Read address channel
-		if (($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
+		if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 		begin
 			`SLAVE_ASSUME(i_axi_arvalid);
 			`SLAVE_ASSUME(i_axi_araddr  == $past(i_axi_araddr));
 		end
 
-		if (($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
+		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
 			`SLAVE_ASSERT(i_axi_rvalid);
 			`SLAVE_ASSERT(i_axi_rresp  == $past(i_axi_rresp));
 			`SLAVE_ASSERT(i_axi_rdata  == $past(i_axi_rdata));
 		end
 
-		if (($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
+		if ((f_past_valid)&&($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
 		begin
 			`SLAVE_ASSERT(i_axi_bvalid);
 			`SLAVE_ASSERT(i_axi_bresp  == $past(i_axi_bresp));
@@ -293,7 +292,9 @@ module faxil_master #(
 		//
 		reg	[(F_LGDEPTH-1):0]	f_axi_awstall,
 						f_axi_wstall,
-						f_axi_arstall;
+						f_axi_arstall,
+						f_axi_bstall,
+						f_axi_rstall;
 
 		initial	f_axi_awstall = 0;
 		always @(posedge i_clk)
@@ -319,7 +320,6 @@ module faxil_master #(
 		always @(*)
 			`SLAVE_ASSERT(f_axi_wstall < F_AXI_MAXWAIT);
 
-
 		//
 		// AXI read address channel
 		//
@@ -333,7 +333,60 @@ module faxil_master #(
 
 		always @(*)
 			`SLAVE_ASSERT(f_axi_arstall < F_AXI_MAXWAIT);
+
+		// AXI write response channel
+		initial	f_axi_bstall = 0;
+		always @(posedge i_clk)
+		if ((!i_axi_reset_n)||(!i_axi_bvalid)||(i_axi_bready))
+			f_axi_bstall <= 0;
+		else
+			f_axi_bstall <= f_axi_bstall + 1'b1;
+
+		always @(*)
+			`SLAVE_ASSUME(f_axi_bstall < F_AXI_MAXWAIT);
+
+		// AXI read response channel
+		initial	f_axi_rstall = 0;
+		always @(posedge i_clk)
+		if ((!i_axi_reset_n)||(!i_axi_rvalid)||(i_axi_rready))
+			f_axi_rstall <= 0;
+		else
+			f_axi_rstall <= f_axi_rstall + 1'b1;
+
+		always @(*)
+			`SLAVE_ASSUME(f_axi_rstall < F_AXI_MAXWAIT);
+
 	end endgenerate
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// Xilinx extensions/guarantees to the AXI protocol
+	//
+	//	1. The address line will never be more than two clocks ahead of
+	//		the write data channel, and
+	//	2. The write data channel will never be more than one clock
+	//		ahead of the address channel.
+	//
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// Rule number one:
+	always @(posedge i_clk)
+	if ((i_axi_reset_n)&&($past(i_axi_reset_n))
+		&&(!$past(i_axi_wvalid,2))&&($past(i_axi_awvalid,2))
+			&&($past(f_axi_awr_outstanding >= f_axi_wr_outstanding,2))
+		// ##1
+			&&(!$past(i_axi_wvalid)))
+		// |=>
+		`SLAVE_ASSUME(i_axi_wvalid);
+
+	// Rule number two:
+	always @(posedge i_clk)
+	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(i_axi_wvalid))
+			&&(f_axi_awr_outstanding <= f_axi_wr_outstanding))
+		`SLAVE_ASSUME(i_axi_awvalid);
 
 
 	////////////////////////////////////////////////////////////////////////
@@ -400,7 +453,6 @@ module faxil_master #(
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
-
 	generate if (F_AXI_MAXDELAY > 0)
 	begin : CHECK_MAX_DELAY
 
@@ -482,6 +534,5 @@ module faxil_master #(
 	// AXI read response channel
 	//
 	always @(posedge i_clk)
-		cover((i_axi_rvalid)&&(i_axi_rvalid));
-`endif
+		cover((i_axi_rvalid)&&(i_axi_rready));
 endmodule

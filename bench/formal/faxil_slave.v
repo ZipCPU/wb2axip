@@ -511,4 +511,28 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if ((!axi_ard_req)&&(i_axi_rvalid))
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// Cover properties
+	//
+	// We'll use this to prove that transactions are even possible, and
+	// hence that we haven't so constrained the bus that nothing can take
+	// place.
+	//
+	//
+	////////////////////////////////////////////////////////////////////////
+
+	//
+	// AXI write response channel
+	//
+	always @(posedge i_clk)
+		cover((i_axi_bvalid)&&(i_axi_bready));
+
+	//
+	// AXI read response channel
+	//
+	always @(posedge i_clk)
+		cover((i_axi_rvalid)&&(i_axi_rready));
 endmodule
