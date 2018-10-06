@@ -1,0 +1,15 @@
+[options]
+mode prove
+depth 20
+
+[engines]
+smtbmc
+
+[script]
+read -formal demoaxi.v
+read -formal faxil_slave.v
+prep -top demoaxi
+
+[files]
+../../rtl/demoaxi.v
+faxil_slave.v

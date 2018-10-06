@@ -234,14 +234,14 @@ module faxil_master #(
 	begin
 
 		// Incoming Write address channel
-		if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
+		if (($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 		begin
 			`SLAVE_ASSUME(i_axi_awvalid);
 			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
 		end
 
 		// Incoming Write data channel
-		if ((f_past_valid)&&($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
+		if (($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
 		begin
 			`SLAVE_ASSUME(i_axi_wvalid);
 			`SLAVE_ASSUME(i_axi_wstrb  == $past(i_axi_wstrb));
@@ -249,20 +249,20 @@ module faxil_master #(
 		end
 
 		// Incoming Read address channel
-		if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
+		if (($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 		begin
 			`SLAVE_ASSUME(i_axi_arvalid);
 			`SLAVE_ASSUME(i_axi_araddr  == $past(i_axi_araddr));
 		end
 
-		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
+		if (($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
 			`SLAVE_ASSERT(i_axi_rvalid);
 			`SLAVE_ASSERT(i_axi_rresp  == $past(i_axi_rresp));
 			`SLAVE_ASSERT(i_axi_rdata  == $past(i_axi_rdata));
 		end
 
-		if ((f_past_valid)&&($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
+		if (($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
 		begin
 			`SLAVE_ASSERT(i_axi_bvalid);
 			`SLAVE_ASSERT(i_axi_bresp  == $past(i_axi_bresp));
@@ -459,5 +459,29 @@ module faxil_master #(
 	always @(posedge i_clk)
 	if ((!axi_ard_req)&&(i_axi_rvalid))
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// Cover properties
+	//
+	// We'll use this to prove that transactions are even possible, and
+	// hence that we haven't so constrained the bus that nothing can take
+	// place.
+	//
+	//
+	////////////////////////////////////////////////////////////////////////
+
+	//
+	// AXI write response channel
+	//
+	always @(posedge i_clk)
+		cover((i_axi_bvalid)&&(i_axi_bready));
+
+	//
+	// AXI read response channel
+	//
+	always @(posedge i_clk)
+		cover((i_axi_rvalid)&&(i_axi_rvalid));
 `endif
 endmodule
