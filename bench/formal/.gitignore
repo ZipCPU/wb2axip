@@ -1,3 +1,5 @@
 *.smt2
 *.yslog
 *.check
+*.ys.v
+demoaxi
