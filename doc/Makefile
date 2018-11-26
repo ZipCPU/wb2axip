@@ -10,7 +10,7 @@
 ##	Targets include:
 ##		all		Builds all documents
 ##
-##		gpl-3.0.pdf	Builds the GPL license these files are released
+##		lgpl-3.0.pdf	Builds the LGPL license these files are released
 ##					under.
 ##
 ##		spec.pdf	Builds the specification for the SDSPI
@@ -21,43 +21,47 @@
 ##
 ################################################################################
 ##
-## Copyright (C) 2015-2016, Gisselquist Technology, LLC
+## Copyright (C) 2015-2016,2018 Gisselquist Technology, LLC
 ##
-## This program is free software (firmware): you can redistribute it and/or
-## modify it under the terms of  the GNU General Public License as published
-## by the Free Software Foundation, either version 3 of the License, or (at
-## your option) any later version.
+## This file is part of the pipelined Wishbone to AXI converter project, a
+## project that contains multiple bus bridging designs and formal bus property
+## sets.
 ##
-## This program is distributed in the hope that it will be useful, but WITHOUT
-## ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
-## FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-## for more details.
+## The bus bridge designs and property sets are free RTL designs: you can
+## redistribute them and/or modify any of them under the terms of the GNU
+## Lesser General Public License as published by the Free Software Foundation,
+## either version 3 of the License, or (at your option) any later version.
 ##
-## You should have received a copy of the GNU General Public License along
-## with this program.  (It's in the $(ROOT)/doc directory, run make with no
-## target there if the PDF file isn't present.)  If not, see
+## The bus bridge designs and property sets are distributed in the hope that
+## they will be useful, but WITHOUT ANY WARRANTY; without even the implied
+## warranty of MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU Lesser General Public License for more details.
+##
+## You should have received a copy of the GNU Lesser General Public License
+## along with these designs.  (It's in the $(ROOT)/doc directory.  Run make
+## with no target there if the PDF file isn't present.)  If not, see
 ## <http://www.gnu.org/licenses/> for a copy.
 ##
-## License:	GPL, v3, as defined and found on www.gnu.org,
-##		http://www.gnu.org/licenses/gpl.html
-##
+## License:	LGPL, v3, as defined and found on www.gnu.org,
+##		http://www.gnu.org/licenses/lgpl.html
 ##
 ################################################################################
 ##
 ##
-all:	gpl
-pdf:	gpl spec
+all:	lgpl
+pdf:	lgpl spec
 DSRC := src
 
-.PHONY: gpl
-gpl: gpl-3.0.pdf
+.PHONY: lgpl
+LICENSE := lgpl-3.0
+lgpl: $(LICENSE).pdf
 
-gpl-3.0.pdf: $(DSRC)/gpl-3.0.tex
-	latex $(DSRC)/gpl-3.0.tex
-	latex $(DSRC)/gpl-3.0.tex
-	dvips -q -z -t letter -P pdf -o gpl-3.0.ps gpl-3.0.dvi
-	ps2pdf -dAutoRotatePages=/All gpl-3.0.ps gpl-3.0.pdf
-	rm gpl-3.0.dvi gpl-3.0.log gpl-3.0.aux gpl-3.0.ps
+$(LICENSE).pdf: $(DSRC)/$(LICENSE).tex
+	latex $(DSRC)/$(LICENSE).tex
+	latex $(DSRC)/$(LICENSE).tex
+	dvips -q -z -t letter -P pdf -o $(LICENSE).ps $(LICENSE).dvi
+	ps2pdf -dAutoRotatePages=/All $(LICENSE).ps $(LICENSE).pdf
+	rm $(LICENSE).dvi $(LICENSE).log $(LICENSE).aux $(LICENSE).ps
 
 .PHONY: spec
 spec: spec.pdf
@@ -79,5 +83,4 @@ clean:
 	rm -f $(DSRC)/spec.aux $(DSRC)/spec.toc
 	rm -f $(DSRC)/spec.lot $(DSRC)/spec.lof
 	rm -f $(DSRC)/spec.out spec.ps spec.pdf
-	rm -f gpl-3.0.pdf
-
+	rm -f $(LICENSE).pdf

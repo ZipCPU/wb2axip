@@ -1,0 +1,21 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 20
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal demoaxi.v
+read -formal faxil_slave.v
+prep -top demoaxi
+
+[files]
+../../rtl/demoaxi.v
+faxil_slave.v

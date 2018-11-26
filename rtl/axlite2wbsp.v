@@ -1,14 +1,10 @@
-`error This full featured AXI to WB converter does not (yet) work
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axim2wbsp.v
+// Filename: 	axlite2wbsp.v
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	So ... this converter works in the other direction from
-//		wbm2axisp.  This converter takes AXI commands, and organizes
-//	them into pipelined wishbone commands.
-//
+// Purpose:	Take an AXI lite input, and convert it into WB.
 //
 //	We'll treat AXI as two separate busses: one for writes, another for
 //	reads, further, we'll insist that the two channels AXI uses for writes
@@ -49,108 +45,64 @@
 //
 `default_nettype	none
 //
-module axim2wbsp( i_clk, i_axi_reset_n,
+module axlite2wbsp( i_clk, i_axi_reset_n,
 	//
-	o_axi_awready, // Slave is ready to accept
-	i_axi_awid, i_axi_awaddr, i_axi_awlen, i_axi_awsize, i_axi_awburst,
-	i_axi_awlock, i_axi_awcache, i_axi_awprot, i_axi_awqos, i_axi_awvalid,
+	o_axi_awready, i_axi_awaddr, i_axi_awcache, i_axi_awprot, i_axi_awvalid,
 	//
-	o_axi_wready, i_axi_wdata, i_axi_wstrb, i_axi_wlast, i_axi_wvalid,
+	o_axi_wready, i_axi_wdata, i_axi_wstrb, i_axi_wvalid,
 	//
-	o_axi_bid, o_axi_bresp, o_axi_bvalid, i_axi_bready,
+	o_axi_bresp, o_axi_bvalid, i_axi_bready,
 	//
-	o_axi_arready,	// Read address ready
-	i_axi_arid,	// Read ID
-	i_axi_araddr,	// Read address
-	i_axi_arlen,	// Read Burst Length
-	i_axi_arsize,	// Read Burst size
-	i_axi_arburst,	// Read Burst type
-	i_axi_arlock,	// Read lock type
-	i_axi_arcache,	// Read Cache type
-	i_axi_arprot,	// Read Protection type
-	i_axi_arqos,	// Read Protection type
-	i_axi_arvalid,	// Read address valid
+	o_axi_arready, i_axi_araddr, i_axi_arcache, i_axi_arprot, i_axi_arvalid,
 	//
-	o_axi_rid,	// Response ID
-	o_axi_rresp,	// Read response
-	o_axi_rvalid,	// Read reponse valid
-	o_axi_rdata,	// Read data
-	o_axi_rlast,	// Read last
-	i_axi_rready,	// Read Response ready
+	o_axi_rresp, o_axi_rvalid, o_axi_rdata, i_axi_rready,
+	//
 	// Wishbone interface
 	o_reset, o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data, o_wb_sel,
 	i_wb_ack, i_wb_stall, i_wb_data, i_wb_err);
 	//
-	parameter C_AXI_ID_WIDTH	= 2; // The AXI id width used for R&W
-                                             // This is an int between 1-16
-	parameter C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
+	localparam C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28;	// AXI Address width
 	localparam DW = C_AXI_DATA_WIDTH;
-	localparam AW =   (C_AXI_DATA_WIDTH==  8) ? (C_AXI_ADDR_WIDTH)
-			:((C_AXI_DATA_WIDTH== 16) ? (C_AXI_ADDR_WIDTH-1)
-			:((C_AXI_DATA_WIDTH== 32) ? (C_AXI_ADDR_WIDTH-2)
-			:((C_AXI_DATA_WIDTH== 64) ? (C_AXI_ADDR_WIDTH-3)
-			:((C_AXI_DATA_WIDTH==128) ? (C_AXI_ADDR_WIDTH-4)
-			:(C_AXI_ADDR_WIDTH-5)))));
+	localparam AW = C_AXI_ADDR_WIDTH-2;
 	parameter	LGFIFO = 4;
-	parameter	[0:0]	F_STRICT_ORDER    = 0;
-	parameter	[0:0]	F_CONSECUTIVE_IDS = 0;
-	parameter	[0:0]	F_OPT_BURSTS      = 1'b0;
-	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b0;
 	parameter		F_MAXSTALL = 3;
 	parameter		F_MAXDELAY = 3;
 	parameter	[0:0]	OPT_READONLY  = 1'b1;
 	parameter	[0:0]	OPT_WRITEONLY = 1'b0;
-	parameter	[7:0]	OPT_MAXBURST = 8'h3;
 	//
 	input	wire			i_clk;	// System clock
 	input	wire			i_axi_reset_n;
 
 // AXI write address channel signals
-	output	wire			o_axi_awready; // Slave is ready to accept
-	input	wire	[C_AXI_ID_WIDTH-1:0]	i_axi_awid;	// Write ID
+	output	wire			o_axi_awready;//Slave is ready to accept
 	input	wire	[C_AXI_ADDR_WIDTH-1:0]	i_axi_awaddr;	// Write address
-	input	wire	[7:0]		i_axi_awlen;	// Write Burst Length
-	input	wire	[2:0]		i_axi_awsize;	// Write Burst size
-	input	wire	[1:0]		i_axi_awburst;	// Write Burst type
-	input	wire	[0:0]		i_axi_awlock;	// Write lock type
 	input	wire	[3:0]		i_axi_awcache;	// Write Cache type
 	input	wire	[2:0]		i_axi_awprot;	// Write Protection type
-	input	wire	[3:0]		i_axi_awqos;	// Write Quality of Svc
 	input	wire			i_axi_awvalid;	// Write address valid
 
 // AXI write data channel signals
 	output	wire			o_axi_wready;  // Write data ready
-	input	wire	[C_AXI_DATA_WIDTH-1:0]	i_axi_wdata;	// Write data
-	input	wire	[C_AXI_DATA_WIDTH/8-1:0] i_axi_wstrb;	// Write strobes
-	input	wire			i_axi_wlast; // Last write transaction
+	input	wire	[DW-1:0]	i_axi_wdata;	// Write data
+	input	wire	[DW/8-1:0] i_axi_wstrb;	// Write strobes
 	input	wire			i_axi_wvalid;	// Write valid
 
 // AXI write response channel signals
-	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_bid;	// Response ID
 	output	wire [1:0]		o_axi_bresp;	// Write response
 	output	wire 			o_axi_bvalid;  // Write reponse valid
 	input	wire			i_axi_bready;  // Response ready
 
 // AXI read address channel signals
 	output	wire			o_axi_arready;	// Read address ready
-	input	wire	[C_AXI_ID_WIDTH-1:0]	i_axi_arid;	// Read ID
 	input	wire	[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr;	// Read address
-	input	wire	[7:0]		i_axi_arlen;	// Read Burst Length
-	input	wire	[2:0]		i_axi_arsize;	// Read Burst size
-	input	wire	[1:0]		i_axi_arburst;	// Read Burst type
-	input	wire	[0:0]		i_axi_arlock;	// Read lock type
 	input	wire	[3:0]		i_axi_arcache;	// Read Cache type
 	input	wire	[2:0]		i_axi_arprot;	// Read Protection type
-	input	wire	[3:0]		i_axi_arqos;	// Read Protection type
 	input	wire			i_axi_arvalid;	// Read address valid
 
 // AXI read data channel signals
-	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_rid;     // Response ID
 	output	wire [1:0]		o_axi_rresp;   // Read response
 	output	wire			o_axi_rvalid;  // Read reponse valid
 	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata;    // Read data
-	output	wire			o_axi_rlast;    // Read last
 	input	wire			i_axi_rready;  // Read Response ready
 
 	// We'll share the clock and the reset
@@ -158,19 +110,18 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 	output	wire			o_wb_cyc;
 	output	wire			o_wb_stb;
 	output	wire			o_wb_we;
-	output	wire [(AW-1):0]	o_wb_addr;
-	output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data;
-	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel;
+	output	wire [(AW-1):0]		o_wb_addr;
+	output	wire [(DW-1):0]		o_wb_data;
+	output	wire [(DW/8-1):0]	o_wb_sel;
 	input	wire			i_wb_ack;
 	input	wire			i_wb_stall;
-	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data;
+	input	wire [(DW-1):0]		i_wb_data;
 	input	wire			i_wb_err;
 
 
 	//
 	//
 	//
-
 
 	wire	[(AW-1):0]			w_wb_addr, r_wb_addr;
 	wire	[(C_AXI_DATA_WIDTH-1):0]	w_wb_data;
@@ -201,7 +152,7 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 
 	generate if (!OPT_READONLY)
 	begin : AXI_WR
-	aximwr2wbsp #(
+	axlite2wbsp #(
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH), .AW(AW),
@@ -210,24 +161,16 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 			.i_axi_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 			//
 			.o_axi_awready(o_axi_awready),
-			.i_axi_awid(   i_axi_awid),
 			.i_axi_awaddr( i_axi_awaddr),
-			.i_axi_awlen(  i_axi_awlen),
-			.i_axi_awsize( i_axi_awsize),
-			.i_axi_awburst(i_axi_awburst),
-			.i_axi_awlock( i_axi_awlock),
 			.i_axi_awcache(i_axi_awcache),
 			.i_axi_awprot( i_axi_awprot),
-			.i_axi_awqos(  i_axi_awqos),
 			.i_axi_awvalid(i_axi_awvalid),
 			//
 			.o_axi_wready( o_axi_wready),
 			.i_axi_wdata(  i_axi_wdata),
 			.i_axi_wstrb(  i_axi_wstrb),
-			.i_axi_wlast(  i_axi_wlast),
 			.i_axi_wvalid( i_axi_wvalid),
 			//
-			.o_axi_bid(o_axi_bid),
 			.o_axi_bresp(o_axi_bresp),
 			.o_axi_bvalid(o_axi_bvalid),
 			.i_axi_bready(i_axi_bready),
@@ -272,7 +215,7 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 
 	generate if (!OPT_WRITEONLY)
 	begin : AXI_RD
-	aximrd2wbsp #(
+	axlite2wbsp #(
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH), .AW(AW),
@@ -281,22 +224,14 @@ module axim2wbsp( i_clk, i_axi_reset_n,
 			.i_axi_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 			//
 			.o_axi_arready(o_axi_arready),
-			.i_axi_arid(   i_axi_arid),
 			.i_axi_araddr( i_axi_araddr),
-			.i_axi_arlen(  i_axi_arlen),
-			.i_axi_arsize( i_axi_arsize),
-			.i_axi_arburst(i_axi_arburst),
-			.i_axi_arlock( i_axi_arlock),
 			.i_axi_arcache(i_axi_arcache),
 			.i_axi_arprot( i_axi_arprot),
-			.i_axi_arqos(  i_axi_arqos),
 			.i_axi_arvalid(i_axi_arvalid),
 			//
-			.o_axi_rid(   o_axi_rid),
 			.o_axi_rresp( o_axi_rresp),
 			.o_axi_rvalid(o_axi_rvalid),
 			.o_axi_rdata( o_axi_rdata),
-			.o_axi_rlast( o_axi_rlast),
 			.i_axi_rready(i_axi_rready),
 			//
 			.o_wb_cyc(  r_wb_cyc),

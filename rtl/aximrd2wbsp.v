@@ -1,3 +1,4 @@
+`error This full featured AXI to WB converter does not (yet) work
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	aximrd2wbsp.v
@@ -12,26 +13,29 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016, Gisselquist Technology, LLC
+// Copyright (C) 2016-2018, Gisselquist Technology, LLC
 //
-// This program is free software (firmware): you can redistribute it and/or
-// modify it under the terms of  the GNU General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or (at
-// your option) any later version.
+// This file is part of the pipelined Wishbone to AXI converter project, a
+// project that contains multiple bus bridging designs and formal bus property
+// sets.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
-// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-// for more details.
+// The bus bridge designs and property sets are free RTL designs: you can
+// redistribute them and/or modify any of them under the terms of the GNU
+// Lesser General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
 //
-// You should have received a copy of the GNU General Public License along
-// with this program.  (It's in the $(ROOT)/doc directory, run make with no
-// target there if the PDF file isn't present.)  If not, see
+// The bus bridge designs and property sets are distributed in the hope that
+// they will be useful, but WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with these designs.  (It's in the $(ROOT)/doc directory.  Run make
+// with no target there if the PDF file isn't present.)  If not, see
 // <http://www.gnu.org/licenses/> for a copy.
 //
-// License:	GPL, v3, as defined and found on www.gnu.org,
-//		http://www.gnu.org/licenses/gpl.html
-//
+// License:	LGPL, v3, as defined and found on www.gnu.org,
+//		http://www.gnu.org/licenses/lgpl.html
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -75,11 +79,18 @@ module	aximrd2wbsp #(
 	// We'll share the clock and the reset
 	output	reg				o_wb_cyc,
 	output	reg				o_wb_stb,
-	output	wire [(AW-1):0]	o_wb_addr,
+	output	wire [(AW-1):0]			o_wb_addr,
 	input	wire				i_wb_ack,
 	input	wire				i_wb_stall,
 	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
 	input	wire				i_wb_err
+`ifdef	FORMAL
+	,
+	output	wire	[LGFIFO-1:0]		f_fifo_head,
+	output	wire	[LGFIFO-1:0]		f_fifo_neck,
+	output	wire	[LGFIFO-1:0]		f_fifo_torso,
+	output	wire	[LGFIFO-1:0]		f_fifo_tail
+`endif
 	);
 
 	localparam	DW = C_AXI_DATA_WIDTH;
@@ -118,7 +129,7 @@ module	aximrd2wbsp #(
 	// LGFIFO bits, and since it is confusing to do that within IF 
 	// statements, 
 	wire	[LGFIFO-1:0]	next_head, next_neck, next_torso, next_tail,
-				almost_head;
+				almost_head, last_head;
 	wire		fifo_full;
 	assign	next_head  = fifo_head  + 1;
 	assign	next_neck  = fifo_neck  + 1;
@@ -128,7 +139,7 @@ module	aximrd2wbsp #(
 
 	assign fifo_full = (almost_head == fifo_tail);
 
-	reg	wr_last, filling_fifo, incr;
+	reg	wr_last, filling_fifo, incr, new_stb;
 	reg	[7:0]			len;
 	reg	[(AW-1):0]		wr_fifo_addr;
 	reg	[(C_AXI_ID_WIDTH-1):0]	wr_fifo_id;
@@ -148,11 +159,12 @@ module	aximrd2wbsp #(
 	//
 	//	RQ, ADDR, LAST
 	//
+	initial new_stb      = 0;
 	initial len          = 0;
 	initial filling_fifo = 0;
-	initial fifo_head    = 0;
 	always @(posedge i_axi_clk)
 	begin
+		new_stb <= 1'b0;
 		wr_last <= 1'b0;
 
 		if (filling_fifo)
@@ -162,10 +174,10 @@ module	aximrd2wbsp #(
 				len <= len - 1;
 				if (len == 1)
 					filling_fifo <= 1'b0;
-				fifo_head <= next_head;
 				wr_fifo_addr <= wr_fifo_addr
 					+ {{(AW-1){1'b0}}, incr};
 				wr_last <= (len == 1);
+				new_stb <= 1'b1;
 			end
 		end else begin
 			wr_fifo_addr <= i_axi_araddr[(C_AXI_ADDR_WIDTH-1):(C_AXI_ADDR_WIDTH-AW)];
@@ -173,10 +185,10 @@ module	aximrd2wbsp #(
 			incr <= i_axi_arburst[0];
 			if ((o_axi_arready)&&(i_axi_arvalid))
 			begin
-				fifo_head <= next_head;
+				new_stb <= 1'b1;
 				len <= i_axi_arlen;
 				filling_fifo <= (i_axi_arlen != 0);
-				wr_last <= 1'b1;
+				wr_last <= (i_axi_arlen == 0);
 			end
 		end
 
@@ -184,17 +196,42 @@ module	aximrd2wbsp #(
 		begin
 			len <= 0;
 			filling_fifo <= 1'b0;
-			fifo_head <= 0;
+			new_stb <= 1'b0;
 		end
 	end
 
+	initial fifo_head    = 0;
 	always @(posedge i_axi_clk)
-		afifo[fifo_head] <= { wr_fifo_id, wr_last, wr_fifo_addr };
+		if (w_reset)
+			fifo_head <= 0;
+		else if (new_stb)
+			fifo_head <= fifo_head + 1'b1;
+
+	always @(posedge i_axi_clk)
+		if (new_stb)
+			afifo[fifo_head] <= { wr_fifo_id,wr_last,wr_fifo_addr };
+
+	initial	fifo_neck = 0;
+	always @(posedge i_axi_clk)
+		if (w_reset)
+			fifo_neck <= 0;
+		else if (fifo_head != fifo_neck)
+		begin
+			if ((!o_wb_cyc)||(!i_wb_stall))
+				fifo_neck <= fifo_neck + 1'b1;
+			else if ((o_wb_cyc)&&(i_wb_err))
+				fifo_neck <= fifo_neck + 1'b1;
+			else if ((err_state)&&(!fifo_at_neck[AW]))
+				fifo_neck <= fifo_neck + 1'b1;
+		end
+
+	always @(posedge i_axi_clk)
+		if ((!o_wb_cyc)&&(!i_wb_stall))
+			fifo_at_neck <= afifo[fifo_neck];
 
 	reg	err_state;	
 	initial o_wb_cyc   = 1'b0;
 	initial o_wb_stb   = 1'b0;
-	initial fifo_neck  = 0;
 	initial fifo_torso = 0;
 	initial err_state  = 0;
 	always @(posedge i_axi_clk)
@@ -204,39 +241,53 @@ module	aximrd2wbsp #(
 			o_wb_cyc <= 1'b0;
 			o_wb_stb <= 1'b0;
 
-			fifo_neck  <= 0;
-			fifo_torso <= 0;
+			// fifo_torso <= 0;
 
 			err_state <= 0;
 		end else if (o_wb_stb)
 		begin
-			if (i_wb_err)
+			if (!i_wb_stall)
+				o_wb_stb <= (fifo_head != fifo_neck);
+			if ((fifo_head == fifo_neck)
+				&&(fifo_neck == next_torso)
+				&&(i_wb_ack))
 			begin
 				o_wb_stb <= 1'b0;
-				err_state <= 1'b1;
-			end else if (!i_wb_stall)
-			begin
-				o_wb_stb <= (fifo_head != next_neck);
-						// && (WBMODE != "B3SINGLE");
-				// o_wb_cyc <= (WBMODE != "B3SINGLE");
+				o_wb_cyc <= 1'b0;
 			end
 
-			if (!i_wb_stall)
-				fifo_neck <= next_neck;
-			if (i_wb_ack)
-				fifo_torso <= next_torso;
+			if (i_wb_err)
+			begin
+				o_wb_cyc  <= 1'b0;
+				o_wb_stb  <= 1'b0;
+				err_state <= 1'b1;
+			end
+`ifdef	FORMAL
+	assert(!err_state);
+`endif
 		end else if (err_state)
 		begin
-			fifo_torso <= next_torso;
 			if (fifo_neck == next_torso)
 				err_state <= 1'b0;
 			o_wb_cyc <= 1'b0;
+			o_wb_stb <= 1'b0;
 		end else if (o_wb_cyc)
 		begin
-			if (i_wb_ack)
-				fifo_torso <= next_torso;
-			if (fifo_neck == next_torso)
+			// if (i_wb_ack)
+				// fifo_torso <= next_torso;
+			if (fifo_head != fifo_neck)
+				o_wb_stb <= 1'b1;
+			else if (next_neck == fifo_torso)
 				o_wb_cyc <= 1'b0;
+			else if (fifo_neck == fifo_torso)
+				o_wb_cyc <= 1'b0;
+
+			if (i_wb_err)
+			begin
+				err_state <= 1'b1;
+				o_wb_stb <= 1'b0;
+				o_wb_cyc <= 1'b0;
+			end
 		end else if (fifo_neck != fifo_head)
 		begin
 			o_wb_cyc <= 1'b1;
@@ -244,29 +295,40 @@ module	aximrd2wbsp #(
 		end
 	end
 
-	always @(posedge i_axi_clk)
-		fifo_at_neck <= afifo[fifo_neck];
+assume property(!i_wb_err);
+
 	assign	o_wb_addr = fifo_at_neck[(AW-1):0];
 
 	always @(posedge i_axi_clk)
-		dfifo[fifo_torso] <= { (err_state)||(i_wb_err), i_wb_data };
+		if ((o_wb_cyc)&&((i_wb_ack)||(i_wb_err)))
+			dfifo[fifo_torso] <= { (err_state)||(i_wb_err),
+					i_wb_data };
+	always @(posedge i_axi_clk)
+		if (w_reset)
+			fifo_torso <= 0;
+		else if ((o_wb_cyc)&&((i_wb_ack)||(i_wb_err)))
+			fifo_torso <= fifo_torso + 1'b1;
+		else if ((err_state)&&(fifo_torso != fifo_neck))
+			fifo_torso <= fifo_torso + 1'b1;
 
-
+	initial	fifo_tail = 0;
 	always @(posedge i_axi_clk)
 		if (w_reset)
 			fifo_tail <= 0;
-		else if ((o_axi_rvalid)&&(i_axi_rready))
-			fifo_tail <= next_tail;
+		else if (fifo_tail != fifo_torso)
+		begin
+			if ((o_axi_rvalid)&&(i_axi_rready))
+				fifo_tail <= next_tail;
+		end
 
 	always @(posedge i_axi_clk)
-	begin
-		afifo_at_tail <= afifo[fifo_tail];
-		dfifo_at_tail <= dfifo[fifo_tail];
-		// o_axi_rdata <= dfifo[fifo_tail];
-		// o_axi_rlast <= afifo[fifo_tail];
-		// o_axi_rid   <= afifo[fifo_tail];
-	end
-	assign	o_axi_rlast = afifo_at_tail[AW];
+		if ((!o_axi_rvalid)||(i_axi_rready))
+			afifo_at_tail <= afifo[fifo_tail];
+	always @(posedge i_axi_clk)
+		if ((!o_axi_rvalid)||(i_axi_rready))
+			dfifo_at_tail <= dfifo[fifo_tail];
+
+	assign	o_axi_rlast = (o_axi_rvalid)&&(afifo_at_tail[AW]);
 	assign	o_axi_rid   = afifo_at_tail[(C_AXI_ID_WIDTH+AW):(AW+1)];
 	assign	o_axi_rresp = { (2){dfifo_at_tail[DW]} };
 	assign	o_axi_rdata = dfifo_at_tail[(DW-1):0];
@@ -275,10 +337,10 @@ module	aximrd2wbsp #(
 	always @(posedge i_axi_clk)
 		if (w_reset)
 			o_axi_rvalid <= 0;
-		else
-			o_axi_rvalid <= (fifo_tail != fifo_neck + 1);
+		else if ((!o_axi_rvalid)||(i_axi_rready))
+			o_axi_rvalid <= (fifo_tail != fifo_torso);
 
-	assign o_axi_arready = (!fifo_full)&&(!filling_fifo);
+	assign o_axi_arready = (!fifo_full)&&(!filling_fifo)&&(!err_state);
 
 	// Make Verilator happy
 	// verilator lint_off UNUSED
@@ -290,4 +352,86 @@ module	aximrd2wbsp #(
 			fifo_at_neck[(C_AXI_ID_WIDTH+AW+1)-1:AW],
 			i_axi_araddr[(C_AXI_ADDR_WIDTH-AW-1):0] };
 	// verilator lint_on  UNUSED
+
+`ifdef	FORMAL
+	reg	f_past_valid;
+	initial f_past_valid = 1'b0;
+	always @(posedge i_axi_clk)
+		f_past_valid <= 1'b1;
+
+	always @(*)
+		if (!f_past_valid)
+			assert(w_reset);
+
+	wire	[LGFIFO-1:0]	f_fifo_used, f_fifo_neck_used,
+				f_fifo_torso_used;
+	assign	f_fifo_used       = fifo_head - fifo_tail;
+	assign	f_fifo_neck_used  = fifo_head - fifo_neck;
+	assign	f_fifo_torso_used = fifo_head - fifo_torso;
+
+	always @(*)
+		assert((f_fifo_used < {(LGFIFO){1'b1}})||(!o_axi_arready));
+	always @(*)
+		assert(f_fifo_neck_used  <= f_fifo_used);
+	always @(*)
+		assert(f_fifo_torso_used <= f_fifo_used);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&($past(w_reset)))
+		assert(f_fifo_used == 0);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)
+			&&(!$past(w_reset))&&(!$past(err_state)))
+		begin
+			if (($past(fifo_head) != $past(fifo_torso))
+				&&(!$past(i_wb_ack)&&(!$past(i_wb_err))))
+				assert(o_wb_cyc);
+		end
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&($past(fifo_head) != $past(fifo_neck))
+			&&(!$past(w_reset))
+			&&(!$past(i_wb_err))&&(!$past(err_state))
+			&&($past(o_wb_cyc)))
+		assert(o_wb_stb);
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&(!$past(w_reset))
+			&&($past(fifo_head) == $past(fifo_neck))
+			&&($past(err_state))
+			&&(!$past(i_wb_stall)))
+		assert(!o_wb_stb);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&(!$past(w_reset))
+			&&($past(i_wb_err))&&($past(o_wb_cyc)))
+		assert(err_state);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&($past(err_state))
+			&&($past(fifo_neck)==$past(fifo_torso)))
+		assert(!err_state);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&($past(err_state)))
+		assert(!o_wb_cyc);
+
+	always @(posedge i_axi_clk)
+	if ((f_past_valid)&&($past(fifo_neck) == $past(fifo_torso)))
+		assert((!o_wb_cyc)||(o_wb_stb));
+
+	assign	f_fifo_head  = fifo_head;
+	assign	f_fifo_neck  = fifo_neck;
+	assign	f_fifo_torso = fifo_torso;
+	assign	f_fifo_tail  = fifo_tail;
+
+	f_order #(LGFIFO) assert_order(i_axi_clk, w_reset,
+			fifo_head, fifo_neck, fifo_torso, fifo_tail);
+
+	// always @(posedge i_axi_clk)
+	// if ((f_past_valid)&&($past(w_reset)))
+		// assume(i_axi_arvalid);
+		//cover((i_axi_arvalid)&&(o_axi_arready));
+
+`endif
 endmodule

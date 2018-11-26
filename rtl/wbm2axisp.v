@@ -61,7 +61,9 @@ module wbm2axisp #(
 	parameter C_AXI_ADDR_WIDTH	=  28,	// AXI Address width (log wordsize)
 	parameter DW			=  32,	// Wishbone data width
 	parameter AW			=  26,	// Wishbone address width (log wordsize)
-	parameter [0:0] STRICT_ORDER	= 1	// Reorder, or not? 0 -> Reorder
+	parameter [0:0] STRICT_ORDER	= 1,	// Reorder, or not? 0 -> Reorder
+	// For formal verification of asynchronous logic, F_OPT_CLK2FFLOGIC=1
+	parameter	F_OPT_CLK2FFLOGIC = 1'b0
 	) (
 	input	wire			i_clk,	// System clock
 	input	wire			i_reset,// Reset signal,drives AXI rst
@@ -165,7 +167,7 @@ module wbm2axisp #(
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	reg	wb_mid_cycle, wb_mid_abort;
+	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort, wb_cyc_stb;
 	wire	wb_abort;
 
 // Command logic
@@ -411,7 +413,6 @@ module wbm2axisp #(
 	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req,
 		axi_rd_err, axi_wr_err;
 	// verilator lint_on  UNUSED
-
 	//
 	assign	axi_ard_req = (o_axi_arvalid)&&(i_axi_arready);
 	assign	axi_awr_req = (o_axi_awvalid)&&(i_axi_awready);
@@ -431,6 +432,10 @@ module wbm2axisp #(
 	// reorder buffer as well, to place our out of order bus responses
 	// back into order.  Responses on the wishbone, however, are *always*
 	// done in order.
+`ifdef	FORMAL
+	reg	[31:0]	reorder_count;
+`endif
+	integer	k;
 	generate
 	if (STRICT_ORDER == 0)
 	begin
@@ -488,6 +493,32 @@ module wbm2axisp #(
 			end
 		end
 
+`ifdef	FORMAL
+		always @(*)
+		begin
+			reorder_count = 0;
+			for(k=0; k<FIFOLN; k=k+1)
+				if (reorder_fifo_valid[k])
+					reorder_count = reorder_count + 1;
+		end
+
+		reg	[(FIFOLN-1):0]	f_reorder_fifo_valid_zerod,
+					f_reorder_fifo_err_zerod;
+		always @(*)
+			f_reorder_fifo_valid_zerod <=
+				((reorder_fifo_valid >> fifo_tail)
+				| (reorder_fifo_valid << (FIFOLN-fifo_tail)));
+		always @(*)
+			assert((f_reorder_fifo_valid_zerod & (~((1<<f_fifo_used)-1)))==0);
+		//
+		always @(*)
+			f_reorder_fifo_err_zerod <=
+				((reorder_fifo_valid >> fifo_tail)
+				| (reorder_fifo_valid << (FIFOLN-fifo_tail)));
+		always @(*)
+			assert((f_reorder_fifo_err_zerod & (~((1<<f_fifo_used)-1)))==0);
+`endif
+
 		reg	r_fifo_full;
 		initial	r_fifo_full = 0;
 		always @(posedge i_clk)
@@ -534,6 +565,11 @@ module wbm2axisp #(
 			end
 		end
 
+`ifdef	FORMAL
+		always @(*)
+			reorder_count = (reorder_fifo_valid) ? 1 : 0;
+`endif
+
 		initial	fifo_tail = 0;
 		always @(posedge i_clk)
 		if (i_reset)
@@ -573,16 +609,19 @@ module wbm2axisp #(
 		end
 
 		assign w_fifo_full = r_fifo_full;
-
-		// verilator lint_off UNUSED
-		wire	[2*C_AXI_ID_WIDTH-1:0]	strict_unused;
-		assign	strict_unused = { i_axi_bid, i_axi_rid };
-		// verilator lint_on  UNUSED
 	end endgenerate
 
 	//
 	// Wishbone abort logic
 	//
+
+	// Did we just accept something?
+	initial	wb_cyc_stb = 1'b0;
+	always @(posedge i_clk)
+	if (i_reset)
+		wb_cyc_stb <= 1'b0;
+	else
+		wb_cyc_stb <= (i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall);
 
 	// Else, are we mid-cycle?
 	initial	wb_mid_cycle = 0;
@@ -617,11 +656,6 @@ module wbm2axisp #(
 				||((o_axi_wvalid )&&(!i_axi_wready ))
 				||((o_axi_arvalid)&&(!i_axi_arready)));
 
-	// Make Verilator happy
-	// verilator lint_off UNUSED
-	wire    [2:0]   unused;
-	assign  unused = { i_axi_bresp[0], i_axi_rresp[0], i_axi_rlast };
-	// verilator lint_on  UNUSED
 
 /////////////////////////////////////////////////////////////////////////
 //
@@ -634,7 +668,532 @@ module wbm2axisp #(
 //
 //
 /////////////////////////////////////////////////////////////////////////
+`ifdef	FORMAL
+	reg	f_err_state;
 //
-// This section has been removed from this release.
-//
+`ifdef	WBM2AXISP
+// If we are the top-level of the design ...
+`define	ASSUME	assume
+`define	FORMAL_CLOCK	assume(i_clk == !f_last_clk); f_last_clk <= i_clk;
+`else
+`define	ASSUME	assert
+`define	FORMAL_CLOCK	f_last_clk <= i_clk; // Clock will be given to us valid already
+`endif
+
+	// Parameters
+	initial	assert(	  (C_AXI_DATA_WIDTH / DW == 4)
+			||(C_AXI_DATA_WIDTH / DW == 2)
+			||(C_AXI_DATA_WIDTH      == DW));
+	//
+	initial	assert( C_AXI_ADDR_WIDTH - LG_AXI_DW + LG_WB_DW == AW);
+
+	//
+	// Setup
+	//
+
+	reg	f_past_valid, f_last_clk;
+
+	always @($global_clock)
+	begin
+		`FORMAL_CLOCK
+
+		// Assume our inputs will only change on the positive edge
+		// of the clock
+		if (!$rose(i_clk))
+		begin
+			// AXI inputs
+			`ASSUME($stable(i_axi_awready));
+			`ASSUME($stable(i_axi_wready));
+			`ASSUME($stable(i_axi_bid));
+			`ASSUME($stable(i_axi_bresp));
+			`ASSUME($stable(i_axi_bvalid));
+			`ASSUME($stable(i_axi_arready));
+			`ASSUME($stable(i_axi_rid));
+			`ASSUME($stable(i_axi_rresp));
+			`ASSUME($stable(i_axi_rvalid));
+			`ASSUME($stable(i_axi_rdata));
+			`ASSUME($stable(i_axi_rlast));
+			// Wishbone inputs
+			`ASSUME((i_reset)||($stable(i_reset)));
+			`ASSUME($stable(i_wb_cyc));
+			`ASSUME($stable(i_wb_stb));
+			`ASSUME($stable(i_wb_we));
+			`ASSUME($stable(i_wb_addr));
+			`ASSUME($stable(i_wb_data));
+			`ASSUME($stable(i_wb_sel));
+		end
+	end
+
+	initial	f_past_valid = 1'b0;
+	always @(posedge i_clk)
+		f_past_valid <= 1'b1;
+
+	//////////////////////////////////////////////
+	//
+	//
+	// Assumptions about the WISHBONE inputs
+	//
+	//
+	//////////////////////////////////////////////
+	assume property(f_past_valid || i_reset);
+
+	wire	[(C_AXI_ID_WIDTH-1):0]	f_wb_nreqs, f_wb_nacks,f_wb_outstanding;
+	fwb_slave #(.DW(DW),.AW(AW),
+			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC),
+			.F_MAX_STALL(0),
+			.F_MAX_ACK_DELAY(0),
+			.F_LGDEPTH(C_AXI_ID_WIDTH),
+			.F_MAX_REQUESTS((1<<(C_AXI_ID_WIDTH))-2))
+		f_wb(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr,
+					i_wb_data, i_wb_sel,
+				o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
+			f_wb_nreqs, f_wb_nacks, f_wb_outstanding);
+
+	wire	[(C_AXI_ID_WIDTH-1):0]	f_axi_rd_outstanding,
+					f_axi_wr_outstanding,
+					f_axi_awr_outstanding;
+
+	wire	[((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_rd_id_outstanding,
+						f_axi_wr_id_outstanding,
+						f_axi_awr_id_outstanding;
+
+	faxi_master #(
+		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
+		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
+		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
+		.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC),
+		.F_AXI_MAXSTALL(3),
+		.F_AXI_MAXDELAY(3),
+		.F_STRICT_ORDER(STRICT_ORDER),
+		.F_CONSECUTIVE_IDS(1'b1),
+		.F_OPT_BURSTS(1'b0),
+		.F_CHECK_IDS(1'b1))
+		f_axi(.i_clk(i_clk), .i_axi_reset_n(!i_reset),
+			// Write address channel
+			.i_axi_awready(i_axi_awready), 
+			.i_axi_awid(   o_axi_awid), 
+			.i_axi_awaddr( o_axi_awaddr), 
+			.i_axi_awlen(  o_axi_awlen), 
+			.i_axi_awsize( o_axi_awsize), 
+			.i_axi_awburst(o_axi_awburst), 
+			.i_axi_awlock( o_axi_awlock), 
+			.i_axi_awcache(o_axi_awcache), 
+			.i_axi_awprot( o_axi_awprot), 
+			.i_axi_awqos(  o_axi_awqos), 
+			.i_axi_awvalid(o_axi_awvalid), 
+			// Write data channel
+			.i_axi_wready( i_axi_wready),
+			.i_axi_wdata(  o_axi_wdata),
+			.i_axi_wstrb(  o_axi_wstrb),
+			.i_axi_wlast(  o_axi_wlast),
+			.i_axi_wvalid( o_axi_wvalid),
+			// Write response channel
+			.i_axi_bid(    i_axi_bid),
+			.i_axi_bresp(  i_axi_bresp),
+			.i_axi_bvalid( i_axi_bvalid),
+			.i_axi_bready( o_axi_bready),
+			// Read address channel
+			.i_axi_arready(i_axi_arready),
+			.i_axi_arid(   o_axi_arid),
+			.i_axi_araddr( o_axi_araddr),
+			.i_axi_arlen(  o_axi_arlen),
+			.i_axi_arsize( o_axi_arsize),
+			.i_axi_arburst(o_axi_arburst),
+			.i_axi_arlock( o_axi_arlock),
+			.i_axi_arcache(o_axi_arcache),
+			.i_axi_arprot( o_axi_arprot),
+			.i_axi_arqos(  o_axi_arqos),
+			.i_axi_arvalid(o_axi_arvalid),
+			// Read data channel
+			.i_axi_rid(    i_axi_rid),
+			.i_axi_rresp(  i_axi_rresp),
+			.i_axi_rvalid( i_axi_rvalid),
+			.i_axi_rdata(  i_axi_rdata),
+			.i_axi_rlast(  i_axi_rlast),
+			.i_axi_rready( o_axi_rready),
+			// Counts
+			.f_axi_rd_outstanding( f_axi_rd_outstanding),
+			.f_axi_wr_outstanding( f_axi_wr_outstanding),
+			.f_axi_awr_outstanding( f_axi_awr_outstanding),
+			// Outstanding ID's
+			.f_axi_rd_id_outstanding( f_axi_rd_id_outstanding),
+			.f_axi_wr_id_outstanding( f_axi_wr_id_outstanding),
+			.f_axi_awr_id_outstanding(f_axi_awr_id_outstanding)
+		);
+
+
+
+	//////////////////////////////////////////////
+	//
+	//
+	// Assumptions about the AXI inputs
+	//
+	//
+	//////////////////////////////////////////////
+
+
+	//////////////////////////////////////////////
+	//
+	//
+	// Assertions about the AXI4 ouputs
+	//
+	//
+	//////////////////////////////////////////////
+
+	wire	[(LGFIFOLN-1):0]	f_last_transaction_id;
+	assign	f_last_transaction_id = transaction_id- 1;
+	always @(posedge i_clk)
+	if ((f_past_valid)&&(!$past(i_reset)))
+	begin
+		assert(o_axi_awid == f_last_transaction_id);
+		if ($past(o_wb_stall))
+			assert($stable(o_axi_awid));
+	end
+
+	// Write response channel
+	always @(posedge i_clk)
+		// We keep bready high, so the other condition doesn't
+		// need to be checked
+		assert(o_axi_bready);
+
+	// AXI read data channel signals
+	always @(posedge i_clk)
+		// We keep o_axi_rready high, so the other condition's
+		// don't need to be checked here
+		assert(o_axi_rready);
+
+	//
+	// Let's look into write requests
+	//
+	initial	assert(!o_axi_awvalid);
+	initial	assert(!o_axi_wvalid);
+	always @(posedge i_clk)
+	if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we))&&(!$past(o_wb_stall)))
+	begin
+		if ($past(i_reset))
+		begin
+			assert(!o_axi_awvalid);
+			assert(!o_axi_wvalid);
+		end else begin
+			// Following any write request that we accept, awvalid
+			// and wvalid should both be true
+			assert(o_axi_awvalid);
+			assert(o_axi_wvalid);
+		end
+	end
+
+	// Let's assume all responses will come within 120 clock ticks
+	parameter	[(C_AXI_ID_WIDTH-1):0]	F_AXI_MAXDELAY = 3,
+						F_AXI_MAXSTALL = 3; // 7'd120;
+	localparam	[(C_AXI_ID_WIDTH):0]	F_WB_MAXDELAY = F_AXI_MAXDELAY + 4;
+
+	//
+	// AXI write address channel
+	//
+	always @(posedge i_clk)
+	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
+	begin
+		if (($past(i_reset))||(!$past(i_wb_stb)))
+			assert(!o_axi_awvalid);
+		else
+			assert(o_axi_awvalid == $past(i_wb_we));
+	end
+	//
+	generate
+	if (C_AXI_DATA_WIDTH      == DW)
+	begin
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
+			&&(!$past(o_wb_stall)))
+			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:0]), axi_bottom_addr });
+
+	end else if (C_AXI_DATA_WIDTH / DW == 2)
+	begin
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
+			&&(!$past(o_wb_stall)))
+			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:1]), axi_bottom_addr });
+
+	end else if (C_AXI_DATA_WIDTH / DW == 4)
+	begin
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
+			&&(!$past(o_wb_stall)))
+			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:2]), axi_bottom_addr });
+
+	end endgenerate
+
+	//
+	// AXI write data channel
+	//
+	always @(posedge i_clk)
+	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
+	begin
+		if (($past(i_reset))||(!$past(i_wb_stb)))
+			assert(!o_axi_wvalid);
+		else
+			assert(o_axi_wvalid == $past(i_wb_we));
+	end
+	//
+	generate
+	if (C_AXI_DATA_WIDTH == DW)
+	begin
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we)))
+		begin
+			assert(o_axi_wdata == $past(i_wb_data));
+			assert(o_axi_wstrb == $past(i_wb_sel));
+		end
+
+	end else if (C_AXI_DATA_WIDTH / DW == 2)
+	begin
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we)))
+		begin
+			case($past(i_wb_addr[0]))
+			1'b0: assert(o_axi_wdata[(  DW-1): 0] == $past(i_wb_data));
+			1'b1: assert(o_axi_wdata[(2*DW-1):DW] == $past(i_wb_data));
+			endcase
+
+			case($past(i_wb_addr[0]))
+			1'b0: assert(o_axi_wstrb == {  no_sel,$past(i_wb_sel)});
+			1'b1: assert(o_axi_wstrb == {  $past(i_wb_sel),no_sel});
+			endcase
+		end
+
+	end else if (C_AXI_DATA_WIDTH / DW == 4)
+	begin
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&($past(i_wb_stb))&&(!$past(o_wb_stall))&&($past(i_wb_we)))
+		begin
+			case($past(i_wb_addr[1:0]))
+			2'b00: assert(o_axi_wdata[  (DW-1):    0 ] == $past(i_wb_data));
+			2'b00: assert(o_axi_wdata[(2*DW-1):(  DW)] == $past(i_wb_data));
+			2'b00: assert(o_axi_wdata[(3*DW-1):(2*DW)] == $past(i_wb_data));
+			2'b11: assert(o_axi_wdata[(4*DW-1):(3*DW)] == $past(i_wb_data));
+			endcase
+
+			case($past(i_wb_addr[1:0]))
+			2'b00: assert(o_axi_wstrb == { {(3){no_sel}},$past(i_wb_sel)});
+			2'b01: assert(o_axi_wstrb == { {(2){no_sel}},$past(i_wb_sel), {(1){no_sel}}});
+			2'b10: assert(o_axi_wstrb == { {(1){no_sel}},$past(i_wb_sel), {(2){no_sel}}});
+			2'b11: assert(o_axi_wstrb == {       $past(i_wb_sel),{(3){no_sel}}});
+			endcase
+		end
+	end endgenerate
+
+	//
+	// AXI read address channel
+	//
+	initial	assert(!o_axi_arvalid);
+	always @(posedge i_clk)
+	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
+	begin
+		if (($past(i_reset))||(!$past(i_wb_stb)))
+			assert(!o_axi_arvalid);
+		else
+			assert(o_axi_arvalid == !$past(i_wb_we));
+	end
+	//
+	generate
+	if (C_AXI_DATA_WIDTH == DW)
+	begin
+		always @(posedge i_clk)
+			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
+				&&(!$past(o_wb_stall)))
+				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:0], axi_bottom_addr }));
+
+	end else if (C_AXI_DATA_WIDTH / DW == 2)
+	begin
+
+		always @(posedge i_clk)
+			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
+				&&(!$past(o_wb_stall)))
+				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:1], axi_bottom_addr }));
+
+	end else if (C_AXI_DATA_WIDTH / DW == 4)
+	begin
+		always @(posedge i_clk)
+			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
+				&&(!$past(o_wb_stall)))
+				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:2], axi_bottom_addr }));
+
+	end endgenerate
+
+	//
+	// AXI write response channel
+	//
+
+
+	//
+	// AXI read data channel signals
+	//
+	always @(posedge i_clk)
+		`ASSUME(f_axi_rd_outstanding <= f_wb_outstanding);
+	//
+	always @(posedge i_clk)
+		`ASSUME(f_axi_rd_outstanding + f_axi_wr_outstanding  <= f_wb_outstanding);
+	always @(posedge i_clk)
+		`ASSUME(f_axi_rd_outstanding + f_axi_awr_outstanding <= f_wb_outstanding);
+	//
+	always @(posedge i_clk)
+		`ASSUME(f_axi_rd_outstanding + f_axi_wr_outstanding +2 > f_wb_outstanding);
+	always @(posedge i_clk)
+		`ASSUME(f_axi_rd_outstanding + f_axi_awr_outstanding +2 > f_wb_outstanding);
+
+	// Make sure we only create one request at a time
+	always @(posedge i_clk)
+		assert((!o_axi_arvalid)||(!o_axi_wvalid));
+	always @(posedge i_clk)
+		assert((!o_axi_arvalid)||(!o_axi_awvalid));
+
+	// Now, let's look into that FIFO.  Without it, we know nothing about the ID's
+
+	// Error handling
+	always @(posedge i_clk)
+		if (!i_wb_cyc)
+			f_err_state <= 0;
+		else if (o_wb_err)
+			f_err_state <= 1;
+	always @(posedge i_clk)
+		if ((f_past_valid)&&($past(f_err_state))&&(
+				(!$past(o_wb_stall))||(!$past(i_wb_stb))))
+			`ASSUME(!i_wb_stb);
+
+	// Head and tail pointers
+
+	// The head should only increment when something goes through
+	always @(posedge i_clk)
+		if ((f_past_valid)&&(!$past(i_reset))
+				&&((!$past(i_wb_stb))||($past(o_wb_stall))))
+			assert($stable(fifo_head));
+
+	// Can't overrun the FIFO
+	wire	[(LGFIFOLN-1):0]	f_fifo_tail_minus_one;
+	assign	f_fifo_tail_minus_one = fifo_tail - 1'b1;
+	always @(posedge i_clk)
+	if ((!f_past_valid)||($past(i_reset)))
+		assert(fifo_head == fifo_tail);
+	else if ((f_past_valid)&&($past(fifo_head == f_fifo_tail_minus_one)))
+		assert(fifo_head != fifo_tail);
+
+	reg			f_pre_ack;
+
+	wire	[(LGFIFOLN-1):0]	f_fifo_used;
+	assign	f_fifo_used = fifo_head - fifo_tail;
+
+	initial	assert(fifo_tail == 0);
+	initial assert(reorder_fifo_valid        == 0);
+	initial assert(reorder_fifo_err          == 0);
+	initial f_pre_ack = 1'b0;
+	always @(posedge i_clk)
+	begin
+		f_pre_ack <= (!wb_abort)&&((axi_rd_ack)||(axi_wr_ack));
+		if (STRICT_ORDER)
+		begin
+			`ASSUME((!axi_rd_ack)||(!axi_wr_ack));
+
+			if ((f_past_valid)&&(!$past(i_reset)))
+				assert((!$past(i_wb_cyc))
+					||(o_wb_ack == $past(f_pre_ack)));
+		end
+	end
+
+	//
+	// Verify that there are no outstanding requests outside of the FIFO
+	// window.  This should never happen, but the formal tools need to know
+	// that.
+	//
+	always @(*)
+	begin
+		assert((f_axi_rd_id_outstanding&f_axi_wr_id_outstanding)==0);
+		assert((f_axi_rd_id_outstanding&f_axi_awr_id_outstanding)==0);
+
+		if (fifo_head == fifo_tail)
+		begin
+			assert(f_axi_rd_id_outstanding  == 0);
+			assert(f_axi_wr_id_outstanding  == 0);
+			assert(f_axi_awr_id_outstanding == 0);
+		end
+
+		for(k=0; k<(1<<LGFIFOLN); k=k+1)
+		begin
+			if (      ((fifo_tail < fifo_head)&&(k <  fifo_tail))
+				||((fifo_tail < fifo_head)&&(k >= fifo_head))
+				||((fifo_head < fifo_tail)&&(k >= fifo_head)&&(k < fifo_tail))
+				//||((fifo_head < fifo_tail)&&(k >=fifo_tail))
+				)
+			begin
+				assert(f_axi_rd_id_outstanding[k]==0);
+				assert(f_axi_wr_id_outstanding[k]==0);
+				assert(f_axi_awr_id_outstanding[k]==0);
+			end
+		end
+	end
+
+	generate
+	if (STRICT_ORDER)
+	begin : STRICTREQ
+
+		reg	[C_AXI_ID_WIDTH-1:0]	f_last_axi_id;
+		wire	[C_AXI_ID_WIDTH-1:0]	f_next_axi_id,
+						f_expected_last_id;
+		assign	f_next_axi_id = f_last_axi_id + 1'b1;
+		assign	f_expected_last_id = fifo_head - 1'b1 - f_fifo_used;
+
+		initial	f_last_axi_id = -1;
+		always @(posedge i_clk)
+			if (i_reset)
+				f_last_axi_id = -1;
+			else if ((axi_rd_ack)||(axi_wr_ack))
+				f_last_axi_id <= f_next_axi_id;
+			else if (f_fifo_used == 0)
+				assert(f_last_axi_id == fifo_head-1'b1);
+
+		always @(posedge i_clk)
+			if (axi_rd_ack)
+				`ASSUME(i_axi_rid == f_next_axi_id);
+			else if (axi_wr_ack)
+				`ASSUME(i_axi_bid == f_next_axi_id);
+	end endgenerate
+
+	reg	f_pending, f_returning;
+	initial	f_pending = 1'b0;
+	always @(*)
+		f_pending <= (o_axi_arvalid)||(o_axi_awvalid);
+	always @(*)
+		f_returning <= (axi_rd_ack)||(axi_wr_ack);
+
+	reg	[(LGFIFOLN):0]	f_pre_count;
+
+	always @(*)
+		f_pre_count <= f_axi_awr_outstanding
+		 	+ f_axi_rd_outstanding
+			+ reorder_count
+			+ { {(LGFIFOLN){1'b0}}, (o_wb_ack) }
+			+ { {(LGFIFOLN){1'b0}}, (f_pending) };
+	always @(posedge i_clk)
+		assert((wb_abort)||(o_wb_err)||(f_pre_count == f_wb_outstanding));
+
+	always @(posedge i_clk)
+		assert((wb_abort)||(o_wb_err)||(f_fifo_used == f_wb_outstanding
+					// + {{(LGFIFOLN){1'b0}},f_past_valid)(i_wb_stb)&&(!o_wb_ack)}
+					- {{(LGFIFOLN){1'b0}},(o_wb_ack)}));
+
+	always @(posedge i_clk)
+		if (o_axi_wvalid)
+			assert(f_fifo_used != 0);
+	always @(posedge i_clk)
+		if (o_axi_arvalid)
+			assert(f_fifo_used != 0);
+	always @(posedge i_clk)
+		if (o_axi_awvalid)
+			assert(f_fifo_used != 0);
+
+`endif
 endmodule

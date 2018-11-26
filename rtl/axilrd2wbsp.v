@@ -12,26 +12,29 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2018, Gisselquist Technology, LLC
+// Copyright (C) 2016-2018, Gisselquist Technology, LLC
 //
-// This program is free software (firmware): you can redistribute it and/or
-// modify it under the terms of  the GNU General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or (at
-// your option) any later version.
+// This file is part of the pipelined Wishbone to AXI converter project, a
+// project that contains multiple bus bridging designs and formal bus property
+// sets.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT
-// ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
-// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-// for more details.
+// The bus bridge designs and property sets are free RTL designs: you can
+// redistribute them and/or modify any of them under the terms of the GNU
+// Lesser General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
 //
-// You should have received a copy of the GNU General Public License along
-// with this program.  (It's in the $(ROOT)/doc directory, run make with no
-// target there if the PDF file isn't present.)  If not, see
+// The bus bridge designs and property sets are distributed in the hope that
+// they will be useful, but WITHOUT ANY WARRANTY; without even the implied
+// warranty of MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with these designs.  (It's in the $(ROOT)/doc directory.  Run make
+// with no target there if the PDF file isn't present.)  If not, see
 // <http://www.gnu.org/licenses/> for a copy.
 //
-// License:	GPL, v3, as defined and found on www.gnu.org,
-//		http://www.gnu.org/licenses/gpl.html
-//
+// License:	LGPL, v3, as defined and found on www.gnu.org,
+//		http://www.gnu.org/licenses/lgpl.html
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -267,5 +270,157 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	// verilator lint_on  UNUSED
 
 `ifdef	FORMAL
+	reg	f_past_valid;
+	initial f_past_valid = 1'b0;
+	always @(posedge i_clk)
+		f_past_valid <= 1'b1;
+
+	always @(*)
+	if (!f_past_valid)
+		assume(w_reset);
+
+	always @(*)
+	if (err_state)
+		assert(!o_axi_arready);
+
+	always @(*)
+	if (err_state)
+		assert((!o_wb_cyc)&&(!o_axi_arready));
+
+	always @(*)
+	if ((fifo_empty)&&(!w_reset))
+		assert((!fifo_full)&&(r_first == r_last)&&(r_mid == r_last));
+
+	always @(*)
+	if (fifo_full)
+		assert((!fifo_empty)
+			&&(r_first[LGFIFO-1:0] == r_last[LGFIFO-1:0])
+			&&(r_first[LGFIFO] != r_last[LGFIFO]));
+
+	always @(*)
+	assert(fifo_fill <= (1<<LGFIFO));
+
+	always @(*)
+	if (fifo_full)
+		assert(!o_axi_arready);
+	always @(*)
+		assert(fifo_full == (fifo_fill == (1<<LGFIFO)));
+	always @(*)
+	if (fifo_fill == (1<<LGFIFO))
+		assert(!o_axi_arready);
+	always @(*)
+		assert(wb_pending == (wb_outstanding != 0));
+
+	always @(*)
+		assert(last_ack == (wb_outstanding <= 1));
+
+
+	assign	f_first = r_first;
+	assign	f_mid   = r_mid;
+	assign	f_last  = r_last;
+
+	wire	[LGFIFO:0]	f_wb_nreqs, f_wb_nacks, f_wb_outstanding;
+	fwb_master #(
+		.AW(AW), .DW(DW), .F_LGDEPTH(LGFIFO+1)
+		) fwb(i_clk, w_reset,
+		o_wb_cyc, o_wb_stb, 1'b0, o_wb_addr, 32'h0, 4'h0,
+			i_wb_ack, i_wb_stall, i_wb_data, i_wb_err,
+		f_wb_nreqs,f_wb_nacks, f_wb_outstanding);
+
+	always @(*)
+	if (o_wb_cyc)
+		assert(f_wb_outstanding == wb_outstanding);
+
+	always @(*)
+	if (o_wb_cyc)
+		assert(wb_outstanding <= (1<<LGFIFO));
+
+	wire	[LGFIFO:0]	wb_fill;
+	assign	wb_fill = r_first - r_mid;
+	always @(*)
+		assert(wb_fill <= fifo_fill);
+	always @(*)
+	if (o_wb_stb)
+		assert(wb_outstanding+1 == wb_fill);
+	else if (o_wb_cyc)
+		assert(wb_outstanding == wb_fill);
+
+	wire	[LGFIFO:0]	f_axi_rd_outstanding,
+				f_axi_wr_outstanding,
+				f_axi_awr_outstanding;
+
+	faxil_slave #(
+		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
+		.F_LGDEPTH(LGFIFO+1),
+		.F_AXI_MAXWAIT(0),
+		.F_AXI_MAXDELAY(0)
+		) faxil(i_clk, i_axi_reset_n,
+		//
+		// AXI write address channel signals
+		1'b0, i_axi_araddr, i_axi_arcache, i_axi_arprot, 1'b0,
+		// AXI write data channel signals
+		1'b0, 32'h0, 4'h0, 1'b0,
+		// AXI write response channel signals
+		2'b00, 1'b0, 1'b0,
+		// AXI read address channel signals
+		o_axi_arready, i_axi_araddr, i_axi_arcache, i_axi_arprot,
+			i_axi_arvalid,
+		// AXI read data channel signals
+		o_axi_rresp, o_axi_rvalid, o_axi_rdata, i_axi_rready,
+		f_axi_rd_outstanding, f_axi_wr_outstanding,
+		f_axi_awr_outstanding);
+
+	always @(*)
+		assert(f_axi_wr_outstanding == 0);
+	always @(*)
+		assert(f_axi_awr_outstanding == 0);
+	always @(*)
+		assert(f_axi_rd_outstanding == fifo_fill);
+
+	wire	[LGFIFO:0]	f_mid_minus_err, f_err_minus_last,
+				f_first_minus_err;
+	assign	f_mid_minus_err  = f_mid - err_loc;
+	assign	f_err_minus_last = err_loc - f_last;
+	assign	f_first_minus_err = f_first - err_loc;
+	always @(*)
+	if (o_axi_rvalid)
+	begin
+		if (!err_state)
+			assert(!o_axi_rresp[1]);
+		else if (err_loc == f_last)
+			assert(o_axi_rresp == 2'b10);
+		else if (f_err_minus_last < (1<<LGFIFO))
+			assert(!o_axi_rresp[1]);
+		else
+			assert(o_axi_rresp[1]);
+	end
+
+	always @(*)
+	if (err_state)
+		assert(o_axi_rvalid == (r_first != r_last));
+	else
+		assert(o_axi_rvalid == (r_mid != r_last));
+
+	always @(*)
+	if (err_state)
+		assert(f_first_minus_err <= (1<<LGFIFO));
+
+	always @(*)
+	if (err_state)
+		assert(f_first_minus_err != 0);
+
+	always @(*)
+	if (err_state)
+		assert(f_mid_minus_err <= f_first_minus_err);
+
+	always @(*)
+	if ((f_past_valid)&&(i_axi_reset_n)&&(f_axi_rd_outstanding > 0))
+	begin
+		if (err_state)
+			assert((!o_wb_cyc)&&(f_wb_outstanding == 0));
+		else if (!o_wb_cyc)
+			assert((o_axi_rvalid)&&(f_axi_rd_outstanding>0)
+					&&(wb_fill == 0));
+	end
 `endif
 endmodule

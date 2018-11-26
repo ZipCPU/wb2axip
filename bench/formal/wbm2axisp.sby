@@ -1,0 +1,17 @@
+[options]
+mode prove
+depth 32
+
+[engines]
+smtbmc
+
+[script]
+read -formal -D WBM2AXISP wbm2axisp.v
+read -formal -D WBM2AXISP faxi_master.v
+read -formal -D WBM2AXISP fwb_slave.v
+prep -top wbm2axisp
+
+[files]
+../../rtl/wbm2axisp.v
+faxi_master.v
+fwb_slave.v

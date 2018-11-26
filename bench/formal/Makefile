@@ -15,30 +15,34 @@
 ##
 ################################################################################
 ##
-## Copyright (C) 2017, Gisselquist Technology, LLC
+## Copyright (C) 2017-2018, Gisselquist Technology, LLC
 ##
-## This program is free software (firmware): you can redistribute it and/or
-## modify it under the terms of  the GNU General Public License as published
-## by the Free Software Foundation, either version 3 of the License, or (at
-## your option) any later version.
+## This file is part of the pipelined Wishbone to AXI converter project, a
+## project that contains multiple bus bridging designs and formal bus property
+## sets.
 ##
-## This program is distributed in the hope that it will be useful, but WITHOUT
-## ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
-## FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-## for more details.
+## The bus bridge designs and property sets are free RTL designs: you can
+## redistribute them and/or modify any of them under the terms of the GNU
+## Lesser General Public License as published by the Free Software Foundation,
+## either version 3 of the License, or (at your option) any later version.
 ##
-## You should have received a copy of the GNU General Public License along
-## with this program.  (It's in the $(ROOT)/doc directory.  Run make with no
-## target there if the PDF file isn't present.)  If not, see
+## The bus bridge designs and property sets are distributed in the hope that
+## they will be useful, but WITHOUT ANY WARRANTY; without even the implied
+## warranty of MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU Lesser General Public License for more details.
+##
+## You should have received a copy of the GNU Lesser General Public License
+## along with these designs.  (It's in the $(ROOT)/doc directory.  Run make
+## with no target there if the PDF file isn't present.)  If not, see
 ## <http://www.gnu.org/licenses/> for a copy.
 ##
-## License:	GPL, v3, as defined and found on www.gnu.org,
-##		http://www.gnu.org/licenses/gpl.html
+## License:	LGPL, v3, as defined and found on www.gnu.org,
+##		http://www.gnu.org/licenses/lgpl.html
 ##
 ################################################################################
 ##
 ##
-TESTS := wbm2axisp wbarbiter # axim2wbsp
+TESTS := wbm2axisp wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp demoaxi # axim2wbsp
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL := ../../rtl
@@ -50,45 +54,68 @@ BMCARGS := --presat $(SOLVER)
 # BMCARGS := $(SOLVER)
 INDARGS := $(SOLVER) -i
 
+DEMOAXI  := demoaxi
 WBARB    := wbarbiter
 WB2AXI   := wbm2axisp
 AXI2WB   := axim2wbsp
+WB2LITE  := wbm2axilite
+RDLITE   := axilrd2wbsp
+WRLITE   := axilwr2wbsp
 
-$(WBARB).smt2: $(RTL)/$(WBARB).v fwb_master.v fwb_slave.v $(WBARB).ys
-	yosys -ql $(WBARB).yslog -s $(WBARB).ys
+.PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(WB2LITE) $(DEMOAXI)
 
-$(WB2AXI).smt2: $(RTL)/$(WB2AXI).v $(WB2AXI).ys fwb_slave.v faxi_master.v
-	yosys -ql $(WB2AXI).yslog -s $(WB2AXI).ys
+$(WBARB): $(WBARB)_prf/PASS $(WBARB)_cvr/PASS
+$(WBARB)_prf/PASS: $(RTL)/$(WBARB).v $(WBARB).sby fwb_master.v fwb_slave.v
+	sby -f $(WBARB).sby
+$(WBARB)_cvr/PASS: $(RTL)/$(WBARB).v $(WBARB).sby fwb_master.v fwb_slave.v
+	sby -f $(WBARB).sby
 
-$(AXI2WB).smt2: $(RTL)/$(AXI2WB).v $(AXI2WB).ys fwb_master.v faxi_slave.v
-$(AXI2WB).smt2: $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
-$(AXI2WB).smt2: $(RTL)/wbarbiter.v
-	yosys -ql $(AXI2WB).yslog -s $(AXI2WB).ys
+.PHONY: $(WB2AXI)
+$(WB2AXI): $(WB2AXI)/PASS
+$(WB2AXI)/PASS: $(RTL)/$(WB2AXI).v $(WB2AXI).sby fwb_slave.v faxi_master.v
+	sby -f $(WB2AXI).sby
 
-$(WBARB) : $(WBARB).check
-$(WBARB).check: $(WBARB).smt2
-	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WBARB).vcd $(WBARB).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WBARB).vcd $(WBARB).smt2
-	touch $@
+$(RDLITE): $(RDLITE)/PASS
+$(RDLITE)/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v fwb_master.v faxil_slave.v
+	sby -f $(RDLITE).sby
 
-$(WB2AXI) : $(WB2AXI).check
-$(WB2AXI).check: $(WB2AXI).smt2
-	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(WB2AXI).vcd $(WB2AXI).smt2
-	touch $@
+$(WRLITE): $(WRLITE)/PASS
+$(WRLITE)/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v fwb_master.v faxil_slave.v
+	sby -f $(WRLITE).sby
 
-$(AXI2WB) : $(AXI2WB).check
-$(AXI2WB).check: $(AXI2WB).smt2
-	rm -f $@
-	$(SMTBMC) $(BMCARGS) -t 36 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
-	$(SMTBMC) $(INDARGS) -t 32 --dump-vcd $(AXI2WB).vcd $(AXI2WB).smt2
-	touch $@
+.PHONY: $(WB2LITE)
+$(WB2LITE): $(WB2LITE)_cvr/PASS $(WB2LITE)_prf/PASS
+$(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v $(WB2LITE).ys
+$(WB2LITE)_prf/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
+	sby -f $(WB2LITE).sby prf
+
+$(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v $(WB2LITE).ys
+$(WB2LITE)_cvr/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
+	sby -f $(WB2LITE).sby cvr
+
+$(DEMOAXI): $(DEMOAXI)_prf/PASS $(DEMOAXI)_cvr/PASS
+$(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxi_slave.v
+	sby -f $(DEMOAXI).sby prf
+$(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxi_slave.v
+	sby -f $(DEMOAXI).sby cvr
+
+.PHONY: $(AXI2WB)
+$(AXI2WB)/PASS: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
+$(AXI2WB)/PASS: fwb_slave.v
+$(AXI2WB)/PASS: fwb_master.v
+$(AXI2WB)/PASS: faxi_slave.v
+$(AXI2WB)/PASS: f_order.v
+$(AXI2WB)/PASS: $(RTL)/aximwr2wbsp.v $(RTL)/aximrd2wbsp.v
+$(AXI2WB)/PASS: $(RTL)/wbarbiter.v
+	echo "The AXI2WB bridge does not work yet, so I do not expect this one to pass"
+	echo sby -f $(AXI2WB).sby
 
 .PHONY: clean
 clean:
-	rm -f  $(WBARB).smt2  $(WBARB).yslog   $(WBARB)*.vcd
-	rm -f  $(WB2AXI).smt2 $(WB2AXI).yslog  $(WB2AXI)*.vcd
-	rm -f  $(AXI2WB).smt2 $(AXI2WB).yslog  $(AXI2WB)*.vcd
-	rm -f *.check
+	rm -rf  $(WBARB)_prf/ $(WBARB)_cvr/
+	rm -rf  $(WB2AXI)/
+	rm -rf  $(WB2LITE)_cvr/ $(WB2LITE)_prf/
+	rm  -f  $(RDLITE)/
+	rm  -f  $(WRLITE)/
+	rm  -f  $(AXI2WB)/
+	rm  -f *.check
