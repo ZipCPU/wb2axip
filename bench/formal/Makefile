@@ -115,7 +115,7 @@ clean:
 	rm -rf  $(WBARB)_prf/ $(WBARB)_cvr/
 	rm -rf  $(WB2AXI)/
 	rm -rf  $(WB2LITE)_cvr/ $(WB2LITE)_prf/
-	rm  -f  $(RDLITE)/
-	rm  -f  $(WRLITE)/
-	rm  -f  $(AXI2WB)/
-	rm  -f *.check
+	rm -rf  $(RDLITE)/
+	rm -rf  $(WRLITE)/
+	rm -rf  $(AXI2WB)/
+	# rm -f *.check
