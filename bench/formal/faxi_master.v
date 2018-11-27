@@ -112,8 +112,8 @@ module faxi_master #(
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_rd_id_outstanding,
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_awr_id_outstanding,
 	output	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_outstanding,
-	output	reg	[(9-1):0]	f_axi_wr_pending,
-	output	reg	[(9-1):0]	f_axi_rd_count,
+	// output	reg	[(9-1):0]	f_axi_wr_pending,
+	// output	reg	[(9-1):0]	f_axi_rd_count,
 	output	reg	[(9-1):0]	f_axi_wr_count
 );
 	reg [((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_wr_id_complete;
