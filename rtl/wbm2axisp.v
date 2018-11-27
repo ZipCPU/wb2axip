@@ -680,6 +680,18 @@ module wbm2axisp #(
 `define	FORMAL_CLOCK	f_last_clk <= i_clk; // Clock will be given to us valid already
 `endif
 
+	reg	[4:0]	f_reset_counter;
+	initial	f_reset_counter = 1'b0;
+	always @(posedge i_clk)
+	if ((i_reset)&&(f_reset_counter < 5'h1f))
+		f_reset_counter <= f_reset_counter + 1'b1;
+	else if (!i_reset)
+		f_reset_counter <= 0;
+
+	always @(posedge i_clk)
+	if ((f_past_valid)&&($past(i_reset))&&($past(f_reset_counter < 5'h10)))
+		assume(i_reset);
+
 	// Parameters
 	initial	assert(	  (C_AXI_DATA_WIDTH / DW == 4)
 			||(C_AXI_DATA_WIDTH / DW == 2)
