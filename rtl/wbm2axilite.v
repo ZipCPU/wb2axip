@@ -85,7 +85,7 @@ module wbm2axilite (
 
 // AXI read address channel signals
 	input	wire			i_axi_arready;	// Read address ready
-	output	wire	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr;	// Read address
+	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr;	// Read address
 	output	wire	[3:0]		o_axi_arcache;	// Read Cache type
 	output	wire	[2:0]		o_axi_arprot;	// Read Protection type
 	output	reg			o_axi_arvalid;	// Read address valid

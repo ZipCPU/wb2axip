@@ -81,7 +81,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	input	wire			i_axi_wvalid;	// Write valid
 
 	// AXI write response channel signals
-	output	wire	[1:0]		o_axi_bresp;	// Write response
+	output	reg	[1:0]		o_axi_bresp;	// Write response
 	output	reg			o_axi_bvalid;  // Write reponse valid
 	input	wire			i_axi_bready;  // Response ready
 
@@ -90,7 +90,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	output	reg				o_wb_stb;
 	output	reg	[(AW-1):0]		o_wb_addr;
 	output	reg	[(DW-1):0]		o_wb_data;
-	output	wire	[(DW/8-1):0]		o_wb_sel;
+	output	reg	[(DW/8-1):0]		o_wb_sel;
 	input	wire				i_wb_ack;
 	input	wire				i_wb_stall;
 	input	wire				i_wb_err;

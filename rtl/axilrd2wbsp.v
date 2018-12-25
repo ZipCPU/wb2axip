@@ -77,7 +77,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	// We'll share the clock and the reset
 	output	reg				o_wb_cyc;
 	output	reg				o_wb_stb;
-	output	wire [(AW-1):0]			o_wb_addr;
+	output	reg [(AW-1):0]			o_wb_addr;
 	input	wire				i_wb_ack;
 	input	wire				i_wb_stall;
 	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data;
