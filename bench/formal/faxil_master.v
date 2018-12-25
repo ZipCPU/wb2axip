@@ -302,6 +302,11 @@ module faxil_master #(
 		always @(posedge i_clk)
 		if ((!i_axi_reset_n)||(!i_axi_awvalid)||(i_axi_awready))
 			f_axi_awstall <= 0;
+		else if ((f_axi_awr_outstanding >= f_axi_wr_outstanding)
+			&&(i_axi_awvalid && !i_axi_wvalid))
+			// If we are waiting for the write channel to be valid
+			// then don't count stalls
+			f_axi_awstall <= 0;
 		else if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_awstall <= f_axi_awstall + 1'b1;
 
@@ -315,6 +320,11 @@ module faxil_master #(
 		initial	f_axi_wstall = 0;
 		always @(posedge i_clk)
 		if ((!i_axi_reset_n)||(!i_axi_wvalid)||(i_axi_wready))
+			f_axi_wstall <= 0;
+		else if ((f_axi_wr_outstanding >= f_axi_awr_outstanding)
+			&&(!i_axi_awvalid && i_axi_wvalid))
+			// If we are waiting for the write address channel
+			// to be valid, then don't count stalls
 			f_axi_wstall <= 0;
 		else if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_wstall <= f_axi_wstall + 1'b1;
