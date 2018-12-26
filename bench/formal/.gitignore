@@ -2,13 +2,10 @@
 *.yslog
 *.check
 *.ys.v
-demoaxi
 axilwr2wbsp
 axilrd2wbsp
-demoaxi_cvr
-demoaxi_prf
-wbarbiter_cvr
-wbarbiter_prf
-wbm2axilite_cvr
-wbm2axilite_prf
+demoaxi_*/
+wbarbiter_*/
+wbm2axilite_*/
 wbm2axisp
+xlnxdemo_*/

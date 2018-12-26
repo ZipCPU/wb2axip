@@ -1,0 +1,20 @@
+[tasks]
+cvr
+prf
+
+[options]
+cvr: mode cover
+prf: mode prove
+depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal xlnxdemo.v
+read -formal faxil_slave.v
+prep -top xlnxdemo
+
+[files]
+xlnxdemo.v
+faxil_slave.v

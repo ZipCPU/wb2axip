@@ -54,13 +54,14 @@ BMCARGS := --presat $(SOLVER)
 # BMCARGS := $(SOLVER)
 INDARGS := $(SOLVER) -i
 
-DEMOAXI  := demoaxi
-WBARB    := wbarbiter
-WB2AXI   := wbm2axisp
-AXI2WB   := axim2wbsp
-WB2LITE  := wbm2axilite
-RDLITE   := axilrd2wbsp
-WRLITE   := axilwr2wbsp
+DEMOAXI    := demoaxi
+WBARB      := wbarbiter
+WB2AXI     := wbm2axisp
+AXI2WB     := axim2wbsp
+WB2LITE    := wbm2axilite
+RDLITE     := axilrd2wbsp
+WRLITE     := axilwr2wbsp
+XILINXDEMO := xlnxdemo
 
 .PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(WB2LITE) $(DEMOAXI)
 
@@ -98,6 +99,13 @@ $(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
 	sby -f $(DEMOAXI).sby prf
 $(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
 	sby -f $(DEMOAXI).sby cvr
+
+$(XILINXDEMO): $(XILINXDEMO)_prf/PASS $(XILINXDEMO)_cvr/PASS
+$(XILINXDEMO)_prf/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby faxil_slave.v
+	sby -f $(XILINXDEMO).sby prf
+$(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby faxil_slave.v
+	sby -f $(XILINXDEMO).sby cvr
+
 
 .PHONY: $(AXI2WB)
 $(AXI2WB)/PASS: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
