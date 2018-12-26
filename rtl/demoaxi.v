@@ -4,7 +4,23 @@
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	Demonstrate an AXI bus design
+// Purpose:	Demonstrate an AXI-lite bus design.  The goal of this design
+//		is to support a completely pipelined AXI-lite transaction
+//	which can transfer one data item per clock.
+//
+//	Note that the AXI spec requires that there be no combinatorial
+//	logic between input ports and output ports.  Hence all of the *valid
+//	and *ready signals produced here are registered.  This forces us into
+//	the buffered handshake strategy.
+//
+//	Some curious variable meanings below:
+//
+//	!axi_arvalid is synonymous with having a request, but stalling because
+//		of a current request sitting in axi_rvalid with !axi_rready
+//	!axi_awvalid is also synonymous with having an axi address being
+//		received, but either the axi_bvalid && !axi_bready, or
+//		no write data has been received
+//	!axi_wvalid is similar to axi_awvalid.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -68,17 +84,17 @@ module	demoaxi
     		// privilege and security level of the transaction, and whether
     		// the transaction is a data access or an instruction access.
 		input wire [2 : 0] S_AXI_AWPROT,
-		// Write address valid. This signal indicates that the master signaling
-    		// valid write address and control information.
+		// Write address valid. This signal indicates that the master
+		// signaling valid write address and control information.
 		input wire  S_AXI_AWVALID,
-		// Write address ready. This signal indicates that the slave is ready
-    		// to accept an address and associated control signals.
+		// Write address ready. This signal indicates that the slave
+		// is ready to accept an address and associated control signals.
 		output wire  S_AXI_AWREADY,
-		// Write data (issued by master, acceped by Slave) 
+		// Write data (issued by master, acceped by Slave)
 		input wire [C_S_AXI_DATA_WIDTH-1 : 0] S_AXI_WDATA,
 		// Write strobes. This signal indicates which byte lanes hold
     		// valid data. There is one write strobe bit for each eight
-    		// bits of the write data bus.    
+    		// bits of the write data bus.
 		input wire [(C_S_AXI_DATA_WIDTH/8)-1 : 0] S_AXI_WSTRB,
 		// Write valid. This signal indicates that valid write
     		// data and strobes are available.
@@ -143,7 +159,7 @@ module	demoaxi
 	//------------------------------------------------
 	reg [DW-1:0]	slv_mem	[0:63];
 
-	wire	wstall, rstall;
+	wire	wstall;
 
 	// I/O Connections assignments
 
@@ -155,78 +171,146 @@ module	demoaxi
 	assign S_AXI_RDATA	= axi_rdata;
 	assign S_AXI_RRESP	= axi_rresp;
 	assign S_AXI_RVALID	= axi_rvalid;
-	// Implement axi_awready generation
-	// axi_awready is asserted for one S_AXI_ACLK clock cycle when both
-	// S_AXI_AWVALID and S_AXI_WVALID are asserted. axi_awready is
-	// de-asserted when reset is low.
+	// Implement axi_*wready generation
+
+	// reg	pre_addrv, pre_datav;
+
+	reg [C_S_AXI_ADDR_WIDTH-1 : 0]		pre_waddr, waddr;
+	reg [C_S_AXI_DATA_WIDTH-1 : 0]		pre_wdata, wdata;
+	reg [(C_S_AXI_DATA_WIDTH/8)-1 : 0]	pre_wstrb, wstrb;
+
+	always @(posedge S_AXI_ACLK)
+	if ((!S_AXI_BVALID)||(S_AXI_BREADY))
+		pre_waddr <= S_AXI_AWADDR;
+	else if ((S_AXI_AWREADY)&&(S_AXI_AWVALID))
+		pre_waddr <= S_AXI_AWADDR;
+
+	initial	axi_awready = 1'b1;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		axi_awready <= 1'b1;
+	else if ((!S_AXI_BVALID)||(S_AXI_BREADY))
+		axi_awready <= ((axi_awready)&&(!S_AXI_AWVALID))
+				||(!axi_wready)
+				||((S_AXI_WREADY)&&(S_AXI_WVALID));
+	else if ((S_AXI_AWREADY)&&(S_AXI_AWVALID))
+		axi_awready <= (!axi_wready)||((S_AXI_WREADY)&&(S_AXI_WVALID));
+
+	always @(posedge S_AXI_ACLK)
+	if ((!S_AXI_BVALID)||(S_AXI_BREADY))
+	begin
+		pre_wdata <= S_AXI_WDATA;
+		pre_wstrb <= S_AXI_WSTRB;
+	end else if ((S_AXI_WREADY)&&(S_AXI_WVALID))
+	begin
+		pre_wdata <= S_AXI_WDATA;
+		pre_wstrb <= S_AXI_WSTRB;
+	end
+
+
+	initial	axi_wready = 1'b1;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		axi_wready <= 1'b1;
+	else if ((!S_AXI_BVALID)||(S_AXI_BREADY))
+		axi_wready <= (axi_wready)&&(!S_AXI_WVALID)
+				||(!axi_awready)
+				||((S_AXI_AWREADY)&&(S_AXI_AWVALID));
+	else if ((S_AXI_WREADY)&&(S_AXI_WVALID))
+		axi_wready <= (!axi_awready)||(S_AXI_AWREADY)&&(S_AXI_AWVALID);
+
 
 	always @(*)
-	if ( S_AXI_ARESETN == 1'b0 )
-		axi_awready = 1'b0;
-	else if (!wstall && S_AXI_AWVALID && S_AXI_WVALID)
-		// slave is ready to accept write address when 
-		// there is a valid write address and write data
-		// on the write address and data bus. This design 
-		// expects no outstanding transactions. 
-		axi_awready = 1'b1;
-	else           
-		axi_awready = 1'b0;
+	if (!axi_wready)
+	begin
+		wstrb = pre_wstrb;
+		wdata = pre_wdata;
+	end else begin
+		wstrb = S_AXI_WSTRB;
+		wdata = S_AXI_WDATA;
+	end
 
 	always @(*)
-		axi_wready = axi_awready;
-
+	if (!axi_awready)
+	begin
+		waddr = pre_waddr;
+	end else begin
+		waddr = S_AXI_AWADDR;
+	end
 
 	always @( posedge S_AXI_ACLK )
-	if (axi_wready)
+	if (((!S_AXI_BVALID)||(S_AXI_BREADY))
+		&&((!axi_awready)||(S_AXI_AWVALID))
+		&&((!axi_wready)||((S_AXI_WVALID))))
 	begin
-		if (S_AXI_WSTRB[0])
-			slv_mem[S_AXI_AWADDR[AW+ADDR_LSB-1:ADDR_LSB]][7:0]
-				<= S_AXI_WDATA[7:0];
-		if (S_AXI_WSTRB[1])
-			slv_mem[S_AXI_AWADDR[AW+ADDR_LSB-1:ADDR_LSB]][15:8]
-				<= S_AXI_WDATA[15:8];
-		if (S_AXI_WSTRB[2])
-			slv_mem[S_AXI_AWADDR[AW+ADDR_LSB-1:ADDR_LSB]][23:16]
-				<= S_AXI_WDATA[23:16];
-		if (S_AXI_WSTRB[3])
-			slv_mem[S_AXI_AWADDR[AW+ADDR_LSB-1:ADDR_LSB]][31:24]
-				<= S_AXI_WDATA[31:24];
+		if (wstrb[0])
+			slv_mem[waddr[AW+ADDR_LSB-1:ADDR_LSB]][7:0]
+				<= wdata[7:0];
+		if (wstrb[1])
+			slv_mem[waddr[AW+ADDR_LSB-1:ADDR_LSB]][15:8]
+				<= wdata[15:8];
+		if (wstrb[2])
+			slv_mem[waddr[AW+ADDR_LSB-1:ADDR_LSB]][23:16]
+				<= wdata[23:16];
+		if (wstrb[3])
+			slv_mem[waddr[AW+ADDR_LSB-1:ADDR_LSB]][31:24]
+				<= wdata[31:24];
 	end
 
 	initial	axi_bvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
-	if ( S_AXI_ARESETN == 1'b0 )
-		axi_bvalid  <= 0;
-	else if (!wstall)
-		// indicates a valid write response is available
-		axi_bvalid <= axi_wready;
+	if (!S_AXI_ARESETN)
+		axi_bvalid <= 1'b0;
+	else if (((!S_AXI_BVALID)||(S_AXI_BREADY))
+		&&((!axi_awready)||(S_AXI_AWVALID))
+		&&((!axi_wready)||((S_AXI_WVALID))))
+	begin
+		axi_bvalid <= 1'b1;
+	end else if (S_AXI_BREADY)
+		axi_bvalid <= 1'b0;
 
 	always @(*)
 		axi_bresp = 2'b0;	// 'OKAY' response
 
-	assign	wstall = (axi_bvalid)&&(!S_AXI_BREADY);
-	assign	rstall = (axi_rvalid)&&(!S_AXI_RREADY);
-
-	initial	axi_arready = 1'b0;
-	always @(*)
-	if ( S_AXI_ARESETN == 1'b0 )
-		axi_arready = 1'b0;
-	else
-		axi_arready = (!rstall);
-
+	//////////////////////////////////////
+	//
+	// Read processing
+	//
+	//
 	initial	axi_rvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
-	if ( S_AXI_ARESETN == 1'b0 )
+	if (!S_AXI_ARESETN)
 		axi_rvalid <= 0;
-	else if (!rstall)
-		axi_rvalid <= S_AXI_ARVALID;
-		
+	else if ((S_AXI_ARREADY)&&(S_AXI_ARVALID))
+		axi_rvalid <= 1'b1;
+	else
+		axi_rvalid <= (axi_rvalid)&&(!S_AXI_RREADY);
+
 	always @(*)
 		axi_rresp  = 0;	// 'OKAY' response
 
+	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	raw_rdata, dly_rdata;
 	always @(posedge S_AXI_ACLK)
-	if (!rstall)
-		axi_rdata <= slv_mem[S_AXI_ARADDR[AW+ADDR_LSB-1:ADDR_LSB]];
+	if ((S_AXI_ARREADY)&&(S_AXI_ARVALID))
+		raw_rdata <= slv_mem[S_AXI_ARADDR[AW+ADDR_LSB-1:ADDR_LSB]];
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_RREADY)
+		dly_rdata <= raw_rdata;
+
+	initial	axi_arready = 1'b0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		axi_arready <= 1'b1;
+	else
+		axi_arready <= ((!S_AXI_ARREADY)||(!S_AXI_ARVALID)
+				||(S_AXI_RVALID)||( S_AXI_RREADY));
+
+	always @(*)
+	if (!axi_arready)
+		axi_rdata = raw_rdata;
+	else
+		axi_rdata = dly_rdata;
 
 	// Make Verilator happy
 	// Verilator lint_off UNUSED
@@ -236,6 +320,13 @@ module	demoaxi
 				S_AXI_ARADDR[ADDR_LSB-1:0] };
 	// Verilator lint_on UNUSED
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = 4;
 
@@ -307,20 +398,39 @@ module	demoaxi
 	always @(*)
 	if (S_AXI_ARESETN)
 	begin
-		assert(f_axi_rd_outstanding == ((S_AXI_RVALID)? 1:0));
-		assert(f_axi_wr_outstanding == ((S_AXI_BVALID)? 1:0));
-		// assert(f_axi_rd_outstanding[F_LGDEPTH-1:1] == 0);
+		if (!S_AXI_RVALID)
+			assert(f_axi_rd_outstanding == 0);
+		else if (!S_AXI_ARREADY)
+			assert(f_axi_rd_outstanding == 2);
+		else
+			assert(f_axi_rd_outstanding == 1);
 	end
 
 	always @(*)
-		assert(f_axi_awr_outstanding == f_axi_wr_outstanding);
+	if (S_AXI_ARESETN)
+	begin
+		if (axi_bvalid)
+		begin
+			assert(f_axi_awr_outstanding == 1+(axi_awready ? 0:1));
+			assert(f_axi_wr_outstanding  == 1+(axi_wready  ? 0:1));
+		end else begin
+			assert(f_axi_awr_outstanding == (axi_awready ? 0:1));
+			assert(f_axi_wr_outstanding  == (axi_wready  ? 0:1));
+		end
+	end
 
-	///////
+
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover properties
+	//
 	// In addition to making sure the design returns a value, any value,
 	// let's cover returning three values on adjacent clocks--just to prove
 	// we can.
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	always @( posedge S_AXI_ACLK )
 	if ((f_past_valid)&&(S_AXI_ARESETN))
 		cover(($past((S_AXI_BVALID && S_AXI_BREADY)))
