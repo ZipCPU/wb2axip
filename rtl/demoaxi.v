@@ -475,15 +475,17 @@ module	demoaxi
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[1] = fr_demo_pipe[0]
-				&& (!S_AXI_AWVALID)
+				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[2] = fr_demo_pipe[1]
-				&& (!S_AXI_AWVALID)
+				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
+		//
+		//
 		fw_demo_pipe[3] = fr_demo_pipe[2]
-				&& (S_AXI_AWVALID)
+				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[4] = fr_demo_pipe[3]
@@ -495,77 +497,78 @@ module	demoaxi
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[6] = fr_demo_pipe[5]
-				&&(S_AXI_AWVALID)&&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)&&(!S_AXI_WREADY)
-				&&(!S_AXI_BVALID)&&(S_AXI_BREADY);
+				&&(S_AXI_AWVALID)
+				&&( S_AXI_WVALID)
+				&&( S_AXI_BREADY);
 		fw_demo_pipe[7] = fr_demo_pipe[6]
-				&&(!S_AXI_AWVALID)&&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)&&(S_AXI_WREADY)
-				&&(S_AXI_BVALID)&&(S_AXI_BREADY);
+				&&(!S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
+				&&( S_AXI_BREADY);
 		fw_demo_pipe[8] = fr_demo_pipe[7]
-				&&(S_AXI_AWVALID)//&&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
-				// &&(S_AXI_BVALID)&&(S_AXI_BREADY);
-				;
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
+				&&(S_AXI_BREADY);
 		fw_demo_pipe[9] = fr_demo_pipe[8]
-				// &&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				// &(!S_AXI_WVALID)// &&(S_AXI_WREADY)
-				// &&(S_AXI_BVALID)
+//				&&(S_AXI_AWVALID)
+//				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[10] = fr_demo_pipe[9]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID) // &&(S_AXI_WREADY)
-				// &&(S_AXI_BVALID)&&(S_AXI_BREADY);
-				&&(!S_AXI_BREADY);
-		fw_demo_pipe[11] = fr_demo_pipe[10]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
-				// &&(S_AXI_BVALID)&&(S_AXI_BREADY);
+//				&&(S_AXI_AWVALID)
+//				&&(S_AXI_WVALID)
+				// &&(S_AXI_BREADY);
 				&&(S_AXI_BREADY);
+		fw_demo_pipe[11] = fr_demo_pipe[10]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
+				&&(!S_AXI_BREADY);
 		fw_demo_pipe[12] = fr_demo_pipe[11]
-				&&(!S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(!S_AXI_WVALID)// &&(S_AXI_WREADY)
-				;
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID)
+				&&(S_AXI_BREADY);
 		fw_demo_pipe[13] = fr_demo_pipe[12]
-				&&(!S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(!S_AXI_WVALID)// &&(S_AXI_WREADY)
-				;
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID)
+				&&(S_AXI_BREADY);
 		fw_demo_pipe[14] = fr_demo_pipe[13]
-				&&(!S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(!S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID)
 				&&(f_axi_awr_outstanding == 0)
-				&&(f_axi_wr_outstanding == 0);
+				&&(f_axi_wr_outstanding == 0)
+				&&(S_AXI_BREADY);
+		//
+		//
+		//
 		fw_demo_pipe[15] = fr_demo_pipe[14]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[16] = fr_demo_pipe[15]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[17] = fr_demo_pipe[16]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[18] = fr_demo_pipe[17]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
-				&&(S_AXI_BREADY);
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
+				&&(!S_AXI_BREADY);
 		fw_demo_pipe[19] = fr_demo_pipe[18]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[20] = fr_demo_pipe[19]
-				&&(S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[21] = fr_demo_pipe[20]
-				&&(!S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(!S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		fw_demo_pipe[22] = fr_demo_pipe[21]
-				&&(!S_AXI_AWVALID)// &&(S_AXI_AWREADY)
-				&&(!S_AXI_WVALID)// &&(S_AXI_WREADY)
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 	end
 
@@ -575,18 +578,28 @@ module	demoaxi
 	always @(*)
 	if (S_AXI_ARESETN)
 	begin
-		// cover(fw_demo_pipe[0]);
+		cover(fw_demo_pipe[0]);
 		cover(fw_demo_pipe[1]);
 		cover(fw_demo_pipe[2]);
 		cover(fw_demo_pipe[3]);
 		cover(fw_demo_pipe[4]);
 		cover(fw_demo_pipe[5]);
 		cover(fw_demo_pipe[6]);
-		cover(fw_demo_pipe[7]);
+		cover(fw_demo_pipe[7]); //
 		cover(fw_demo_pipe[8]);
 		cover(fw_demo_pipe[9]);
 		cover(fw_demo_pipe[10]);
+		cover(fw_demo_pipe[11]);
+		cover(fw_demo_pipe[12]);
+		cover(fw_demo_pipe[13]);
+		cover(fw_demo_pipe[14]);
+		cover(fw_demo_pipe[15]);
+		cover(fw_demo_pipe[16]);
+		cover(fw_demo_pipe[17]);
 		cover(fw_demo_pipe[18]);
+		cover(fw_demo_pipe[19]);
+		cover(fw_demo_pipe[20]);
+		cover(fw_demo_pipe[21]);
 		cover(fw_demo_pipe[22]);
 	end
 `endif
