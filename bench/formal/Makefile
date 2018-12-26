@@ -94,9 +94,9 @@ $(WB2LITE)_cvr/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
 	sby -f $(WB2LITE).sby cvr
 
 $(DEMOAXI): $(DEMOAXI)_prf/PASS $(DEMOAXI)_cvr/PASS
-$(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxi_slave.v
+$(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
 	sby -f $(DEMOAXI).sby prf
-$(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxi_slave.v
+$(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
 	sby -f $(DEMOAXI).sby cvr
 
 .PHONY: $(AXI2WB)
