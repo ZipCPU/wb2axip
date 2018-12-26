@@ -210,8 +210,6 @@ module faxil_slave #(
 	begin
 		// if (F_OPT_HAS_PROT) else
 		`SLAVE_ASSUME(i_axi_awprot  == 3'h0);
-		if (!F_OPT_AXI_WSTRB)
-			`SLAVE_ASSUME(&i_axi_wstrb);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
 			`SLAVE_ASSUME(i_axi_awcache == 4'h3);
@@ -219,6 +217,10 @@ module faxil_slave #(
 			// No caching capability
 			`SLAVE_ASSUME(i_axi_awcache == 4'h0);
 	end
+
+	always @(*)
+	if ((i_axi_wvalid)&&(!F_OPT_AXI_WSTRB))
+		`SLAVE_ASSUME(&i_axi_wstrb);
 
 	always @(*)
 	if (i_axi_arvalid)
@@ -413,19 +415,16 @@ module faxil_slave #(
 	// Rule number one:
 	always @(posedge i_clk)
 	if ((i_axi_reset_n)&&($past(i_axi_reset_n))
-		&&(!$past(i_axi_wvalid,2))&&($past(i_axi_awvalid,2))
-			&&($past(f_axi_awr_outstanding >= f_axi_wr_outstanding,2))
-		// ##1
+		&&($past(axi_awr_req && !i_axi_wvalid,2))
+			&&($past(f_axi_awr_outstanding>f_axi_wr_outstanding,1))
 			&&(!$past(i_axi_wvalid)))
-		// |=>
 		`SLAVE_ASSUME(i_axi_wvalid);
 
 	// Rule number two:
 	always @(posedge i_clk)
-	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(i_axi_wvalid))
+	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(axi_wr_req))
 			&&(f_axi_awr_outstanding < f_axi_wr_outstanding))
 		`SLAVE_ASSUME(i_axi_awvalid);
-
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -540,11 +539,10 @@ module faxil_slave #(
 	//
 	always @(posedge i_clk)
 	if (i_axi_bvalid)
+	begin
 		`SLAVE_ASSERT(f_axi_awr_outstanding > 0);
-
-	always @(posedge i_clk)
-	if (i_axi_bvalid)
-		`SLAVE_ASSERT(f_axi_wr_outstanding > 0);
+		`SLAVE_ASSERT(f_axi_wr_outstanding  > 0);
+	end
 
 	//
 	// AXI read data channel signals
