@@ -1,0 +1,71 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Wed Dec 26 15:57:11 2018
+[*]
+[dumpfile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/demoaxi_cvr/engine_0/trace2.vcd"
+[dumpfile_mtime] "Wed Dec 26 15:51:31 2018"
+[dumpfile_size] 26484
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/demoaxi.gtkw"
+[timestart] 0
+[size] 1600 600
+[pos] -1 -1
+*-6.254814 180 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 270
+[signals_width] 200
+[sst_expanded] 1
+[sst_vpaned_height] 143
+@29
+[color] 3
+demoaxi.S_AXI_ARESETN
+[color] 3
+demoaxi.S_AXI_ACLK
+@200
+-
+@28
+demoaxi.S_AXI_AWVALID
+demoaxi.S_AXI_AWREADY
+@22
+demoaxi.S_AXI_AWADDR[7:0]
+@28
+demoaxi.S_AXI_AWPROT[2:0]
+@200
+-
+@28
+demoaxi.S_AXI_WVALID
+demoaxi.S_AXI_WREADY
+@22
+demoaxi.S_AXI_WDATA[31:0]
+demoaxi.S_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+demoaxi.S_AXI_BVALID
+[color] 2
+demoaxi.S_AXI_BREADY
+[color] 2
+demoaxi.S_AXI_BRESP[1:0]
+@200
+-
+@28
+demoaxi.S_AXI_ARVALID
+demoaxi.S_AXI_ARREADY
+@22
+demoaxi.S_AXI_ARADDR[7:0]
+@28
+demoaxi.S_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+demoaxi.S_AXI_RVALID
+[color] 2
+demoaxi.S_AXI_RREADY
+@22
+[color] 2
+demoaxi.S_AXI_RDATA[31:0]
+@28
+[color] 2
+demoaxi.S_AXI_RRESP[1:0]
+[pattern_trace] 1
+[pattern_trace] 0

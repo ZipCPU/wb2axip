@@ -4,7 +4,7 @@ cvr
 
 [options]
 prf: mode prove
-prf: depth 20
+prf: depth 26
 cvr: mode cover
 cvr: depth 40
 
