@@ -47,11 +47,13 @@ module faxil_slave #(
 	localparam AW			= C_AXI_ADDR_WIDTH,
 	parameter [0:0]	F_OPT_AXI_WSTRB = 1'b1,
 	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
+	parameter [0:0]	F_OPT_NO_READS  = 1'b0,
+	parameter [0:0]	F_OPT_NO_WRITES = 1'b0,
 	parameter [0:0]	F_OPT_BRESP = 1'b1,
 	parameter [0:0]	F_OPT_RRESP = 1'b1,
 	parameter [0:0]	F_OPT_ASSUME_RESET = 1'b1,
 	// parameter [0:0]	F_OPT_HAS_PROT = 1'b0,
-	parameter	F_LGDEPTH	= 4,
+	parameter				F_LGDEPTH	= 4,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12
 	) (
@@ -550,6 +552,44 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if (i_axi_rvalid)
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// Optionally disable either read or write channels (or both??)
+	//
+	//
+	////////////////////////////////////////////////////////////////////////
+
+	initial	assert((!F_OPT_NO_READS)||(!F_OPT_NO_WRITES));
+
+	generate if (F_OPT_NO_READS)
+	begin : NO_READS
+
+		always @(*)
+			`SLAVE_ASSUME(i_axi_arvalid == 0);
+		always @(*)
+			`SLAVE_ASSERT(f_axi_rd_outstanding == 0);
+		always @(*)
+			`SLAVE_ASSERT(i_axi_rvalid == 0);
+
+	end endgenerate
+
+	generate if (F_OPT_NO_WRITES)
+	begin : NO_WRITES
+
+		always @(*)
+			`SLAVE_ASSUME(i_axi_awvalid == 0);
+		always @(*)
+			`SLAVE_ASSUME(i_axi_wvalid == 0);
+		always @(*)
+			`SLAVE_ASSERT(f_axi_wr_outstanding == 0);
+		always @(*)
+			`SLAVE_ASSERT(f_axi_awr_outstanding == 0);
+		always @(*)
+			`SLAVE_ASSERT(i_axi_bvalid == 0);
+
+	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
 	//
