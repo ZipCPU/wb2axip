@@ -294,7 +294,7 @@ module faxil_slave #(
 		end
 	end
 
-	// Nothing should be returning a result on the first clock
+	// Nothing should be returned or requested on the first clock
 	initial	`SLAVE_ASSUME(!i_axi_arvalid);
 	initial	`SLAVE_ASSUME(!i_axi_awvalid);
 	initial	`SLAVE_ASSUME(!i_axi_wvalid);
@@ -435,32 +435,33 @@ module faxil_slave #(
 	////////////////////////////////////////////////////////////////////////
 	initial	f_axi_awr_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_awr_outstanding <= 0;
-		else case({ (axi_awr_req), (axi_wr_ack) })
-			2'b10: f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
-			2'b01: f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
-			default: begin end
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_awr_outstanding <= 0;
+	else case({ (axi_awr_req), (axi_wr_ack) })
+		2'b10: f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
+		2'b01: f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
+		default: begin end
+	endcase
 
 	initial	f_axi_wr_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_wr_outstanding <= 0;
-		else case({ (axi_wr_req), (axi_wr_ack) })
-		2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
-		2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_wr_outstanding <= 0;
+	else case({ (axi_wr_req), (axi_wr_ack) })
+	2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
+	2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
+	endcase
 
 	initial	f_axi_rd_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_rd_outstanding <= 0;
-		else case({ (axi_ard_req), (axi_rd_ack) })
-		2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
-		2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_rd_outstanding <= 0;
+	else case({ (axi_ard_req), (axi_rd_ack) })
+	2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
+	2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
+	endcase
 
+	//
 	// Do not let the number of outstanding requests overflow
 	always @(posedge i_clk)
 		`SLAVE_ASSERT(f_axi_wr_outstanding  < {(F_LGDEPTH){1'b1}});
@@ -468,6 +469,7 @@ module faxil_slave #(
 		`SLAVE_ASSERT(f_axi_awr_outstanding < {(F_LGDEPTH){1'b1}});
 	always @(posedge i_clk)
 		`SLAVE_ASSERT(f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
+
 	//
 	// That means that requests need to stop when we're almost full
 	always @(posedge i_clk)
@@ -522,10 +524,11 @@ module faxil_slave #(
 	//
 	// Assume acknowledgements must follow requests
 	//
-	// The outstanding count is a count of bursts, but the acknowledgements
-	// we are looking for are individual.  Hence, there should be no
-	// individual acknowledgements coming back if there's no outstanding
-	// burst.
+	// The f_axi*outstanding counters count the number of requests.  No
+	// acknowledgment should issue without a pending request
+	// burst.  Further, the spec is clear: you can't acknowledge something
+	// on the same clock you get the request.  There must be at least one
+	// clock delay.
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -534,18 +537,18 @@ module faxil_slave #(
 	// AXI write response channel
 	//
 	always @(posedge i_clk)
-	if ((!axi_awr_req)&&(i_axi_bvalid))
+	if (i_axi_bvalid)
 		`SLAVE_ASSERT(f_axi_awr_outstanding > 0);
 
 	always @(posedge i_clk)
-	if ((!axi_wr_req)&&(i_axi_bvalid))
+	if (i_axi_bvalid)
 		`SLAVE_ASSERT(f_axi_wr_outstanding > 0);
 
 	//
 	// AXI read data channel signals
 	//
 	always @(posedge i_clk)
-	if ((!axi_ard_req)&&(i_axi_rvalid))
+	if (i_axi_rvalid)
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
 
 	////////////////////////////////////////////////////////////////////////

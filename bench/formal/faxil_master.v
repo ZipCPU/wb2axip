@@ -49,6 +49,7 @@ module faxil_master #(
 	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
 	parameter [0:0]	F_OPT_BRESP = 1'b1,
 	parameter [0:0]	F_OPT_RRESP = 1'b1,
+	parameter [0:0]	F_OPT_ASSUME_RESET = 1'b0,
 	// parameter [0:0]	F_OPT_HAS_PROT = 1'b0,
 	parameter	F_LGDEPTH	= 4,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
@@ -130,9 +131,17 @@ module faxil_master #(
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
-	always @(*)
-	if (!f_past_valid)
-		assert(!i_axi_reset_n);
+
+	generate if (F_OPT_ASSUME_RESET)
+	begin : ASSUME_INIITAL_RESET
+		always @(*)
+		if (!f_past_valid)
+			assume(!i_axi_reset_n);
+	end else begin : ASSERT_INIITAL_RESET
+		always @(*)
+		if (!f_past_valid)
+			assert(!i_axi_reset_n);
+	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -152,13 +161,28 @@ module faxil_master #(
 	else if (!(&f_reset_length))
 		f_reset_length <= f_reset_length + 1'b1;
 
-	always @(posedge i_clk)
-	if ((f_past_valid)&&(!$past(i_axi_reset_n))&&(!$past(&f_reset_length)))
-		`SLAVE_ASSUME(!i_axi_reset_n);
 
-	always @(*)
-	if ((f_reset_length > 0)&&(f_reset_length < 4'hf))
-		`SLAVE_ASSUME(!i_axi_reset_n);
+	generate if (F_OPT_ASSUME_RESET)
+	begin : ASSUME_RESET
+		always @(posedge i_clk)
+		if ((f_past_valid)&&(!$past(i_axi_reset_n))&&(!$past(&f_reset_length)))
+			assume(!i_axi_reset_n);
+
+		always @(*)
+		if ((f_reset_length > 0)&&(f_reset_length < 4'hf))
+			assume(!i_axi_reset_n);
+
+	end else begin : ASSERT_RESET
+
+		always @(posedge i_clk)
+		if ((f_past_valid)&&(!$past(i_axi_reset_n))&&(!$past(&f_reset_length)))
+			assert(!i_axi_reset_n);
+
+		always @(*)
+		if ((f_reset_length > 0)&&(f_reset_length < 4'hf))
+			assert(!i_axi_reset_n);
+
+	end endgenerate
 
 	always @(posedge i_clk)
 	if ((!f_past_valid)||(!$past(i_axi_reset_n)))
@@ -411,32 +435,33 @@ module faxil_master #(
 	////////////////////////////////////////////////////////////////////////
 	initial	f_axi_awr_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_awr_outstanding <= 0;
-		else case({ (axi_awr_req), (axi_wr_ack) })
-			2'b10: f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
-			2'b01: f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
-			default: begin end
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_awr_outstanding <= 0;
+	else case({ (axi_awr_req), (axi_wr_ack) })
+		2'b10: f_axi_awr_outstanding <= f_axi_awr_outstanding + 1'b1;
+		2'b01: f_axi_awr_outstanding <= f_axi_awr_outstanding - 1'b1;
+		default: begin end
+	endcase
 
 	initial	f_axi_wr_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_wr_outstanding <= 0;
-		else case({ (axi_wr_req), (axi_wr_ack) })
-		2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
-		2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_wr_outstanding <= 0;
+	else case({ (axi_wr_req), (axi_wr_ack) })
+	2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
+	2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
+	endcase
 
 	initial	f_axi_rd_outstanding = 0;
 	always @(posedge i_clk)
-		if (!i_axi_reset_n)
-			f_axi_rd_outstanding <= 0;
-		else case({ (axi_ard_req), (axi_rd_ack) })
-		2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
-		2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
-		endcase
+	if (!i_axi_reset_n)
+		f_axi_rd_outstanding <= 0;
+	else case({ (axi_ard_req), (axi_rd_ack) })
+	2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
+	2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
+	endcase
 
+	//
 	// Do not let the number of outstanding requests overflow
 	always @(posedge i_clk)
 		`SLAVE_ASSERT(f_axi_wr_outstanding  < {(F_LGDEPTH){1'b1}});
@@ -444,6 +469,7 @@ module faxil_master #(
 		`SLAVE_ASSERT(f_axi_awr_outstanding < {(F_LGDEPTH){1'b1}});
 	always @(posedge i_clk)
 		`SLAVE_ASSERT(f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
+
 	//
 	// That means that requests need to stop when we're almost full
 	always @(posedge i_clk)
@@ -498,10 +524,11 @@ module faxil_master #(
 	//
 	// Assume acknowledgements must follow requests
 	//
-	// The outstanding count is a count of bursts, but the acknowledgements
-	// we are looking for are individual.  Hence, there should be no
-	// individual acknowledgements coming back if there's no outstanding
-	// burst.
+	// The f_axi*outstanding counters count the number of requests.  No
+	// acknowledgment should issue without a pending request
+	// burst.  Further, the spec is clear: you can't acknowledge something
+	// on the same clock you get the request.  There must be at least one
+	// clock delay.
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -510,18 +537,18 @@ module faxil_master #(
 	// AXI write response channel
 	//
 	always @(posedge i_clk)
-	if ((!axi_awr_req)&&(i_axi_bvalid))
+	if (i_axi_bvalid)
 		`SLAVE_ASSERT(f_axi_awr_outstanding > 0);
 
 	always @(posedge i_clk)
-	if ((!axi_wr_req)&&(i_axi_bvalid))
+	if (i_axi_bvalid)
 		`SLAVE_ASSERT(f_axi_wr_outstanding > 0);
 
 	//
 	// AXI read data channel signals
 	//
 	always @(posedge i_clk)
-	if ((!axi_ard_req)&&(i_axi_rvalid))
+	if (i_axi_rvalid)
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
 
 	////////////////////////////////////////////////////////////////////////
