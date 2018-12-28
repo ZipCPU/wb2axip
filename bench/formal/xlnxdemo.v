@@ -835,6 +835,212 @@ module xlnxdemo #
 			&&($past((S_AXI_RVALID)&&(S_AXI_RREADY),2))
 			&&($past((S_AXI_RVALID)&&(S_AXI_RREADY),3)));
 
+	// Now let's spend some time to develop a more complicated read
+	// trace, showing the capabilities of the core.  We'll avoid the
+	// broken parts of the core, and just present ... something useful.
+	//
+	reg	[12:0]	fr_rdcover, fw_rdcover;
+
+	initial	fr_rdcover = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		fr_rdcover <= 0;
+	else
+		fr_rdcover <= fw_rdcover;
+
+	always @(*)
+	if ((!S_AXI_ARESETN)||(S_AXI_AWVALID)||(S_AXI_WVALID))
+		fw_rdcover = 0;
+	else begin
+		//
+		// A basic read request
+		fw_rdcover[0] = (S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[1] = fr_rdcover[0]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[2] = fr_rdcover[1]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[3] = fr_rdcover[2]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[4] = fr_rdcover[3]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		//
+		// A high speed/pipelined read request
+		fw_rdcover[5] = fr_rdcover[4]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[6] = fr_rdcover[5]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[7] = fr_rdcover[6]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[8] = fr_rdcover[7]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[9] = fr_rdcover[8]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[10] = fr_rdcover[9]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[11] = fr_rdcover[10]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rdcover[12] = fr_rdcover[11]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+	end
+
+	always @(*)
+	begin
+		cover(fw_rdcover[0]);
+		cover(fw_rdcover[1]);
+		cover(fw_rdcover[2]);
+		cover(fw_rdcover[3]);
+		cover(fw_rdcover[4]);
+		cover(fw_rdcover[5]); //
+		cover(fw_rdcover[6]);
+		cover(fw_rdcover[7]);
+		cover(fw_rdcover[8]);
+		cover(fw_rdcover[9]);
+		cover(fw_rdcover[10]);
+		cover(fw_rdcover[11]);
+		cover(fw_rdcover[12]);
+	end
+
+	//
+	// Now let's repeat our complicated cover approach for the write
+	// channel.
+	//
+	reg	[24:0]	fr_wrcover, fw_wrcover;
+
+	initial	fr_wrcover = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		fr_wrcover <= 0;
+	else
+		fr_wrcover <= fw_wrcover;
+
+	always @(*)
+	if ((!S_AXI_ARESETN)||(S_AXI_ARVALID)||(!S_AXI_BREADY))
+		fw_wrcover = 0;
+	else begin
+		//
+		// A basic (synchronized) write request
+		fw_wrcover[0] = (S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[1] = fr_wrcover[0]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[2] = fr_wrcover[1]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[3] = fr_wrcover[2]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[4] = fr_wrcover[3]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		//
+		// Address before data
+		fw_wrcover[5] = fr_wrcover[4]
+				&&(S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[6] = fr_wrcover[5]
+				&&(S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[7] = fr_wrcover[6]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[8] = fr_wrcover[7]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[9] = fr_wrcover[8]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[10] = fr_wrcover[9]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		//
+		// Data before address
+		fw_wrcover[11] = fr_wrcover[10]
+				&&(!S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[12] = fr_wrcover[11]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[13] = fr_wrcover[12]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[14] = fr_wrcover[13]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[15] = fr_wrcover[14]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		//
+		// A high speed/pipelined read request
+		fw_wrcover[16] = fr_wrcover[15]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[17] = fr_wrcover[16]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[18] = fr_wrcover[17]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[19] = fr_wrcover[18]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[20] = fr_wrcover[19]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[21] = fr_wrcover[20]
+				&&(S_AXI_AWVALID)
+				&&(S_AXI_WVALID);
+		fw_wrcover[22] = fr_wrcover[21]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[23] = fr_wrcover[22]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+		fw_wrcover[24] = fr_wrcover[23]
+				&&(!S_AXI_AWVALID)
+				&&(!S_AXI_WVALID);
+	end
+
+	always @(*)
+	begin
+		cover(fw_wrcover[0]);
+		cover(fw_wrcover[1]);
+		cover(fw_wrcover[2]);
+		cover(fw_wrcover[3]);
+		cover(fw_wrcover[4]);
+		cover(fw_wrcover[5]); //
+		cover(fw_wrcover[6]);
+		cover(fw_wrcover[7]);
+		cover(fw_wrcover[8]);
+		cover(fw_wrcover[9]);
+		cover(fw_wrcover[11]);
+		cover(fw_wrcover[12]);
+		cover(fw_wrcover[13]);
+		cover(fw_wrcover[14]);
+		cover(fw_wrcover[15]);
+		cover(fw_wrcover[16]);
+		cover(fw_wrcover[17]);
+		cover(fw_wrcover[18]);
+		cover(fw_wrcover[19]);
+		cover(fw_wrcover[20]);
+		cover(fw_wrcover[21]);
+		cover(fw_wrcover[22]);
+		cover(fw_wrcover[23]);
+		cover(fw_wrcover[24]);
+	end
 `endif
 	//
 	//

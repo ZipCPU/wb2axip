@@ -1,0 +1,62 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Thu Dec 27 16:19:38 2018
+[*]
+[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/xlnxdemo_cvr/engine_0/trace19.vcd"
+[dumpfile_mtime] "Thu Dec 27 03:40:12 2018"
+[dumpfile_size] 68959
+[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/xlnxdemo.gtkw"
+[timestart] 0
+[size] 1473 600
+[pos] -474 -1
+*-6.470208 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 166
+[sst_expanded] 1
+[sst_vpaned_height] 155
+@29
+[color] 3
+xlnxdemo.S_AXI_ARESETN
+[color] 3
+xlnxdemo.S_AXI_ACLK
+@200
+-
+@28
+xlnxdemo.S_AXI_AWVALID
+xlnxdemo.S_AXI_AWREADY
+@22
+xlnxdemo.S_AXI_AWADDR[6:0]
+@200
+-
+@28
+xlnxdemo.S_AXI_WVALID
+xlnxdemo.S_AXI_WREADY
+@22
+xlnxdemo.S_AXI_WSTRB[3:0]
+xlnxdemo.S_AXI_WDATA[31:0]
+@200
+-
+@28
+[color] 2
+xlnxdemo.S_AXI_BVALID
+[color] 2
+xlnxdemo.S_AXI_BREADY
+@200
+-
+@28
+xlnxdemo.S_AXI_ARVALID
+xlnxdemo.S_AXI_ARREADY
+@22
+xlnxdemo.S_AXI_ARADDR[6:0]
+@200
+-
+@28
+[color] 2
+xlnxdemo.S_AXI_RVALID
+[color] 2
+xlnxdemo.S_AXI_RREADY
+@22
+[color] 2
+xlnxdemo.S_AXI_RDATA[31:0]
+[pattern_trace] 1
+[pattern_trace] 0
