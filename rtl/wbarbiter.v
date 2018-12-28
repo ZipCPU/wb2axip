@@ -6,10 +6,28 @@
 //
 // Purpose:	This is a priority bus arbiter.  It allows two separate wishbone
 //		masters to connect to the same bus, while also guaranteeing
-//	that one master can have the bus with no delay any time the other
-//	master is not using the bus.  The goal is to eliminate as much
-//	combinatorial logic as possible, while still guarateeing minimum access
-//	time for the priority (last, or alternate) channel.
+//	that the last master can have the bus with no delay any time it is
+//	idle.  The goal is to minimize the combinatorial logic required in this
+//	process, while still minimizing access time.
+//
+//	The core logic works like this:
+//
+//		1. If 'A' or 'B' asserts the o_cyc line, a bus cycle will begin,
+//			with acccess granted to whomever requested it.
+//		2. If both 'A' and 'B' assert o_cyc at the same time, only 'A'
+//			will be granted the bus.  (If the alternating parameter 
+//			is set, A and B will alternate who gets the bus in
+//			this case.)
+//		3. The bus will remain owned by whomever the bus was granted to
+//			until they deassert the o_cyc line.
+//		4. At the end of a bus cycle, o_cyc is guaranteed to be
+//			deasserted (low) for one clock.
+//		5. On the next clock, bus arbitration takes place again.  If
+//			'A' requests the bus, no matter how long 'B' was
+//			waiting, 'A' will then be granted the bus.  (Unless
+//			again the alternating parameter is set, then the
+//			access is guaranteed to switch to B.)
+//
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -94,10 +112,11 @@ module	wbarbiter(i_clk, i_reset,
 	output	wire	[(DW/8-1):0]	o_sel;
 	input	wire			i_ack, i_stall, i_err;
 	//
+`ifdef	FORMAL
 	output	wire	[(F_LGDEPTH-1):0] f_nreqs, f_nacks, f_outstanding,
 			f_a_nreqs, f_a_nacks, f_a_outstanding,
 			f_b_nreqs, f_b_nacks, f_b_outstanding;
-
+`endif
 
 	// Go high immediately (new cycle) if ...
 	//	Previous cycle was low and *someone* is requesting a bus cycle
@@ -323,6 +342,40 @@ module	wbarbiter(i_clk, i_reset,
 		if ((f_past_valid)&&(r_a_owner != $past(r_a_owner)))
 			assert(!$past(o_cyc));
 
+	reg	f_prior_a_ack, f_prior_b_ack;
+
+	initial	f_prior_a_ack = 1'b0;
+	always @(posedge i_clk)
+	if ((i_reset)||(o_a_err)||(o_b_err))
+		f_prior_a_ack = 1'b0;
+	else if ((o_cyc)&&(o_a_ack))
+		f_prior_a_ack <= 1'b1;
+
+	initial	f_prior_b_ack = 1'b0;
+	always @(posedge i_clk)
+	if ((i_reset)||(o_a_err)||(o_b_err))
+		f_prior_b_ack = 1'b0;
+	else if ((o_cyc)&&(o_b_ack))
+		f_prior_b_ack <= 1'b1;
+
+	always @(posedge i_clk)
+	begin
+		cover(f_prior_b_ack && o_cyc && o_a_ack);
+
+		cover((o_cyc && o_a_ack)
+			&&($past(o_cyc && o_a_ack))
+			&&($past(o_cyc && o_a_ack,2)));
+
+
+		cover(f_prior_a_ack && o_cyc && o_b_ack);
+
+		cover((o_cyc && o_b_ack)
+			&&($past(o_cyc && o_b_ack))
+			&&($past(o_cyc && o_b_ack,2)));
+	end
+
+	always @(*)
+		cover(o_cyc && o_b_ack);
 `endif
 endmodule
 

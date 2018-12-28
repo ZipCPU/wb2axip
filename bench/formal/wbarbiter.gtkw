@@ -1,0 +1,72 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Fri Dec 28 02:53:33 2018
+[*]
+[dumpfile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/wbarbiter_cvr/engine_0/trace4.vcd"
+[dumpfile_mtime] "Fri Dec 28 02:48:56 2018"
+[dumpfile_size] 13681
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/wbarbiter.gtkw"
+[timestart] 0
+[size] 1441 600
+[pos] -1 -1
+*-4.552812 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 270
+[signals_width] 160
+[sst_expanded] 1
+[sst_vpaned_height] 143
+@28
+wbarbiter.i_clk
+wbarbiter.i_reset
+@200
+-
+@28
+wbarbiter.i_a_cyc
+wbarbiter.i_a_stb
+wbarbiter.i_a_we
+@22
+wbarbiter.i_a_adr[31:0]
+wbarbiter.i_a_dat[31:0]
+wbarbiter.i_a_sel[3:0]
+@29
+[color] 2
+wbarbiter.o_a_stall
+[color] 2
+wbarbiter.o_a_ack
+[color] 2
+wbarbiter.o_a_err
+@200
+-
+@28
+wbarbiter.i_b_cyc
+wbarbiter.i_b_stb
+wbarbiter.i_b_we
+@22
+wbarbiter.i_b_adr[31:0]
+wbarbiter.i_b_dat[31:0]
+wbarbiter.i_b_sel[3:0]
+@28
+[color] 2
+wbarbiter.o_b_stall
+[color] 2
+wbarbiter.o_b_ack
+[color] 2
+wbarbiter.o_b_err
+@200
+-
+@28
+wbarbiter.o_cyc
+wbarbiter.o_stb
+wbarbiter.o_we
+@22
+wbarbiter.o_adr[31:0]
+wbarbiter.o_dat[31:0]
+wbarbiter.o_sel[3:0]
+@28
+[color] 2
+wbarbiter.i_ack
+[color] 2
+wbarbiter.i_stall
+[color] 2
+wbarbiter.i_err
+[pattern_trace] 1
+[pattern_trace] 0
