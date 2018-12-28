@@ -104,11 +104,11 @@ $(AXLITE)_cvr/PASS: $(AXLITE_DEPS)
 
 .PHONY: $(WB2LITE)
 $(WB2LITE): $(WB2LITE)_cvr/PASS $(WB2LITE)_prf/PASS
-$(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v $(WB2LITE).ys
+$(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v
 $(WB2LITE)_prf/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
 	sby -f $(WB2LITE).sby prf
 
-$(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v $(WB2LITE).ys
+$(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v
 $(WB2LITE)_cvr/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
 	sby -f $(WB2LITE).sby cvr
 
@@ -127,7 +127,7 @@ $(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby faxil_slave.v
 
 
 .PHONY: $(AXI2WB)
-$(AXI2WB)/PASS: $(RTL)/$(AXI2WB).v $(AXI2WB).ys
+$(AXI2WB)/PASS: $(RTL)/$(AXI2WB).v $(AXI2WB).sby
 $(AXI2WB)/PASS: fwb_slave.v
 $(AXI2WB)/PASS: fwb_master.v
 $(AXI2WB)/PASS: faxi_slave.v
