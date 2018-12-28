@@ -20,11 +20,12 @@ and like the original one it is also formally verified.
 
 # AXI to Wishbone conversion
 
-As of 20180512, the project now contains an
+As of 20181228, the project now contains an
 [AXI4 lite read channel to wishbone interface](rtl/axilrd2wbsp.v), and also an
-[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).  While
-neither of these designs has (yet) to hit silicon, both have passed their
-formal verification step, so I have a lot of confidence in them.
+[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).  
+A third core, the [AXI-lite to WB core](rtl/axlite2wbsp.v) combines these
+two together using a  [Wishbone arbiter](rtl/wbartbiter.v).  All four of these
+designs have been formally verified, and should be reliable to use.
 
 The full AXI4 protocol, however, is rather complicated--especially when
 [compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
@@ -44,8 +45,7 @@ doesn't yet pass formal verification.
 
 Currently, the project contains formal specifications for
 [Avalon](bench/formal/fav_slave.v), [Wishbone](bench/formal/fwb_slave.v), and
-[AXI](bench/formal/faxi_slave.v) busses.  A separate repository contains the
-formal properties for the various bridges.
+[AXI](bench/formal/faxi_slave.v) busses.
 
 # Commercial Applications
 

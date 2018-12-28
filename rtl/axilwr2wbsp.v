@@ -53,10 +53,10 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	o_wb_cyc, o_wb_stb, o_wb_addr, o_wb_data, o_wb_sel,
 		i_wb_ack, i_wb_stall, i_wb_err
 `ifdef	FORMAL
-	, f_first, f_mid, f_last
+	, f_first, f_mid, f_last, f_wpending
 `endif
 	);
-	localparam C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
+	parameter C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28;	// AXI Address width
 	localparam AW			= C_AXI_ADDR_WIDTH-2;// WB Address width
 	parameter LGFIFO                =  3;
@@ -68,14 +68,14 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	input	wire			i_axi_reset_n;	// Bus reset
 
 	// AXI write address channel signals
-	output	wire			o_axi_awready;//Slave is ready to accept
+	output	reg			o_axi_awready;//Slave is ready to accept
 	input	wire	[AW+1:0]	i_axi_awaddr;	// Write address
 	input	wire	[3:0]		i_axi_awcache;	// Write Cache type
 	input	wire	[2:0]		i_axi_awprot;	// Write Protection type
 	input	wire			i_axi_awvalid;	// Write address valid
 
 	// AXI write data channel signals
-	output	wire			o_axi_wready;  // Write data ready
+	output	reg			o_axi_wready;  // Write data ready
 	input	wire	[DW-1:0]	i_axi_wdata;	// Write data
 	input	wire	[DW/8-1:0]	i_axi_wstrb;	// Write strobes
 	input	wire			i_axi_wvalid;	// Write valid
@@ -99,10 +99,16 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	output	wire	[LGFIFO:0]		f_first;
 	output	wire	[LGFIFO:0]		f_mid;
 	output	wire	[LGFIFO:0]		f_last;
+	output	wire	[1:0]			f_wpending;
 `endif
 
 	wire	w_reset;
 	assign	w_reset = (!i_axi_reset_n);
+
+	reg			r_awvalid, r_wvalid;
+	reg	[AW-1:0]	r_addr;
+	reg	[DW-1:0]	r_data;
+	reg	[DW/8-1:0]	r_sel;
 
 	reg			fifo_full, fifo_empty;
 
@@ -112,20 +118,22 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	reg			wb_pending, last_ack;
 	reg	[LGFIFO:0]	wb_outstanding;
 
-	wire	axi_stalled;
+	wire	axi_write_accepted, pending_axi_write;
 
-	assign	axi_stalled = (fifo_full)||(err_state)
-				||((o_wb_stb)&&(i_wb_stall));
+	assign	pending_axi_write =
+		((r_awvalid) || (i_axi_awvalid && o_axi_awready))
+		&&((r_wvalid)|| (i_axi_wvalid && o_axi_wready));
 
-	assign	o_axi_awready = (!axi_stalled)&&(i_axi_awvalid)&&(i_axi_wvalid);
-	assign	o_axi_wready  = o_axi_awready;
+	assign	axi_write_accepted =
+		(!o_wb_stb || !i_wb_stall) && (!fifo_full) && (!err_state)
+			&& (pending_axi_write);
 
 	initial	o_wb_cyc = 1'b0;
 	initial	o_wb_stb = 1'b0;
 	always @(posedge i_clk)
 	if ((w_reset)||((o_wb_cyc)&&(i_wb_err))||(err_state))
 		o_wb_stb <= 1'b0;
-	else if ((i_axi_awvalid)&&(o_axi_awready))
+	else if (axi_write_accepted)
 		o_wb_stb <= 1'b1;
 	else if ((o_wb_cyc)&&(!i_wb_stall))
 		o_wb_stb <= 1'b0;
@@ -134,16 +142,116 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		o_wb_cyc = (wb_pending)||(o_wb_stb);
 
 	always @(posedge i_clk)
-	if (o_axi_awready)
-		o_wb_addr <= i_axi_awaddr[AW+1:2];
+	if (!o_wb_stb || !i_wb_stall)
+	begin
+		if (r_awvalid)
+			o_wb_addr <= r_addr;
+		else
+			o_wb_addr <= i_axi_awaddr[AW+1:2];
 
-	always @(posedge i_clk)
-	if (o_axi_wready)
-		o_wb_data <= i_axi_wdata;
+		if (r_wvalid)
+		begin
+			o_wb_data <= r_data;
+			o_wb_sel  <= r_sel;
+		end else begin
+			o_wb_data <= i_axi_wdata;
+			o_wb_sel  <= i_axi_wstrb;
+		end
+	end
 
+	initial	r_awvalid <= 1'b0;
 	always @(posedge i_clk)
-	if (o_axi_wready)
-		o_wb_sel <= i_axi_wstrb;
+	begin
+		if ((i_axi_awvalid)&&(o_axi_awready))
+		begin
+			r_addr <= i_axi_awaddr[AW+1:2];
+			r_awvalid <= (!axi_write_accepted);
+		end else if (axi_write_accepted)
+			r_awvalid <= 1'b0;
+
+		if (w_reset)
+			r_awvalid <= 1'b0;
+	end
+
+	initial	r_wvalid <= 1'b0;
+	always @(posedge i_clk)
+	begin
+		if ((i_axi_wvalid)&&(o_axi_wready))
+		begin
+			r_data <= i_axi_wdata;
+			r_sel  <= i_axi_wstrb;
+			r_wvalid <= (!axi_write_accepted);
+		end else if (axi_write_accepted)
+			r_wvalid <= 1'b0;
+
+		if (w_reset)
+			r_wvalid <= 1'b0;
+	end
+
+	initial	o_axi_awready = 1'b1;
+	always @(posedge i_clk)
+	if (w_reset)
+		o_axi_awready <= 1'b1;
+	else if ((o_wb_stb && i_wb_stall)
+			&&(r_awvalid || (i_axi_awvalid && o_axi_awready)))
+		// Once a request has been received while the interface is
+		// stalled, we must stall and wait for it to clear
+		o_axi_awready <= 1'b0;
+	else if (err_state && (r_awvalid || (i_axi_awvalid && o_axi_awready)))
+		o_axi_awready <= 1'b0;
+	else if ((r_awvalid || (i_axi_awvalid && o_axi_awready))
+		&&(!r_wvalid && (!i_axi_wvalid || !o_axi_wready)))
+		// If the write address is given without any corresponding
+		// write data, immediately stall and wait for the write data
+		o_axi_awready <= 1'b0;
+	else if (!o_axi_awready && o_wb_stb && i_wb_stall)
+		// Once stalled, remain stalled while the WB bus is stalled
+		o_axi_awready <= 1'b0;
+	else if (fifo_full && (r_awvalid || (!o_axi_bvalid || !i_axi_bready)))
+		// Once the FIFO is full, we must remain stalled until at
+		// least one acknowledgment has been accepted
+		o_axi_awready <= 1'b0;
+	else if ((!o_axi_bvalid || !i_axi_bready)
+			&& (r_awvalid || (i_axi_awvalid && o_axi_awready)))
+		// If ever the FIFO becomes full, we must immediately drop
+		// the o_axi_awready signal
+		o_axi_awready  <= (next_first[LGFIFO-1:0] != r_last[LGFIFO-1:0])
+					&&(next_first[LGFIFO]==r_last[LGFIFO]);
+	else
+		o_axi_awready <= 1'b1;
+
+	initial	o_axi_wready = 1'b1;
+	always @(posedge i_clk)
+	if (w_reset)
+		o_axi_wready <= 1'b1;
+	else if ((o_wb_stb && i_wb_stall)
+			&&(r_wvalid || (i_axi_wvalid && o_axi_wready)))
+		// Once a request has been received while the interface is
+		// stalled, we must stall and wait for it to clear
+		o_axi_wready <= 1'b0;
+	else if (err_state && (r_wvalid || (i_axi_wvalid && o_axi_wready)))
+		o_axi_wready <= 1'b0;
+	else if ((r_wvalid || (i_axi_wvalid && o_axi_wready))
+		&&(!r_awvalid && (!i_axi_awvalid || !o_axi_awready)))
+		// If the write address is given without any corresponding
+		// write data, immediately stall and wait for the write data
+		o_axi_wready <= 1'b0;
+	else if (!o_axi_wready && o_wb_stb && i_wb_stall)
+		// Once stalled, remain stalled while the WB bus is stalled
+		o_axi_wready <= 1'b0;
+	else if (fifo_full && (r_wvalid || (!o_axi_bvalid || !i_axi_bready)))
+		// Once the FIFO is full, we must remain stalled until at
+		// least one acknowledgment has been accepted
+		o_axi_wready <= 1'b0;
+	else if ((!o_axi_bvalid || !i_axi_bready)
+			&& (i_axi_wvalid && o_axi_wready))
+		// If ever the FIFO becomes full, we must immediately drop
+		// the o_axi_wready signal
+		o_axi_wready  <= (next_first[LGFIFO-1:0] != r_last[LGFIFO-1:0])
+					&&(next_first[LGFIFO]==r_last[LGFIFO]);
+	else
+		o_axi_wready <= 1'b1;
+
 
 	initial	wb_pending     = 0;
 	initial	wb_outstanding = 0;
@@ -181,7 +289,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		fifo_full  <= 1'b0;
 		fifo_empty <= 1'b1;
 	end else case({ (o_axi_bvalid)&&(i_axi_bready),
-				(i_axi_awvalid)&&(o_axi_awready) })
+				(axi_write_accepted) })
 	2'b01: begin
 		fifo_full  <= (next_first[LGFIFO-1:0] == r_last[LGFIFO-1:0])
 					&&(next_first[LGFIFO]!=r_last[LGFIFO]);
@@ -198,7 +306,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	always @(posedge i_clk)
 	if (w_reset)
 		r_first <= 0;
-	else if ((i_axi_awvalid)&&(o_axi_awready))
+	else if (axi_write_accepted)
 		r_first <= r_first + 1'b1;
 
 	initial	r_mid = 0;
@@ -278,7 +386,17 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	// verilator lint_on  UNUSED
 
 `ifdef	FORMAL
-	reg	f_past_valid;
+	reg			f_past_valid;
+	wire			f_axi_stalled;
+	wire	[LGFIFO:0]	f_wb_nreqs, f_wb_nacks, f_wb_outstanding;
+	wire	[LGFIFO:0]	wb_fill;
+	wire	[LGFIFO:0]	f_axi_rd_outstanding,
+				f_axi_wr_outstanding,
+				f_axi_awr_outstanding;
+	wire	[LGFIFO:0]	f_mid_minus_err, f_err_minus_last,
+				f_first_minus_err;
+
+
 	initial f_past_valid = 1'b0;
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
@@ -295,11 +413,12 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	always @(*)
 	if (err_state)
-		assert(!o_axi_awready);
+	begin
+		assert(!r_awvalid || !o_axi_awready);
+		assert(!r_wvalid  || !o_axi_wready);
 
-	always @(*)
-	if (err_state)
-		assert((!o_wb_cyc)&&(!o_axi_awready));
+		assert(!o_wb_cyc);
+	end
 
 	always @(*)
 	if ((fifo_empty)&&(!w_reset))
@@ -307,21 +426,24 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	always @(*)
 	if (fifo_full)
-		assert((!fifo_empty)
-			&&(r_first[LGFIFO-1:0] == r_last[LGFIFO-1:0])
-			&&(r_first[LGFIFO] != r_last[LGFIFO]));
+	begin
+		assert(!fifo_empty);
+		assert(r_first[LGFIFO-1:0] == r_last[LGFIFO-1:0]);
+		assert(r_first[LGFIFO] != r_last[LGFIFO]);
+	end
 
 	always @(*)
-	assert(fifo_fill <= (1<<LGFIFO));
+		assert(fifo_fill <= (1<<LGFIFO));
 
 	always @(*)
 	if (fifo_full)
-		assert(!o_axi_awready);
+	begin
+		assert(!r_awvalid || !o_axi_awready);
+		assert(!r_wvalid  || !o_axi_wready);
+	end
+
 	always @(*)
-		assert(fifo_full == (fifo_fill == (1<<LGFIFO)));
-	always @(*)
-	if (fifo_fill == (1<<LGFIFO))
-		assert(!o_axi_awready);
+		assert(fifo_full == (fifo_fill >= (1<<LGFIFO)));
 	always @(*)
 		assert(wb_pending == (wb_outstanding != 0));
 
@@ -329,16 +451,16 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		assert(last_ack == (wb_outstanding <= 1));
 
 
-	assign	f_first = r_first;
-	assign	f_mid   = r_mid;
-	assign	f_last  = r_last;
+	assign	f_first    = r_first;
+	assign	f_mid      = r_mid;
+	assign	f_last     = r_last;
+	assign	f_wpending = { r_awvalid, r_wvalid };
 
-	wire	[LGFIFO:0]	f_wb_nreqs, f_wb_nacks, f_wb_outstanding;
 	fwb_master #(
 		.AW(AW), .DW(DW), .F_LGDEPTH(LGFIFO+1)
 		) fwb(i_clk, w_reset,
 		o_wb_cyc, o_wb_stb, 1'b1, o_wb_addr, o_wb_data, o_wb_sel,
-			i_wb_ack, i_wb_stall, 32'h0, i_wb_err,
+			i_wb_ack, i_wb_stall, {(DW){1'b0}}, i_wb_err,
 		f_wb_nreqs,f_wb_nacks, f_wb_outstanding);
 
 	always @(*)
@@ -349,7 +471,6 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	if (o_wb_cyc)
 		assert(wb_outstanding <= (1<<LGFIFO));
 
-	wire	[LGFIFO:0]	wb_fill;
 	assign	wb_fill = r_first - r_mid;
 	always @(*)
 		assert(wb_fill <= fifo_fill);
@@ -363,10 +484,6 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		else if (!err_state)
 			assert((wb_fill == 0)&&(wb_outstanding == 0));
 	end
-
-	wire	[LGFIFO:0]	f_axi_rd_outstanding,
-				f_axi_wr_outstanding,
-				f_axi_awr_outstanding;
 
 	faxil_slave #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
@@ -386,18 +503,24 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		1'b0, i_axi_awaddr, i_axi_awcache, i_axi_awprot,
 			1'b0,
 		// AXI read data channel signals
-		o_axi_bresp, 1'b0, 32'h0, 1'b0,
+		o_axi_bresp, 1'b0, {(DW){1'b0}}, 1'b0,
 		f_axi_rd_outstanding, f_axi_wr_outstanding,
 		f_axi_awr_outstanding);
 
 	always @(*)
-		assert(f_axi_wr_outstanding == f_axi_awr_outstanding);
+		assert(f_axi_wr_outstanding - (r_wvalid ? 1:0)
+				== f_axi_awr_outstanding - (r_awvalid ? 1:0));
 	always @(*)
 		assert(f_axi_rd_outstanding == 0);
 	always @(*)
-		assert(f_axi_wr_outstanding == fifo_fill);
-	wire	[LGFIFO:0]	f_mid_minus_err, f_err_minus_last,
-				f_first_minus_err;
+		assert(f_axi_wr_outstanding - (r_wvalid ? 1:0) == fifo_fill);
+	always @(*)
+		assert(f_axi_awr_outstanding - (r_awvalid ? 1:0) == fifo_fill);
+	always @(*)
+		if (r_wvalid)  assert(f_axi_wr_outstanding > 0);
+	always @(*)
+		if (r_awvalid) assert(f_axi_awr_outstanding > 0);
+
 	assign	f_mid_minus_err  = f_mid - err_loc;
 	assign	f_err_minus_last = err_loc - f_last;
 	assign	f_first_minus_err = f_first - err_loc;
@@ -431,6 +554,17 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	always @(*)
 	if (err_state)
 		assert(f_mid_minus_err <= f_first_minus_err);
+
+	assign	f_axi_stalled = (fifo_full)||(err_state)
+				||((o_wb_stb)&&(i_wb_stall));
+
+	always @(*)
+	if ((r_awvalid)&&(f_axi_stalled))
+		assert(!o_axi_awready);
+	always @(*)
+	if ((r_wvalid)&&(f_axi_stalled))
+		assert(!o_axi_wready);
+
 
 	// WB covers
 	always @(*)

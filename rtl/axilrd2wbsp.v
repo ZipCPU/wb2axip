@@ -113,19 +113,14 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	initial	o_wb_stb = 1'b0;
 	always @(posedge i_clk)
 	if ((w_reset)||((o_wb_cyc)&&(i_wb_err))||(err_state))
-	begin
 		o_wb_stb <= 1'b0;
-	end else if ((i_axi_arvalid)&&(o_axi_arready))
-	begin
+	else if (r_stb || ((i_axi_arvalid)&&(o_axi_arready)))
 		o_wb_stb <= 1'b1;
-	end else if (o_wb_cyc)
-	begin
-		if ((!i_wb_stall)&&(!r_stb))
-			o_wb_stb <= 1'b0;
-	end
+	else if ((o_wb_cyc)&&(!i_wb_stall))
+		o_wb_stb <= 1'b0;
 
 	always @(*)
-		o_wb_cyc = (wb_pending)||(o_wb_stb)||(r_stb);
+		o_wb_cyc = (wb_pending)||(o_wb_stb);
 
 	always @(posedge i_clk)
 	if (r_stb && !i_wb_stall)
@@ -203,12 +198,19 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	if (w_reset)
 		o_axi_arready <= 1'b1;
 	else if ((o_wb_cyc && i_wb_err) || err_state)
+		// On any error, drop the ready flag until it's been flushed
 		o_axi_arready <= 1'b0;
 	else if ((i_axi_arvalid)&&(o_axi_arready)&&(o_wb_stb)&&(i_wb_stall))
+		// On any request where we are already busy, r_stb will get
+		// set and we drop arready
 		o_axi_arready <= 1'b0;
 	else if (!o_axi_arready && o_wb_stb && i_wb_stall)
+		// If we've already stalled on o_wb_stb, remain stalled until
+		// the bus clears
 		o_axi_arready <= 1'b0;
 	else if (fifo_full && (!o_axi_rvalid || !i_axi_rready))
+		// If the FIFO is full, we must remain not ready until at
+		// least one acknowledgment is accepted 
 		o_axi_arready <= 1'b0;
 	else if ( (!o_axi_rvalid || !i_axi_rready)
 			&& (i_axi_arvalid && o_axi_arready))

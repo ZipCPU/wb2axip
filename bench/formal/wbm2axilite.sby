@@ -4,8 +4,9 @@ cvr
 
 [options]
 prf: mode prove
+prf: depth 18
 cvr: mode cover
-depth 32
+cvr: depth 32
 
 [engines]
 smtbmc

@@ -1,0 +1,122 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Fri Dec 28 11:45:02 2018
+[*]
+[dumpfile] "(null)"
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/axlite2wbsp.gtkw"
+[timestart] 0
+[size] 1920 1021
+[pos] -1 -1
+*-6.124164 160 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axlite2wbsp.
+[treeopen] axlite2wbsp.ARB_WB.
+[treeopen] axlite2wbsp.AXI_RD.
+[treeopen] axlite2wbsp.AXI_RD.axi_read_decoder.
+[treeopen] axlite2wbsp.AXI_WR.
+[treeopen] axlite2wbsp.AXI_WR.axi_write_decoder.
+[sst_width] 270
+[signals_width] 210
+[sst_expanded] 1
+[sst_vpaned_height] 290
+@28
+[color] 3
+axlite2wbsp.i_axi_reset_n
+[color] 3
+axlite2wbsp.o_reset
+[color] 3
+axlite2wbsp.i_clk
+@200
+-
+@28
+[color] 2
+axlite2wbsp.i_axi_awvalid
+[color] 2
+axlite2wbsp.o_axi_awready
+@22
+[color] 2
+axlite2wbsp.i_axi_awaddr[27:0]
+@c00022
+[color] 2
+axlite2wbsp.i_axi_awcache[3:0]
+@28
+(0)axlite2wbsp.i_axi_awcache[3:0]
+(1)axlite2wbsp.i_axi_awcache[3:0]
+(2)axlite2wbsp.i_axi_awcache[3:0]
+(3)axlite2wbsp.i_axi_awcache[3:0]
+@1401200
+-group_end
+@28
+[color] 2
+axlite2wbsp.i_axi_awprot[2:0]
+@200
+-
+@28
+[color] 2
+axlite2wbsp.i_axi_wvalid
+[color] 2
+axlite2wbsp.o_axi_wready
+@22
+[color] 2
+axlite2wbsp.i_axi_wdata[31:0]
+[color] 2
+axlite2wbsp.i_axi_wstrb[3:0]
+@28
+[color] 2
+axlite2wbsp.AXI_WR.axi_write_decoder.err_state
+@200
+-
+@28
+[color] 3
+axlite2wbsp.o_axi_bvalid
+[color] 3
+axlite2wbsp.i_axi_bready
+[color] 3
+axlite2wbsp.o_axi_bresp[1:0]
+@200
+-
+@28
+axlite2wbsp.i_axi_arvalid
+axlite2wbsp.o_axi_arready
+@22
+axlite2wbsp.i_axi_araddr[27:0]
+axlite2wbsp.i_axi_arcache[3:0]
+@28
+axlite2wbsp.i_axi_arprot[2:0]
+@200
+-
+@28
+[color] 2
+axlite2wbsp.o_axi_rvalid
+[color] 2
+axlite2wbsp.i_axi_rready
+@22
+[color] 2
+axlite2wbsp.o_axi_rdata[31:0]
+@28
+[color] 2
+axlite2wbsp.o_axi_rresp[1:0]
+[color] 2
+axlite2wbsp.AXI_RD.axi_read_decoder.err_state
+@200
+-
+@28
+axlite2wbsp.o_wb_cyc
+axlite2wbsp.o_wb_stb
+axlite2wbsp.o_wb_we
+@22
+axlite2wbsp.o_wb_addr[25:0]
+axlite2wbsp.o_wb_data[31:0]
+axlite2wbsp.o_wb_sel[3:0]
+@28
+[color] 2
+axlite2wbsp.i_wb_stall
+[color] 2
+axlite2wbsp.i_wb_ack
+@22
+[color] 2
+axlite2wbsp.i_wb_data[31:0]
+@28
+[color] 2
+axlite2wbsp.i_wb_err
+[pattern_trace] 1
+[pattern_trace] 0

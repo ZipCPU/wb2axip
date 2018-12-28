@@ -147,6 +147,7 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 					f_wb_wr_outstanding;
 	wire	[(F_LGDEPTH-1):0]	f_wb_rd_nreqs, f_wb_rd_nacks,
 					f_wb_rd_outstanding;
+	wire			f_pending_awvalid, f_pending_wvalid;
 `endif
 
 	//
@@ -189,7 +190,8 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 			,
 			.f_first(f_wr_fifo_first),
 			.f_mid(  f_wr_fifo_mid),
-			.f_last( f_wr_fifo_last)
+			.f_last( f_wr_fifo_last),
+			.f_wpending({ f_pending_awvalid, f_pending_wvalid })
 `endif
 		);
 	end else begin
@@ -206,6 +208,8 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 		assign	f_wr_fifo_first = 0;
 		assign	f_wr_fifo_mid   = 0;
 		assign	f_wr_fifo_last  = 0;
+		assign	f_pending_awvalid=0;
+		assign	f_pending_wvalid =0;
 `endif
 	end endgenerate
 	assign	w_wb_we = 1'b1;
@@ -438,8 +442,8 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 	always @(*)
 	begin
 		assert(f_axi_rd_outstanding  == f_rd_fifo_axi_used);
-		assert(f_axi_awr_outstanding == f_awr_fifo_axi_used);
-		assert(f_axi_wr_outstanding  == f_awr_fifo_axi_used);
+		assert(f_axi_awr_outstanding == f_awr_fifo_axi_used+ (f_pending_awvalid?1:0));
+		assert(f_axi_wr_outstanding  == f_awr_fifo_axi_used+ (f_pending_wvalid?1:0));
 	end
 
 	always @(*)
