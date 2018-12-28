@@ -1,5 +1,0 @@
-read_verilog -D AXILWR2WBSP -formal ../../rtl/axilwr2wbsp.v
-read_verilog -D AXILWR2WBSP -formal faxil_slave.v
-read_verilog -D AXILWR2WBSP -formal fwb_master.v
-prep -top axilwr2wbsp -nordff
-write_smt2 -wires axilwr2wbsp.smt2

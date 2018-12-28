@@ -140,9 +140,13 @@ $(AXI2WB)/PASS: $(RTL)/wbarbiter.v
 .PHONY: clean
 clean:
 	rm -rf  $(WBARB)_prf/ $(WBARB)_cvr/
-	rm -rf  $(WB2AXI)/
 	rm -rf  $(WB2LITE)_cvr/ $(WB2LITE)_prf/
-	rm -rf  $(RDLITE)/
-	rm -rf  $(WRLITE)/
+	rm -rf  $(RDLITE)_cvr/  $(RDLITE)_prf
+	rm -rf  $(WRLITE)_cvr/  $(WRLITE)_prf
+	rm -rf  $(AXLITE)_cvr/  $(AXLITE)_prf
+	rm -rf  $(DEMOAXI)_cvr/ $(DEMOAXI)_prf
+	@# The three broken cores, to include Xilinx's
+	rm -rf  $(WB2AXI)/
 	rm -rf  $(AXI2WB)/
+	rm -rf  $(XILINXDEMO)_cvr/ $(XILINXDEMO)_prf
 	# rm -f *.check
