@@ -588,5 +588,49 @@ module wbm2axilite (
 		`ASSERT(full_fifo);
 	always @(*)
 		assert(outstanding < {(LGFIFOLN){1'b1}});
+
+	// AXI cover results
+	always @(*)
+		cover(i_axi_bvalid && o_axi_bready);
+	always @(*)
+		cover(i_axi_rvalid && o_axi_rready);
+
+	always @(posedge i_clk)
+		cover(i_axi_bvalid && o_axi_bready
+			&& $past(i_axi_bvalid && o_axi_bready)
+			&& $past(i_axi_bvalid && o_axi_bready,2));
+
+	always @(posedge i_clk)
+		cover(i_axi_rvalid && o_axi_rready
+			&& $past(i_axi_rvalid && o_axi_rready)
+			&& $past(i_axi_rvalid && o_axi_rready,2));
+
+	// AXI cover requests
+	always @(posedge i_clk)
+		cover(o_axi_arvalid && i_axi_arready
+			&& $past(o_axi_arvalid && i_axi_arready)
+			&& $past(o_axi_arvalid && i_axi_arready,2));
+
+	always @(posedge i_clk)
+		cover(o_axi_awvalid && i_axi_awready
+			&& $past(o_axi_awvalid && i_axi_awready)
+			&& $past(o_axi_awvalid && i_axi_awready,2));
+
+	always @(posedge i_clk)
+		cover(o_axi_wvalid && i_axi_wready
+			&& $past(o_axi_wvalid && i_axi_wready)
+			&& $past(o_axi_wvalid && i_axi_wready,2));
+
+	always @(*)
+		cover(i_axi_rvalid && o_axi_rready);
+
+	// Wishbone cover results
+	always @(*)
+		cover(i_wb_cyc && o_wb_ack);
+
+	always @(posedge i_clk)
+		cover(i_wb_cyc && o_wb_ack
+			&& $past(o_wb_ack)&&$past(o_wb_ack,2));
+
 `endif
 endmodule

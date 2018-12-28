@@ -42,7 +42,7 @@
 ################################################################################
 ##
 ##
-TESTS := wbm2axisp wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp demoaxi # axim2wbsp
+TESTS := wbm2axisp wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp demoaxi axlite2wbsp # axim2wbsp
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL := ../../rtl
@@ -61,9 +61,10 @@ AXI2WB     := axim2wbsp
 WB2LITE    := wbm2axilite
 RDLITE     := axilrd2wbsp
 WRLITE     := axilwr2wbsp
+AXLITE     := axlite2wbsp
 XILINXDEMO := xlnxdemo
 
-.PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(WB2LITE) $(DEMOAXI)
+.PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(AXLITE) $(WB2LITE) $(DEMOAXI)
 
 $(WBARB): $(WBARB)_prf/PASS $(WBARB)_cvr/PASS
 $(WBARB)_prf/PASS: $(RTL)/$(WBARB).v $(WBARB).sby fwb_master.v fwb_slave.v
@@ -76,13 +77,30 @@ $(WB2AXI): $(WB2AXI)/PASS
 $(WB2AXI)/PASS: $(RTL)/$(WB2AXI).v $(WB2AXI).sby fwb_slave.v faxi_master.v
 	sby -f $(WB2AXI).sby
 
-$(RDLITE): $(RDLITE)/PASS
-$(RDLITE)/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v fwb_master.v faxil_slave.v
-	sby -f $(RDLITE).sby
+$(RDLITE): $(RDLITE)_prf/PASS $(RDLITE)_cvr/PASS
+$(RDLITE)_prf/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v fwb_master.v faxil_slave.v
+	sby -f $(RDLITE).sby prf
+$(RDLITE)_cvr/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v fwb_master.v faxil_slave.v
+	sby -f $(RDLITE).sby cvr
 
-$(WRLITE): $(WRLITE)/PASS
-$(WRLITE)/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v fwb_master.v faxil_slave.v
-	sby -f $(WRLITE).sby
+$(WRLITE): $(WRLITE)_prf/PASS $(WRLITE)_cvr/PASS
+$(WRLITE)_prf/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v fwb_master.v faxil_slave.v
+	sby -f $(WRLITE).sby prf
+$(WRLITE)_cvr/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v fwb_master.v faxil_slave.v
+	sby -f $(WRLITE).sby cvr
+
+$(AXLITE): $(AXLITE)_prf/PASS $(AXLITE)_cvr/PASS
+AXLITE_DEPS := $(RTL)/$(RDLITE).v $(RTL)/$(WRLITE).v \
+	$(RTL)/$(WBARB).v fwb_master.v faxil_slave.v			\
+	$(AXLITE).sby $(RTL)/$(AXLITE).v				\
+	$(RDLITE)_prf/PASS $(RDLITE)_cvr/PASS				\
+	$(WRLITE)_prf/PASS $(WRLITE)_cvr/PASS
+
+$(AXLITE)_prf/PASS: $(AXLITE_DEPS)
+	sby -f $(AXLITE).sby prf
+
+$(AXLITE)_cvr/PASS: $(AXLITE_DEPS)
+	sby -f $(AXLITE).sby cvr
 
 .PHONY: $(WB2LITE)
 $(WB2LITE): $(WB2LITE)_cvr/PASS $(WB2LITE)_prf/PASS

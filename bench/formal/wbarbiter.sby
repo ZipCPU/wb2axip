@@ -4,19 +4,20 @@ cvr
 
 [options]
 prf: mode prove
-cvr: mode prove
-depth 32
+prf: depth 4
+cvr: mode cover
+cvr: depth 32
 
 [engines]
 smtbmc
 
 [script]
-read -formal -D AXILRD2WBSP axilrd2wbsp.v
-read -formal -D AXILRD2WBSP faxil_slave.v
-read -formal -D AXILRD2WBSP fwb_master.v
-prep -top axilrd2wbsp
+read -formal -D WBARBITER wbarbiter.v
+read -formal -D WBARBITER fwb_slave.v
+read -formal -D WBARBITER fwb_master.v
+prep -top wbarbiter
 
 [files]
-../../rtl/axilrd2wbsp.v
-faxil_slave.v
+../../rtl/wbarbiter.v
+fwb_slave.v
 fwb_master.v

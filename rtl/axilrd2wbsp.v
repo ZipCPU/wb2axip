@@ -352,6 +352,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	faxil_slave #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(LGFIFO+1),
+		.F_OPT_NO_WRITES(1'b1),
 		.F_AXI_MAXWAIT(0),
 		.F_AXI_MAXDELAY(0)
 		) faxil(i_clk, i_axi_reset_n,
@@ -422,5 +423,32 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 			assert((o_axi_rvalid)&&(f_axi_rd_outstanding>0)
 					&&(wb_fill == 0));
 	end
+
+	// WB covers
+	always @(*)
+		cover(o_wb_cyc && o_wb_stb);
+
+	always @(*)
+	if (LGFIFO > 2)
+		cover(o_wb_cyc && f_wb_outstanding > 2);
+
+	always @(posedge i_clk)
+		cover(o_wb_cyc && i_wb_ack
+			&& $past(o_wb_cyc && i_wb_ack)
+			&& $past(o_wb_cyc && i_wb_ack,2));
+
+	// AXI covers
+	always @(*)
+		cover(o_axi_rvalid && i_axi_rready);
+
+	always @(posedge i_clk)
+		cover(i_axi_arvalid && o_axi_arready
+			&& $past(i_axi_arvalid && o_axi_arready)
+			&& $past(i_axi_arvalid && o_axi_arready,2));
+
+	always @(posedge i_clk)
+		cover(o_axi_rvalid && i_axi_rready
+			&& $past(o_axi_rvalid && i_axi_rready)
+			&& $past(o_axi_rvalid && i_axi_rready,2));
 `endif
 endmodule

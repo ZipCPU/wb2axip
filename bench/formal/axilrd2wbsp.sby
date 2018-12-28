@@ -1,5 +1,10 @@
+[tasks]
+cvr
+prf
+
 [options]
-mode prove
+prf: mode prove
+cvr: mode cover
 depth 32
 
 [engines]

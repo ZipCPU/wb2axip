@@ -283,9 +283,15 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
 
+`ifdef	AXILWR2WBSP
+`define	ASSUME	assume
+`else
+`define	ASSUME	assert
+`endif
+
 	always @(*)
 	if (!f_past_valid)
-		assume(w_reset);
+		`ASSUME(w_reset);
 
 	always @(*)
 	if (err_state)
@@ -365,6 +371,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	faxil_slave #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(LGFIFO+1),
+		.F_OPT_NO_READS(1),
 		.F_AXI_MAXWAIT(0),
 		.F_AXI_MAXDELAY(0)
 		) faxil(i_clk, i_axi_reset_n,
@@ -425,8 +432,35 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	if (err_state)
 		assert(f_mid_minus_err <= f_first_minus_err);
 
+	// WB covers
 	always @(*)
-	if (i_axi_wvalid)
-		assume(|i_axi_wstrb);
+		cover(o_wb_cyc && o_wb_stb && !i_wb_stall);
+	always @(*)
+		cover(o_wb_cyc && i_wb_ack);
+
+	always @(posedge i_clk)
+		cover(o_wb_cyc && $past(o_wb_cyc && o_wb_stb && !i_wb_stall));//
+
+	always @(posedge i_clk)
+		cover(o_wb_cyc && o_wb_stb && !i_wb_stall
+			&& $past(o_wb_cyc && o_wb_stb && !i_wb_stall,2)
+			&& $past(o_wb_cyc && o_wb_stb && !i_wb_stall,4)); //
+
+	always @(posedge i_clk)
+		cover(o_wb_cyc && o_wb_stb && !i_wb_stall
+			&& $past(o_wb_cyc && o_wb_stb && !i_wb_stall)
+			&& $past(o_wb_cyc && o_wb_stb && !i_wb_stall)); //
+
+	always @(posedge i_clk)
+		cover(o_wb_cyc && i_wb_ack
+			&& $past(o_wb_cyc && i_wb_ack)
+			&& $past(o_wb_cyc && i_wb_ack)); //
+
+	// AXI covers
+	always @(posedge i_clk)
+		cover(o_axi_bvalid && i_axi_bready
+			&& $past(o_axi_bvalid && i_axi_bready,1)
+			&& $past(o_axi_bvalid && i_axi_bready,2)); //
+
 `endif
 endmodule

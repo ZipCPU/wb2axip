@@ -415,14 +415,14 @@ module faxil_slave #(
 	// Rule number one:
 	always @(posedge i_clk)
 	if ((i_axi_reset_n)&&($past(i_axi_reset_n))
-		&&($past(axi_awr_req && !i_axi_wvalid,2))
+		&&($past(i_axi_awvalid && !i_axi_wvalid,2))
 			&&($past(f_axi_awr_outstanding>f_axi_wr_outstanding,1))
 			&&(!$past(i_axi_wvalid)))
 		`SLAVE_ASSUME(i_axi_wvalid);
 
 	// Rule number two:
 	always @(posedge i_clk)
-	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(axi_wr_req))
+	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(i_axi_wvalid))
 			&&(f_axi_awr_outstanding < f_axi_wr_outstanding))
 		`SLAVE_ASSUME(i_axi_awvalid);
 
@@ -605,11 +605,13 @@ module faxil_slave #(
 	// AXI write response channel
 	//
 	always @(posedge i_clk)
+	if (!F_OPT_NO_WRITES)
 		cover((i_axi_bvalid)&&(i_axi_bready));
 
 	//
 	// AXI read response channel
 	//
 	always @(posedge i_clk)
+	if (!F_OPT_NO_READS)
 		cover((i_axi_rvalid)&&(i_axi_rready));
 endmodule

@@ -69,6 +69,7 @@ testaxi: $(VDIRFB)/Vaxim2wbsp__ALL.a
 axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
 axilite: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
 axilite: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
+axilite: $(VDIRFB)/Vaxlite2wbsp__ALL.a
 
 .PHONY: wbm2axisp
 wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a
@@ -93,6 +94,12 @@ axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
 $(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.cpp
 $(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.mk
 $(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.cpp $(VDIRFB)/Vaxilwr2wbsp.mk: axilwr2wbsp.v
+
+.PHONY: axlite2wbsp
+axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a
+$(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.cpp
+$(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.mk
+$(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.cpp $(VDIRFB)/Vaxlite2wbsp.mk: axlite2wbsp.v
 
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.mk

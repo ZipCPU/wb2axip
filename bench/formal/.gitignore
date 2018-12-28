@@ -2,8 +2,9 @@
 *.yslog
 *.check
 *.ys.v
-axilwr2wbsp
-axilrd2wbsp
+axilwr2wbsp_*/
+axilrd2wbsp_*/
+axlite2wbsp_*/
 demoaxi_*/
 wbarbiter_*/
 wbm2axilite_*/
