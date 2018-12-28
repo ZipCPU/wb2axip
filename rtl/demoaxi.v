@@ -71,7 +71,6 @@ module	demoaxi
 	) (
 		// Users to add ports here
 		// No user ports (yet) in this design
-		output	wire	o_write,
 		// User ports ends
 
 		// Do not modify the ports beyond this line
@@ -241,15 +240,9 @@ module	demoaxi
 
 	always @(*)
 	if (!axi_awready)
-	begin
 		waddr = pre_waddr;
-	end else begin
+	else
 		waddr = S_AXI_AWADDR;
-	end
-
-	assign o_write = (((!S_AXI_BVALID)||(S_AXI_BREADY))
-				&&((!axi_awready)||(S_AXI_AWVALID))
-				&&((!axi_wready)||((S_AXI_WVALID))));
 
 	always @( posedge S_AXI_ACLK )
 	if (((!S_AXI_BVALID)||(S_AXI_BREADY))
@@ -466,70 +459,74 @@ module	demoaxi
 			&&($past((S_AXI_RVALID && S_AXI_RREADY),3))
 			&&(S_AXI_RVALID && S_AXI_RREADY));
 
-	reg	[22:0]	fw_demo_pipe, fr_demo_pipe;
+	//
+	// Let's create a sophisticated cover statement designed to show off
+	// how our core can handle stalls and non-valids, synchronizing
+	// across multiple scenarios
+	reg	[22:0]	fw_wrdemo_pipe, fr_wrdemo_pipe;
 	always @(*)
 	if (!S_AXI_ARESETN)
-		fw_demo_pipe = 0;
+		fw_wrdemo_pipe = 0;
 	else begin
-		fw_demo_pipe[0] = (S_AXI_AWVALID)
+		fw_wrdemo_pipe[0] = (S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[1] = fr_demo_pipe[0]
+		fw_wrdemo_pipe[1] = fr_wrdemo_pipe[0]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[2] = fr_demo_pipe[1]
+		fw_wrdemo_pipe[2] = fr_wrdemo_pipe[1]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 		//
 		//
-		fw_demo_pipe[3] = fr_demo_pipe[2]
+		fw_wrdemo_pipe[3] = fr_wrdemo_pipe[2]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[4] = fr_demo_pipe[3]
+		fw_wrdemo_pipe[4] = fr_wrdemo_pipe[3]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[5] = fr_demo_pipe[4]
+		fw_wrdemo_pipe[5] = fr_wrdemo_pipe[4]
 				&&(!S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[6] = fr_demo_pipe[5]
+		fw_wrdemo_pipe[6] = fr_wrdemo_pipe[5]
 				&&(S_AXI_AWVALID)
 				&&( S_AXI_WVALID)
 				&&( S_AXI_BREADY);
-		fw_demo_pipe[7] = fr_demo_pipe[6]
+		fw_wrdemo_pipe[7] = fr_wrdemo_pipe[6]
 				&&(!S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&( S_AXI_BREADY);
-		fw_demo_pipe[8] = fr_demo_pipe[7]
+		fw_wrdemo_pipe[8] = fr_wrdemo_pipe[7]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[9] = fr_demo_pipe[8]
+		fw_wrdemo_pipe[9] = fr_wrdemo_pipe[8]
 //				&&(S_AXI_AWVALID)
 //				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[10] = fr_demo_pipe[9]
+		fw_wrdemo_pipe[10] = fr_wrdemo_pipe[9]
 //				&&(S_AXI_AWVALID)
 //				&&(S_AXI_WVALID)
 				// &&(S_AXI_BREADY);
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[11] = fr_demo_pipe[10]
+		fw_wrdemo_pipe[11] = fr_wrdemo_pipe[10]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(!S_AXI_BREADY);
-		fw_demo_pipe[12] = fr_demo_pipe[11]
+		fw_wrdemo_pipe[12] = fr_wrdemo_pipe[11]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[13] = fr_demo_pipe[12]
+		fw_wrdemo_pipe[13] = fr_wrdemo_pipe[12]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[14] = fr_demo_pipe[13]
+		fw_wrdemo_pipe[14] = fr_wrdemo_pipe[13]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(f_axi_awr_outstanding == 0)
@@ -538,69 +535,131 @@ module	demoaxi
 		//
 		//
 		//
-		fw_demo_pipe[15] = fr_demo_pipe[14]
+		fw_wrdemo_pipe[15] = fr_wrdemo_pipe[14]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[16] = fr_demo_pipe[15]
+		fw_wrdemo_pipe[16] = fr_wrdemo_pipe[15]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[17] = fr_demo_pipe[16]
+		fw_wrdemo_pipe[17] = fr_wrdemo_pipe[16]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[18] = fr_demo_pipe[17]
+		fw_wrdemo_pipe[18] = fr_wrdemo_pipe[17]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(!S_AXI_BREADY);
-		fw_demo_pipe[19] = fr_demo_pipe[18]
+		fw_wrdemo_pipe[19] = fr_wrdemo_pipe[18]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[20] = fr_demo_pipe[19]
+		fw_wrdemo_pipe[20] = fr_wrdemo_pipe[19]
 				&&(S_AXI_AWVALID)
 				&&(S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[21] = fr_demo_pipe[20]
+		fw_wrdemo_pipe[21] = fr_wrdemo_pipe[20]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
-		fw_demo_pipe[22] = fr_demo_pipe[21]
+		fw_wrdemo_pipe[22] = fr_wrdemo_pipe[21]
 				&&(!S_AXI_AWVALID)
 				&&(!S_AXI_WVALID)
 				&&(S_AXI_BREADY);
 	end
 
 	always @(posedge S_AXI_ACLK)
-		fr_demo_pipe <= fw_demo_pipe;
+		fr_wrdemo_pipe <= fw_wrdemo_pipe;
 
 	always @(*)
 	if (S_AXI_ARESETN)
 	begin
-		cover(fw_demo_pipe[0]);
-		cover(fw_demo_pipe[1]);
-		cover(fw_demo_pipe[2]);
-		cover(fw_demo_pipe[3]);
-		cover(fw_demo_pipe[4]);
-		cover(fw_demo_pipe[5]);
-		cover(fw_demo_pipe[6]);
-		cover(fw_demo_pipe[7]); //
-		cover(fw_demo_pipe[8]);
-		cover(fw_demo_pipe[9]);
-		cover(fw_demo_pipe[10]);
-		cover(fw_demo_pipe[11]);
-		cover(fw_demo_pipe[12]);
-		cover(fw_demo_pipe[13]);
-		cover(fw_demo_pipe[14]);
-		cover(fw_demo_pipe[15]);
-		cover(fw_demo_pipe[16]);
-		cover(fw_demo_pipe[17]);
-		cover(fw_demo_pipe[18]);
-		cover(fw_demo_pipe[19]);
-		cover(fw_demo_pipe[20]);
-		cover(fw_demo_pipe[21]);
-		cover(fw_demo_pipe[22]);
+		cover(fw_wrdemo_pipe[0]);
+		cover(fw_wrdemo_pipe[1]);
+		cover(fw_wrdemo_pipe[2]);
+		cover(fw_wrdemo_pipe[3]);
+		cover(fw_wrdemo_pipe[4]);
+		cover(fw_wrdemo_pipe[5]);
+		cover(fw_wrdemo_pipe[6]);
+		cover(fw_wrdemo_pipe[7]); //
+		cover(fw_wrdemo_pipe[8]);
+		cover(fw_wrdemo_pipe[9]);
+		cover(fw_wrdemo_pipe[10]);
+		cover(fw_wrdemo_pipe[11]);
+		cover(fw_wrdemo_pipe[12]);
+		cover(fw_wrdemo_pipe[13]);
+		cover(fw_wrdemo_pipe[14]);
+		cover(fw_wrdemo_pipe[15]);
+		cover(fw_wrdemo_pipe[16]);
+		cover(fw_wrdemo_pipe[17]);
+		cover(fw_wrdemo_pipe[18]);
+		cover(fw_wrdemo_pipe[19]);
+		cover(fw_wrdemo_pipe[20]);
+		cover(fw_wrdemo_pipe[21]);
+		cover(fw_wrdemo_pipe[22]);
+	end
+
+	//
+	// Now let's repeat, but for a read demo
+	reg	[10:0]	fw_rddemo_pipe, fr_rddemo_pipe;
+	always @(*)
+	if (!S_AXI_ARESETN)
+		fw_rddemo_pipe = 0;
+	else begin
+		fw_rddemo_pipe[0] = (S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[1] = fr_rddemo_pipe[0]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[2] = fr_rddemo_pipe[1]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		//
+		//
+		fw_rddemo_pipe[3] = fr_rddemo_pipe[2]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[4] = fr_rddemo_pipe[3]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[5] = fr_rddemo_pipe[4]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[6] = fr_rddemo_pipe[5]
+				&&(S_AXI_ARVALID)
+				&&(!S_AXI_RREADY);
+		fw_rddemo_pipe[7] = fr_rddemo_pipe[6]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[8] = fr_rddemo_pipe[7]
+				&&(S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[9] = fr_rddemo_pipe[8]
+				&&(!S_AXI_ARVALID)
+				&&(S_AXI_RREADY);
+		fw_rddemo_pipe[10] = fr_rddemo_pipe[9]
+				&&(f_axi_rd_outstanding == 0);
+	end
+
+
+	initial	fr_rddemo_pipe = 0;
+	always @(posedge S_AXI_ACLK)
+		fr_rddemo_pipe <= fw_rddemo_pipe;
+
+	always @(*)
+	begin
+		cover(fw_rddemo_pipe[0]);
+		cover(fw_rddemo_pipe[1]);
+		cover(fw_rddemo_pipe[2]);
+		cover(fw_rddemo_pipe[3]);
+		cover(fw_rddemo_pipe[4]);
+		cover(fw_rddemo_pipe[5]);
+		cover(fw_rddemo_pipe[6]);
+		cover(fw_rddemo_pipe[7]);
+		cover(fw_rddemo_pipe[8]);	//
+		cover(fw_rddemo_pipe[9]);
+		cover(fw_rddemo_pipe[10]);
 	end
 `endif
 endmodule
