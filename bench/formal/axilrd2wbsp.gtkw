@@ -1,0 +1,70 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Fri Dec 28 05:15:33 2018
+[*]
+[dumpfile] "(null)"
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/axilrd2wbsp.gtkw"
+[timestart] 0
+[size] 1898 600
+[pos] -1 -1
+*-5.054117 210 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 270
+[signals_width] 210
+[sst_expanded] 1
+[sst_vpaned_height] 143
+@28
+[color] 3
+axilrd2wbsp.i_axi_reset_n
+[color] 3
+axilrd2wbsp.i_clk
+@200
+-
+@28
+axilrd2wbsp.i_axi_arvalid
+axilrd2wbsp.o_axi_arready
+@22
+axilrd2wbsp.i_axi_araddr[27:0]
+axilrd2wbsp.i_axi_arcache[3:0]
+@28
+axilrd2wbsp.i_axi_arprot[2:0]
+@200
+-
+@28
+[color] 2
+axilrd2wbsp.o_axi_rvalid
+[color] 2
+axilrd2wbsp.i_axi_rready
+@22
+[color] 2
+axilrd2wbsp.o_axi_rdata[31:0]
+@28
+[color] 2
+axilrd2wbsp.o_axi_rresp[1:0]
+@200
+-
+@28
+axilrd2wbsp.o_wb_cyc
+axilrd2wbsp.o_wb_stb
+@22
+axilrd2wbsp.o_wb_addr[25:0]
+@28
+[color] 2
+axilrd2wbsp.i_wb_stall
+[color] 2
+axilrd2wbsp.i_wb_ack
+@23
+[color] 2
+axilrd2wbsp.i_wb_data[31:0]
+@28
+[color] 2
+axilrd2wbsp.i_wb_err
+@200
+-
+@28
+[color] 3
+axilrd2wbsp.r_stb
+@22
+[color] 3
+axilrd2wbsp.r_addr[25:0]
+[pattern_trace] 1
+[pattern_trace] 0

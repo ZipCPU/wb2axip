@@ -62,7 +62,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	input	wire			i_axi_reset_n;	// Bus reset
 
 // AXI read address channel signals
-	output	wire			o_axi_arready;	// Read address ready
+	output	reg			o_axi_arready;	// Read address ready
 	input	wire	[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr;	// Read address
 	input	wire	[3:0]		i_axi_arcache;	// Read Cache type
 	input	wire	[2:0]		i_axi_arprot;	// Read Protection type
@@ -94,6 +94,9 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	wire	w_reset;
 	assign	w_reset = (!i_axi_reset_n);
 
+	reg			r_stb;
+	reg	[AW-1:0]	r_addr;
+
 	localparam	FLEN=(1<<LGFIFO);
 
 	reg	[DW-1:0]	dfifo		[0:(FLEN-1)];
@@ -117,16 +120,34 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 		o_wb_stb <= 1'b1;
 	end else if (o_wb_cyc)
 	begin
-		if (!i_wb_stall)
+		if ((!i_wb_stall)&&(!r_stb))
 			o_wb_stb <= 1'b0;
 	end
 
 	always @(*)
-		o_wb_cyc = (wb_pending)||(o_wb_stb);
+		o_wb_cyc = (wb_pending)||(o_wb_stb)||(r_stb);
 
 	always @(posedge i_clk)
-	if (o_axi_arready)
+	if (r_stb && !i_wb_stall)
+		o_wb_addr <= r_addr;
+	else if ((o_axi_arready)&&((!o_wb_stb)||(!i_wb_stall)))
 		o_wb_addr <= i_axi_araddr[AW+1:2];
+
+	// Shadow request
+	// r_stb, r_addr
+	initial	r_stb = 1'b0;
+	always @(posedge i_clk)
+	begin
+		if ((i_axi_arvalid)&&(o_axi_arready)&&(o_wb_stb)&&(i_wb_stall))
+		begin
+			r_stb  <= 1'b1;
+			r_addr <= i_axi_araddr[AW+1:2];
+		end else if ((!i_wb_stall)||(!o_wb_cyc))
+			r_stb <= 1'b0;
+
+		if ((w_reset)||(o_wb_cyc)&&(i_wb_err)||(err_state))
+			r_stb <= 1'b0;
+	end
 
 	initial	wb_pending     = 0;
 	initial	wb_outstanding = 0;
@@ -176,6 +197,25 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 		end
 	default: begin end
 	endcase
+
+	initial	o_axi_arready = 1'b1;
+	always @(posedge i_clk)
+	if (w_reset)
+		o_axi_arready <= 1'b1;
+	else if ((o_wb_cyc && i_wb_err) || err_state)
+		o_axi_arready <= 1'b0;
+	else if ((i_axi_arvalid)&&(o_axi_arready)&&(o_wb_stb)&&(i_wb_stall))
+		o_axi_arready <= 1'b0;
+	else if (!o_axi_arready && o_wb_stb && i_wb_stall)
+		o_axi_arready <= 1'b0;
+	else if (fifo_full && (!o_axi_rvalid || !i_axi_rready))
+		o_axi_arready <= 1'b0;
+	else if ( (!o_axi_rvalid || !i_axi_rready)
+			&& (i_axi_arvalid && o_axi_arready))
+		o_axi_arready  <= (next_first[LGFIFO-1:0] != r_last[LGFIFO-1:0])
+					||(next_first[LGFIFO]==r_last[LGFIFO]);
+	else
+		o_axi_arready <= 1'b1;
 
 	initial	r_first = 0;
 	always @(posedge i_clk)
@@ -262,9 +302,6 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 			o_axi_rvalid <= (next_last != r_mid);
 	end
 
-	assign o_axi_arready = (!fifo_full)&&(!err_state)
-				&&((!o_wb_stb)||(!i_wb_stall));
-
 	// Make Verilator happy
 	// verilator lint_off UNUSED
 	// verilator lint_on  UNUSED
@@ -341,9 +378,17 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 		assert(wb_fill <= fifo_fill);
 	always @(*)
 	if (o_wb_stb)
-		assert(wb_outstanding+1 == wb_fill);
+		assert(wb_outstanding+1+((r_stb)?1:0) == wb_fill);
+
 	else if (o_wb_cyc)
 		assert(wb_outstanding == wb_fill);
+
+	always @(*)
+	if (r_stb)
+	begin
+		assert(o_wb_stb);
+		assert(!o_axi_arready);
+	end
 
 	wire	[LGFIFO:0]	f_axi_rd_outstanding,
 				f_axi_wr_outstanding,
