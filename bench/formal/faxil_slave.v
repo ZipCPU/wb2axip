@@ -41,18 +41,16 @@
 `default_nettype	none
 //
 module faxil_slave #(
-	localparam C_AXI_DATA_WIDTH	= 32,// Fixed, width of the AXI R&W data
+	parameter  C_AXI_DATA_WIDTH	= 32,// Fixed, width of the AXI R&W data
 	parameter  C_AXI_ADDR_WIDTH	= 28,// AXI Address width (log wordsize)
 	localparam DW			= C_AXI_DATA_WIDTH,
 	localparam AW			= C_AXI_ADDR_WIDTH,
-	parameter [0:0]	F_OPT_AXI_WSTRB = 1'b1,
 	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
 	parameter [0:0]	F_OPT_NO_READS  = 1'b0,
 	parameter [0:0]	F_OPT_NO_WRITES = 1'b0,
 	parameter [0:0]	F_OPT_BRESP = 1'b1,
 	parameter [0:0]	F_OPT_RRESP = 1'b1,
 	parameter [0:0]	F_OPT_ASSUME_RESET = 1'b1,
-	// parameter [0:0]	F_OPT_HAS_PROT = 1'b0,
 	parameter				F_LGDEPTH	= 4,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12
@@ -88,7 +86,7 @@ module faxil_slave #(
 // AXI read data channel signals
 	input	wire	[1:0]		i_axi_rresp,   // Read response
 	input	wire			i_axi_rvalid,  // Read reponse valid
-	input	wire	[DW-1:0]	i_axi_rdata,    // Read data
+	input	wire	[DW-1:0]	i_axi_rdata,   // Read data
 	input	wire			i_axi_rready,  // Read Response ready
 	//
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_rd_outstanding,
@@ -99,10 +97,6 @@ module faxil_slave #(
 //*****************************************************************************
 // Parameter declarations
 //*****************************************************************************
-
-	localparam	LG_AXI_DW	= 5;
-	localparam	LG_WB_DW	= 5;
-
 
 //*****************************************************************************
 // Internal register and wire declarations
@@ -208,7 +202,6 @@ module faxil_slave #(
 	always @(*)
 	if (i_axi_awvalid)
 	begin
-		// if (F_OPT_HAS_PROT) else
 		`SLAVE_ASSUME(i_axi_awprot  == 3'h0);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
@@ -219,13 +212,8 @@ module faxil_slave #(
 	end
 
 	always @(*)
-	if ((i_axi_wvalid)&&(!F_OPT_AXI_WSTRB))
-		`SLAVE_ASSUME(&i_axi_wstrb);
-
-	always @(*)
 	if (i_axi_arvalid)
 	begin
-		// if (F_OPT_HAS_PROT) else
 		`SLAVE_ASSUME(i_axi_arprot  == 3'h0);
 		if (F_OPT_HAS_CACHE)
 			// Normal non-cachable, but bufferable
@@ -266,35 +254,35 @@ module faxil_slave #(
 		if ((f_past_valid)&&($past(i_axi_awvalid))&&(!$past(i_axi_awready)))
 		begin
 			`SLAVE_ASSUME(i_axi_awvalid);
-			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
+			`SLAVE_ASSUME($stable(i_axi_awaddr));
 		end
 
 		// Write data channel
 		if ((f_past_valid)&&($past(i_axi_wvalid))&&(!$past(i_axi_wready)))
 		begin
 			`SLAVE_ASSUME(i_axi_wvalid);
-			`SLAVE_ASSUME(i_axi_wstrb  == $past(i_axi_wstrb));
-			`SLAVE_ASSUME(i_axi_wdata  == $past(i_axi_wdata));
+			`SLAVE_ASSUME($stable(i_axi_wstrb));
+			`SLAVE_ASSUME($stable(i_axi_wdata));
 		end
 
 		// Incoming Read address channel
 		if ((f_past_valid)&&($past(i_axi_arvalid))&&(!$past(i_axi_arready)))
 		begin
 			`SLAVE_ASSUME(i_axi_arvalid);
-			`SLAVE_ASSUME(i_axi_araddr  == $past(i_axi_araddr));
+			`SLAVE_ASSUME($stable(i_axi_araddr));
 		end
 
 		if ((f_past_valid)&&($past(i_axi_rvalid))&&(!$past(i_axi_rready)))
 		begin
 			`SLAVE_ASSERT(i_axi_rvalid);
-			`SLAVE_ASSERT(i_axi_rresp  == $past(i_axi_rresp));
-			`SLAVE_ASSERT(i_axi_rdata  == $past(i_axi_rdata));
+			`SLAVE_ASSERT($stable(i_axi_rresp));
+			`SLAVE_ASSERT($stable(i_axi_rdata));
 		end
 
 		if ((f_past_valid)&&($past(i_axi_bvalid))&&(!$past(i_axi_bready)))
 		begin
 			`SLAVE_ASSERT(i_axi_bvalid);
-			`SLAVE_ASSERT(i_axi_bresp  == $past(i_axi_bresp));
+			`SLAVE_ASSERT($stable(i_axi_bresp));
 		end
 	end
 
@@ -416,7 +404,7 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if ((i_axi_reset_n)&&($past(i_axi_reset_n))
 		&&($past(i_axi_awvalid && !i_axi_wvalid,2))
-			&&($past(f_axi_awr_outstanding>f_axi_wr_outstanding,1))
+			&&($past(f_axi_awr_outstanding>=f_axi_wr_outstanding,2))
 			&&(!$past(i_axi_wvalid)))
 		`SLAVE_ASSUME(i_axi_wvalid);
 
