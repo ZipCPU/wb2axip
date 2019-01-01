@@ -27,6 +27,9 @@ A third core, the [AXI-lite to WB core](rtl/axlite2wbsp.v) combines these
 two together using a  [Wishbone arbiter](rtl/wbartbiter.v).  All four of these
 designs have been formally verified, and should be reliable to use.
 
+As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
+FPGA proven.
+
 The full AXI4 protocol, however, is rather complicated--especially when
 [compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
 result, while there is a full-fledged
