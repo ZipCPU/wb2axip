@@ -86,8 +86,8 @@ module	wbarbiter(i_clk, i_reset,
 	parameter	[0:0]		OPT_ZERO_ON_IDLE = 1'b0;
 	parameter			F_MAX_STALL = 3;
 	parameter			F_MAX_ACK_DELAY = 3;
-`ifdef	FORMAL
 	parameter			F_LGDEPTH=3;
+`ifdef	FORMAL
 	parameter			F_OPT_CLK2FFLOGIC=1'b0;
 `endif
 
