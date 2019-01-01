@@ -61,10 +61,8 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 	o_reset, o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data, o_wb_sel,
 	i_wb_ack, i_wb_stall, i_wb_data, i_wb_err);
 	//
-	localparam C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
+	parameter C_AXI_DATA_WIDTH	= 32;// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28;	// AXI Address width
-	localparam DW = C_AXI_DATA_WIDTH;
-	localparam AW = C_AXI_ADDR_WIDTH-2;
 	parameter		LGFIFO = 4;
 	parameter		F_MAXSTALL = 3;
 	parameter		F_MAXDELAY = 3;
@@ -84,8 +82,8 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 
 // AXI write data channel signals
 	output	wire			o_axi_wready;  // Write data ready
-	input	wire	[DW-1:0]	i_axi_wdata;	// Write data
-	input	wire	[DW/8-1:0] i_axi_wstrb;	// Write strobes
+	input	wire	[C_AXI_DATA_WIDTH-1:0]	i_axi_wdata;	// Write data
+	input	wire	[C_AXI_DATA_WIDTH/8-1:0] i_axi_wstrb;	// Write strobes
 	input	wire			i_axi_wvalid;	// Write valid
 
 // AXI write response channel signals
@@ -111,15 +109,17 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 	output	wire			o_wb_cyc;
 	output	wire			o_wb_stb;
 	output	wire			o_wb_we;
-	output	wire [(AW-1):0]		o_wb_addr;
-	output	wire [(DW-1):0]		o_wb_data;
-	output	wire [(DW/8-1):0]	o_wb_sel;
+	output	wire [(C_AXI_ADDR_WIDTH-3):0]		o_wb_addr;
+	output	wire [(C_AXI_DATA_WIDTH-1):0]		o_wb_data;
+	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel;
 	input	wire			i_wb_ack;
 	input	wire			i_wb_stall;
-	input	wire [(DW-1):0]		i_wb_data;
+	input	wire [(C_AXI_DATA_WIDTH-1):0]		i_wb_data;
 	input	wire			i_wb_err;
 
 
+	localparam DW = C_AXI_DATA_WIDTH;
+	localparam AW = C_AXI_ADDR_WIDTH-2;
 	//
 	//
 	//
