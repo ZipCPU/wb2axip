@@ -159,8 +159,6 @@ module	demoaxi
 	//------------------------------------------------
 	reg [DW-1:0]	slv_mem	[0:63];
 
-	wire	wstall;
-
 	// I/O Connections assignments
 
 	assign S_AXI_AWREADY	= axi_awready;
@@ -194,18 +192,23 @@ module	demoaxi
 	always @(*)
 		axi_rresp  = 0;	// "OKAY" response
 
-	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	dly_rdata, raw_rdata;
-	always @(*)
-		raw_rdata <= slv_mem[S_AXI_ARADDR[AW+ADDR_LSB-1:ADDR_LSB]];
+	reg [C_S_AXI_ADDR_WIDTH-1 : 0] 	dly_addr, rd_addr;
 
 	always @(posedge S_AXI_ACLK)
-	if ((S_AXI_ARREADY)&&(S_AXI_ARVALID))
-	begin
-		if ((!S_AXI_RVALID)||(S_AXI_RREADY))
-			axi_rdata <= raw_rdata;
-		dly_rdata <= raw_rdata;
-	end else if ((!S_AXI_ARREADY)&&(S_AXI_RREADY))
-		axi_rdata <= dly_rdata;
+	if (S_AXI_ARREADY)
+		dly_addr <= S_AXI_ARADDR;
+
+	always @(*)
+	if (!axi_arready)
+		rd_addr = dly_addr;
+	else
+		rd_addr = S_AXI_ARADDR;
+
+	always @(posedge S_AXI_ACLK)
+	if ((!S_AXI_RVALID)||(S_AXI_RREADY))
+		// If the outgoing channel is not stalled (above)
+		// then read
+		axi_rdata <= slv_mem[rd_addr[AW+ADDR_LSB-1:ADDR_LSB]];
 
 	initial	axi_arready = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -357,9 +360,12 @@ module	demoaxi
 
 	// Make Verilator happy
 	// Verilator lint_off UNUSED
-	wire	[2*ADDR_LSB+5:0]	unused;
+	wire	[5*ADDR_LSB+5:0]	unused;
 	assign	unused = { S_AXI_AWPROT, S_AXI_ARPROT,
 				S_AXI_AWADDR[ADDR_LSB-1:0],
+				dly_addr[ADDR_LSB-1:0],
+				rd_addr[ADDR_LSB-1:0],
+				waddr[ADDR_LSB-1:0],
 				S_AXI_ARADDR[ADDR_LSB-1:0] };
 	// Verilator lint_on UNUSED
 
