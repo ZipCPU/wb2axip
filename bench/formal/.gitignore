@@ -2,6 +2,7 @@
 *.yslog
 *.check
 *.ys.v
+aximrd2wbsp_*/
 axilwr2wbsp_*/
 axilrd2wbsp_*/
 axlite2wbsp_*/

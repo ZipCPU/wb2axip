@@ -1,0 +1,21 @@
+[tasks]
+prf
+
+[options]
+mode bmc
+depth 50
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal aximrd2wbsp.v
+read -formal fwb_master.v
+read -formal faxi_slave.v
+prep -top aximrd2wbsp
+
+
+[files]
+../../rtl/aximrd2wbsp.v
+fwb_master.v
+faxi_slave.v
