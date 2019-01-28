@@ -42,7 +42,7 @@
 ################################################################################
 ##
 ##
-TESTS := wbm2axisp wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp demoaxi axlite2wbsp # axim2wbsp
+TESTS := wbarbiter wbm2axilite axilrd2wbsp axilwr2wbsp demoaxi axlite2wbsp # wbm2axisp axim2wbsp
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL := ../../rtl

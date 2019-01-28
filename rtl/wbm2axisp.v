@@ -28,7 +28,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016-2018, Gisselquist Technology, LLC
+// Copyright (C) 2016-2019, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
@@ -61,9 +61,7 @@ module wbm2axisp #(
 	parameter C_AXI_ADDR_WIDTH	=  28,	// AXI Address width (log wordsize)
 	parameter DW			=  32,	// Wishbone data width
 	parameter AW			=  26,	// Wishbone address width (log wordsize)
-	parameter [0:0] STRICT_ORDER	= 1,	// Reorder, or not? 0 -> Reorder
-	// For formal verification of asynchronous logic, F_OPT_CLK2FFLOGIC=1
-	parameter	F_OPT_CLK2FFLOGIC = 1'b0
+	parameter [0:0] STRICT_ORDER	= 1 	// Reorder, or not? 0 -> Reorder
 	) (
 	input	wire			i_clk,	// System clock
 	input	wire			i_reset,// Reset signal,drives AXI rst
@@ -751,7 +749,6 @@ module wbm2axisp #(
 
 	wire	[(C_AXI_ID_WIDTH-1):0]	f_wb_nreqs, f_wb_nacks,f_wb_outstanding;
 	fwb_slave #(.DW(DW),.AW(AW),
-			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC),
 			.F_MAX_STALL(0),
 			.F_MAX_ACK_DELAY(0),
 			.F_LGDEPTH(C_AXI_ID_WIDTH),
@@ -773,7 +770,6 @@ module wbm2axisp #(
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
-		.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC),
 		.F_AXI_MAXSTALL(3),
 		.F_AXI_MAXDELAY(3),
 		.F_STRICT_ORDER(STRICT_ORDER),

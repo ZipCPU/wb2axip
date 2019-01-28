@@ -34,7 +34,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2015-2018, Gisselquist Technology, LLC
+// Copyright (C) 2015-2019, Gisselquist Technology, LLC
 //
 // This file is part of the pipelined Wishbone to AXI converter project, a
 // project that contains multiple bus bridging designs and formal bus property
@@ -87,9 +87,6 @@ module	wbarbiter(i_clk, i_reset,
 	parameter			F_MAX_STALL = 3;
 	parameter			F_MAX_ACK_DELAY = 3;
 	parameter			F_LGDEPTH=3;
-`ifdef	FORMAL
-	parameter			F_OPT_CLK2FFLOGIC=1'b0;
-`endif
 
 	//
 	input	wire			i_clk, i_reset;
@@ -239,16 +236,6 @@ module	wbarbiter(i_clk, i_reset,
 `ifdef	FORMAL
 
 `ifdef	WBARBITER
-	generate if (F_OPT_CLK2FFLOGIC)
-	begin
-		reg	f_last_clk;
-		initial	assume(!i_clk);
-		always @($global_clock)
-		begin
-			assume(i_clk != f_last_clk);
-			f_last_clk <= i_clk;
-		end
-	end endgenerate
 
 `define	ASSUME	assume
 `else
@@ -286,8 +273,7 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(F_MAX_ACK_DELAY),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1),
-			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
+			.F_OPT_DISCONTINUOUS(1))
 		f_wbm(i_clk, i_reset,
 			o_cyc, o_stb, o_we, o_adr, o_dat, o_sel,
 			i_ack, i_stall, 32'h0, i_err,
@@ -298,8 +284,7 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(0),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1),
-			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
+			.F_OPT_DISCONTINUOUS(1))
 		f_wba(i_clk, i_reset,
 			i_a_cyc, i_a_stb, i_a_we, i_a_adr, i_a_dat, i_a_sel, 
 			o_a_ack, o_a_stall, 32'h0, o_a_err,
@@ -310,8 +295,7 @@ module	wbarbiter(i_clk, i_reset,
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(0),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1),
-			.F_OPT_CLK2FFLOGIC(F_OPT_CLK2FFLOGIC))
+			.F_OPT_DISCONTINUOUS(1))
 		f_wbb(i_clk, i_reset,
 			i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
 			o_b_ack, o_b_stall, 32'h0, o_b_err,
