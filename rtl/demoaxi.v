@@ -61,7 +61,7 @@
 module	demoaxi
 	#(
 		// Users to add parameters here
-		// None as of yet
+		parameter [0:0] OPT_READ_SIDEEFFECTS = 1,
 		// User parameters ends
 		// Do not modify the parameters beyond this line
 		// Width of S_AXI data bus
@@ -205,7 +205,9 @@ module	demoaxi
 		rd_addr = S_AXI_ARADDR;
 
 	always @(posedge S_AXI_ACLK)
-	if ((!S_AXI_RVALID)||(S_AXI_RREADY))
+	if (((!S_AXI_RVALID)||(S_AXI_RREADY))
+		&&(!OPT_READ_SIDEEFFECTS
+			||(!S_AXI_ARREADY || S_AXI_ARVALID)))
 		// If the outgoing channel is not stalled (above)
 		// then read
 		axi_rdata <= slv_mem[rd_addr[AW+ADDR_LSB-1:ADDR_LSB]];
@@ -679,7 +681,6 @@ module	demoaxi
 				&&(f_axi_rd_outstanding == 0);
 	end
 
-
 	initial	fr_rddemo_pipe = 0;
 	always @(posedge S_AXI_ACLK)
 		fr_rddemo_pipe <= fw_rddemo_pipe;
@@ -694,7 +695,7 @@ module	demoaxi
 		cover(fw_rddemo_pipe[5]);
 		cover(fw_rddemo_pipe[6]);
 		cover(fw_rddemo_pipe[7]);
-		cover(fw_rddemo_pipe[8]);	//
+		cover(fw_rddemo_pipe[8]);
 		cover(fw_rddemo_pipe[9]);
 		cover(fw_rddemo_pipe[10]);
 	end
