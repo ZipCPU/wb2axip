@@ -1,0 +1,69 @@
+[tasks]
+prf4x8_buflp	nxm opt_dblbuffer opt_lowpower
+prf4x8_buf	nxm opt_dblbuffer
+prf4x8_lp       nxm               opt_lowpower
+prf4x8_cheap    nxm
+prf4x8_buflpko	nxm opt_dblbuffer opt_lowpower opt_timeout
+prf4x8_bufko	nxm opt_dblbuffer              opt_timeout
+prf4x8_lpko     nxm               opt_lowpower opt_timeout
+prf4x8_cheapko  nxm                            opt_timeout
+prf4x8_buflpkos	nxm opt_dblbuffer opt_lowpower opt_timeout opt_starvation
+prf4x8_bufkos	nxm opt_dblbuffer              opt_timeout opt_starvation
+prf4x8_lpkos    nxm               opt_lowpower opt_timeout opt_starvation
+prf4x8_cheapkos nxm                            opt_timeout opt_starvation
+prf1x8_buflp	oxm opt_dblbuffer opt_lowpower
+prf1x8_buf	oxm opt_dblbuffer
+prf1x8_lp       oxm               opt_lowpower
+prf1x8_cheap    oxm
+prf1x8_buflpko	oxm opt_dblbuffer opt_lowpower opt_timeout
+prf4x8_bufko	oxm opt_dblbuffer              opt_timeout
+prf1x8_lpko     oxm               opt_lowpower opt_timeout
+prf1x8_cheapko  oxm                            opt_timeout
+prf1x8_buflpkos	oxm opt_dblbuffer opt_lowpower opt_timeout opt_starvation
+prf1x8_bufkos	oxm opt_dblbuffer              opt_timeout opt_starvation
+prf1x8_lpkos    oxm               opt_lowpower opt_timeout opt_starvation
+prf1x8_cheapkos oxm                            opt_timeout opt_starvation
+prf4x1_buflp	nxo opt_dblbuffer opt_lowpower
+prf4x1_buf	nxo opt_dblbuffer
+prf4x1_lp       nxo               opt_lowpower
+prf4x1_cheap    nxo
+prf4x1_buflpko	nxo opt_dblbuffer opt_lowpower opt_timeout
+prf4x1_bufko	nxo opt_dblbuffer              opt_timeout
+prf4x1_lpko     nxo               opt_lowpower opt_timeout
+prf4x1_cheapko  nxo                            opt_timeout
+prf4x1_buflpkos	nxo opt_dblbuffer opt_lowpower opt_timeout opt_starvation
+prf4x1_bufkos	nxo opt_dblbuffer              opt_timeout opt_starvation
+prf4x1_lpkos    nxo               opt_lowpower opt_timeout opt_starvation
+prf4x1_cheapkos nxo                            opt_timeout opt_starvation
+
+[options]
+mode prove
+depth 5
+
+[engines]
+# smtbmc boolector
+smtbmc
+# smtbmc z3
+
+
+[script]
+read -formal wbxbar.v
+read -formal fwb_slave.v
+read -formal fwb_master.v
+nxm: chparam -set NM 4 -set NS 8 wbxbar
+oxm: chparam -set NM 1 -set NS 8 wbxbar
+nxo: chparam -set NM 4 -set NS 1 wbxbar
+opt_dblbuffer:   chparam -set OPT_DBLBUFFER 1 wbxbar
+~opt_dblbuffer:  chparam -set OPT_DBLBUFFER 0 wbxbar
+opt_lowpower:    chparam -set OPT_LOWPOWER  1 wbxbar
+~opt_lowpower:   chparam -set OPT_LOWPOWER  0 wbxbar
+opt_timeout:     chparam -set OPT_TIMEOUT  20 wbxbar
+~opt_timeout:    chparam -set OPT_TIMEOUT   0 wbxbar
+opt_starvation:  chparam -set OPT_STARVATION_TIMEOUT  1 wbxbar
+~opt_starvation: chparam -set OPT_TIMEOUT   0 wbxbar
+prep -top wbxbar
+
+[files]
+../../rtl/wbxbar.v
+fwb_slave.v
+fwb_master.v

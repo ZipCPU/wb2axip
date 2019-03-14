@@ -97,11 +97,6 @@ module	fwb_slave(i_clk, i_reset,
 	parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0;
 	//
 	//
-	// F_OPT_CLK2FFLOGIC needs to be set to true any time the clk2fflogic
-	// command is present in the yosys script.  If clk2fflogic isn't used,
-	// then setting this parameter to zero will eliminate some formal
-	// tests which would then be inappropriate.
-	parameter	[0:0]	F_OPT_CLK2FFLOGIC = 1'b0;
 	//
 	localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING = {(F_LGDEPTH){1'b1}};
 	localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
@@ -173,7 +168,7 @@ module	fwb_slave(i_clk, i_reset,
 	initial	`SLAVE_ASSERT(!i_wb_err);
 
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_reset)))
+	if ((!f_past_valid)||($past(i_reset)))
 	begin
 		`SLAVE_ASSUME(!i_wb_cyc);
 		`SLAVE_ASSUME(!i_wb_stb);
@@ -181,30 +176,6 @@ module	fwb_slave(i_clk, i_reset,
 		`SLAVE_ASSERT(!i_wb_ack);
 		`SLAVE_ASSERT(!i_wb_err);
 	end
-
-	// Things can only change on the positive edge of the clock
-`ifdef	VERIFIC
-	(* gclk *) wire gbl_clock;
-	global clocking @(posedge gbl_clock);
-	endclocking
-`endif
-
-	generate if (F_OPT_CLK2FFLOGIC)
-	begin : FORCE_POSEDGE_CLK
-		always @($global_clock)
-		if ((f_past_valid)&&(!$rose(i_clk)))
-		begin
-			assert($stable(i_reset));
-			`SLAVE_ASSUME($stable(i_wb_cyc));
-			`SLAVE_ASSUME($stable(f_request)); // The entire request should b stabl
-			//
-			`SLAVE_ASSERT($stable(i_wb_ack));
-			`SLAVE_ASSERT($stable(i_wb_stall));
-			`SLAVE_ASSERT($stable(i_wb_idata));
-			`SLAVE_ASSERT($stable(i_wb_err));
-		end
-
-	end endgenerate
 
 	always @(*)
 	if (!f_past_valid)
@@ -255,9 +226,9 @@ module	fwb_slave(i_clk, i_reset,
 		`SLAVE_ASSUME(i_wb_we == $past(i_wb_we));
 
 	// Write requests must also set one (or more) of i_wb_sel
-	always @(*)
-	if ((i_wb_stb)&&(i_wb_we))
-		`SLAVE_ASSUME(|i_wb_sel);
+	// always @(*)
+	// if ((i_wb_stb)&&(i_wb_we))
+	//	`SLAVE_ASSUME(|i_wb_sel);
 
 
 	//
@@ -275,6 +246,18 @@ module	fwb_slave(i_clk, i_reset,
 		`SLAVE_ASSERT(!i_wb_err);
 		// Stall may still be true--such as when we are not
 		// selected at some arbiter between us and the slave
+	end
+
+	always @(posedge i_clk)
+	if ((f_past_valid)&&(!$past(i_reset))&&($past(i_wb_cyc))&&(!i_wb_cyc))
+	begin
+		if (($past(f_outstanding == 0))
+			&&((!$past(i_wb_stb && !i_wb_stall))
+				||($past(i_wb_ack|i_wb_err))))
+		begin
+			`SLAVE_ASSERT(!i_wb_ack);
+			`SLAVE_ASSERT(!i_wb_err);
+		end
 	end
 
 	// ACK and ERR may never both be true at the same time
