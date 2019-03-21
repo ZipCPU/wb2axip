@@ -1011,7 +1011,8 @@ module	wbxbar(i_clk, i_reset,
 			.F_MAX_STALL(0)
 			) slvi(i_clk, i_reset,
 				i_mcyc[N], i_mstb[N], i_mwe[N],
-				i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],					i_msel[N*(DW/8) +: (DW/8)],
+				i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
+				i_msel[N*(DW/8) +: (DW/8)],
 			o_mack[N], o_mstall[N], o_mdata[N*DW +: DW], o_merr[N],
 			f_mreqs[N], f_macks[N], f_moutstanding[N]);
 
@@ -1232,24 +1233,34 @@ module	wbxbar(i_clk, i_reset,
 	// Now its time to make some assertions.  Specifically, we want to
 	// assert that any time we read from this special slave, the special
 	// value is returned.
-	reg	[2:0]	read_seq;
-	initial	read_seq = 0;
+	reg	[2:0]	f_read_seq;
+	reg		f_read_ack, f_read_sstall;
+
+	initial	f_read_sstall = 0;
+	always @(posedge i_clk)
+		f_read_sstall <= s_stall[special_slave];
+
+	always @(*)
+		f_read_ack = (f_read_seq[2] || ((!OPT_DBLBUFFER)&&f_read_seq[1]
+					&& !f_read_sstall));
+
+	initial	f_read_seq = 0;
 	always @(posedge i_clk)
 	if ((special_master < NM)&&(special_slave < NS)
 			&&(i_mcyc[special_master])
 			&&(!timed_out[special_master]))
 	begin
-		read_seq <= 0;
+		f_read_seq <= 0;
 		if ((grant[special_master][special_slave])
 			&&(m_stb[special_master])
 			&&(m_addr[special_master] == special_address)
 			&&(!m_we[special_master])
 			)
 		begin
-			read_seq[0] <= 1;
+			f_read_seq[0] <= 1;
 		end
 
-		if (|read_seq)
+		if (|f_read_seq)
 		begin
 			assert(grant[special_master][special_slave]);
 			assert(mgrant[special_master]);
@@ -1259,61 +1270,74 @@ module	wbxbar(i_clk, i_reset,
 			assert(!o_merr[special_master]);
 		end
 
-		if (read_seq[0] && !$past(s_stall[special_slave]))
+		if (f_read_seq[0] && !$past(s_stall[special_slave]))
 		begin
 			assert(o_scyc[special_slave]);
 			assert(o_sstb[special_slave]);
 			assert(!o_swe[special_slave]);
 			assert(o_saddr[special_slave*AW +: AW] == special_address);
 
-			read_seq[1] <= 1;
+			f_read_seq[1] <= 1;
 
-		end else if (read_seq[0] && $past(s_stall[special_slave]))
+		end else if (f_read_seq[0] && $past(s_stall[special_slave]))
 		begin
 			assert($stable(m_stb[special_master]));
 			assert(!m_we[special_master]);
 			assert(m_addr[special_master] == special_address);
 
-			read_seq[0] <= 1;
+			f_read_seq[0] <= 1;
 		end
 
-		if (read_seq[1] && $past(s_stall[special_slave]))
+		if (f_read_seq[1] && $past(s_stall[special_slave]))
 		begin
 			assert(o_scyc[special_slave]);
 			assert(o_sstb[special_slave]);
 			assert(!o_swe[special_slave]);
 			assert(o_saddr[special_slave*AW +: AW] == special_address);
-			read_seq[1] <= 1;
-		end else if (read_seq[1] && !$past(s_stall[special_slave]))
+			f_read_seq[1] <= 1;
+		end else if (f_read_seq[1] && !$past(s_stall[special_slave]))
 		begin
 			assert(i_sack[special_slave]);
 			assert(i_sdata[special_slave*DW +: DW] == $past(special_value));
 			if (OPT_DBLBUFFER)
-				read_seq[2] <= 1;
+				f_read_seq[2] <= 1;
 		end
 
-		if (read_seq[2] || ((!OPT_DBLBUFFER)&&read_seq[1]
-					&& !$past(s_stall[special_slave])))
+		if (f_read_ack)
 		begin
 			assert(o_mack[special_master]);
 			assert(o_mdata[special_master * DW +: DW]
 				== $past(special_value,2));
 		end
 	end else
-		read_seq <= 0;
+		f_read_seq <= 0;
+
+	always @(*)
+		cover(i_mcyc[special_master] && f_read_ack);
+
 
 	//
 	// Let's try a write assertion now.  Specifically, on any request to
 	// write to our special address, we want to assert that the special
 	// value at that address can be written.
-	reg	[2:0]	write_seq;
-	initial	write_seq = 0;
+	reg	[2:0]	f_write_seq;
+	reg		f_write_ack, f_write_sstall;
+
+	initial	f_write_sstall = 0;
+	always @(posedge i_clk)
+		f_write_sstall = s_stall[special_slave];
+
+	always @(*)
+		f_write_ack = (f_write_seq[2]
+				|| ((!OPT_DBLBUFFER)&&f_write_seq[1]
+					&& !f_write_sstall));
+	initial	f_write_seq = 0;
 	always @(posedge i_clk)
 	if ((special_master < NM)&&(special_slave < NS)
 			&&(i_mcyc[special_master])
 			&&(!timed_out[special_master]))
 	begin
-		write_seq <= 0;
+		f_write_seq <= 0;
 		if ((grant[special_master][special_slave])
 			&&(m_stb[special_master])
 			&&(m_addr[special_master] == special_address)
@@ -1322,10 +1346,10 @@ module	wbxbar(i_clk, i_reset,
 			// Our write sequence begins when our special master
 			// has access to the bus, *and* he is trying to write
 			// to our special address.
-			write_seq[0] <= 1;
+			f_write_seq[0] <= 1;
 		end
 
-		if (|write_seq)
+		if (|f_write_seq)
 		begin
 			assert(grant[special_master][special_slave]);
 			assert(mgrant[special_master]);
@@ -1335,7 +1359,7 @@ module	wbxbar(i_clk, i_reset,
 			assert(!o_merr[special_master]);
 		end
 
-		if (write_seq[0] && !$past(s_stall[special_slave]))
+		if (f_write_seq[0] && !$past(s_stall[special_slave]))
 		begin
 			assert(o_scyc[special_slave]);
 			assert(o_sstb[special_slave]);
@@ -1346,9 +1370,9 @@ module	wbxbar(i_clk, i_reset,
 			assert(o_ssel[special_slave*DW/8 +: DW/8]
 				== $past(m_sel[special_master]));
 
-			write_seq[1] <= 1;
+			f_write_seq[1] <= 1;
 
-		end else if (write_seq[0] && $past(s_stall[special_slave]))
+		end else if (f_write_seq[0] && $past(s_stall[special_slave]))
 		begin
 			assert($stable(m_stb[special_master]));
 			assert(m_we[special_master]);
@@ -1356,10 +1380,10 @@ module	wbxbar(i_clk, i_reset,
 			assert($stable(m_data[special_master]));
 			assert($stable(m_sel[special_master]));
 
-			write_seq[0] <= 1;
+			f_write_seq[0] <= 1;
 		end
 
-		if (write_seq[1] && $past(s_stall[special_slave]))
+		if (f_write_seq[1] && $past(s_stall[special_slave]))
 		begin
 			assert(o_scyc[special_slave]);
 			assert(o_sstb[special_slave]);
@@ -1367,8 +1391,8 @@ module	wbxbar(i_clk, i_reset,
 			assert(o_saddr[special_slave*AW +: AW] == special_address);
 			assert($stable(o_sdata[special_slave*DW +: DW]));
 			assert($stable(o_ssel[special_slave*DW/8 +: DW/8]));
-			write_seq[1] <= 1;
-		end else if (write_seq[1] && !$past(s_stall[special_slave]))
+			f_write_seq[1] <= 1;
+		end else if (f_write_seq[1] && !$past(s_stall[special_slave]))
 		begin
 			for(iM=0; iM<DW/8; iM=iM+1)
 			begin
@@ -1379,14 +1403,88 @@ module	wbxbar(i_clk, i_reset,
 
 			assert(i_sack[special_slave]);
 			if (OPT_DBLBUFFER)
-				write_seq[2] <= 1;
+				f_write_seq[2] <= 1;
 		end
 
-		if (write_seq[2] || ((!OPT_DBLBUFFER)&&write_seq[1]
+		if (f_write_seq[2] || ((!OPT_DBLBUFFER) && f_write_seq[1]
 					&& !$past(s_stall[special_slave])))
 			assert(o_mack[special_master]);
 	end else
-		write_seq <= 0;
+		f_write_seq <= 0;
+
+	always @(*)
+		cover(i_mcyc[special_master] && f_write_ack);
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (draft) full connectivity check
+	//
+	////////////////////////////////////////////////////////////////////////
+	reg	[NM-1:0]	f_m_ackd;
+	reg	[NS-1:0]	f_s_ackd;
+	reg			f_cvr_aborted;
+
+	initial	f_cvr_aborted = 0;
+	always @(posedge i_clk)
+	if (!f_past_valid || i_reset)
+		f_cvr_aborted <= 0;
+	else for(iN=0; iN<NM; iN=iN+1)
+	begin
+		if (request[N][NS])
+			f_cvr_aborted = 1;
+		if ($fell(i_mcyc[iN]))
+		begin
+			if (f_macks[iN] != f_mreqs[iN])
+				f_cvr_aborted = 1;
+		end
+	end
+
+	initial	f_m_ackd = 0;
+	generate for (N=0; N<NM; N=N+1)
+	begin
+
+		always @(posedge i_clk)
+		if (i_reset)
+			f_m_ackd[N] <= 0;
+		else if (o_mack[N])
+			f_m_ackd[N] <= 1'b1;
+
+	end endgenerate
+
+	always @(posedge i_clk)
+		cover(!f_cvr_aborted && (&f_m_ackd));
+
+	generate if (NM > 1)
+	begin
+
+		always @(posedge i_clk)
+			cover(!f_cvr_aborted && (&f_m_ackd[1:0]));
+
+	end endgenerate
+
+	reg	[NS-1:0]	f_s_ackd;
+	initial	f_s_ackd = 0;
+	generate for (M=0; M<NS; M=M+1)
+	begin
+
+		always @(posedge i_clk)
+		if (i_reset)
+			f_s_ackd[M] <= 1'b0;
+		else if (sgrant[M] && o_mack[sindex[M]])
+			f_s_ackd[M] <= 1'b1;
+
+	end endgenerate
+
+	always @(posedge i_clk)
+		cover(!f_cvr_aborted && (&f_s_ackd));
+
+	generate if (NS > 1)
+	begin
+
+		always @(posedge i_clk)
+			cover(!f_cvr_aborted && (&f_s_ackd[1:0]));
+
+	end endgenerate
 
 `endif
 endmodule

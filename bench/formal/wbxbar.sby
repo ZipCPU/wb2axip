@@ -3,6 +3,10 @@ prf4x8_buflp	nxm opt_dblbuffer opt_lowpower
 prf4x8_buf	nxm opt_dblbuffer
 prf4x8_lp       nxm               opt_lowpower
 prf4x8_cheap    nxm
+cvr4x8_buflp	nxm opt_dblbuffer opt_lowpower cvr
+cvr4x8_buf	nxm opt_dblbuffer              cvr
+cvr4x8_lp       nxm               opt_lowpower cvr
+cvr4x8_cheap    nxm                            cvr
 prf4x8_buflpko	nxm opt_dblbuffer opt_lowpower opt_timeout
 prf4x8_bufko	nxm opt_dblbuffer              opt_timeout
 prf4x8_lpko     nxm               opt_lowpower opt_timeout
@@ -15,8 +19,12 @@ prf1x8_buflp	oxm opt_dblbuffer opt_lowpower
 prf1x8_buf	oxm opt_dblbuffer
 prf1x8_lp       oxm               opt_lowpower
 prf1x8_cheap    oxm
+cvr1x3_buflp	oxl opt_dblbuffer opt_lowpower cvr
+cvr1x3_buf	oxl opt_dblbuffer              cvr
+cvr1x3_lp       oxl               opt_lowpower cvr
+cvr1x3_cheap    oxl                            cvr
 prf1x8_buflpko	oxm opt_dblbuffer opt_lowpower opt_timeout
-prf4x8_bufko	oxm opt_dblbuffer              opt_timeout
+prf1x8_bufko	oxm opt_dblbuffer              opt_timeout
 prf1x8_lpko     oxm               opt_lowpower opt_timeout
 prf1x8_cheapko  oxm                            opt_timeout
 prf1x8_buflpkos	oxm opt_dblbuffer opt_lowpower opt_timeout opt_starvation
@@ -27,6 +35,10 @@ prf4x1_buflp	nxo opt_dblbuffer opt_lowpower
 prf4x1_buf	nxo opt_dblbuffer
 prf4x1_lp       nxo               opt_lowpower
 prf4x1_cheap    nxo
+cvr4x1_buflp	nxo opt_dblbuffer opt_lowpower cvr
+cvr4x1_buf	nxo opt_dblbuffer              cvr
+cvr4x1_lp       nxo               opt_lowpower cvr
+cvr4x1_cheap    nxo                            cvr
 prf4x1_buflpko	nxo opt_dblbuffer opt_lowpower opt_timeout
 prf4x1_bufko	nxo opt_dblbuffer              opt_timeout
 prf4x1_lpko     nxo               opt_lowpower opt_timeout
@@ -37,8 +49,10 @@ prf4x1_lpkos    nxo               opt_lowpower opt_timeout opt_starvation
 prf4x1_cheapkos nxo                            opt_timeout opt_starvation
 
 [options]
-mode prove
-depth 5
+~cvr: mode prove
+~cvr: depth 5
+cvr: mode cover
+cvr: depth 64
 
 [engines]
 # smtbmc boolector
@@ -52,6 +66,7 @@ read -formal fwb_slave.v
 read -formal fwb_master.v
 nxm: chparam -set NM 4 -set NS 8 wbxbar
 oxm: chparam -set NM 1 -set NS 8 wbxbar
+oxl: chparam -set NM 1 -set NS 3 wbxbar
 nxo: chparam -set NM 4 -set NS 1 wbxbar
 opt_dblbuffer:   chparam -set OPT_DBLBUFFER 1 wbxbar
 ~opt_dblbuffer:  chparam -set OPT_DBLBUFFER 0 wbxbar
