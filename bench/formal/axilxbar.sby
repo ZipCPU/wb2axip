@@ -1,0 +1,43 @@
+[tasks]
+prf4x8_lp   nxm opt_lowpower
+prf4x8      nxm
+cvr4x8_lp   nxm opt_lowpower cvr
+cvr4x8      nxm              cvr
+prf1x8_lp   oxm opt_lowpower
+prf1x8      oxm
+cvr1x3_lp   oxl opt_lowpower cvr
+cvr1x3      oxl              cvr
+
+prf4x1_lp   nxo opt_lowpower
+prf4x1      nxo
+cvr4x1_lp   nxo opt_lowpower cvr
+cvr4x1      nxo              cvr
+
+[options]
+~cvr: mode prove
+~cvr: depth 6
+cvr:  mode cover
+cvr:  depth 64
+
+[engines]
+smtbmc boolector
+# smtbmc
+# smtbmc z3
+
+
+[script]
+read -formal axilxbar.v
+read -formal faxil_slave.v
+read -formal faxil_master.v
+nxm: chparam -set NM 4 -set NS 8 axilxbar
+oxm: chparam -set NM 1 -set NS 8 axilxbar
+# oxl: chparam -set NM 1 -set NS 3 axilxbar
+nxo: chparam -set NM 4 -set NS 1 axilxbar
+opt_lowpower:    chparam -set OPT_LOWPOWER  1 axilxbar
+~opt_lowpower:   chparam -set OPT_LOWPOWER  0 axilxbar
+prep -top axilxbar
+
+[files]
+../../rtl/axilxbar.v
+faxil_slave.v
+faxil_master.v

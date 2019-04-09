@@ -399,7 +399,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	faxil_slave #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(LGFIFO+1),
-		.F_OPT_NO_WRITES(1'b1),
+		.F_OPT_READ_ONLY(1'b1),
 		.F_AXI_MAXWAIT(0),
 		.F_AXI_MAXDELAY(0)
 		) faxil(i_clk, i_axi_reset_n,

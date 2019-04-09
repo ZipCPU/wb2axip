@@ -46,13 +46,37 @@ module faxil_master #(
 	localparam DW			= C_AXI_DATA_WIDTH,
 	localparam AW			= C_AXI_ADDR_WIDTH,
 	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
-	parameter [0:0]	F_OPT_NO_READS  = 1'b0,
-	parameter [0:0]	F_OPT_NO_WRITES = 1'b0,
+	// F_OPT_WRITE_ONLY, if set, will assume the master is always idle on
+	// te read channel, allowing you to test/focus on the write interface
+	parameter [0:0]	F_OPT_WRITE_ONLY  = 1'b0,
+	// F_OPT_READ_ONLY, if set, will assume the master is always idle on
+	// the write channel, while asserting that all of the associated returns
+	// and counters are zero
+	parameter [0:0]	F_OPT_READ_ONLY = 1'b0,
+	// F_OPT_BRESP: Allow any type of write response.  If set clear, then
+	// error responses are disallowed.
 	parameter [0:0]	F_OPT_BRESP = 1'b1,
+	// F_OPT_RRESP, if cleared, will disallow error responses
 	parameter [0:0]	F_OPT_RRESP = 1'b1,
+	// F_OPT_ASSUME_RESET, if set, will cause the design to *assume* the
+	// existence of a correct reset, rather than asserting it.  It is
+	// appropriate anytime the reset logic is outside of the circuit being
+	// examined
 	parameter [0:0]	F_OPT_ASSUME_RESET = 1'b0,
+	// F_LGDEPTH is the number of bits necessary to count the maximum
+	// number of items in flight.
 	parameter				F_LGDEPTH	= 4,
+	// F_AXI_MAXWAIT is the maximum number of clock cycles the
+	// master should have to wait for a slave to raise its ready flag to
+	// accept a request.  Set to zero for no limit.
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
+	// F_AXI_MAXRSTALL is the maximum number of clock cycles the
+	// slave should have to wait with a return valid signal high, but
+	// while the master's return ready signal is low.  Set to zero for no
+	// limit.
+	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXRSTALL= 12,
+	// F_AXI_MAXDELAY is the maximum number of clock cycles between request
+	// and response within the slave.  Set this to zero for no limit.
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12
 	) (
 	input	wire			i_clk,	// System clock
@@ -301,7 +325,7 @@ module faxil_master #(
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
-
+	//
 	generate if (F_AXI_MAXWAIT > 0)
 	begin : CHECK_STALL_COUNT
 		//
@@ -310,9 +334,7 @@ module faxil_master #(
 		//
 		reg	[(F_LGDEPTH-1):0]	f_axi_awstall,
 						f_axi_wstall,
-						f_axi_arstall,
-						f_axi_bstall,
-						f_axi_rstall;
+						f_axi_arstall;
 
 		initial	f_axi_awstall = 0;
 		always @(posedge i_clk)
@@ -362,6 +384,13 @@ module faxil_master #(
 		always @(*)
 			`SLAVE_ASSERT(f_axi_arstall < F_AXI_MAXWAIT);
 
+	end endgenerate
+
+	generate if (F_AXI_MAXRSTALL > 0)
+	begin
+		reg	[(F_LGDEPTH-1):0]	f_axi_bstall,
+						f_axi_rstall;
+
 		// AXI write response channel
 		initial	f_axi_bstall = 0;
 		always @(posedge i_clk)
@@ -371,7 +400,7 @@ module faxil_master #(
 			f_axi_bstall <= f_axi_bstall + 1'b1;
 
 		always @(*)
-			`SLAVE_ASSUME(f_axi_bstall < F_AXI_MAXWAIT);
+			`SLAVE_ASSUME(f_axi_bstall < F_AXI_MAXRSTALL);
 
 		// AXI read response channel
 		initial	f_axi_rstall = 0;
@@ -382,7 +411,7 @@ module faxil_master #(
 			f_axi_rstall <= f_axi_rstall + 1'b1;
 
 		always @(*)
-			`SLAVE_ASSUME(f_axi_rstall < F_AXI_MAXWAIT);
+			`SLAVE_ASSUME(f_axi_rstall < F_AXI_MAXRSTALL);
 
 	end endgenerate
 
@@ -407,6 +436,20 @@ module faxil_master #(
 			&&($past(f_axi_awr_outstanding>=f_axi_wr_outstanding,2))
 			&&(!$past(i_axi_wvalid)))
 		`SLAVE_ASSUME(i_axi_wvalid);
+
+	always @(posedge i_clk)
+	if ((i_axi_reset_n)
+			&&(f_axi_awr_outstanding > 1)
+			&&(f_axi_awr_outstanding-1 > f_axi_wr_outstanding))
+		`SLAVE_ASSUME(i_axi_wvalid);
+
+	always @(posedge i_clk)
+	if ((i_axi_reset_n)
+			&&($past(f_axi_awr_outstanding > f_axi_wr_outstanding))
+			&&(!$past(axi_wr_req)))
+		`SLAVE_ASSUME(i_axi_wvalid);
+
+
 
 	// Rule number two:
 	always @(posedge i_clk)
@@ -547,9 +590,9 @@ module faxil_master #(
 	//
 	////////////////////////////////////////////////////////////////////////
 
-	initial	assert((!F_OPT_NO_READS)||(!F_OPT_NO_WRITES));
+	initial	assert((!F_OPT_WRITE_ONLY)||(!F_OPT_READ_ONLY));
 
-	generate if (F_OPT_NO_READS)
+	generate if (F_OPT_WRITE_ONLY)
 	begin : NO_READS
 
 		always @(*)
@@ -561,7 +604,7 @@ module faxil_master #(
 
 	end endgenerate
 
-	generate if (F_OPT_NO_WRITES)
+	generate if (F_OPT_READ_ONLY)
 	begin : NO_WRITES
 
 		always @(*)
@@ -593,13 +636,13 @@ module faxil_master #(
 	// AXI write response channel
 	//
 	always @(posedge i_clk)
-	if (!F_OPT_NO_WRITES)
+	if (!F_OPT_READ_ONLY)
 		cover((i_axi_bvalid)&&(i_axi_bready));
 
 	//
 	// AXI read response channel
 	//
 	always @(posedge i_clk)
-	if (!F_OPT_NO_READS)
+	if (!F_OPT_WRITE_ONLY)
 		cover((i_axi_rvalid)&&(i_axi_rready));
 endmodule
