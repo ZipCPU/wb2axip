@@ -163,6 +163,7 @@ module	axilxbar #(
 	localparam	LGNS = (NS>1) ? $clog2(NS+1) : 1;
 	localparam	NMFULL = (NM>1) ? (1<<LGNM) : 1;
 	localparam	NSFULL = (NS>1) ? (1<<LGNS) : 2;
+	localparam [1:0] INTERCONNECT_ERROR = 2'b11;
 
 	genvar	N,M;
 	integer	iN, iM;
@@ -246,12 +247,12 @@ module	axilxbar #(
 
 	always @(*)
 	begin
-		s_axi_awvalid = 0;
-		s_axi_awready = 0;
-		s_axi_wvalid = 0;
-		s_axi_wready = 0;
+		s_axi_awvalid = -1;
+		s_axi_awready = -1;
+		s_axi_wvalid = -1;
+		s_axi_wready = -1;
 		s_axi_bvalid = 0;
-		s_axi_bready = 0;
+		s_axi_bready = -1;
 
 		s_axi_awvalid[NS-1:0] = S_AXI_AWVALID;
 		s_axi_awready[NS-1:0] = S_AXI_AWREADY;
@@ -269,10 +270,10 @@ module	axilxbar #(
 		end
 		for(iM=NS; iM<NSFULL; iM=iM+1)
 		begin
-			s_axi_bresp[iM] = 0;
+			s_axi_bresp[iM] = INTERCONNECT_ERROR;
 
 			s_axi_rdata[iM] = 0;
-			s_axi_rresp[iM] = 0;
+			s_axi_rresp[iM] = INTERCONNECT_ERROR;
 		end
 	end
 
@@ -313,8 +314,10 @@ module	axilxbar #(
 				slave_awaccepts[N] = 1'b0;
 			if (!wrequest[N][mwindex[N]])
 				slave_awaccepts[N] = 1'b0;
-			if (s_axi_awvalid[mwindex[N]] && !s_axi_awready[mwindex[N]])
+			if ((mwindex[N] != NS)&&(s_axi_awvalid[mwindex[N]] && !s_axi_awready[mwindex[N]]))
 				slave_awaccepts[N] = 1'b0;
+			// ERRORs are always accepted
+			//	back pressure is handled in the write side
 		end
 
 		always @(*)
@@ -326,7 +329,12 @@ module	axilxbar #(
 			//	slave_waccepts[N] = 1'b0;
 			if (!wdata_expected[N])
 				slave_waccepts[N] = 1'b0;
-			if (s_axi_wvalid[mwindex[N]] && !s_axi_wready[mwindex[N]])
+			if ((mwindex[N] != NS)
+					&&(s_axi_wvalid[mwindex[N]]
+						&& !s_axi_wready[mwindex[N]]))
+				slave_waccepts[N] = 1'b0;
+			if ((mwindex[N] == NS)
+					&&(M_AXI_BVALID[N] && !M_AXI_BREADY[N]))
 				slave_waccepts[N] = 1'b0;
 		end
 
@@ -445,7 +453,9 @@ module	axilxbar #(
 			if (!rrequest[N][mrindex[N]])
 				slave_raccepts[N] = 1'b0;
 			// verilator lint_on  WIDTH
-			if (s_axi_arvalid[mrindex[N]] && !s_axi_arready[mrindex[N]])
+			if ((mrindex[N] != NS)&&(s_axi_arvalid[mrindex[N]] && !s_axi_arready[mrindex[N]]))
+				slave_raccepts[N] = 1'b0;
+			if ((mrindex[N] == NS)&&(M_AXI_RVALID[N] && !M_AXI_RREADY[N]))
 				slave_raccepts[N] = 1'b0;
 		end
 
@@ -560,7 +570,7 @@ module	axilxbar #(
 		always @(*)
 		begin
 			stay_on_channel = 0;
-			for(iM=0; iM<NS; iM=iM+1)
+			for(iM=0; iM<=NS; iM=iM+1)
 			begin
 				if (wrequest[N][iM] && wgrant[N][iM])
 					stay_on_channel = 1;
@@ -595,8 +605,8 @@ module	axilxbar #(
 			if (!mwempty[N] || M_AXI_AWVALID[N]
 					|| r_awvalid[N] || M_AXI_BVALID[N])
 			begin
-				linger_counter <= OPT_LINGER;
-				linger <= 1;
+				linger_counter <=(wgrant[N][NS] ? 0:OPT_LINGER);
+				linger <= (wgrant[N][NS] ? 0:1);
 			end else if (linger_counter > 0)
 			begin
 				linger <= (linger_counter > 1);
@@ -604,6 +614,14 @@ module	axilxbar #(
 			end else
 				linger <= 0;
 
+`ifdef	FORMAL
+			always @(*)
+			if (wgrant[N][NS])
+				assert(linger_counter == 0);
+
+			always @(*)
+				assert(linger == (linger_counter != 0));
+`endif
 		end
 
 		reg	leave_channel;
@@ -616,15 +634,11 @@ module	axilxbar #(
 				// of the channel being idle, or when someone
 				// else asks for the channel
 				leave_channel = 1;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-			if ((mwindex[N] == iM)&&(m_awvalid[N])
-				&&(((m_awaddr[N]^ SLAVE_ADDR[iM*AW+:AW])
-					& SLAVE_MASK[iM*AW +: AW])!=0))
+			if (m_awvalid[N] && !wrequest[N][mwindex[N]])
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
-			end
+
 			if (!mwempty[N])
 				// Can't leave this channel until we've gotten
 				// all of the acknowledgments
@@ -669,15 +683,10 @@ module	axilxbar #(
 					wgrant[N][iM] <= 0;
 			end
 
-			if (wrequest[N][NS])
-			begin
+			if (wrequest[N][NS] && wgrant[N][NS])
 				wgrant[N][NS] <= 1;
-				mwgrant[N]   <= 1;
-			end else begin
+			else if (leave_channel)
 				wgrant[N][NS] <= 0;
-				if (wgrant[N][NS])
-					mwgrant[N] <= 0;
-			end
 		end
 
 		// Now for mwindex
@@ -694,7 +703,7 @@ module	axilxbar #(
 			if (!mwgrant[N] || mwempty[N])
 			begin
 
-				for(iM=0; iM<NS; iM=iM+1)
+				for(iM=0; iM<=NS; iM=iM+1)
 				begin
 
 					if (wrequest[N][iM] && wgrant[N][iM])
@@ -727,7 +736,7 @@ module	axilxbar #(
 		always @(*)
 		begin
 			stay_on_channel = 0;
-			for(iM=0; iM<NS; iM=iM+1)
+			for(iM=0; iM<=NS; iM=iM+1)
 			begin
 				if (rrequest[N][iM] && rgrant[N][iM])
 					stay_on_channel = 1;
@@ -762,8 +771,8 @@ module	axilxbar #(
 			if (!mrempty[N] || M_AXI_ARVALID[N]
 					|| r_arvalid[N] || M_AXI_RVALID[N])
 			begin
-				linger_counter <= OPT_LINGER;
-				linger <= 1;
+				linger_counter<= (rgrant[N][NS] ? 0:OPT_LINGER);
+				linger <= (rgrant[N][NS] ? 0:1);
 			end else if (linger_counter > 0)
 			begin
 				linger <= (linger_counter > 1);
@@ -771,6 +780,13 @@ module	axilxbar #(
 			end else
 				linger <= 0;
 
+`ifdef	FORMAL
+			always @(*)
+			if (rgrant[N][NS])
+				assert(linger_counter == 0);
+			always @(*)
+				assert(linger == (linger_counter != 0));
+`endif
 		end
 
 		reg	leave_channel;
@@ -783,15 +799,11 @@ module	axilxbar #(
 				// of the channel being idle, or when someone
 				// else asks for the channel
 				leave_channel = 1;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-			if (m_arvalid[N] && mrindex[N]==iM
-				&&(((m_araddr[N]^ SLAVE_ADDR[iM*AW+:AW])
-					& SLAVE_MASK[iM*AW +: AW])!=0))
+			if (m_arvalid[N] && !rrequest[N][mrindex[N]])
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
-			end
+
 			if (!mrempty[N])
 				// Can't leave this channel until we've gotten
 				// all of the acknowledgments
@@ -836,15 +848,10 @@ module	axilxbar #(
 					rgrant[N][iM] <= 1'b0;
 			end
 
-			if (rrequest[N][NS])
-			begin
+			if (rrequest[N][NS] && rgrant[N][NS])
 				rgrant[N][NS] <= 1;
-				mrgrant[N]   <= 1;
-			end else begin
+			else if (leave_channel)
 				rgrant[N][NS] <= 0;
-				if (rgrant[N][NS])
-					mrgrant[N] <= 0;
-			end
 		end
 
 		// Now for mrindex
@@ -861,7 +868,7 @@ module	axilxbar #(
 			if (!mrgrant[N] || mrempty[N])
 			begin
 
-				for(iM=0; iM<NS; iM=iM+1)
+				for(iM=0; iM<=NS; iM=iM+1)
 				begin
 
 					if (rrequest[N][iM] && rgrant[N][iM])
@@ -879,6 +886,7 @@ module	axilxbar #(
 				end
 			end
 		end
+
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
@@ -960,20 +968,22 @@ module	axilxbar #(
 		always @(*)
 		if (r_awvalid[N])
 		begin
-			assert(r_awprot[N] == 0);
 			assert(!M_AXI_AWREADY[N]);
+			assert(r_awprot[N] == 0);
 		end
+
 		always @(*)
-		if (r_wvalid[N])
-		begin
-			assert(!M_AXI_WREADY[N]);
-		end
+			assert(!M_AXI_AWREADY[N] == r_awvalid[N]);
+
+		always @(*)
+			assert(!M_AXI_WREADY[N] == r_wvalid[N]);
+
 		always @(*)
 		if (r_arvalid[N])
-		begin
 			assert(r_arprot[N] == 0);
-			assert(!M_AXI_ARREADY[N]);
-		end
+
+		always @(*)
+			assert(!M_AXI_ARREADY[N] == r_arvalid[N]);
 `endif
 	end endgenerate
 
@@ -1288,7 +1298,11 @@ module	axilxbar #(
 			// windex = mwindex[N];
 
 		always @(*)
+		if (mwindex[N] == NS)
+			i_axi_bvalid = m_wvalid[N] && slave_waccepts[N];
+		else
 			i_axi_bvalid = s_axi_bvalid[mwindex[N]];
+
 		always @(*)
 			i_axi_bresp = s_axi_bresp[mwindex[N]];
 
@@ -1327,8 +1341,8 @@ module	axilxbar #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			r_bvalid <= 0;
-		else if (mbstall && !r_bvalid)
-			r_bvalid <= mwgrant[N] && i_axi_bvalid;
+		else if (mbstall && !r_bvalid && (mwindex[N] != NS))
+			r_bvalid <= mwgrant[N] && (mwindex[N]<NS)&&i_axi_bvalid;
 		else if (!mbstall)
 			r_bvalid <= 1'b0;
 
@@ -1340,7 +1354,7 @@ module	axilxbar #(
 			r_bresp <= 0;
 		else if (!r_bvalid || (OPT_LOWPOWER&&!M_AXI_BREADY[N]))
 		begin
-			if (!OPT_LOWPOWER ||(i_axi_bvalid && mbstall))
+			if (!OPT_LOWPOWER ||(i_axi_bvalid && (mwindex[N] < NS) && mbstall))
 			begin
 				if (NS==1)
 					r_bresp <= S_AXI_BRESP[1:0];
@@ -1372,6 +1386,9 @@ module	axilxbar #(
 				axi_bresp <= i_axi_bresp;
 			else
 				axi_bresp <= 0;
+
+			if (mwindex[N] == NS && (!OPT_LOWPOWER || i_axi_bvalid))
+				axi_bresp <= INTERCONNECT_ERROR;
 		end
 
 		assign	M_AXI_AWREADY[N]      = axi_awready;
@@ -1424,7 +1441,11 @@ module	axilxbar #(
 		reg	mrstall;
 		reg	i_axi_rvalid;
 		always @(*)
+		if (mrindex[N] == NS)
+			i_axi_rvalid = m_arvalid[N] && slave_raccepts[N];
+		else
 			i_axi_rvalid = s_axi_rvalid[mrindex[N]];
+
 		always @(*)
 			mrstall = M_AXI_RVALID[N] && !M_AXI_RREADY[N];
 
@@ -1448,7 +1469,7 @@ module	axilxbar #(
 		if (!S_AXI_ARESETN)
 			r_rvalid <= 0;
 		else if (mrstall && !r_rvalid)
-			r_rvalid <= mrgrant[N] && i_axi_rvalid;
+			r_rvalid <= mrgrant[N] && (mrindex[N]<NS)&&i_axi_rvalid;
 		else if (!mrstall)
 			r_rvalid <= 0;
 
@@ -1465,7 +1486,7 @@ module	axilxbar #(
 			r_rdata <= 0;
 		end else if (!r_rvalid || (OPT_LOWPOWER&&!M_AXI_RREADY[N]))
 		begin
-			if (!OPT_LOWPOWER || (i_axi_rvalid && mrstall))
+			if (!OPT_LOWPOWER || (i_axi_rvalid && (mrindex[N] < NS)&& mrstall))
 			begin
 				if (NS == 1)
 				begin
@@ -1519,6 +1540,9 @@ module	axilxbar #(
 					axi_rresp <= s_axi_rresp[mrindex[N]];
 					axi_rdata <= s_axi_rdata[mrindex[N]];
 				end
+
+				if (mrindex[N] >= NS)
+					axi_rresp <= INTERCONNECT_ERROR;
 			end else begin
 				axi_rresp <= 0;
 				axi_rdata <= 0;
@@ -1535,7 +1559,7 @@ module	axilxbar #(
 		if (r_rvalid)
 			assert(r_rresp != 2'b01);
 		always @(*)
-		if (mrgrant[N])
+		if (mrgrant[N] && (mrindex[N] < NS))
 			assert(s_axi_rready[mrindex[N]] == !r_rvalid);
 		else
 			assert(!r_rvalid);
@@ -1575,7 +1599,7 @@ module	axilxbar #(
 			mwempty[N]    <= 1;
 			mwfull[N]     <= 0;
 			mwnearfull[N] <= 0;
-		end else case ({(M_AXI_AWVALID[N] && M_AXI_AWREADY[N]),
+		end else case ({(m_awvalid[N] && slave_awaccepts[N]),
 				(M_AXI_BVALID[N] && M_AXI_BREADY[N])})
 		2'b01: begin
 			awpending     <= awpending - 1;
@@ -1597,7 +1621,7 @@ module	axilxbar #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			wpending <= 0;
-		else case ({(M_AXI_WVALID[N] && M_AXI_WREADY[N]),
+		else case ({(m_wvalid[N] && slave_waccepts[N]),
 				(M_AXI_BVALID[N] && M_AXI_BREADY[N])})
 		2'b01: wpending <= wpending - 1;
 		2'b10: wpending <= wpending + 1;
@@ -1628,7 +1652,7 @@ module	axilxbar #(
 			mrempty[N]<= 1;
 			mrfull[N] <= 0;
 			mrnearfull[N] <= 0;
-		end else case ({(M_AXI_ARVALID[N] && M_AXI_ARREADY[N]),
+		end else case ({(m_arvalid[N] && slave_raccepts[N]),
 				(M_AXI_RVALID[N] && M_AXI_RREADY[N])})
 		2'b01: begin
 			rpending      <= rpending - 1;
@@ -1657,16 +1681,7 @@ module	axilxbar #(
 	reg	[LGMAXBURST-1:0]	f_missing_wdata;
 
 	always @(*)
-	begin
-		f_missing_wdata = awpending - wpending;
-		if (!M_AXI_AWREADY[N])
-			f_missing_wdata = f_missing_wdata - 1;
-		if (!M_AXI_WREADY[N])
-			f_missing_wdata = f_missing_wdata + 1;
-	end
-
-	always @(*)
-		assert(missing_wdata == f_missing_wdata);
+		assert(missing_wdata == awpending - wpending);
 `endif
 	end endgenerate
 
@@ -1688,7 +1703,7 @@ module	axilxbar #(
 
 		// Write grants
 		always @(*)
-		for(iM=0; iM<NS+1; iM=iM+1)
+		for(iM=0; iM<=NS; iM=iM+1)
 		begin
 			if (wgrant[N][iM])
 			begin
@@ -1710,7 +1725,7 @@ module	axilxbar #(
 
 		// Read grants
 		always @(*)
-		for(iM=0; iM<NS+1; iM=iM+1)
+		for(iM=0; iM<=NS; iM=iM+1)
 		begin
 			if (rgrant[N][iM])
 			begin
@@ -1790,42 +1805,52 @@ module	axilxbar #(
 			.f_axi_awr_outstanding(fm_awr_outstanding[N]));
 
 		//
+		// Check write counters
+		//
 		always @(*)
-		assert(fm_awr_outstanding[N] == { 1'b0, w_mawpending[N] });
+		assert(fm_awr_outstanding[N] == { 1'b0, w_mawpending[N] }
+				+ (M_AXI_AWREADY[N] ? 0:1));
 
 		always @(*)
-		assert(fm_wr_outstanding[N] == { 1'b0, w_mwpending[N] });
+		assert(fm_wr_outstanding[N] == { 1'b0, w_mwpending[N] }
+				+ (M_AXI_WREADY[N] ? 0:1));
 
 		always @(*)
 		if (S_AXI_ARESETN)
 			assert(fm_awr_outstanding[N] >=
 				(M_AXI_AWREADY[N] ? 0:1)
-				+(M_AXI_BVALID[N]  ? 1:0));
+				+ (M_AXI_BVALID[N]  ? 1:0));
+
 		always @(*)
 		if (S_AXI_ARESETN)
 			assert(fm_wr_outstanding[N] >= 
 				(M_AXI_WREADY[N] ? 0:1)
-				+(M_AXI_BVALID[N]? 1:0));
-
-		// always @(*)
-		//	assert(wdata_expected[N] == (fm_wr_outstanding[N]
-		//			< fm_awr_outstanding[N]));
+				+ (M_AXI_BVALID[N]? 1:0));
 
 		always @(*)
-		assert(fm_wr_outstanding[N] == { 1'b0, w_mwpending[N] });
+		assert(fm_wr_outstanding[N]-(M_AXI_WREADY[N] ? 0:1)
+			<= fm_awr_outstanding[N]-(M_AXI_AWREADY[N] ? 0:1));
 
 		always @(*)
-		assert(fm_wr_outstanding[N]-(!M_AXI_WREADY[N] ? 1:0)
-			<= fm_awr_outstanding[N]-(!M_AXI_AWREADY[N] ? 1:0));
+		if (S_AXI_ARESETN && wgrant[N][NS])
+			assert(fm_wr_outstanding[N] == (M_AXI_WREADY[N] ? 0:1)
+				+ (M_AXI_BVALID[N] ? 1:0));
 
 		always @(*)
-		if (&w_mawpending[N])
+		if (!mwgrant[N])
 		begin
-			assert(mwfull[N]);
-			assert(!M_AXI_AWREADY[N]);
+			assert(!M_AXI_BVALID[N]);
+
+			assert(fm_awr_outstanding[N]==(M_AXI_AWREADY[N] ? 0:1));
+			assert(fm_wr_outstanding[N] == (M_AXI_WREADY[N] ? 0:1));
+			assert(w_mawpending[N] == 0);
+			assert(w_mwpending[N] == 0);
 		end
 
 
+		//
+		// Check read counters
+		//
 		always @(*)
 		if (S_AXI_ARESETN)
 			assert(fm_rd_outstanding[N] >= 
@@ -1833,15 +1858,31 @@ module	axilxbar #(
 				+(M_AXI_RVALID[N] ? 1:0));
 
 		always @(*)
-		assert(fm_rd_outstanding[N] == { 1'b0, w_mrpending[N] });
+		if (!mrgrant[N] || rgrant[N][NS])
+			assert(fm_rd_outstanding[N] == 
+				(M_AXI_ARREADY[N] ? 0:1)
+				+(M_AXI_RVALID[N] ? 1:0));
+
 		always @(*)
-		if (&w_mrpending[N])
+			assert(fm_rd_outstanding[N] == { 1'b0, w_mrpending[N] }
+				+ (M_AXI_ARREADY[N] ? 0:1));
+
+		always @(*)
+		if (S_AXI_ARESETN && rgrant[N][NS])
+			assert(fm_rd_outstanding[N] == (M_AXI_ARREADY[N] ? 0:1)
+				+(M_AXI_RVALID[N] ? 1:0));
+
+		always @(*)
+		if (!mrgrant[N])
 		begin
-			assert(mrfull[N]);
-			assert(!M_AXI_ARREADY[N]);
+			assert(!M_AXI_RVALID[N]);
+			assert(fm_rd_outstanding[N]== (M_AXI_ARREADY[N] ? 0:1));
+			assert(w_mrpending[N] == 0);
 		end
 
-
+		//
+		// Check full/empty flags
+		//
 		localparam	[LGMAXBURST-1:0] NEAR_THRESHOLD = -2;
 
 		always @(*)
@@ -1911,7 +1952,11 @@ module	axilxbar #(
 
 		always @(*)
 		if (!swgrant[M])
+		begin
 			assert(fs_awr_outstanding[M] == 0);
+			assert(fs_wr_outstanding[M] == 0);
+		end
+
 		always @(*)
 		if (!srgrant[M])
 			assert(fs_rd_outstanding[M] == 0);
@@ -1923,13 +1968,25 @@ module	axilxbar #(
 		always @(*)
 			assert(fs_rd_outstanding[M] < { 1'b1, {(F_LGDEPTH-1){1'b0}}});
 
+		always @(*)
+		if (S_AXI_AWVALID[M])
+			assert(((S_AXI_AWADDR[M*AW +: AW]
+				^ SLAVE_ADDR[M*AW +: AW])
+				& SLAVE_MASK[M*AW +: AW]) == 0);
+
+		always @(*)
+		if (S_AXI_ARVALID[M])
+			assert(((S_AXI_ARADDR[M*AW +: AW]
+				^ SLAVE_ADDR[M*AW +: AW])
+				& SLAVE_MASK[M*AW +: AW]) == 0);
+
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
 	begin : CORRELATE_OUTSTANDING
 
 		always @(*)
-		if (mwgrant[N])
+		if (mwgrant[N] && (mwindex[N] < NS))
 		begin
 			assert((fm_awr_outstanding[N]
 				- (M_AXI_AWREADY[N] ? 0:1)
@@ -1945,28 +2002,31 @@ module	axilxbar #(
 					+ (s_axi_wvalid[mwindex[N]] ? 1:0)
 					+ (s_axi_bready[mwindex[N]] ? 0:1)));
 
-		end else if (S_AXI_ARESETN) begin
-			assert(fm_awr_outstanding[N] ==
-					(M_AXI_AWREADY[N] ? 0:1)
-					+(M_AXI_BVALID[N]  ? 1:0));
+		end else if (!mwgrant[N] || (mwindex[N]==NS))
+		begin
+			if (!mwgrant[N])
+				assert(fm_awr_outstanding[N] ==
+						(M_AXI_AWREADY[N] ? 0:1)
+						+(M_AXI_BVALID[N]  ? 1:0));
+			else
+				assert(fm_awr_outstanding[N] >=
+						(M_AXI_AWREADY[N] ? 0:1)
+						+(M_AXI_BVALID[N]  ? 1:0));
+
 			assert(fm_wr_outstanding[N]  ==
 					(M_AXI_WREADY[N]  ? 0:1)
 					+(M_AXI_BVALID[N]  ? 1:0));
 		end
 
 		always @(*)
-		if (mrgrant[N])
+		if (mrgrant[N] && (mrindex[N] < NS))
 		begin
-			assert((fm_rd_outstanding[N]//31
-				- (M_AXI_ARREADY[N] ? 0:1)//0
-				- (M_AXI_RVALID[N] ? 1:0))//1
-				== (fs_rd_outstanding[mrindex[N]]//28
+			assert((fm_rd_outstanding[N]//17
+				- (M_AXI_ARREADY[N] ? 0:1)//1
+				- (M_AXI_RVALID[N] ? 1:0))//0
+				== (fs_rd_outstanding[mrindex[N]]//16
 					+ (s_axi_arvalid[mrindex[N]] ? 1:0)//0
-					+ (s_axi_rready[mrindex[N]] ? 0:1)));//1
-		end else if (S_AXI_ARESETN) begin
-			assert(fm_rd_outstanding[N] ==
-				(M_AXI_ARREADY[N] ? 0:1)
-				+(M_AXI_RVALID[N] ? 1:0));
+					+ (s_axi_rready[mrindex[N]] ? 0:1)));//0
 		end
 
 	end endgenerate
@@ -1981,6 +2041,7 @@ module	axilxbar #(
 	generate for(N=0; N<NM; N=N+1)
 	begin
 		reg [3:0]	w_returns, r_returns;
+		reg		err_wr_return, err_rd_return;
 
 		initial	w_returns = 0;
 		always @(posedge S_AXI_ACLK)
@@ -1995,6 +2056,18 @@ module	axilxbar #(
 		always @(*)
 			cover(&w_returns);
 
+		always @(*)
+			cover(!mwgrant[N] && (&w_returns));
+
+
+		initial	err_wr_return = 0;
+		always @(posedge S_AXI_ACLK)
+		if (wgrant[N][NS] && M_AXI_BVALID[N]
+				&& (M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR))
+			err_wr_return = 0;
+
+		always @(*)
+			cover(!mwgrant[N] && err_wr_return && !M_AXI_BVALID[N]);
 
 		initial	r_returns = 0;
 		always @(posedge S_AXI_ACLK)
@@ -2009,6 +2082,18 @@ module	axilxbar #(
 		always @(*)
 			cover(&r_returns);
 
+		always @(*)
+			cover(!mrgrant[N] && (&r_returns));
+
+		initial	err_rd_return = 0;
+		always @(posedge S_AXI_ACLK)
+		if (rgrant[N][NS] && M_AXI_BVALID[N]
+				&& (M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR))
+			err_rd_return = 0;
+
+		always @(*)
+			cover(!mrgrant[N] && err_rd_return && !M_AXI_RVALID[N]);
+
 	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
@@ -2021,11 +2106,11 @@ module	axilxbar #(
 	generate for(N=0; N<NM; N=N+1)
 	begin
 
-		always @(*)
-			assume(!wgrant[N][NS]);
+//		always @(*)
+//			assume(!wgrant[N][NS]);
 
-		always @(*)
-			assume(!rgrant[N][NS]);
+//		always @(*)
+//			assume(!rgrant[N][NS]);
 	end endgenerate
 
 `endif
