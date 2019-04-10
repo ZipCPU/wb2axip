@@ -453,8 +453,7 @@ module faxil_slave #(
 
 	// Rule number two:
 	always @(posedge i_clk)
-	if ((i_axi_reset_n)&&(!$past(i_axi_awvalid))&&($past(i_axi_wvalid))
-			&&(f_axi_awr_outstanding < f_axi_wr_outstanding))
+	if ((i_axi_reset_n)&&(f_axi_awr_outstanding < f_axi_wr_outstanding))
 		`SLAVE_ASSUME(i_axi_awvalid);
 
 	////////////////////////////////////////////////////////////////////////
