@@ -152,7 +152,7 @@ module	axilxbar #(
 		4'b0001, {(AW-4){1'b0}},
 		4'b0000, {(AW-4){1'b0}} };
 	parameter	[NS*AW-1:0]	SLAVE_MASK =
-		(NS <= 1) ? 0
+		(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
 		: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
 			{(2){ 4'b1111, {(AW-4){1'b0}}}} };
 	parameter [0:0]	OPT_LOWPOWER = 1;
@@ -283,15 +283,15 @@ module	axilxbar #(
 
 		always @(*)
 		begin
-			none_sel = !m_awvalid[N];
+			none_sel = 1'b1;
 			for(iM=0; iM<NS; iM=iM+1)
 			begin
-				none_sel = none_sel
-					||(((m_awaddr[N]^SLAVE_ADDR[iM*AW +:AW])
-						&SLAVE_MASK[iM*AW +: AW])==0);
+				if (((m_awaddr[N]^SLAVE_ADDR[iM*AW +:AW])
+						& SLAVE_MASK[iM*AW +: AW])==0)
+					none_sel = 1'b0;
 			end
-
-			none_sel = !none_sel;
+			if (!m_awvalid[N])
+				none_sel = 1'b0;
 		end
 
 
@@ -425,10 +425,12 @@ module	axilxbar #(
 			none_sel = 1'b1;
 			for(iM=0; iM<NS; iM=iM+1)
 			begin
-				none_sel = none_sel
-					&&(((m_araddr[N]^SLAVE_ADDR[iM*AW +:AW])
-						&SLAVE_MASK[iM*AW +: AW])!=0);
+				if (((m_araddr[N]^SLAVE_ADDR[iM*AW +:AW])
+						& SLAVE_MASK[iM*AW +: AW])==0)
+					none_sel = 1'b0;
 			end
+			if (!m_arvalid[N])
+				none_sel = 1'b0;
 		end
 
 
@@ -588,6 +590,8 @@ module	axilxbar #(
 					&& !wrequested[N][iM])
 					requested_channel_is_available = 1;
 			end
+			if (wrequest[N][NS])
+				requested_channel_is_available = 1;
 		end
 
 		reg	linger;
@@ -602,11 +606,14 @@ module	axilxbar #(
 			initial	linger = 0;
 			initial	linger_counter = 0;
 			always @(posedge S_AXI_ACLK)
-			if (!mwempty[N] || M_AXI_AWVALID[N]
-					|| r_awvalid[N] || M_AXI_BVALID[N])
+			if (!S_AXI_ARESETN || wgrant[N][NS])
 			begin
-				linger_counter <=(wgrant[N][NS] ? 0:OPT_LINGER);
-				linger <= (wgrant[N][NS] ? 0:1);
+				linger <= 0;
+				linger_counter <= 0;
+			end else if (!mwempty[N] || M_AXI_BVALID[N])
+			begin
+				linger_counter <= OPT_LINGER;
+				linger <= 1;
 			end else if (linger_counter > 0)
 			begin
 				linger <= (linger_counter > 1);
@@ -615,10 +622,6 @@ module	axilxbar #(
 				linger <= 0;
 
 `ifdef	FORMAL
-			always @(*)
-			if (wgrant[N][NS])
-				assert(linger_counter == 0);
-
 			always @(*)
 				assert(linger == (linger_counter != 0));
 `endif
@@ -656,69 +659,37 @@ module	axilxbar #(
 		begin
 			wgrant[N]  <= 0;
 			mwgrant[N] <= 0;
-		end else if (!mwgrant[N] || mwempty[N])
+		end else if (!stay_on_channel && (!mwgrant[N] || mwempty[N]))
 		begin
-			if (stay_on_channel)
-				mwgrant[N] <= 1'b1;
-			else if (requested_channel_is_available)
-				mwgrant[N] <= 1'b1;
-			else if (M_AXI_AWVALID[N] || r_awvalid[N])
-				mwgrant[N] <= 1'b0;
-			else if (leave_channel)
-				mwgrant[N] <= 1'b0;
-
-			for(iM=0; iM<NS; iM=iM+1)
+			if (requested_channel_is_available)
 			begin
-
-				if (wrequest[N][iM] && wgrant[N][iM])
-					// Maintain any open channels
-					wgrant[N][iM] <= 1;
-				else if (wrequest[N][iM] && !swgrant[iM]
-						&& !wrequested[N][iM])
-					// Open a new channel if necessary
-					wgrant[N][iM] <= 1;
-				else if (M_AXI_AWVALID[N] || r_awvalid[N])
-					wgrant[N][iM] <= 0;
-				else if (leave_channel)
-					wgrant[N][iM] <= 0;
+				// Switching channels
+				mwgrant[N] <= 1'b1;
+				wgrant[N]  <= wrequest[N];
+			end else if (M_AXI_AWVALID[N] || r_awvalid[N])
+			begin
+				// Requested channel isn't yet available
+				mwgrant[N] <= 1'b0;
+				wgrant[N]  <= 0;
+			end else if (leave_channel)
+			begin
+				mwgrant[N] <= 1'b0;
+				wgrant[N]  <= wrequest[N];
 			end
-
-			if (wrequest[N][NS] && wgrant[N][NS])
-				wgrant[N][NS] <= 1;
-			else if (leave_channel)
-				wgrant[N][NS] <= 0;
 		end
 
 		// Now for mwindex
-		if (NS == 1)
+		initial	mwindex[N] = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!stay_on_channel && (!mwgrant[N] || mwempty[N])
+			&& requested_channel_is_available)
 		begin
 
-			always @(*)
-				mwindex[N] = 0;
-
-		end else begin
-
-			initial	mwindex[N] = 0;
-			always @(posedge S_AXI_ACLK)
-			if (!mwgrant[N] || mwempty[N])
+			for(iM=0; iM<=NS; iM=iM+1)
 			begin
 
-				for(iM=0; iM<=NS; iM=iM+1)
-				begin
-
-					if (wrequest[N][iM] && wgrant[N][iM])
-					begin
-						// Maintain any open channels
-						mwindex[N] <= iM[LGNS-1:0];
-					end else if (wrequest[N][iM]
-						&& !swgrant[iM]
-						&& !wrequested[N][iM])
-					begin
-						// Open a new channel
-						//  if necessary
-						mwindex[N] <= iM[LGNS-1:0];
-					end
-				end
+				if (wrequest[N][iM])
+					mwindex[N] <= iM[LGNS-1:0];
 			end
 		end
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -754,6 +725,8 @@ module	axilxbar #(
 					&& !rrequested[N][iM])
 					requested_channel_is_available = 1;
 			end
+			if (rrequest[N][NS])
+				requested_channel_is_available = 1;
 		end
 
 		reg	linger;
@@ -768,11 +741,14 @@ module	axilxbar #(
 			initial	linger = 0;
 			initial	linger_counter = 0;
 			always @(posedge S_AXI_ACLK)
-			if (!mrempty[N] || M_AXI_ARVALID[N]
-					|| r_arvalid[N] || M_AXI_RVALID[N])
+			if (!S_AXI_ARESETN || rgrant[N][NS])
 			begin
-				linger_counter<= (rgrant[N][NS] ? 0:OPT_LINGER);
-				linger <= (rgrant[N][NS] ? 0:1);
+				linger <= 0;
+				linger_counter <= 0;
+			end else if (!mrempty[N] || M_AXI_RVALID[N])
+			begin
+				linger_counter <= OPT_LINGER;
+				linger <= 1;
 			end else if (linger_counter > 0)
 			begin
 				linger <= (linger_counter > 1);
@@ -781,9 +757,6 @@ module	axilxbar #(
 				linger <= 0;
 
 `ifdef	FORMAL
-			always @(*)
-			if (rgrant[N][NS])
-				assert(linger_counter == 0);
 			always @(*)
 				assert(linger == (linger_counter != 0));
 `endif
@@ -821,69 +794,36 @@ module	axilxbar #(
 		begin
 			rgrant[N]  <= 0;
 			mrgrant[N] <= 0;
-		end else if (!mrgrant[N] || mrempty[N])
+		end else if (!stay_on_channel && (!mrgrant[N] || mrempty[N]))
 		begin
-			if (stay_on_channel)
-				mrgrant[N] <= 1'b1;
-			else if (requested_channel_is_available)
-				mrgrant[N] <= 1'b1;
-			else if (M_AXI_ARVALID[N] || r_arvalid[N])
-				mrgrant[N] <= 1'b0;
-			else if (leave_channel)
-				mrgrant[N] <= 1'b0;
-
-			for(iM=0; iM<NS; iM=iM+1)
+			if (requested_channel_is_available)
 			begin
-
-				if (rrequest[N][iM] && rgrant[N][iM])
-					// Maintain any open channels
-					rgrant[N][iM] <= 1;
-				else if (rrequest[N][iM] && !srgrant[iM]
-						&& !rrequested[N][iM])
-					// Open a new channel if necessary
-					rgrant[N][iM] <= 1;
-				else if (M_AXI_ARVALID[N] || r_arvalid[N])
-					rgrant[N][iM] <= 0;
-				else if (leave_channel)
-					rgrant[N][iM] <= 1'b0;
+				// Switching channels
+				mrgrant[N] <= 1'b1;
+				rgrant[N] <= rrequest[N];
+			end else if (M_AXI_ARVALID[N] || r_arvalid[N])
+			begin
+				// Requesting another channel, which isn't
+				// (yet) available
+				mrgrant[N] <= 1'b0;
+				rgrant[N]  <= 0;
+			end else if (leave_channel)
+			begin
+				mrgrant[N] <= 1'b0;
+				rgrant[N]  <= 0;
 			end
-
-			if (rrequest[N][NS] && rgrant[N][NS])
-				rgrant[N][NS] <= 1;
-			else if (leave_channel)
-				rgrant[N][NS] <= 0;
 		end
 
 		// Now for mrindex
-		if (NS == 1)
+		initial	mrindex[N] = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!stay_on_channel && (!mrgrant[N] || mrempty[N])
+			&& requested_channel_is_available)
 		begin
-
-			always @(*)
-				mrindex[N] = 0;
-
-		end else begin
-
-			initial	mrindex[N] = 0;
-			always @(posedge S_AXI_ACLK)
-			if (!mrgrant[N] || mrempty[N])
+			for(iM=0; iM<=NS; iM=iM+1)
 			begin
-
-				for(iM=0; iM<=NS; iM=iM+1)
-				begin
-
-					if (rrequest[N][iM] && rgrant[N][iM])
-					begin
-						// Maintain any open channels
-						mrindex[N] <= iM[LGNS-1:0];
-					end else if (rrequest[N][iM]
-						&& !srgrant[iM]
-						&& !rrequested[N][iM])
-					begin
-						// Open a new channel
-						//  if necessary
-						mrindex[N] <= iM[LGNS-1:0];
-					end
-				end
+				if (rrequest[N][iM])
+					mrindex[N] <= iM[LGNS-1:0];
 			end
 		end
 
@@ -1000,14 +940,13 @@ module	axilxbar #(
 		end else begin : MULTIPLE_MASTERS
 
 			always @(posedge S_AXI_ACLK)
-			for(iN=0; iN<NM; iN=iN+1)
+			if (!swgrant[M])
 			begin
-				if (!mwgrant[iN] || mwempty[iN])
+				for(iN=0; iN<NM; iN=iN+1)
 				begin
-					if (wrequest[iN][M] && wgrant[iN][M])
-						swindex[M] <= iN[LGNM-1:0];
-					else if (wrequest[iN][M] && !swgrant[M]
-						&& !wrequested[iN][M])
+					if ((!mwgrant[iN] || mwempty[iN])
+						&&(wrequest[iN][M]
+						&& !wrequested[iN][M]))
 						swindex[M] <= iN[LGNM-1:0];
 				end
 			end
@@ -1034,14 +973,13 @@ module	axilxbar #(
 		end else begin : MULTIPLE_MASTERS
 
 			always @(posedge S_AXI_ACLK)
-			for(iN=0; iN<NM; iN=iN+1)
+			if (!srgrant[M])
 			begin
-				if (!mrgrant[iN] || mrempty[iN])
+				for(iN=0; iN<NM; iN=iN+1)
 				begin
-					if (rrequest[iN][M] && rgrant[iN][M])
-						srindex[M] <= iN[LGNM-1:0];
-					else if (rrequest[iN][M] && !srgrant[M]
-						&& !rrequested[iN][M])
+					if ((!mrgrant[iN] || mrempty[iN])
+						&& (rrequest[iN][M]
+						&& !rrequested[iN][M]))
 						srindex[M] <= iN[LGNM-1:0];
 				end
 			end
@@ -1722,6 +1660,10 @@ module	axilxbar #(
 		if (mwgrant[N])
 			assert(wgrant[N] != 0);
 
+		always @(*)
+		if (wrequest[N][NS])
+			assert(wrequest[N][NS-1:0] == 0);
+
 
 		// Read grants
 		always @(*)
@@ -1743,6 +1685,11 @@ module	axilxbar #(
 		always @(*)
 		if (mrgrant[N])
 			assert(rgrant[N] != 0);
+
+		always @(*)
+		if (rrequest[N][NS])
+			assert(rrequest[N][NS-1:0] == 0);
+
 
 	end for(N=NM; N<NMFULL; N=N+1)
 	begin
@@ -2038,37 +1985,84 @@ module	axilxbar #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	// Can every master reach every slave?
+	// Can things transition without dropping the request line(s)?
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : COVER_CONNECTIVITY_FROM_MASTER
 		reg [3:0]	w_returns, r_returns;
 		reg		err_wr_return, err_rd_return;
+		reg [NS-1:0]	w_every, r_every;
+		reg		was_wevery, was_revery, whsreturn, rhsreturn;
 
+		// w_returns is a speed check: Can we return one write
+		// acknowledgement per clock cycle?
 		initial	w_returns = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			w_returns = 0;
 		else begin
 			w_returns <= { w_returns[2:0], 1'b0 };
-			if (M_AXI_BVALID[N] && M_AXI_BREADY[N])
+			if (M_AXI_BVALID[N] && M_AXI_BREADY[N] && !wgrant[N][NS])
 				w_returns[0] <= 1'b1;
 		end
 
-		always @(*)
-			cover(&w_returns);
+		initial	whsreturn = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			whsreturn <= 0;
+		else
+			whsreturn <= whsreturn || (&w_returns);
+
+		// w_every is a connectivity test: Can we get a return from
+		// every slave?
+		initial	w_every = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			w_every <= 0;
+		else if (!M_AXI_AWVALID[N])
+			w_every <= 0;
+		else begin
+			if (M_AXI_BVALID[N] && M_AXI_BREADY[N] && !wgrant[N][NS])
+				w_every[mwindex[N]] <= 1'b1;
+		end
+
+		always @(posedge S_AXI_ACLK)
+		if (M_AXI_BVALID[N])
+			assert($stable(mwindex[N]));
+
+		initial	was_wevery = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			was_wevery <= 0;
+		else
+			was_wevery <= was_wevery || (&w_every);
 
 		always @(*)
-			cover(!mwgrant[N] && (&w_returns));
+			cover(!mwgrant[N] && whsreturn);	// @27
+		always @(*)
+			cover(!mwgrant[N] && was_wevery);	// @27
 
-
+		// err_wr_return is a test to make certain we can return a
+		// bus error on the write channel.
 		initial	err_wr_return = 0;
 		always @(posedge S_AXI_ACLK)
-		if (wgrant[N][NS] && M_AXI_BVALID[N]
-				&& (M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR))
+		if (!S_AXI_ARESETN)
 			err_wr_return = 0;
+		else if (wgrant[N][NS] && M_AXI_BVALID[N]
+				&& (M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR))
+			err_wr_return = 1;
+
+		always @(*) // @!
+			cover(err_wr_return);
+		always @(*) // @!
+			cover(!mwgrant[N] && err_wr_return);
 
 		always @(*)
-			cover(!mwgrant[N] && err_wr_return && !M_AXI_BVALID[N]);
+		if (M_AXI_BVALID[N])
+			assert(mwgrant[N]);
 
+		// r_returns is a speed check: Can we return one read
+		// acknowledgment per clock cycle?
 		initial	r_returns = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -2079,21 +2073,70 @@ module	axilxbar #(
 				r_returns[0] <= 1'b1;
 		end
 
-		always @(*)
-			cover(&r_returns);
+		initial	rhsreturn = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			rhsreturn <= 0;
+		else
+			rhsreturn <= rhsreturn || (&r_returns);
+
+
+		// r_every is a connectivity test: Can we get a read return from
+		// every slave?
+		initial	r_every = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_every = 0;
+		else if (!M_AXI_ARVALID[N])
+			r_every = 0;
+		else begin
+			if (M_AXI_RVALID[N] && M_AXI_RREADY[N])
+				r_every[mrindex[N]] <= 1'b1;
+		end
+
+		// was_revery is a return to idle check following the
+		// connectivity test.  Since the connectivity test is cleared
+		// if there's ever a drop in the valid line, we need a separate
+		// wire to check that this master can return to idle again.
+		initial	was_revery = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			was_revery <= 0;
+		else
+			was_revery <= was_revery || (&r_every);
+
+		always @(posedge S_AXI_ACLK)
+		if (M_AXI_RVALID[N])
+			assert($stable(mrindex[N]));
 
 		always @(*)
-			cover(!mrgrant[N] && (&r_returns));
+			cover(!mrgrant[N] && rhsreturn);	// @26
+		always @(*)
+			cover(!mrgrant[N] && was_revery);	// @26
 
 		initial	err_rd_return = 0;
 		always @(posedge S_AXI_ACLK)
-		if (rgrant[N][NS] && M_AXI_BVALID[N]
-				&& (M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR))
+		if (!S_AXI_ARESETN)
 			err_rd_return = 0;
+		else if (rgrant[N][NS] && M_AXI_RVALID[N]
+				&& (M_AXI_RRESP[2*N+:2]==INTERCONNECT_ERROR))
+			err_rd_return = 1;
 
 		always @(*)
-			cover(!mrgrant[N] && err_rd_return && !M_AXI_RVALID[N]);
+			cover(M_AXI_ARVALID[N] && rrequest[N][NS]);
+		always @(*)
+			cover(rgrant[N][NS]);
+		always @(*)
+			cover(err_rd_return);
+		always @(*)
+			cover(!mrgrant[N] && err_rd_return); //@!
 
+		always @(*)
+		if (M_AXI_BVALID[N] && wgrant[N][NS])
+			assert(M_AXI_BRESP[2*N+:2]==INTERCONNECT_ERROR);
+		always @(*)
+		if (M_AXI_RVALID[N] && rgrant[N][NS])
+			assert(M_AXI_RRESP[2*N+:2]==INTERCONNECT_ERROR);
 	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////

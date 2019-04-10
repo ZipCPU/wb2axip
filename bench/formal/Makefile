@@ -143,13 +143,14 @@ $(AXI2WB)/PASS: $(RTL)/wbarbiter.v
 	echo "The AXI2WB bridge does not work yet, so I do not expect this one to pass"
 	echo sby -f $(AXI2WB).sby
 
-.PHONY: $(AXILXBAR)
-$(AXILXBAR): $(AXILXBAR)_prf4x8_lp/PASS
-$(AXILXBAR): $(AXILXBAR)_prf1x8_lp/PASS
-$(AXILXBAR): $(AXILXBAR)_prf4x1_lp/PASS
-$(AXILXBAR): $(AXILXBAR)_prf4x8/PASS
-$(AXILXBAR): $(AXILXBAR)_prf1x8/PASS
-$(AXILXBAR): $(AXILXBAR)_prf4x1/PASS
+.PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr
+$(AXILXBAR): $(AXILXBAR)prf $(AXILXBAR)cvr
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x8_lp/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf1x8_lp/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x1_lp/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x8/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf1x8/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x1/PASS
 $(AXILXBAR)_prf4x8/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
 	sby -f $(AXILXBAR).sby prf4x8
 $(AXILXBAR)_prf1x8/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
@@ -162,6 +163,24 @@ $(AXILXBAR)_prf1x8_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
 	sby -f $(AXILXBAR).sby prf1x8_lp
 $(AXILXBAR)_prf4x1_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
 	sby -f $(AXILXBAR).sby prf4x1_lp
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr3x3_lp/PASS
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr3x3/PASS
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr1x3_lp/PASS
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr1x3/PASS
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr4x1_lp/PASS
+$(AXILXBAR)cvr: $(AXILXBAR)_cvr4x1/PASS
+$(AXILXBAR)_cvr3x3/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr3x3
+$(AXILXBAR)_cvr1x3/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr1x3
+$(AXILXBAR)_cvr4x1/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr4x1
+$(AXILXBAR)_cvr3x3_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr3x3_lp
+$(AXILXBAR)_cvr1x3_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr1x3_lp
+$(AXILXBAR)_cvr4x1_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL)
+	sby -f $(AXILXBAR).sby cvr4x1_lp
 
 
 .PHONY: $(WBXBAR) $(WBXBAR4x8) $(WBXBAR1x8) $(WBXBAR4x1)

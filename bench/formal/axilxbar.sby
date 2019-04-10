@@ -1,8 +1,8 @@
 [tasks]
 prf4x8_lp   nxm opt_lowpower
 prf4x8      nxm
-cvr4x8_lp   nxm opt_lowpower cvr
-cvr4x8      nxm              cvr
+cvr4x8_lp   nxl opt_lowpower cvr
+cvr4x8      nxl              cvr
 prf1x8_lp   oxm opt_lowpower
 prf1x8      oxm
 cvr1x3_lp   oxl opt_lowpower cvr
@@ -31,11 +31,13 @@ read -formal faxil_slave.v
 read -formal faxil_master.v
 nxm: chparam -set NM 4 -set NS 8 axilxbar
 oxm: chparam -set NM 1 -set NS 8 axilxbar
-# oxl: chparam -set NM 1 -set NS 3 axilxbar
+oxl: chparam -set NM 1 -set NS 3 axilxbar
+nxl: chparam -set NM 3 -set NS 3 axilxbar
 nxo: chparam -set NM 4 -set NS 1 axilxbar
 opt_lowpower:    chparam -set OPT_LOWPOWER  1 axilxbar
 ~opt_lowpower:   chparam -set OPT_LOWPOWER  0 axilxbar
 prep -top axilxbar
+dump
 
 [files]
 ../../rtl/axilxbar.v
