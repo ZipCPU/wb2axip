@@ -4,7 +4,48 @@
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	A Configurable wishbone cross-bar interconnect
+// Purpose:	A Configurable wishbone cross-bar interconnect, conforming
+//		to the WB-B4 pipeline specification, as described on the
+//	ZipCPU blog.
+//
+// Performance:
+//	Throughput: One transaction per clock
+//	Latency: One clock to get access to an unused channel, another to
+//	place the results on the slave bus, and another to return, or a minimum
+//	of three clocks.
+//
+// Usage: To use, you'll need to set NM and NS to the number of masters
+//	(input ports) and the number of slaves respectively.  You'll then
+//	want to set the addresses for the slaves in the SLAVE_ADDR array,
+//	together with the SLAVE_MASK array indicating which SLAVE_ADDRs
+//	are valid.  Address and data widths should be adjusted at the same
+//	time.
+//
+//	Voila, you are now set up!
+//
+//	Now let's fine tune this:
+//
+//	LGMAXBURST can be set to control the maximum number of outstanding
+//	transactions.  An LGMAXBURST of 6 will allow 63 outstanding
+//	transactions.
+//
+//	OPT_TIMEOUT, if set to a non-zero value, is a number of clock periods
+//	to wait for a slave to respond.  Should the timeout expire and the
+//	slave not respond, a bus error will be returned and the slave will
+//	be issued a bus abort signal (CYC will be dropped).
+//
+//	OPT_STARVATION_TIMEOUT, if set, applies the OPT_TIMEOUT counter to
+//	how long a particular master waits for arbitration.  If the master is
+//	"starved", a bus error will be returned.
+//
+//	OPT_DBLBUFFER is used to increase clock speed by registering all
+//	outputs.
+//
+//	OPT_LOWPOWER is an experimental feature that, if set, will cause any
+//	unused FFs to be set to zero rather than flopping in the electronic
+//	wind, in an effort to minimize transitions over bus wires.  This will
+//	cost some extra logic, for ... an uncertain power savings.
+//
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -43,20 +84,19 @@ module	wbxbar(i_clk, i_reset,
 	o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
 		i_sstall, i_sack, i_sdata, i_serr);
 	parameter	NM = 4, NS=8;
-	parameter	AW = 20, DW=32;
-	parameter	[NS*AW-1:0]	SADDR = {
-				3'b111, 17'h0,
-				3'b110, 17'h0,
-				3'b101, 17'h0,
-				3'b100, 17'h0,
-				3'b011, 17'h0,
-				3'b010, 17'h0,
-				4'b0010, 16'h0,
-				4'b0000, 16'h0 };
-	parameter	[NS*AW-1:0]	SMASK = (NS <= 1) ? 0
-		: { {(NS-2){ 3'b111, 17'h0 }}, {(2){ 4'b1111, 16'h0 }} };
-	// parameter	[AW-1:0]	SADDR = 0;
-	// parameter	[AW-1:0]	SMASK = 0;
+	parameter	AW = 32, DW=32;
+	parameter	[NS*AW-1:0]	SLAVE_ADDR = {
+				{ 3'b111, {(AW-3){1'b0}}},
+				{ 3'b110, {(AW-3){1'b0}}},
+				{ 3'b101, {(AW-3){1'b0}}},
+				{ 3'b100, {(AW-3){1'b0}}},
+				{ 3'b011, {(AW-3){1'b0}}},
+				{ 3'b010, {(AW-3){1'b0}}},
+				{ 4'b0010, {(AW-4){1'b0}}},
+				{ 4'b0000, {(AW-4){1'b0}}} };
+	parameter	[NS*AW-1:0]	SLAVE_MASK = (NS <= 1) ? 0
+		: { {(NS-2){ 3'b111, {(AW-3){1'b0}}}},
+			{(2){ 4'b1111, {(AW-4){1'b0}} }} };
 	//
 	// LGMAXBURST is the log_2 of the length of the longest burst that
 	// might be seen.  It's used to set the size of the internal
@@ -195,8 +235,8 @@ module	wbxbar(i_clk, i_reset,
 			begin
 
 				none_sel = none_sel
-					|| (((m_addr[N] ^ SADDR[iM*AW +: AW])
-						&SMASK[iM*AW +: AW])==0);
+					|| (((m_addr[N] ^ SLAVE_ADDR[iM*AW +: AW])
+						&SLAVE_MASK[iM*AW +: AW])==0);
 			end
 
 
@@ -207,8 +247,8 @@ module	wbxbar(i_clk, i_reset,
 		begin
 			for(iM=0; iM<NS; iM=iM+1)
 				request[N][iM] = m_stb[N]
-					&&(((m_addr[N] ^ SADDR[iM*AW +: AW])
-						&SMASK[iM*AW +: AW])==0);
+					&&(((m_addr[N] ^ SLAVE_ADDR[iM*AW +: AW])
+						&SLAVE_MASK[iM*AW +: AW])==0);
 
 			// Is this address non-existant?
 			request[N][NS] = m_stb[N] && none_sel;
@@ -1161,8 +1201,8 @@ module	wbxbar(i_clk, i_reset,
 		special_slave = NS;
 		for(iM=0; iM<NS; iM = iM+1)
 		begin
-			if (((special_address ^ SADDR[iM*AW +: AW])
-					&SMASK[iM*AW +: AW]) == 0)
+			if (((special_address ^ SLAVE_ADDR[iM*AW +: AW])
+					&SLAVE_MASK[iM*AW +: AW]) == 0)
 				special_slave = iM;
 		end
 	end
@@ -1181,8 +1221,8 @@ module	wbxbar(i_clk, i_reset,
 			address_found = 0;
 			for(iM=0; iM<NS; iM = iM+1)
 			begin
-				if (((special_address ^ SADDR[iM*AW +: AW])
-						&SMASK[iM*AW +: AW]) == 0)
+				if (((special_address ^ SLAVE_ADDR[iM*AW +: AW])
+						&SLAVE_MASK[iM*AW +: AW]) == 0)
 				begin
 					assert(address_found == 0);
 					address_found = 1;

@@ -8,10 +8,23 @@
 //		and NS AXI-lite slaves.  Every master can talk to any slave,
 //	provided it isn't already busy.
 //
-//	To use, you must set NM and NS to the number of masters and the number
-//	of slaves.  You then need to adjust the addresses of the slaves, found
-//	in the SLAVE_ADDR array.  Those bits that are relevant in SLAVE_ADDR
-//	need to then also be set in SLAVE_MASK.
+// Performance:	This core has been designed with the goal of being able to push
+//		one transaction through the interconnect, from any master to
+//	any slave, per clock cycle.  This may perhaps be its most unique
+//	feature.  While throughput is good, latency is something else.
+//
+//	The arbiter requires a clock to switch, then another clock to send data
+//	downstream.  This creates a minimum two clock latency up front.  The
+//	return path suffers another clock of latency as well, placing the
+//	minimum latency at four clocks.  The minimum write latency is at
+//	least one clock longer, since the write data must wait for the write
+//	address before proceeeding.
+//
+// Usage:	To use, you must first set NM and NS to the number of masters
+//	and the number of slaves you wish to connect to.  You then need to
+//	adjust the addresses of the slaves, found SLAVE_ADDR array.  Those
+//	bits that are relevant in SLAVE_ADDR to then also be set in SLAVE_MASK.
+//	Adjusting the data and address widths go without saying.
 //
 //	Lower numbered masters are given priority in any "fight".
 //
@@ -38,16 +51,6 @@
 //	This can also be used to help identify relevant values within any
 //	trace.
 //
-// Performance:	This core has been designed with the goal of being able to push
-//		one transaction through the interconnect, from any master to
-//	any slave, per clock cycle.  This may perhaps be its most unique
-//	feature.  While throughput is good, latency is something else.  The
-//	arbiter requires a clock to switch, then another clock to send data
-//	downstream.  This creates a minimum two clock latency up front.  The
-//	return path suffers another clock of latency as well, placing the
-//	minimum latency at three clocks.  The minimum write latency is at
-//	least one clock longer, since the write data must wait for the write
-//	address before proceeeding.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
