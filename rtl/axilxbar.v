@@ -1224,13 +1224,16 @@ module	axilxbar #(
 `endif
 	end endgenerate
 
+	reg		r_bvalid	[0:NM-1];
+	reg	[1:0]	r_bresp		[0:NM-1];
+
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
 	begin : WRITE_RETURN_CHANNEL
 
 		reg		axi_awready, axi_wready;
-		reg		axi_bvalid, r_bvalid;
-		reg	[1:0]	axi_bresp, r_bresp;
+		reg		axi_bvalid;
+		reg	[1:0]	axi_bresp;
 		reg		i_axi_bvalid;
 		reg	[1:0]	i_axi_bresp;
 
@@ -1278,40 +1281,39 @@ module	axilxbar #(
 				axi_wready <= 1'b1;
 		end
 
-		initial	r_bvalid = 0;
+		initial	r_bvalid[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			r_bvalid <= 0;
-		else if (mbstall && !r_bvalid && (mwindex[N] != NS))
-			r_bvalid <= mwgrant[N] && (mwindex[N]<NS)&&i_axi_bvalid;
+			r_bvalid[N] <= 0;
+		else if (mbstall && !r_bvalid[N] && (mwindex[N] != NS))
+			r_bvalid[N] <= mwgrant[N] && (mwindex[N]<NS)&&i_axi_bvalid;
 		else if (!mbstall)
-			r_bvalid <= 1'b0;
+			r_bvalid[N] <= 1'b0;
 
-		initial	r_bresp = 0;
+		initial	r_bresp[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-			r_bresp <= 0;
-		else if (OPT_LOWPOWER && !mwgrant[N])
-			r_bresp <= 0;
-		else if (!r_bvalid || (OPT_LOWPOWER&&!M_AXI_BREADY[N]))
+			r_bresp[N] <= 0;
+		else if (OPT_LOWPOWER && (!mwgrant[N] || M_AXI_BREADY[N]))
+			r_bresp[N] <= 0;
+		else if (!r_bvalid[N])
 		begin
 			if (!OPT_LOWPOWER ||(i_axi_bvalid && (mwindex[N] < NS) && mbstall))
 			begin
 				if (NS==1)
-					r_bresp <= S_AXI_BRESP[1:0];
+					r_bresp[N] <= S_AXI_BRESP[1:0];
 				else
-					r_bresp <= i_axi_bresp;
+					r_bresp[N] <= i_axi_bresp;
 			end else
-				r_bresp <= 0;
-		end else if (OPT_LOWPOWER && !mbstall)
-			r_bresp <= 0;
+				r_bresp[N] <= 0;
+		end
 
 		initial	axi_bvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			axi_bvalid <= 0;
 		else if (!mbstall)
-			axi_bvalid <= mwgrant[N] && (r_bvalid || i_axi_bvalid);
+			axi_bvalid <= mwgrant[N] && (r_bvalid[N] || i_axi_bvalid);
 
 		initial	axi_bresp = 0;
 		always @(posedge S_AXI_ACLK)
@@ -1321,8 +1323,8 @@ module	axilxbar #(
 			axi_bresp <= 0;
 		else if (!mbstall)
 		begin
-			if (r_bvalid)
-				axi_bresp <= r_bresp;
+			if (r_bvalid[N])
+				axi_bresp <= r_bresp[N];
 			else if (!OPT_LOWPOWER || i_axi_bvalid)
 				axi_bresp <= i_axi_bresp;
 			else
@@ -1339,16 +1341,16 @@ module	axilxbar #(
 		assign	M_AXI_BRESP[N*2 +: 2] = axi_bresp;
 `ifdef	FORMAL
 		always @(*)
-		if (r_bvalid)
-			assert(r_bresp != 2'b01);
+		if (r_bvalid[N])
+			assert(r_bresp[N] != 2'b01);
 		always @(*)
 		if (mwgrant[N])
-			assert(s_axi_bready[mwindex[N]] == !r_bvalid);
+			assert(s_axi_bready[mwindex[N]] == !r_bvalid[N]);
 		else
-			assert(!r_bvalid);
+			assert(!r_bvalid[N]);
 		always @(*)
-		if (OPT_LOWPOWER && !r_bvalid)
-			assert(r_bresp  == 0);
+		if (OPT_LOWPOWER && !r_bvalid[N])
+			assert(r_bresp[N]  == 0);
 
 		always @(*)
 		if (OPT_LOWPOWER && !axi_bvalid)
@@ -1369,13 +1371,16 @@ module	axilxbar #(
 		s_axi_rready[NS-1:0]  = S_AXI_RREADY;
 	end
 
+	reg			r_rvalid	[0:NM-1];
+	reg	[1:0]		r_rresp		[0:NM-1];
+	reg	[DW-1:0]	r_rdata		[0:NM-1];
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
 	begin : READ_RETURN_CHANNEL
 
-		reg			axi_rvalid, r_rvalid;
-		reg	[1:0]		axi_rresp, r_rresp;
-		reg	[DW-1:0]	axi_rdata, r_rdata;
+		reg			axi_rvalid;
+		reg	[1:0]		axi_rresp;
+		reg	[DW-1:0]	axi_rdata;
 		reg			axi_arready;
 		// reg	[((NM>1)?($clog2(NM)-1):0):0]		rindex;
 
@@ -1405,46 +1410,42 @@ module	axilxbar #(
 				axi_arready <= 1'b1;
 		end
 
-		initial	r_rvalid = 0;
+		initial	r_rvalid[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			r_rvalid <= 0;
-		else if (mrstall && !r_rvalid)
-			r_rvalid <= mrgrant[N] && (mrindex[N]<NS)&&i_axi_rvalid;
+			r_rvalid[N] <= 0;
+		else if (mrstall && !r_rvalid[N])
+			r_rvalid[N] <= mrgrant[N] && (mrindex[N]<NS)&&i_axi_rvalid;
 		else if (!mrstall)
-			r_rvalid <= 0;
+			r_rvalid[N] <= 0;
 
-		initial	r_rresp = 0;
-		initial	r_rdata = 0;
+		initial	r_rresp[N] = 0;
+		initial	r_rdata[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		begin
-			r_rresp <= 0;
-			r_rdata <= 0;
-		end else if (OPT_LOWPOWER && !mrgrant[N])
+			r_rresp[N] <= 0;
+			r_rdata[N] <= 0;
+		end else if (OPT_LOWPOWER && (!mrgrant[N] || M_AXI_RREADY[N]))
 		begin
-			r_rresp <= 0;
-			r_rdata <= 0;
-		end else if (!r_rvalid || (OPT_LOWPOWER&&!M_AXI_RREADY[N]))
+			r_rresp[N] <= 0;
+			r_rdata[N] <= 0;
+		end else if (!r_rvalid[N])
 		begin
 			if (!OPT_LOWPOWER || (i_axi_rvalid && (mrindex[N] < NS)&& mrstall))
 			begin
 				if (NS == 1)
 				begin
-					r_rresp <= s_axi_rresp[0];
-					r_rdata <= s_axi_rdata[0];
+					r_rresp[N] <= s_axi_rresp[0];
+					r_rdata[N] <= s_axi_rdata[0];
 				end else begin
-					r_rresp <= s_axi_rresp[mrindex[N]];
-					r_rdata <= s_axi_rdata[mrindex[N]];
+					r_rresp[N] <= s_axi_rresp[mrindex[N]];
+					r_rdata[N] <= s_axi_rdata[mrindex[N]];
 				end
 			end else begin
-				r_rresp <= 0;
-				r_rdata <= 0;
+				r_rresp[N] <= 0;
+				r_rdata[N] <= 0;
 			end
-		end else if (!mrstall)
-		begin
-			r_rresp <= 0;
-			r_rdata <= 0;
 		end
 
 		initial	axi_rvalid = 0;
@@ -1452,7 +1453,7 @@ module	axilxbar #(
 		if (!S_AXI_ARESETN)
 			axi_rvalid <= 0;
 		else if (!mrstall)
-			axi_rvalid <= mrgrant[N] && (r_rvalid || i_axi_rvalid);
+			axi_rvalid <= mrgrant[N] && (r_rvalid[N] || i_axi_rvalid);
 
 		initial	axi_rresp = 0;
 		initial	axi_rdata = 0;
@@ -1467,10 +1468,10 @@ module	axilxbar #(
 			axi_rdata <= 0;
 		end else if (!mrstall)
 		begin
-			if (r_rvalid)
+			if (r_rvalid[N])
 			begin
-				axi_rresp <= r_rresp;
-				axi_rdata <= r_rdata;
+				axi_rresp <= r_rresp[N];
+				axi_rdata <= r_rdata[N];
 			end else if (!OPT_LOWPOWER || i_axi_rvalid)
 			begin
 				if (NS == 1)
@@ -1497,18 +1498,18 @@ module	axilxbar #(
 		assign	M_AXI_RDATA[N*DW +: DW]= axi_rdata;
 `ifdef	FORMAL
 		always @(*)
-		if (r_rvalid)
-			assert(r_rresp != 2'b01);
+		if (r_rvalid[N])
+			assert(r_rresp[N] != 2'b01);
 		always @(*)
 		if (mrgrant[N] && (mrindex[N] < NS))
-			assert(s_axi_rready[mrindex[N]] == !r_rvalid);
+			assert(s_axi_rready[mrindex[N]] == !r_rvalid[N]);
 		else
-			assert(!r_rvalid);
+			assert(!r_rvalid[N]);
 		always @(*)
-		if (OPT_LOWPOWER && !r_rvalid)
+		if (OPT_LOWPOWER && !r_rvalid[N])
 		begin
-			assert(r_rresp  == 0);
-			assert(r_rdata == 0);
+			assert(r_rresp[N]  == 0);
+			assert(r_rdata[N] == 0);
 		end
 
 		always @(*)
@@ -2141,6 +2142,127 @@ module	axilxbar #(
 		if (M_AXI_RVALID[N] && rgrant[N][NS])
 			assert(M_AXI_RRESP[2*N+:2]==INTERCONNECT_ERROR);
 	end endgenerate
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Negation check
+	//
+	// Pick a particular value.  Assume the value doesn't show up on the
+	// input.  Prove it doesn't show up on the output.  This will check for
+	// ...
+	// 1. Stuck bits on the output channel
+	// 2. Cross-talk between channels
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	(* anyconst *)	reg	[LGNM-1:0]	f_const_source;
+	(* anyconst *)	reg	[AW-1:0]	f_const_addr;
+	(* anyconst *)	reg	[AW-1:0]	f_const_addr_n;
+	(* anyconst *)	reg	[DW-1:0]	f_const_data_n;
+	(* anyconst *)	reg	[DW/8-1:0]	f_const_strb_n;
+	(* anyconst *)	reg	[3-1:0]		f_const_prot_n;
+	(* anyconst *)	reg	[2-1:0]		f_const_resp_n;
+			reg	[LGNS-1:0]	f_const_slave;
+
+	always @(*)
+		assume(f_const_source < NM);
+	always @(*)
+	begin
+		f_const_slave = NS;
+		for(iM=0; iM<NS; iM=iM+1)
+		begin
+			if (((f_const_addr ^ SLAVE_ADDR[iM*AW+:AW])
+					&SLAVE_MASK[iM*AW+:AW])==0)
+				f_const_slave = iM;
+		end
+
+		assume(f_const_slave < NS);
+	end
+
+	reg	[AW-1:0]	f_awaddr;
+	reg	[AW-1:0]	f_araddr;
+	always @(*)
+		f_awaddr = M_AXI_AWADDR[f_const_source * AW +: AW];
+	always @(*)
+		f_araddr = M_AXI_ARADDR[f_const_source * AW +: AW];
+
+	// The assumption check: assume our negated values are not found on
+	// the inputs
+	always @(*)
+	begin
+		if (M_AXI_AWVALID[f_const_source])
+		begin
+			assume(f_awaddr != f_const_addr_n);
+			assume(M_AXI_AWPROT[f_const_source*3+:3] != f_const_prot_n);
+		end
+		if (m_wvalid)
+		begin
+			assume(m_wdata[f_const_source] != f_const_data_n);
+			assume(m_wstrb[f_const_source] != f_const_strb_n);
+		end
+		if (M_AXI_ARVALID[f_const_source])
+		begin
+			assume(f_araddr != f_const_addr_n);
+			assume(M_AXI_ARPROT[f_const_source*3+:3] != f_const_prot_n);
+		end
+
+		if (S_AXI_BVALID[f_const_slave] && wgrant[f_const_source][f_const_slave])
+		begin
+			assume(s_axi_bresp[f_const_slave] != f_const_resp_n);
+		end
+
+		if (S_AXI_RVALID[f_const_slave] && rgrant[f_const_source][f_const_slave])
+		begin
+			assume(s_axi_rdata[f_const_slave] != f_const_data_n);
+			assume(s_axi_rresp[f_const_slave] != f_const_resp_n);
+		end
+	end
+
+	// Proof check: Prove these values are not found on our outputs
+	always @(*)
+	begin
+		if (r_awvalid[f_const_source])
+		begin
+			assert(r_awaddr[f_const_source] != f_const_addr_n);
+			assert(r_awprot[f_const_source]  != f_const_prot_n);
+		end
+		if (S_AXI_AWVALID[f_const_slave] && wgrant[f_const_source][f_const_slave])
+		begin
+			assert(S_AXI_AWADDR[f_const_slave*AW+:AW] != f_const_addr_n);
+			assert(S_AXI_AWPROT[f_const_slave*3+:3] != f_const_prot_n);
+		end
+		if (S_AXI_WVALID[f_const_slave] && wgrant[f_const_source][f_const_slave])
+		begin
+			assert(S_AXI_WDATA[f_const_slave*DW+:DW] != f_const_data_n);
+			assert(S_AXI_WSTRB[f_const_slave*(DW/8)+:(DW/8)] != f_const_strb_n);
+		end
+		if (r_arvalid[f_const_source])
+		begin
+			assert(r_araddr[f_const_source] != f_const_addr_n);
+			assert(r_arprot[f_const_source] != f_const_prot_n);
+		end
+		if (S_AXI_ARVALID[f_const_slave] && rgrant[f_const_source][f_const_slave])
+		begin
+			assert(S_AXI_ARADDR[f_const_slave*AW+:AW] != f_const_addr_n);
+			assert(S_AXI_ARPROT[f_const_slave*3+:3] != f_const_prot_n);
+		end
+		//
+		if (r_bvalid[f_const_source] && wgrant[f_const_source][f_const_slave])
+			assert(r_bresp[f_const_source] != f_const_resp_n);
+		if (M_AXI_BVALID[f_const_source] && wgrant[f_const_source][f_const_slave])
+			assert(M_AXI_BRESP[f_const_source*2+:2] != f_const_resp_n);
+		if (r_rvalid[f_const_source] && rgrant[f_const_source][f_const_slave])
+		begin
+			assert(r_rresp[f_const_source] != f_const_resp_n);
+			assert(r_rdata[f_const_source] != f_const_data_n);
+		end
+		if (M_AXI_RVALID[f_const_source] && rgrant[f_const_source][f_const_slave])
+		begin
+			assert(M_AXI_RRESP[f_const_source*2+:2]!=f_const_resp_n);
+			assert(M_AXI_RDATA[f_const_source*DW+:DW]!=f_const_data_n);
+		end
+	end
 
 	////////////////////////////////////////////////////////////////////////
 	//
