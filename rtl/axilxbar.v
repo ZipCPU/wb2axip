@@ -1694,20 +1694,6 @@ module	axilxbar #(
 		if (rrequest[N][NS])
 			assert(rrequest[N][NS-1:0] == 0);
 
-
-	end for(N=NM; N<NMFULL; N=N+1)
-	begin
-		always @(*)
-		begin
-			assert(mwgrant[N] == 0);
-			assert(wgrant[N] == 0);
-		end
-
-		always @(*)
-		begin
-			assert(mrgrant[N] == 0);
-			assert(rgrant[N] == 0);
-		end
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
