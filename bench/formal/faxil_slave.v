@@ -450,7 +450,6 @@ module faxil_slave #(
 		`SLAVE_ASSUME(i_axi_wvalid);
 
 
-
 	// Rule number two:
 	always @(posedge i_clk)
 	if ((i_axi_reset_n)&&(f_axi_awr_outstanding < f_axi_wr_outstanding))
@@ -644,4 +643,6 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if (!F_OPT_WRITE_ONLY)
 		cover((i_axi_rvalid)&&(i_axi_rready));
+`undef	SLAVE_ASSUME
+`undef	SLAVE_ASSERT
 endmodule
