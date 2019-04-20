@@ -596,7 +596,7 @@ module faxil_master #(
 		always @(*)
 			`SLAVE_ASSUME(i_axi_arvalid == 0);
 		always @(*)
-			`SLAVE_ASSERT(f_axi_rd_outstanding == 0);
+			assert(f_axi_rd_outstanding == 0);
 		always @(*)
 			`SLAVE_ASSERT(i_axi_rvalid == 0);
 
@@ -610,9 +610,9 @@ module faxil_master #(
 		always @(*)
 			`SLAVE_ASSUME(i_axi_wvalid == 0);
 		always @(*)
-			`SLAVE_ASSERT(f_axi_wr_outstanding == 0);
+			assert(f_axi_wr_outstanding == 0);
 		always @(*)
-			`SLAVE_ASSERT(f_axi_awr_outstanding == 0);
+			assert(f_axi_awr_outstanding == 0);
 		always @(*)
 			`SLAVE_ASSERT(i_axi_bvalid == 0);
 
