@@ -86,8 +86,11 @@ ends include crossbar switches and AXI demonstrator cores.
   maintain one transaction per clock over an extended period of time across
   any channel pair.
 
-- AXIXBAR sounds like a fun project: a full `NxM` configurable cross bar using
-  the full AXI protocol.  I just haven't started it (yet).
+- [AXIXBAR](rtl/axixbar.v) is a fun (but ongoing, work-in-progress) project to
+  develop a full `NxM` configurable cross bar using the full AXI protocol.
+
+  Unique to this (full) AXI core is the ability to have multiple ongoing
+  transactions on each of the master-to-slave channels.
 
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
