@@ -138,17 +138,25 @@
 `default_nettype	none
 //
 module axisafety #(
-	// parameter C_S_AXI_ID_WIDTH	= 1,
-	// parameter C_S_AXI_DATA_WIDTH	= 32,
-	// parameter C_S_AXI_ADDR_WIDTH	= 6
-	parameter	IW	= 1,
-	parameter	DW	= 32,
-	parameter	AW	= 6
-	parameter	OPT_TIMEOUT = 10;
+	parameter C_S_AXI_ID_WIDTH	= 1,
+	parameter C_S_AXI_DATA_WIDTH	= 32,
+	parameter C_S_AXI_ADDR_WIDTH	= 6,
+	//
+	// I use the following abbreviations, IW, DW, and AW, to simplify
+	// the code below (and to help it fit within an 80 col terminal)
+	localparam	IW	= C_S_AXI_ID_WIDTH,
+	localparam	DW	= C_S_AXI_DATA_WIDTH,
+	localparam	AW	= C_S_AXI_ADDR_WIDTH,
+	//
+	// OPT_TIMEOUT references the number of clock cycles to wait
+	// between raising the *VALID signal and when the respective
+	// *VALID return signal must be high.  You might wish to set this
+	// to a very high number, to allow your core to work its magic.
+	parameter	OPT_TIMEOUT = 10
 	) (
 		//
-		output	wire	o_read_fault,
-		output	wire	o_write_fault,
+		output	reg	o_read_fault,
+		output	reg	o_write_fault,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -159,6 +167,8 @@ module axisafety #(
 		//
 		// The input side.  This is where slave requests come into
 		// the core.
+		//
+		//	Write address
 		input	wire [IW-1 : 0]		S_AXI_AWID,
 		input	wire [AW-1 : 0]		S_AXI_AWADDR,
 		input	wire [7 : 0]		S_AXI_AWLEN,
@@ -170,16 +180,18 @@ module axisafety #(
 		input	wire [3 : 0]		S_AXI_AWQOS,
 		input	wire			S_AXI_AWVALID,
 		output	reg			S_AXI_AWREADY,
+		//	Write data
 		input	wire [DW-1 : 0]		S_AXI_WDATA,
 		input	wire [(DW/8)-1 : 0]	S_AXI_WSTRB,
 		input	wire			S_AXI_WLAST,
 		input	wire			S_AXI_WVALID,
 		output	reg			S_AXI_WREADY,
+		//	Write return
 		output	reg [IW-1 : 0]		S_AXI_BID,
 		output	reg [1 : 0]		S_AXI_BRESP,
 		output	reg			S_AXI_BVALID,
 		input	wire			S_AXI_BREADY,
-		//
+		//	Read address
 		input	wire [IW-1 : 0]		S_AXI_ARID,
 		input	wire [AW-1 : 0]		S_AXI_ARADDR,
 		input	wire [7 : 0]		S_AXI_ARLEN,
@@ -191,6 +203,7 @@ module axisafety #(
 		input	wire [3 : 0]		S_AXI_ARQOS,
 		input	wire			S_AXI_ARVALID,
 		output	reg			S_AXI_ARREADY,
+		//	Read data
 		output	reg [IW-1 : 0]		S_AXI_RID,
 		output	reg [DW-1 : 0]		S_AXI_RDATA,
 		output	reg [1 : 0]		S_AXI_RRESP,
@@ -200,6 +213,8 @@ module axisafety #(
 		//
 		// The output side, where slave requests are forwarded to the
 		// actual slave
+		//
+		//	Write address
 		output	reg [IW-1 : 0]		M_AXI_AWID,
 		output	reg [AW-1 : 0]		M_AXI_AWADDR,
 		output	reg [7 : 0]		M_AXI_AWLEN,
@@ -211,16 +226,18 @@ module axisafety #(
 		output	reg [3 : 0]		M_AXI_AWQOS,
 		output	reg			M_AXI_AWVALID,
 		input	wire			M_AXI_AWREADY,
+		//	Write data
 		output	reg [DW-1 : 0]		M_AXI_WDATA,
 		output	reg [(DW/8)-1 : 0]	M_AXI_WSTRB,
 		output	reg			M_AXI_WLAST,
 		output	reg			M_AXI_WVALID,
 		input	wire			M_AXI_WREADY,
+		//	Write return
 		input	wire [IW-1 : 0]		M_AXI_BID,
 		input	wire [1 : 0]		M_AXI_BRESP,
 		input	wire			M_AXI_BVALID,
 		output	wire			M_AXI_BREADY,
-		//
+		//	Read address
 		output	reg [IW-1 : 0]		M_AXI_ARID,
 		output	reg [AW-1 : 0]		M_AXI_ARADDR,
 		output	reg [7 : 0]		M_AXI_ARLEN,
@@ -232,6 +249,7 @@ module axisafety #(
 		output	reg [3 : 0]		M_AXI_ARQOS,
 		output	reg			M_AXI_ARVALID,
 		input	wire			M_AXI_ARREADY,
+		//	Read data
 		input	wire [IW-1 : 0]		M_AXI_RID,
 		input	wire [DW-1 : 0]		M_AXI_RDATA,
 		input	wire [1 : 0]		M_AXI_RRESP,
@@ -240,25 +258,21 @@ module axisafety #(
 		output	wire			M_AXI_RREADY
 	);
 
-	// localparam	AW = C_S_AXI_ADDR_WIDTH;
-	// localparam	DW = C_S_AXI_DATA_WIDTH;
-	// localparam	IW = C_S_AXI_ID_WIDTH;
-	localparam	C_S_AXI_ADDR_WIDTH = AW;
-	localparam	C_S_AXI_DATA_WIDTH = DW;
-	localparam	C_S_AXI_ID_WIDTH = IW;
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
-	localparam	LGFLEN = 4;
-	localparam	LSB = $clog2(DW == 8)-3;
+	localparam	LSB = $clog2(DW)-3;
 	localparam	SLAVE_ERROR = 2'b10;
 	//
 	//
 	reg			faulty_write_return, faulty_read_return;
-	reg	[LGTIMEOUT-1:0]	write_timeout, read_timeout;
+	//
+	// Timer/timeout variables
+	reg	[LGTIMEOUT-1:0]	write_timer,   read_timer;
+	reg			write_timeout, read_timeout;
 
 	//
 	// Double buffer the write address channel
 	reg		r_awvalid, m_awvalid;
-	reg	[IW-1:0]	r_awid,    m_awid;
+	reg	[IW-1:0] r_awid,   m_awid;
 	reg	[AW-1:0] r_awaddr, m_awaddr;
 	reg	[7:0]	r_awlen,   m_awlen;
 	reg	[2:0]	r_awsize,  m_awsize;
@@ -277,9 +291,9 @@ module axisafety #(
 
 	//
 	// Double buffer the write response channel
-	reg			r_bvalid, m_bvalid;
-	reg	[IW-1:0]	r_bid,    m_bid;
-	reg	[1:0]		r_bresp,  m_bresp;
+	reg			m_bvalid;	// r_bvalid == 0
+	reg	[IW-1:0]	m_bid;
+	reg	[1:0]		m_bresp;
 
 	//
 	// Double buffer the read address channel
@@ -297,9 +311,9 @@ module axisafety #(
 	//
 	// Double buffer the read data response channel
 	reg			r_rvalid,m_rvalid;
-	reg	[IW-1:0]	r_rid,   m_rid;
+	reg	[IW-1:0]	         m_rid;
 	reg	[1:0]		r_rresp, m_rresp;
-	reg			r_rlast, m_rlast;
+	reg			         m_rlast;
 	reg	[DW-1:0]	r_rdata, m_rdata;
 
 	//
@@ -310,11 +324,13 @@ module axisafety #(
 	// Read FIFO data
 	reg	[IW-1:0]	rfifo_id;
 	reg	[8:0]		rfifo_counter;
+	reg			rfifo_empty, rfifo_last, rfifo_penultimate;
 
 	//
 	//
-	reg	[3:0]	s_wbursts;
+	reg	[0:0]	s_wbursts;
 	reg	[8:0]	m_wpending;
+	reg		m_wempty, m_wlastctr;
 
 
 	initial	S_AXI_AWREADY = 1;
@@ -326,6 +342,9 @@ module axisafety #(
 	else if (!S_AXI_AWREADY)
 		S_AXI_AWREADY <= !S_AXI_WREADY && S_AXI_BVALID && S_AXI_BREADY;
 
+	//
+	// Double buffer for the AW* channel
+	//
 	initial	r_awvalid = 0;
 	always @(posedge S_AXI_ACLK)
 	begin
@@ -348,6 +367,11 @@ module axisafety #(
 			r_awvalid <= 0;
 	end
 
+	//
+	// Second half of the AW* double-buffer.  The m_* terms reference
+	// either the value in the double buffer (assuming one is in there),
+	// or the incoming value (if the double buffer is empty)
+	//
 	always @(*)
 	if (r_awvalid)
 	begin
@@ -374,6 +398,9 @@ module axisafety #(
 		m_awqos   = S_AXI_AWQOS;
 	end
 
+	//
+	// Set the output AW* channel outputs--but only on no fault
+	//
 	initial	M_AXI_AWVALID = 0;
 	always @(posedge S_AXI_ACLK)
 	begin
@@ -400,40 +427,91 @@ module axisafety #(
 			M_AXI_AWVALID <= 0;
 	end
 
+	//
 	// Count write bursts outstanding from the standpoint of
 	// the incoming (slave) channel
+	//
+	// Notice that, as currently built, the count can only ever be one
+	// or zero.
+	//
+	// We'll use this count in a moment to determine if a response
+	// has taken too long, or if a response is returned when there's
+	// no outstanding request
 	initial	s_wbursts = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		s_wbursts <= 0;
-	else case ({(S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST),
-			(S_AXI_BVALID && S_AXI_BREADY) })
-	2'b01: s_wbursts <= s_wbursts - 1;
-	2'b10: s_wbursts <= s_wbursts + 1;
-	default: begin end
-	endcase
+	else if (S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST)
+		s_wbursts <= 1;
+	else if (S_AXI_BVALID && S_AXI_BREADY)
+		s_wbursts <= 0;
 
+	//
+	// Keep track of the ID of the last transaction.  Since we only
+	// ever have one write transaction outstanding, this will need to be
+	// the ID of the returned value.
+	//
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_AWREADY && S_AXI_AWVALID)
 		wfifo_id <= S_AXI_AWID;
 
+	//
+	// m_wpending counts the number of (remaining) write data values that
+	// need to be sent to the slave.  It counts this number with respect
+	// to the *SLAVE*, not the master.  When m_wpending == 1, WLAST shall
+	// be true.  To make comparisons of (m_wpending == 0) or (m_wpending>0),
+	// m_wempty is assigned to (m_wpending).  Similarly, m_wlastctr is
+	// assigned to (m_wpending == 1).
+	//
 	initial	m_wpending = 0;
+	initial	m_wempty   = 1;
+	initial	m_wlastctr = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
+	begin
 		m_wpending <= 0;
-	else if (M_AXI_AWVALID && M_AXI_AWREADY)
+		m_wempty   <= 1;
+		m_wlastctr <= 0;
+	end else if (M_AXI_AWVALID && M_AXI_AWREADY)
 	begin
 		if (M_AXI_WVALID && M_AXI_WREADY)
 		begin
+			// Accepting AW* and W* packets on the same
+			// clock
 			if (m_wpending == 0)
+			begin
+				// The AW* and W* packets go together
 				m_wpending <= {1'b0, M_AXI_AWLEN};
-			else
+				m_wempty   <= (M_AXI_AWLEN == 0);
+				m_wlastctr <= (M_AXI_AWLEN == 1);
+			end else begin
+				// The W* packet goes with the last
+				// AW* command, the AW* packet with a
+				// new one
 				m_wpending <= M_AXI_AWLEN+1;
-		end else
+				m_wempty   <= 0;
+				m_wlastctr <= (M_AXI_AWLEN == 0);
+			end
+		end else begin
 			m_wpending <= M_AXI_AWLEN+1;
-	end else if (M_AXI_WVALID && M_AXI_WREADY && m_wpending > 0)
+			m_wempty   <= 0;
+			m_wlastctr <= (M_AXI_AWLEN == 0);
+		end
+	end else if (M_AXI_WVALID && M_AXI_WREADY && (!m_wempty))
+	begin
+		// The AW* channel is idle, and we just accepted a value
+		// on the W* channel
 		m_wpending <= m_wpending - 1;
+		m_wempty   <= (m_wpending <= 1);
+		m_wlastctr <= (m_wpending == 2);
+	end
 
+	//
+	// The S_AXI_WREADY or write channel stall signal
+	//
+	// For this core, we idle at zero (stalled) until an AW* packet
+	// comes through
+	//
 	initial	S_AXI_WREADY = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -454,7 +532,11 @@ module axisafety #(
 	else if (S_AXI_AWVALID && S_AXI_AWREADY)
 		S_AXI_WREADY <= 1;
 
+	//
 	// Double buffer for the write channel
+	//
+	// As before, the r_* values contain the values in the double
+	// buffer itself
 	//
 	initial	r_wvalid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -470,11 +552,19 @@ module axisafety #(
 	end else if (o_write_fault || M_AXI_WREADY)
 		r_wvalid <= 0;
 
+	//
+	// Here's the result of our double buffer
+	//
+	// m_* references the value within the double buffer in the case that
+	// something is in the double buffer.  Otherwise, it is the values
+	// directly from the inputs.  In the case of a fault, neither is true.
+	// Write faults override.
+	//
 	always @(*)
 	if (o_write_fault)
 	begin
-		m_wvalid = m_wpending > 0;
-		m_wlast  = (m_wpending == 1);
+		m_wvalid = !m_wempty;
+		m_wlast  = m_wlastctr;
 		m_wstrb  = 0;
 	end else if (r_wvalid)
 	begin
@@ -487,13 +577,18 @@ module axisafety #(
 		m_wlast  = S_AXI_WLAST;
 	end
 
+	// The logic for the DATA output of the double buffer doesn't
+	// matter so much in the case of o_write_fault
 	always @(*)
 	if (r_wvalid)
 		m_wdata = r_wdata;
 	else
 		m_wdata = M_AXI_WDATA;
 
-	// Downstream write channel
+	// Set the downstream write channel values
+	//
+	// As per AXI spec, these values *must* be registered.  Note that our
+	// source here is the m_* double buffer/incoming write data switch.
 	initial	M_AXI_WVALID = 0;
 	always @(posedge S_AXI_ACLK)
 	begin
@@ -505,48 +600,142 @@ module axisafety #(
 			M_AXI_WLAST  <= m_wlast;
 		end
 
+		// Override the WVALID signal (only) on reset, voiding any
+		// output we might otherwise send.
 		if (!S_AXI_ARESETN)
 			M_AXI_WVALID <= 0;
 	end
 
-	initial r_bvalid = 0;
+	//
+	// The write timer
+	//
+	// The counter counts up to saturation.  It is reset any time
+	// the write channel is either clear, or a value is accepted
+	// at the *MASTER* (not slave) side.  Why the master side?  Simply
+	// because it makes the proof below easier.  (At one time I checked
+	// both, but then couldn't prove that the faults wouldn't get hit
+	// if the slave responded in time.)
+	initial	write_timer = 0;
 	always @(posedge S_AXI_ACLK)
-	begin
-		if (!r_bvalid)
-		begin
-			r_bvalid <= (M_AXI_BVALID && M_AXI_BREADY)
-					&&(S_AXI_BVALID && !S_AXI_BREADY);
-			if (faulty_write_return)
-				r_bvalid = 0;
-			r_bid   <= M_AXI_BID;
-			r_bresp <= M_AXI_BRESP;
-		end
+	if (!S_AXI_ARESETN)
+		write_timer <= 0;
+	else if (M_AXI_BVALID || S_AXI_AWREADY)
+		write_timer <= 0;
+	else if (S_AXI_WVALID && S_AXI_WREADY)
+		write_timer <= 0;
+	else if (!(&write_timer))
+		write_timer <= write_timer + 1;
 
-		if (!S_AXI_ARESETN)
-			r_bvalid <= 0;
+	//
+	// Write timeout detector
+	//
+	// If the write_timer reaches the OPT_TIMEOUT, then the write_timeout
+	// will get set true.  This will force a fault, taking the write
+	// channel off line.
+	initial	write_timeout = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		write_timeout <= 0;
+	else if (M_AXI_BVALID || S_AXI_AWREADY)
+		write_timeout <= write_timeout;
+	else if (S_AXI_WVALID && S_AXI_WREADY)
+		write_timeout <= write_timeout;
+	else if (write_timer == OPT_TIMEOUT)
+		write_timeout <= 1;
+
+	//
+	// fault_write_return
+	//
+	// This combinational logic is used to catch an invalid return, and
+	// so take the slave off-line before the return can corrupt the master
+	// channel.  Reasons for taking the write return off line are listed
+	// below.
+	always @(*)
+	begin
+		faulty_write_return = 0;
+		if (M_AXI_WVALID && M_AXI_WREADY
+				&& M_AXI_AWVALID && !M_AXI_AWREADY)
+			// Accepting the write *data* prior to the write
+			// *address* is a fault
+			faulty_write_return = 1;
+		if (M_AXI_BVALID)
+		begin
+			if (M_AXI_AWVALID || M_AXI_WVALID)
+				// Returning a B* acknowledgement while the
+				// request remains outstanding is also a fault
+				faulty_write_return = 1;
+			if (!m_wempty)
+				// Same as above, but this time the write
+				// channel is neither complete, nor is *WVALID
+				// active.  Values remain to be written,
+				// and so a return is a fault.
+				faulty_write_return = 1;
+			if (s_wbursts <= (S_AXI_BVALID ? 1:0))
+				// Too many acknowledgments
+				//
+				// Returning more than one BVALID&BREADY for
+				// every AWVALID & AWREADY is a fault.
+				faulty_write_return = 1;
+			if (M_AXI_BID != wfifo_id)
+				// An attempt to return the wrong ID
+				faulty_write_return = 1;
+		end
 	end
 
+	//
+	// o_write_fault
+	//
+	// On a write fault, we're going to disconnect the write port from
+	// the slave, and return errors on each write connect.  o_write_fault
+	// is our signal determining if the write channel is disconnected.
+	//
+	// Most of this work is determined within faulty_write_return above.
+	// Here we do just a bit more: 
+	initial	o_write_fault = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		o_write_fault <= 0;
+	else if (write_timeout)
+		o_write_fault <= 1;
+	else if (M_AXI_BVALID && M_AXI_BREADY)
+		o_write_fault <= (o_write_fault) || faulty_write_return;
+	else if (M_AXI_WVALID && M_AXI_WREADY
+			&& M_AXI_AWVALID && !M_AXI_AWREADY)
+		// Accepting the write data prior to the write address
+		// is a fault
+		o_write_fault <= 1;
+
+
+	//
+	// Since we only ever allow a single write burst at a time, we don't
+	// need to double buffer the return channel.  Hence, we'll set our
+	// return channel based upon the incoming values alone.  Note that
+	// we're overriding the M_AXI_BID below, in order to make certain that
+	// the return goes to the right source.
+	//
 	always @(*)
 	if (o_write_fault)
 	begin
 		m_bvalid = (s_wbursts > (S_AXI_BVALID ? 1:0));
 		m_bid    = wfifo_id;
 		m_bresp  = SLAVE_ERROR;
-	end else if (!r_bvalid)
-	begin
+	end else begin
 		m_bvalid = M_AXI_BVALID;
 		if (faulty_write_return)
 			m_bvalid = 0;
 		m_bid    = wfifo_id;
 		m_bresp  = M_AXI_BRESP;
-	end else begin
-		m_bvalid = r_bvalid;
-		m_bid    = r_bid;
-		m_bresp  = r_bresp;
 	end
 
-	assign M_AXI_BREADY = !r_bvalid;
+	//
+	// We'll *never* stall the slaves BREADY channel
+	//
+	assign M_AXI_BREADY = 1;
 
+	//
+	// Return a write acknowlegement at the end of every write
+	// burst--regardless of whether or not the slave does so
+	//
 	initial	S_AXI_BVALID = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -554,6 +743,9 @@ module axisafety #(
 	else if (!S_AXI_BVALID || S_AXI_BREADY)
 		S_AXI_BVALID <= m_bvalid;
 
+	//
+	// Set the values associated with the response
+	//
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_BVALID || S_AXI_BREADY)
 	begin
@@ -561,7 +753,13 @@ module axisafety #(
 		S_AXI_BRESP  <= m_bresp;
 	end
 
+	////////////////////////////////////////////////////////////////////////
 	//
+	// Read channel processing
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+
 	// Read address channel
 	initial	S_AXI_ARREADY = 1;
 	always @(posedge S_AXI_ACLK)
@@ -573,7 +771,9 @@ module axisafety #(
 	end else if (!S_AXI_ARREADY)
 		S_AXI_ARREADY <= (S_AXI_RVALID && S_AXI_RLAST && S_AXI_RREADY);
 
-
+	//
+	// Double buffer the values associated with any read address request
+	//
 	initial	r_arvalid = 0;
 	always @(posedge S_AXI_ACLK)
 	begin
@@ -596,6 +796,7 @@ module axisafety #(
 			r_arvalid <= 0;
 	end
 
+	//
 	always @(*)
 	if (r_arvalid)
 	begin
@@ -622,6 +823,10 @@ module axisafety #(
 		m_arqos   = S_AXI_ARQOS;
 	end
 
+	//
+	// Set the downstream values according to the transaction we've just
+	// received.
+	//
 	initial	M_AXI_ARVALID = 0;
 	always @(posedge S_AXI_ACLK)
 	begin
@@ -649,7 +854,91 @@ module axisafety #(
 	end
 
 	//
-	// Read return double buffer
+	// Read return/acknowledgment processing
+	//
+
+	//
+	// Start with read fault determination
+	//
+
+	// First step: a timer.  The timer starts as soon as the S_AXI_ARVALID
+	// is accepted.  Once that happens, rfifo_empty will no longer be true.
+	// The count is reset any time the slave produces a value for us to
+	// read.  Once the count saturates, it stops counting.
+	initial	read_timer = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		read_timer <= 0;
+	else if ((rfifo_empty)||(S_AXI_RVALID))
+		read_timer <= 0;
+	else if (M_AXI_RVALID)
+		read_timer <= 0;
+	else if (!(&read_timer))
+		read_timer <= read_timer + 1;
+
+	// Once the counter > OPT_TIMEOUT, we have a timeout condition.
+	// We'll detect this one clock earlier below.  If we ever enter
+	// a read time out condition, we'll set the read fault.  The read
+	// timeout condition can only be cleared by a reset.
+	initial	read_timeout = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		read_timeout <= 0;
+	else if ((rfifo_empty)||(S_AXI_RVALID))
+		read_timeout <= read_timeout;
+	else if (M_AXI_RVALID)
+		read_timeout <= read_timeout;
+	else if (read_timer == OPT_TIMEOUT)
+		read_timeout <= 1;
+
+	//
+	// faulty_read_return
+	//
+	// To avoid returning a fault from the slave, it is important to
+	// determine within a single clock period whether or not the slaves
+	// return value is at fault or not.  That's the purpose of the code
+	// below.
+	always @(*)
+	begin
+		faulty_read_return = 0;
+		if (M_AXI_RVALID)
+		begin
+			if (M_AXI_ARVALID)
+				// It is a fault to return data apart from a
+				// request.
+				faulty_read_return = 1;
+			if (M_AXI_RID != rfifo_id)
+				// It is a fault to return data from a
+				// different ID
+				faulty_read_return = 1;
+			if (rfifo_last && (S_AXI_RVALID || !M_AXI_RLAST))
+				faulty_read_return = 1;
+			if (rfifo_penultimate && S_AXI_RVALID && (r_rvalid || !M_AXI_RLAST))
+				faulty_read_return = 1;
+
+		end
+	end
+
+	initial	o_read_fault = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		o_read_fault <= 0;
+	else if (read_timeout)
+		o_read_fault <= 1;
+	else if (M_AXI_RVALID)
+	begin
+		if (faulty_read_return)
+			o_read_fault <= 1;
+		if (S_AXI_ARREADY)
+			// It is a fault if we haven't issued an AR* request
+			// yet, and a value is returned
+			o_read_fault <= 1;
+	end
+
+
+	//
+	// Step one, set/create the read return double buffer.  If r_rvalid
+	// is true, there's a valid value in the double buffer location.
 	//
 	initial r_rvalid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -657,73 +946,137 @@ module axisafety #(
 		r_rvalid <= 0;
 	else if (!r_rvalid)
 	begin
-		r_rvalid <= M_AXI_RVALID && M_AXI_RREADY
-				&& (S_AXI_RVALID && !S_AXI_RREADY);
+		//
+		// Refuse to set the double-buffer valid on any fault.
+		// That will also keep (below) M_AXI_RREADY high--so that
+		// following the fault the slave might still (pretend) to
+		// respond properly
 		if (faulty_read_return)
 			r_rvalid <= 0;
-		if (o_read_fault)
+		else if (o_read_fault)
 			r_rvalid <= 0;
+		// If there's nothing in the double buffer, then we might
+		// place something in there.  The double buffer only gets
+		// filled under two conditions: 1) something is pending to be
+		// returned, and 2) there's another return that we can't
+		// stall and so need to accept here.
+		r_rvalid <= M_AXI_RVALID && M_AXI_RREADY
+				&& (S_AXI_RVALID && !S_AXI_RREADY);
 	end else if (S_AXI_RREADY)
+		// Once the up-stream read-channel clears, we can always
+		// clear the double buffer
 		r_rvalid <= 0;
 
+	//
+	// Here's the actual values kept whenever r_rvalid is true.  This is
+	// the double buffer.  Notice that r_rid and r_last are generated
+	// locally, so not recorded here.
+	//
 	always @(posedge S_AXI_ACLK)
 	if (!r_rvalid)
 	begin
-		r_rid    <= M_AXI_RID;
 		r_rresp  <= M_AXI_RRESP;
-		r_rlast  <= M_AXI_RLAST;
 		r_rdata  <= M_AXI_RDATA;
 	end
 
+	// Stall the downstream channel any time there's something in the
+	// double buffer.  In spite of the ! here, this is a registered value.
 	assign M_AXI_RREADY = !r_rvalid;
 
+	//
+	// Copy the ID for later comparisons on the return
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARVALID && S_AXI_ARREADY)
 		rfifo_id <= S_AXI_ARID;
 
-	initial	rfifo_counter = 0;
+	// 
+	// Count the number of outstanding read elements.  This is the number
+	// of read returns we still expect--from the upstream perspective.  The
+	// downstream perspective will be off by both what's waiting for
+	// S_AXI_RREADY and what's in the double buffer
+	//
+	initial	rfifo_counter    = 0;
+	initial	rfifo_empty      = 1;
+	initial	rfifo_last       = 0;
+	initial	rfifo_penultimate= 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
-		rfifo_counter <= 0;
-	else if (S_AXI_ARVALID && S_AXI_ARREADY)
+	begin
+		rfifo_counter    <= 0;
+		rfifo_empty      <= 1;
+		rfifo_last       <= 0;
+		rfifo_penultimate<= 0;
+	end else if (S_AXI_ARVALID && S_AXI_ARREADY)
+	begin
 		rfifo_counter <= S_AXI_ARLEN+1;
-	else if (rfifo_counter > 0)
+		rfifo_empty   <= 0;
+		rfifo_last    <= (S_AXI_ARLEN == 0);
+		rfifo_penultimate <= (S_AXI_ARLEN == 1);
+	end else if (!rfifo_empty)
 	begin
 		if (S_AXI_RVALID && S_AXI_RREADY)
+		begin
 			rfifo_counter <= rfifo_counter - 1;
+			rfifo_empty   <= (rfifo_counter <= 1);
+			rfifo_last    <= (rfifo_counter == 2);
+			rfifo_penultimate <= (rfifo_counter == 3);
+		end
 	end
 
+	//
+	// Determine values to send back and return
+	//
+	// This data set includes all the return values, even though only
+	// RRESP and RVALID are set in this block.
 	always @(*)
 	if (o_read_fault)
 	begin
-		m_rvalid = (rfifo_counter > 1)||(rfifo_counter > 0 && !S_AXI_RVALID);
-		m_rid    = rfifo_id;
+		m_rvalid = !rfifo_empty;
+		if (S_AXI_RVALID && rfifo_last)
+			m_rvalid = 0;
 		m_rresp  = SLAVE_ERROR;
-		m_rlast  = (rfifo_counter == 2)&&(S_AXI_RVALID)
-				||(rfifo_counter == 1)&&(!S_AXI_RVALID);
 	end else if (r_rvalid)
 	begin
 		m_rvalid = r_rvalid;
-		m_rid    = r_rid;
 		m_rresp  = r_rresp;
-		// m_rlast  = r_rlast;
-		m_rlast  = (rfifo_counter == 2)&&(S_AXI_RVALID)
-				||(rfifo_counter == 1)&&(!S_AXI_RVALID);
 	end else begin
 		m_rvalid = M_AXI_RVALID && !S_AXI_ARREADY&& !faulty_read_return;
-		m_rid    = rfifo_id;
 		m_rresp  = M_AXI_RRESP;
-		m_rlast  = (rfifo_counter == 2)&&(S_AXI_RVALID)
-				||(rfifo_counter == 1)&&(!S_AXI_RVALID);
-		// m_rlast  = M_AXI_RLAST;
 	end
 
+	//
+	// We've stored the ID locally, so that our response will never be in
+	// error
+	always @(*)
+		m_rid = rfifo_id;
+
+	// Ideally, we'd want to say m_rlast = rfifo_last.  However, we might
+	// have a value in S_AXI_RVALID already.  In that case, the last
+	// value can only be true if we are one further away from the end.
+	// (Remember, rfifo_last and rfifo_penultimate are both dependent upon
+	// the *upstream* number of read values outstanding, not the downstream
+	// number which we can't trust in all cases)
+	always @(*)
+	if (S_AXI_RVALID)
+		m_rlast = rfifo_penultimate;
+	else
+		m_rlast = (rfifo_last);
+
+	// In the case of a fault, rdata is a don't care.  Therefore we can
+	// always set it based upon the values returned from the slave.
 	always @(*)
 	if (r_rvalid)
 		m_rdata = r_rdata;
 	else
 		m_rdata = M_AXI_RDATA;
 
+	//
+	// Record our return data values
+	//
+	// These are the values from either the slave, the double buffer,
+	// or an error value bypassing either as determined by the m_* values.
+	// Per spec, all of these values must be registered.  First the valid
+	// signal
 	initial	S_AXI_RVALID = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -731,6 +1084,7 @@ module axisafety #(
 	else if (!S_AXI_RVALID || S_AXI_RREADY)
 		S_AXI_RVALID <= m_rvalid;
 
+	// Then the various slave data channels
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
@@ -740,110 +1094,6 @@ module axisafety #(
 		S_AXI_RDATA  <= m_rdata;
 	end
 
-	initial	write_timeout = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		write_timeout <= 0;
-	else if (M_AXI_BVALID || S_AXI_AWREADY)
-		write_timeout <= 0;
-	else if (S_AXI_WVALID && S_AXI_WREADY)
-		write_timeout <= 0;
-	else if (!(&write_timeout))
-		write_timeout <= write_timeout + 1;
-
-	always @(*)
-	begin
-		faulty_write_return = 0;
-		if (M_AXI_WVALID && M_AXI_WREADY
-				&& M_AXI_AWVALID && !M_AXI_AWREADY)
-			// Accepting the write data prior to the write address
-			// is a fault
-			faulty_write_return = 1;
-		if (M_AXI_BVALID)
-		begin
-			if (M_AXI_AWVALID || M_AXI_WVALID)
-				faulty_write_return = 1;
-			if (m_wpending > 0)
-				faulty_write_return = 1;
-			if (s_wbursts <= (S_AXI_BVALID ? 1:0))
-				// Too many acknowledgments
-				faulty_write_return = 1;
-			if (M_AXI_BID != wfifo_id)
-				// Wrong ID returned
-				faulty_write_return = 1;
-			// if (M_AXI_BRESP == 2'b01)
-			//	faulty_write_return = 1;
-		end
-	end
-
-	initial	o_write_fault = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		o_write_fault <= 0;
-	else if (write_timeout > OPT_TIMEOUT)
-		o_write_fault <= 1;
-	else if (M_AXI_BVALID && M_AXI_BREADY)
-		o_write_fault <= (o_write_fault) || faulty_write_return;
-	else if (M_AXI_WVALID && M_AXI_WREADY
-			&& M_AXI_AWVALID && !M_AXI_AWREADY)
-		// Accepting the write data prior to the write address
-		// is a fault
-		o_write_fault <= 1;
-
-
-	initial	read_timeout = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		read_timeout <= 0;
-	else if ((rfifo_counter == 0)||(S_AXI_RVALID))
-		read_timeout <= 0;
-	else if (M_AXI_RVALID)
-		read_timeout <= 0;
-	else if (!(&read_timeout))
-		read_timeout <= read_timeout + 1;
-
-	always @(*)
-	begin
-		faulty_read_return = 0;
-		if (M_AXI_RVALID)
-		begin
-			if (M_AXI_ARVALID)
-				faulty_read_return = 1;
-			if (M_AXI_RID != rfifo_id)
-				faulty_read_return = 1;
-			if (rfifo_counter == (S_AXI_RVALID ? 1:0)
-					+ (r_rvalid ? 1:0))
-				faulty_read_return = 1;
-			// if (M_AXI_RRESP == 2'b01)
-			//	faulty_read_return = 1;
-			if (M_AXI_RLAST != ((rfifo_counter
-						- (S_AXI_RVALID ? 1:0)
-						- (r_rvalid ? 1:0)) == 1))
-				faulty_read_return = 1;
-		end
-	end
-
-	initial	o_read_fault = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		o_read_fault <= 0;
-	else if (read_timeout > OPT_TIMEOUT)
-		o_read_fault <= 1;
-	else if (M_AXI_RVALID)
-	begin
-		if (faulty_read_return)
-			o_read_fault <= 1;
-		if (S_AXI_ARREADY)
-			o_read_fault <= 1;
-		if (rfifo_counter == 0)
-			o_read_fault <= 1;
-		else if (!S_AXI_RVALID)
-		begin
-			if (rfifo_counter == 1 && !M_AXI_RLAST)
-				o_read_fault <= 1;
-		end else if (rfifo_counter == 2 && !M_AXI_RLAST)
-				o_read_fault <= 1;
-	end
 
 	//
 	//
