@@ -44,11 +44,20 @@ between buses of different widths.  The only problem is ...
 this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
 doesn't yet pass formal verification.
 
+# Wishbone pipeline to WB Classic
+
+As of 20190424, there's now a [Wishbone (pipelined, master) to Wishbone
+(classic, slave)](rtl/wbp2classic.v) bridge as well.  It's recent as of this
+writing, but it has passed formal verification.  The other direction should
+be almost as trivial to build, I just haven't had a need for it (yet).
+
 # Formal Verification
 
 Currently, the project contains formal specifications for
-[Avalon](bench/formal/fav_slave.v), [Wishbone](bench/formal/fwb_slave.v),
-and [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
+[Avalon](bench/formal/fav_slave.v), [Wishbone
+(classic)](bench/formal/fwbc_slave.v), [Wishbone
+(pipelined)](bench/formal/fwb_slave.v), and
+[AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
 the one in the master branch is known to have issues.  (I actually have a
 good set of formal properties for verifying AXI transactions, they just aren't

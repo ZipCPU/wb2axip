@@ -113,12 +113,49 @@ module	wbp2classic(i_clk, i_reset,
 		o_mack <= 0;
 		o_merr <= 0;
 	end else begin
-		o_mack <= (!returned) && i_sack;
-		o_merr <= (!returned) && i_serr;
+		o_mack <= (i_mcyc) && (!returned) && i_sack;
+		o_merr <= (i_mcyc) && (!returned) && i_serr;
 	end
 
 	always @(posedge i_clk)
 	if (i_sack || i_serr)
 		o_mdata <= i_sdata;
+
+
+`ifdef	FORMAL
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	localparam	F_LGDEPTH = 1;
+	reg	[F_LGDEPTH-1:0]	f_nreqs, f_nacks, f_outstanding;
+
+	reg	f_past_valid;
+	initial	f_past_valid = 0;
+	always @(posedge i_clk)
+		f_past_valid = 1;
+
+	always @(*)
+	if (!f_past_valid)
+		assume(i_reset);
+
+	fwb_slave #(.AW(AW), .DW(DW),
+			.F_MAX_STALL(4),
+			.F_MAX_ACK_DELAY(2),
+			.F_LGDEPTH(1)) incoming (i_clk, i_reset,
+		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
+			o_mack, o_mstall, o_mdata, o_merr,
+			f_nreqs, f_nacks, f_outstanding);
+
+	fwbc_master #(.AW(AW), .DW(DW)) classic (i_clk, i_reset,
+		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel, o_scti, o_sbti,
+			i_sack, i_sdata, i_serr);
+
+//	always @(*)
+//	if (f_outstanding)
+//		assert(returned);
 
 endmodule

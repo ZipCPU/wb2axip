@@ -1,0 +1,23 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 14
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal wbp2classic.v
+read -formal fwb_slave.v
+read -formal fwbc_master.v
+prep -top wbp2classic
+
+[files]
+../../rtl/wbp2classic.v
+fwb_slave.v
+fwbc_master.v

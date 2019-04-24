@@ -259,12 +259,17 @@ module	fwb_master(i_clk, i_reset,
 	// remaining (registered) ACK or ERR that hasn't yet been returned.
 	// Restrict such out of band returns so that they are *only* returned
 	// if there is an outstanding operation.
+	//
+	// Update: As per spec, WB-classic to WB-pipeline conversions require
+	// that the ACK|ERR might come back on the same cycle that STB
+	// is low, yet also be registered.  Hence, if STB & STALL are true on
+	// one cycle, then CYC is dropped, ACK|ERR might still be true on the
+	// cycle when CYC is dropped
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))&&($past(i_wb_cyc))&&(!i_wb_cyc))
 	begin
 		if (($past(f_outstanding == 0))
-			&&((!$past(i_wb_stb && !i_wb_stall))
-				||($past(i_wb_ack|i_wb_err))))
+			&&((!$past(i_wb_stb))||($past(i_wb_ack|i_wb_err))))
 		begin
 			`SLAVE_ASSERT(!i_wb_ack);
 			`SLAVE_ASSERT(!i_wb_err);
@@ -448,3 +453,5 @@ module	fwb_master(i_clk, i_reset,
 	end endgenerate
 
 endmodule
+`undef	SLAVE_ASSUME
+`undef	SLAVE_ASSERT

@@ -1,0 +1,83 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Apr 24 17:19:47 2019
+[*]
+[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/wbp2classic_cvr/engine_0/trace0.vcd"
+[dumpfile_mtime] "Wed Apr 24 17:13:31 2019"
+[dumpfile_size] 14390
+[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/wbp2classic.gtkw"
+[timestart] 0
+[size] 1673 812
+[pos] -1 -213
+*-5.270011 130 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 134
+[sst_expanded] 1
+[sst_vpaned_height] 230
+@28
+wbp2classic.i_clk
+wbp2classic.i_reset
+@200
+-
+@28
+[color] 3
+wbp2classic.i_mcyc
+[color] 3
+wbp2classic.i_mstb
+[color] 3
+wbp2classic.i_mwe
+@22
+[color] 3
+wbp2classic.i_maddr[11:0]
+[color] 3
+wbp2classic.i_mdata[31:0]
+[color] 3
+wbp2classic.i_msel[3:0]
+@200
+-
+@28
+[color] 2
+wbp2classic.o_mstall
+[color] 2
+wbp2classic.o_mack
+@22
+[color] 2
+wbp2classic.o_mdata[31:0]
+@28
+[color] 2
+wbp2classic.o_merr
+@200
+-
+@28
+[color] 3
+wbp2classic.o_scyc
+[color] 3
+wbp2classic.o_sstb
+[color] 3
+wbp2classic.o_swe
+@22
+[color] 3
+wbp2classic.o_saddr[11:0]
+[color] 3
+wbp2classic.o_sdata[31:0]
+@23
+[color] 3
+wbp2classic.o_ssel[3:0]
+@200
+-
+@28
+[color] 2
+wbp2classic.i_sack
+@22
+[color] 2
+wbp2classic.i_sdata[31:0]
+@28
+[color] 2
+wbp2classic.i_serr
+@200
+-
+@28
+wbp2classic.o_sbti[1:0]
+wbp2classic.o_scti[2:0]
+[pattern_trace] 1
+[pattern_trace] 0
