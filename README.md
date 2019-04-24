@@ -47,9 +47,9 @@ doesn't yet pass formal verification.
 # Wishbone pipeline to WB Classic
 
 As of 20190424, there's now a [Wishbone (pipelined, master) to Wishbone
-(classic, slave)](rtl/wbp2classic.v) bridge as well.  It's recent as of this
-writing, but it has passed formal verification.  The other direction should
-be almost as trivial to build, I just haven't had a need for it (yet).
+(classic, slave)](rtl/wbp2classic.v) bridge, as well as the reverse
+[Wishbone (classic, master) to Wishbone (pipelined, slave)](rtl/wbc2pipeline.v)
+bridge.  It's recent as of this writing, but it has passed its formal tests.
 
 # Formal Verification
 

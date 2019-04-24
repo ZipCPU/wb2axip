@@ -5,7 +5,14 @@
 // Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	Demonstrate a formally verified AXI4 core with a (basic)
-//		interface
+//		interface.
+//
+// Performance: This core has been designed for a throughput approaching
+//		one beat per clock cycle.  The read channel can achieve this,
+//	although it means overlapping reads by a beat.  (One beat for the
+//	address, the next beat(s) have the data.)  The write channel can
+//	achieve this within a burst, but otherwise requires a minimum of
+//	2+AWLEN cycles per transaction of (1+AWLEN) beats.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -15,7 +22,7 @@
 // Copyright (C) 2019, Gisselquist Technology, LLC
 //
 // This program is free software (firmware): you can redistribute it and/or
-// modify it under the terms of  the GNU General Public License as published
+// modify it under the terms of the GNU General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or (at
 // your option) any later version.
 //
@@ -39,7 +46,7 @@
 `default_nettype	none
 //
 module demofull #(
-	parameter integer C_S_AXI_ID_WIDTH	= 1,
+	parameter integer C_S_AXI_ID_WIDTH	= 2,
 	parameter integer C_S_AXI_DATA_WIDTH	= 32,
 	parameter integer C_S_AXI_ADDR_WIDTH	= 6,
 	parameter [0:0]	OPT_NARROW_BURST = 1
@@ -96,7 +103,7 @@ module demofull #(
 		// Burst size. This signal indicates the size of each transfer
 		// in the burst
 		input wire [2 : 0] S_AXI_AWSIZE,
-		// Burst type. The burst type and the size information, 
+		// Burst type. The burst type and the size information,
 		// determine how the address for each transfer within the burst
 		// is calculated.
 		input wire [1 : 0] S_AXI_AWBURST,
@@ -164,7 +171,7 @@ module demofull #(
 		// Burst size. This signal indicates the size of each transfer
 		// in the burst
 		input wire [2 : 0] S_AXI_ARSIZE,
-		// Burst type. The burst type and the size information, 
+		// Burst type. The burst type and the size information,
 		// determine how the address for each transfer within the
 		// burst is calculated.
 		input wire [1 : 0] S_AXI_ARBURST,
@@ -317,11 +324,12 @@ module demofull #(
 	//
 	// Read half
 	//
-	reg	[7:0]	rlen;
-	reg	[2:0]	rsize;
-	reg	[1:0]	rburst;
-	reg		axi_arready, axi_rlast, axi_rvalid;
-	reg	[8:0]	axi_rlen;
+	reg	[7:0]		rlen;
+	reg	[2:0]		rsize;
+	reg	[1:0]		rburst;
+	reg	[IW-1:0]	rid;
+	reg			axi_arready, axi_rlast, axi_rvalid;
+	reg	[8:0]		axi_rlen;
 	reg	[AW-1:0]	raddr;
 
 	initial axi_arready = 1;
@@ -329,29 +337,40 @@ module demofull #(
 	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
-	begin
 		axi_arready <= 1;
-		axi_rlen    <= 0;
-		axi_rlast   <= 0;
-		raddr       <= 0;
-	end else if (S_AXI_ARVALID && S_AXI_ARREADY)
+	else if (S_AXI_ARVALID && S_AXI_ARREADY)
+		axi_arready <= (S_AXI_ARLEN==0)&&(o_rd);
+	else if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
-		axi_arready <= 0;
-		axi_rlen    <= S_AXI_ARLEN+1;
-		axi_rlast   <= 0;
-		raddr    <= S_AXI_ARADDR;
-	end else if (!S_AXI_RVALID || S_AXI_RREADY)
+		if ((!axi_arready)&&(S_AXI_RVALID))
+			axi_arready <= (axi_rlen <= 2);
+	end
+
+	initial	axi_rlen = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		axi_rlen <= 0;
+	else if (S_AXI_ARVALID && S_AXI_ARREADY)
+		axi_rlen <= (S_AXI_ARLEN+1)
+				+ ((S_AXI_RVALID && !S_AXI_RREADY) ? 1:0);
+	else if (S_AXI_RREADY && axi_rlen > 0)
+		axi_rlen <= axi_rlen - 1;
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARVALID && S_AXI_ARREADY)
+		raddr <= S_AXI_ARADDR;
+	else if (o_rd)
+		raddr <= next_rd_addr;
+
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
-		axi_arready <= axi_arready || ((axi_rlen <= 1)&&(S_AXI_RVALID));
-		if ((axi_rlen > 0)&&(S_AXI_RVALID))
-		begin
-			axi_rlen    <= axi_rlen - 1;
-			axi_rlast   <= (axi_rlen == 2);
-		end else begin
-			axi_rlast   <= (axi_rlen == 1);
-		end
-		if (o_rd)
-			raddr       <= next_rd_addr;
+		if (S_AXI_ARVALID && S_AXI_ARREADY)
+			axi_rlast <= (S_AXI_ARLEN == 0);
+		else if ((axi_rlen > 0)&&(S_AXI_RVALID))
+			axi_rlast <= (axi_rlen == 2);
+		else
+			axi_rlast <= (axi_rlen == 1);
 	end
 
 	always @(posedge S_AXI_ACLK)
@@ -360,7 +379,16 @@ module demofull #(
 		rburst   <= S_AXI_ARBURST;
 		rsize    <= S_AXI_ARSIZE;
 		rlen     <= S_AXI_ARLEN;
-		axi_rid  <= S_AXI_ARID;
+		rid      <= S_AXI_ARID;
+	end
+
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_RVALID || S_AXI_RREADY)
+	begin
+		if (S_AXI_ARVALID && S_AXI_ARREADY)
+			axi_rid <= S_AXI_ARID;
+		else
+			axi_rid <= rid;
 	end
 
 	axi_addr #(.AW(AW))
@@ -371,13 +399,15 @@ module demofull #(
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		axi_rvalid <= 0;
-	else
-		axi_rvalid <= (!axi_arready)&&(!S_AXI_RLAST || !S_AXI_RREADY);
+	else if (!S_AXI_RVALID || S_AXI_RREADY)
+		axi_rvalid <= o_rd;
 
 	always @(*)
 	begin
-		o_rd = !S_AXI_ARREADY && !S_AXI_RLAST && (!S_AXI_RVALID || S_AXI_RREADY);
-		o_raddr = raddr[AW-1:LSB];
+		o_rd = (S_AXI_ARVALID && S_AXI_ARREADY)||(!S_AXI_ARREADY);
+		if (S_AXI_RVALID && !S_AXI_RREADY)
+			o_rd = 0;
+		o_raddr = (S_AXI_ARREADY ? S_AXI_ARADDR[AW-1:LSB] : raddr[AW-1:LSB]);
 	end
 
 	always @(*)
