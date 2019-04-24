@@ -1,4 +1,4 @@
-# WB2AXIP: A Pipelind Wishbone B4 to AXI4 bridge
+# WB2AXIP: A Pipelined Wishbone B4 to AXI4 bridge
 
 Built out of necessity, [this core](rtl/wbm2axisp.v) is designed to provide
 a conversion from a [wishbone
@@ -16,7 +16,7 @@ the delay may be up to 27 clocks](http://opencores.org/project,wbddr3).  (Ouch!)
 
 Since the initial build of the core, I've added the
 [WB to AXI lite](rtl/wbm2axilite.v) bridge.  This is also a pipelined bridge,
-and like the original one it is also formally verified.
+and like the original one it has also been formally verified.
 
 # AXI to Wishbone conversion
 
@@ -40,7 +40,7 @@ wishbone requests, maintaining the AXI ID fields, handle burst transactions,
 etc.  As designed, it ignores the AXI xSIZE, xLOCK, xCACHE, xPROT, and xQOS
 fields, while supporting xBURST types of FIXED (2'b00) and INCR (2'b01)
 but not WRAP (2'b10) or reserved (2'b11).  The design supports bridging
-between busses of different widths.  The only problem is ...
+between buses of different widths.  The only problem is ...
 this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
 doesn't yet pass formal verification.
 
@@ -48,17 +48,17 @@ doesn't yet pass formal verification.
 
 Currently, the project contains formal specifications for
 [Avalon](bench/formal/fav_slave.v), [Wishbone](bench/formal/fwb_slave.v),
-and [AXI-lite](bench/formal/faxil_slave.v) busses.  There's also a formal
+and [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
-the one in this branch is known to have issues.  (I actually have a good set
-of formal properties for verifying AXI transactions, they just aren't part of
-this repo at this time.)
+the one in the master branch is known to have issues.  (I actually have a
+good set of formal properties for verifying AXI transactions, they just aren't
+part of this repository at this time.)
 
 # Cross-bars and AXI demonstrators
 
 This repository has since become a repository for all kinds of bus-based
-odds and ends in addition to the bus translators.  Some of these odds and
-ends include crossbar switches and AXI demonstrator cores.
+odds and ends in addition to the bus translators mentioned above.  Some of
+these odds and ends include crossbar switches and AXI demonstrator cores.
 
 - [WBXBAR](rtl/wbxbar.v) is a fully function N master to M slave Wishbone
   crossbar.  Unlike my typical WB interconnects, this one guarantees that the
@@ -67,6 +67,7 @@ ends include crossbar switches and AXI demonstrator cores.
   (where a master's request is not granted in a particular period of time),
   double-buffering all outputs (i.e. with skid buffers), and forcing idle
   channel values to zero in order to reduce power.
+
   *This core has been formally verified.*
 
 - [AXILXBAR](rtl/axilxbar.v) is a fully functional, formally verified, `N`
@@ -78,19 +79,22 @@ ends include crossbar switches and AXI demonstrator cores.
   how many cycles the channel should be idle for in order for the channel
   to be closed.  If the channel is not closed, a clock can be spared when
   reusing it.  Otherwise, two clocks will be required to access a given channel.
+
   *This core has been formally verified.*
 
-  While I haven't tested Xilinx's interconnect to know, if their demonstration
-  slave core's performance is any indication, then this cross-bar should easily
-  outperform anything they have.  The key unusual feature?  The ability to
-  maintain one transaction per clock over an extended period of time across
-  any channel pair.
+  While I haven't tested Xilinx's interconnect to know, if the quality of
+  [their demonstration AXI-lite slave core](bench/formal/xlnxdemo.v) is any
+  indication, then this cross-bar should easily outperform anything they have.
+  The key unusual feature?  The ability to maintain one transaction per clock
+  over an extended period of time across any channel pair.
 
 - [AXIXBAR](rtl/axixbar.v) is a fun (but ongoing, work-in-progress) project to
   develop a full `NxM` configurable cross bar using the full AXI protocol.
 
   Unique to this (full) AXI core is the ability to have multiple ongoing
-  transactions on each of the master-to-slave channels.
+  transactions on each of the master-to-slave channels.  Were Xilinx's
+  crossbar to do this, it would've broken their [demonstration AXI-full slave
+  core](bench/formal/xlnxfull_2018_3.v).
 
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
@@ -106,8 +110,9 @@ ends include crossbar switches and AXI demonstrator cores.
   This is also a demonstration slave core, but this demonstration slave core
   implements the full AXI protocol, rather than just the AXI-lite protocol.
   Well, okay, it ignores QOS, CACHE, and LOCK flags, so perhaps it isn't
-  truly the *full* AXI protocol, but neithe did Xilinx's demonstration full
-  AXI slave core.
+  truly the *full* AXI protocol, but neither did [Xilinx's demonstration full
+  AXI slave core](bench/formal/xlnxfull_2018_3.v).
+
   *This core has been formally verified.*
 
 # Commercial Applications
