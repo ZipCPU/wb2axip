@@ -42,10 +42,10 @@
 `default_nettype	none
 //
 module	wbp2classic(i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_addr, i_data, i_sel,
+		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
 			o_mstall, o_mack, o_mdata, o_merr,
 		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-			i_ssack, i_sdata, i_serr,
+			i_sack, i_sdata, i_serr,
 			o_scti, o_sbti);
 	parameter	AW = 12,
 			DW = 32;
@@ -73,6 +73,9 @@ module	wbp2classic(i_clk, i_reset,
 	output	reg	[2:0]		o_scti;
 	output	reg	[1:0]		o_sbti;
 
+	//
+	// returned = whether we've received our return value or not.
+	reg	returned;
 
 	always @(*)
 	begin
