@@ -1,0 +1,71 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Fri Apr 26 10:36:20 2019
+[*]
+[dumpfile] "(null)"
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/xlnxstream_2018_3.gtkw"
+[timestart] 0
+[size] 1920 1021
+[pos] -1 -1
+*-5.403065 200 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] xlnxstream_2018_3.
+[sst_width] 270
+[signals_width] 240
+[sst_expanded] 1
+[sst_vpaned_height] 290
+@29
+xlnxstream_2018_3.f_past_valid
+@28
+xlnxstream_2018_3.M_AXIS_ACLK
+xlnxstream_2018_3.M_AXIS_ARESETN
+@200
+-
+@28
+[color] 3
+xlnxstream_2018_3.M_AXIS_TVALID
+[color] 2
+xlnxstream_2018_3.M_AXIS_TREADY
+@22
+[color] 3
+xlnxstream_2018_3.M_AXIS_TDATA[31:0]
+[color] 3
+xlnxstream_2018_3.M_AXIS_TSTRB[3:0]
+@28
+[color] 3
+xlnxstream_2018_3.M_AXIS_TLAST
+@200
+-
+@28
+xlnxstream_2018_3.axis_tvalid
+xlnxstream_2018_3.axis_tlast
+@200
+-
+@28
+xlnxstream_2018_3.axis_tvalid_delay
+xlnxstream_2018_3.axis_tlast_delay
+@200
+-
+@22
+xlnxstream_2018_3.count[4:0]
+@28
+xlnxstream_2018_3.mst_exec_state[1:0]
+@22
+xlnxstream_2018_3.read_pointer[3:0]
+xlnxstream_2018_3.stream_data_out[31:0]
+@28
+xlnxstream_2018_3.tx_done
+xlnxstream_2018_3.tx_en
+@200
+-
+@28
+xlnxstream_2018_3.f_routecheck[1:0]
+@22
+xlnxstream_2018_3.f_bytecount[5:0]
+@200
+-
+@22
+xlnxstream_2018_3.axi_stream_check.i_tkeep[3:0]
+xlnxstream_2018_3.axi_stream_check.i_tstrb[3:0]
+xlnxstream_2018_3.axi_stream_check.f_vbytes[5:0]
+[pattern_trace] 1
+[pattern_trace] 0

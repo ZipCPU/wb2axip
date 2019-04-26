@@ -63,6 +63,7 @@ RDLITE     := axilrd2wbsp
 WRLITE     := axilwr2wbsp
 AXLITE     := axlite2wbsp
 XILINXDEMO := xlnxdemo
+XLNXSTREAM := xlnxstream_2018_3
 AXILXBAR   := axilxbar
 WBXBAR     := wbxbar
 WBXBAR4x8  := wbxbar4x8
@@ -70,8 +71,9 @@ WBXBAR1x8  := wbxbar1x8
 WBXBAR4x1  := wbxbar4x1
 WBP2CLASSIC:= wbp2classic
 AXIL       := faxil_master.v faxil_slave.v
-WB         := fwb_master.v  fwb_slave.v
-WBC        := fwbc_master.v fwbc_slave.v
+WB         := fwb_master.v   fwb_slave.v
+WBC        := fwbc_master.v  fwbc_slave.v
+AXIS       := faxis_master.v faxis_slave.v
 
 .PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(AXLITE) $(WB2LITE) $(DEMOAXI)
 
@@ -358,4 +360,5 @@ clean:
 	rm -rf  $(WB2AXI)/
 	rm -rf  $(AXI2WB)/
 	rm -rf  $(XILINXDEMO)_cvr/ $(XILINXDEMO)_prf
+	rm -rf  $(XLNXSTREAM)_cvr/ $(XLNXSTREAM)_prf
 	# rm -f *.check

@@ -1,11 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	faxis_slave.v
+// Filename: 	faxis_master.v
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	Formal properties for verifying the proper functionality of an
-//		AXI Stream slave.
+//		AXI Stream master.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -38,7 +38,7 @@
 //
 `default_nettype none
 //
-module	faxis_slave(i_aclk, i_aresetn,
+module	faxis_master(i_aclk, i_aresetn,
 	i_tvalid, i_tready,
 	i_tdata, i_tstrb, i_tkeep, i_tlast, i_tid,
 	i_tdest, i_tuser,
@@ -75,8 +75,8 @@ module	faxis_slave(i_aclk, i_aresetn,
 	output	reg	[F_LGDEPTH-1:0]	f_bytecount;
 	(* anyconst *) output	reg	[AW+IDW-1:0]	f_routecheck;
 
-`define	SLAVE_ASSUME	assume
-`define	SLAVE_ASSERT	assert
+`define	SLAVE_ASSUME	assert
+`define	SLAVE_ASSERT	assume
 
 	localparam	F_STALLBITS	= (F_MAX_STALL <= 1)
 						? 1 : $clog2(F_MAX_STALL+2);
