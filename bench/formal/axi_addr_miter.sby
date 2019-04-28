@@ -1,0 +1,36 @@
+[tasks]
+prf8
+prf16
+prf32
+prf64
+prf128
+prf256
+prf512
+prf1024
+
+[options]
+mode  bmc
+depth 2
+
+[engines]
+smtbmc
+
+[script]
+read -formal axi_addr.v
+read -formal faxi_addr.v
+read -formal axi_addr_miter.v
+prf8:    chparam -set DW    8 axi_addr_miter
+prf16:   chparam -set DW   16 axi_addr_miter
+prf32:   chparam -set DW   32 axi_addr_miter
+prf64:   chparam -set DW   64 axi_addr_miter
+prf128:  chparam -set DW  128 axi_addr_miter
+prf256:  chparam -set DW  256 axi_addr_miter
+prf512:  chparam -set DW  512 axi_addr_miter
+prf1024: chparam -set DW 1024 axi_addr_miter
+
+prep -top axi_addr_miter
+
+[files]
+../../rtl/axi_addr.v
+faxi_addr.v
+axi_addr_miter.v

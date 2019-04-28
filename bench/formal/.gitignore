@@ -2,6 +2,7 @@
 *.yslog
 *.check
 *.ys.v
+axi_addr_miter_*/
 aximrd2wbsp_*/
 axilwr2wbsp_*/
 axilrd2wbsp_*/

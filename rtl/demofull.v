@@ -241,7 +241,7 @@ module demofull #(
 	reg	[AW-1:0]	waddr;
 	wire	[AW-1:0]	next_wr_addr;
 
-	reg	[7:0]		wr_inc, wlen;
+	reg	[7:0]		wlen;
 	reg	[2:0]		wsize;
 	reg	[1:0]		wburst;
 
@@ -249,7 +249,6 @@ module demofull #(
 	wire	[AW-1:0]	next_rd_addr;
 	reg	[IW-1:0]	axi_rid;
 	reg	[DW-1:0]	axi_rdata;
-	wire	[7:0]		rd_incr;
 
 	initial	axi_awready = 1;
 	initial	axi_wready  = 0;
@@ -281,9 +280,9 @@ module demofull #(
 			axi_awready <= 1'b1;
 	end
 
-	axi_addr #(.AW(AW))
+	axi_addr #(.AW(AW), .DW(DW))
 		get_next_wr_addr(waddr, wsize, wburst, wlen,
-			wr_inc, next_wr_addr);
+			next_wr_addr);
 
 	always @(*)
 	begin
@@ -391,9 +390,9 @@ module demofull #(
 			axi_rid <= rid;
 	end
 
-	axi_addr #(.AW(AW))
+	axi_addr #(.AW(AW), .DW(DW))
 		get_next_rd_addr(raddr, rsize, rburst, rlen,
-			rd_incr, next_rd_addr);
+			next_rd_addr);
 
 	initial	axi_rvalid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -431,11 +430,10 @@ module demofull #(
 
 	// Make Verilator happy
 	// Verilator lint_off UNUSED
-	wire	[39:0]	unused;
+	wire	[23:0]	unused;
 	assign	unused = { S_AXI_AWLOCK, S_AXI_AWCACHE, S_AXI_AWPROT,
 			S_AXI_AWQOS,
-		S_AXI_ARLOCK, S_AXI_ARCACHE, S_AXI_ARPROT, S_AXI_ARQOS,
-		wr_inc, rd_incr };
+		S_AXI_ARLOCK, S_AXI_ARCACHE, S_AXI_ARPROT, S_AXI_ARQOS };
 	// Verilator lint_on  UNUSED
 
 `ifdef	FORMAL
