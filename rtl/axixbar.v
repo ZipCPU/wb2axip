@@ -88,8 +88,61 @@ module	axixbar #(
 		parameter integer C_S_AXI_ADDR_WIDTH = 32,
 		parameter integer C_S_AXI_ID_WIDTH = 2,
 		parameter	NM = 4,
-		parameter	NS = 8
+		parameter	NS = 8,
 		//
+		// SLAVE_ADDR is an array of addresses, describing each of
+		// the slave channels.  It works tightly with SLAVE_MASK,
+		// so that when (ADDR & MASK == ADDR), the channel in question
+		// has been requested.
+		//
+		// It is an internal in the setup of this core to doubly map
+		// an address, such that (addr & SLAVE_MASK[k])==SLAVE_ADDR[k]
+		// for two separate values of k.
+		//
+		// Any attempt to access an address that is a hole in this
+		// address list will result in a returned xRESP value of
+		// INTERCONNECT_ERROR (2'b11)
+		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
+			3'b111,  {(AW-3){1'b0}},
+			3'b110,  {(AW-3){1'b0}},
+			3'b101,  {(AW-3){1'b0}},
+			3'b100,  {(AW-3){1'b0}},
+			3'b011,  {(AW-3){1'b0}},
+			3'b010,  {(AW-3){1'b0}},
+			4'b0001, {(AW-4){1'b0}},
+			4'b0000, {(AW-4){1'b0}} },
+		//
+		// SLAVE_MASK: is an array, much like SLAVE_ADDR, describing
+		// which of the bits in SLAVE_ADDR are relevant.  It is
+		// important to maintain for every slave that
+		// 	(~SLAVE_MASK[i] & SLAVE_ADDR[i]) == 0.
+		parameter	[NS*AW-1:0]	SLAVE_MASK =
+			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
+			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
+				{(2){ 4'b1111, {(AW-4){1'b0}}}} },
+		//
+		// OPT_LOWPOWER: If set, it forces all unused values to zero,
+		// preventing them from unnecessarily toggling.  This will
+		// raise the logic count of the core, but might also lower
+		// the power used by the interconnect and the bus driven wires
+		// which (in my experience) tend to have a high fan out.
+		parameter [0:0]	OPT_LOWPOWER = 0,
+		//
+		// OPT_LINGER: Set this to the number of clocks an idle
+		// channel shall be left open before being closed.  Once
+		// closed, it will take a minimum of two clocks before the
+		// channel can be opened and data transmitted through it again.
+		parameter	OPT_LINGER = 4,
+		//
+		// OPT_QOS: If set, the QOS transmission values will be honored
+		// when determining who wins arbitration for accessing a given
+		// slave.  (This feature is not yet implemented)
+		// parameter [0:0]	OPT_QOS = 1,
+		//
+		// LGMAXBURST: Specifies the log based two of the maximum
+		// number of transactions that may be outstanding.  Of
+		// necessity, this must me more than 8.
+		parameter	LGMAXBURST = 9
 	) (
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
@@ -187,55 +240,6 @@ module	axixbar #(
 	localparam	IW = C_S_AXI_ID_WIDTH;
 	localparam	AW = C_S_AXI_ADDR_WIDTH;
 	localparam	DW = C_S_AXI_DATA_WIDTH;
-	//
-	// SLAVE_ADDR is an array of addresses, describing each of the slave
-	// channels.  It works tightly with SLAVE_MASK, so that when
-	// (ADDR & MASK == ADDR), the channel in question has been requested.
-	//
-	// It is an internal in the setup of this core to doubly map an address,
-	// such that (addr & SLAVE_MASK[k])==SLAVE_ADDR[k] for two separate
-	// values of k.
-	//
-	// Any attempt to access an address that is a hole in this address list
-	// will result in a returned xRESP value of INTERCONNECT_ERROR (2'b11)
-	parameter	[NS*AW-1:0]	SLAVE_ADDR = {
-		3'b111,  {(AW-3){1'b0}},
-		3'b110,  {(AW-3){1'b0}},
-		3'b101,  {(AW-3){1'b0}},
-		3'b100,  {(AW-3){1'b0}},
-		3'b011,  {(AW-3){1'b0}},
-		3'b010,  {(AW-3){1'b0}},
-		4'b0001, {(AW-4){1'b0}},
-		4'b0000, {(AW-4){1'b0}} };
-	//
-	// SLAVE_MASK: is an array, much like SLAVE_ADDR, describing which of
-	// the bits in SLAVE_ADDR are relevant.  It is important to maintain
-	// for every slave that (~SLAVE_MASK[i] & SLAVE_ADDR[i]) == 0.
-	parameter	[NS*AW-1:0]	SLAVE_MASK =
-		(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
-		: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
-			{(2){ 4'b1111, {(AW-4){1'b0}}}} };
-	//
-	// OPT_LOWPOWER: If set, it forces all unused values to zero, preventing
-	// them from unnecessarily toggling.  This will raise the logic count
-	// of the core.
-	parameter [0:0]	OPT_LOWPOWER = 0;
-	//
-	// OPT_LINGER: Set this to the number of clocks an idle channel shall
-	// be left open before being closed.  Once closed, it will take a
-	// minimum of two clocks before the channel can be opened and data
-	// transmitted through it again.
-	parameter	OPT_LINGER = 4;
-	//
-	// OPT_QOS: If set, the QOS transmission values will be honored when
-	// determining who wins arbitration for accessing a given slave
-	parameter [0:0]	OPT_QOS = 1;
-	//
-	// LGMAXBURST: Specifies the log based two of the maximum number of
-	// transactions that may be outstanding.  Of necessity, this must me
-	// more than 8.
-	parameter	LGMAXBURST = 9;
-	//
 	//
 	// Local parameters, derived from those above
 	localparam	LGLINGER = (OPT_LINGER>1) ? $clog2(OPT_LINGER+1) : 1;
@@ -556,7 +560,7 @@ module	axixbar #(
 			m_awsize[N]  = M_AXI_AWSIZE[ N* 3 +: 3];
 			m_awburst[N] = M_AXI_AWBURST[N* 2 +: 2];
 			m_awlock[N]  = M_AXI_AWLOCK[ N];
-			m_awcache[N] = M_AXI_AWCACHE[N* 4 +: 2];
+			m_awcache[N] = M_AXI_AWCACHE[N* 4 +: 4];
 			m_awprot[N]  = M_AXI_AWPROT[ N* 3 +: 3];
 			m_awqos[N]   = M_AXI_AWQOS[  N* 4 +: 4];
 		end
@@ -1124,6 +1128,10 @@ module	axixbar #(
 				r_wlast[N] <= 0;
 			end
 		end
+
+		always @(posedge S_AXI_ACLK)
+		if (!wdata_expected[N])
+			r_wid[N] <= m_awid[N];
 
 		//
 		//
@@ -2164,11 +2172,11 @@ module	axixbar #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	localparam [0:0]	OPT_READS  = 0;
+	localparam [0:0]	OPT_WRITES = 1;
+
 	generate for(N=0; N<NM; N=N+1)
 	begin
-
-		localparam [0:0]	OPT_READS  = 0;
-		localparam [0:0]	OPT_WRITES = 1;
 
 		if (!OPT_WRITES)
 		begin
@@ -2196,27 +2204,21 @@ module	axixbar #(
 				assert(fm_rd_nbursts[N] == 0);
 		end
 
+		always @(*)
+			assume(!rrequest[N][NS]);
+		always @(*)
+			assert(!rgrant[N][NS]);
+	end endgenerate
 
-		always@(*)
-			assert(OPT_READS | OPT_WRITES);
-		always @(*)
-			assume(swgrant[NS-1:1] == 0);
-		always @(*)
-			assume(mwgrant[NM-1:1] == 0);
-		always @(*)
-			assume(srgrant[NS-1:1] == 0);
-		always @(*)
-			assume(mrgrant[NM-1:1] == 0);
+
+	always@(*)
+		assert(OPT_READS | OPT_WRITES);
+	always @(*)
+		assume(srgrant[NS-1:1] == 0);
+	always @(*)
+		assume(mrgrant[NM-1:1] == 0);
 	//	always @(*)
 	//	for(iN=0; iN<NM; iN=iN+1)
 	//		assume(fm_rd_nbursts[iN] <= 1);
-		always @(*)
-		for(iN=0; iN<NM; iN=iN+1)
-			assume(!rrequest[iN][NS]);
-		always @(*)
-		for(iN=0; iN<NM; iN=iN+1)
-			assert(!rgrant[iN][NS]);
-	end endgenerate
-
 `endif
 endmodule
