@@ -105,6 +105,11 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   crossbar to do this, it would've broken their [demonstration AXI-full slave
   core](bench/formal/xlnxfull_2018_3.v).
 
+  20190504 status update: The write-half of the [crossbar](rtl/axixbar.v) has
+  now been formally verified.  Work continues on the read half.  (Okay, the
+  write half is still missing a cover check, so perhaps its not quite as done
+  as I'd like to boast.)
+
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
   Particular differences include 1) this one passes a formal verification check
