@@ -127,7 +127,7 @@ module	wbxbar(i_clk, i_reset,
 	// OPT_DBLBUFFER is used to register all of the outputs, and thus
 	// avoid adding additional combinational latency through the core
 	// that might require a slower clock speed.
-	parameter [0:0]	OPT_DBLBUFFER = 1'b1;
+	parameter [0:0]	OPT_DBLBUFFER = 1'b0;
 	//
 	// OPT_LOWPOWER adds logic to try to force unused values to zero,
 	// rather than to allow a variety of logic optimizations that could
@@ -193,9 +193,7 @@ module	wbxbar(i_clk, i_reset,
 	reg	[NS-1:0]		sgrant;
 
 	wire	[LGMAXBURST-1:0]	w_mpending [0:NM-1];
-	reg	[NM-1:0]		mfull;
-	reg	[NM-1:0]		mnearfull;
-	reg	[NM-1:0]		mempty, timed_out;
+	reg	[NM-1:0]		mfull, mnearfull, mempty, timed_out;
 
 	localparam	NMFULL = (NM > 1) ? (1<<LGNM) : 1;
 	localparam	NSFULL = (1<<LGNS);
@@ -204,7 +202,6 @@ module	wbxbar(i_clk, i_reset,
 	reg	[AW-1:0]	r_addr		[0:NMFULL-1];
 	reg	[DW-1:0]	r_data		[0:NMFULL-1];
 	reg	[DW/8-1:0]	r_sel		[0:NMFULL-1];
-	wire	[TIMEOUT_WIDTH-1:0]	w_deadlock_timer [0:NM-1];
 
 
 	reg	[LGNS-1:0]	mindex		[0:NMFULL-1];
@@ -819,7 +816,7 @@ module	wbxbar(i_clk, i_reset,
 		begin
 
 			always @(*)
-				r_stb[N] <= 1'b0;
+				r_stb[N] = 1'b0;
 
 			always @(*)
 			begin
@@ -868,7 +865,6 @@ module	wbxbar(i_clk, i_reset,
 
 	end endgenerate
 
-
 	generate if (OPT_TIMEOUT > 0)
 	begin : CHECK_TIMEOUT
 
@@ -878,7 +874,7 @@ module	wbxbar(i_clk, i_reset,
 			reg	[TIMEOUT_WIDTH-1:0]	deadlock_timer;
 
 			initial	deadlock_timer = OPT_TIMEOUT;
-			initial	timed_out[N] = 1'b0;
+			initial	timed_out[N] = 0;
 			always @(posedge i_clk)
 			if (i_reset || !i_mcyc[N]
 					||((w_mpending[N] == 0)
@@ -895,8 +891,6 @@ module	wbxbar(i_clk, i_reset,
 				deadlock_timer <= deadlock_timer - 1;
 				timed_out[N] <= (deadlock_timer <= 1);
 			end
-
-			assign	w_deadlock_timer[N] = deadlock_timer;
 		end
 
 	end else begin
@@ -905,6 +899,27 @@ module	wbxbar(i_clk, i_reset,
 			timed_out = 0;
 
 	end endgenerate
+
+	initial	begin
+		if (NM == 0)
+		begin
+			$display("ERROR: At least one master must be defined");
+			$stop;
+		end
+
+		if (NS == 0)
+		begin
+			$display("ERROR: At least one slave must be defined");
+			$stop;
+		end
+
+		if (OPT_STARVATION_TIMEOUT != 0 && OPT_TIMEOUT == 0)
+		begin
+			$display("ERROR: The starvation timeout is implemented as part of the regular timeout");
+			$display("  Without a timeout, the starvation timeout will not work");
+			$stop;
+		end
+	end
 
 `ifdef	FORMAL
 	localparam	F_MAX_DELAY = 4;
@@ -927,7 +942,6 @@ module	wbxbar(i_clk, i_reset,
 
 	initial	assert(!OPT_STARVATION_TIMEOUT || OPT_TIMEOUT > 0);
 
-	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge i_clk)
 		f_past_valid = 1'b1;
@@ -1030,7 +1044,7 @@ module	wbxbar(i_clk, i_reset,
 			assume(grant[N] == 0);
 			assume(mgrant[N] == 0);
 		end
-	end
+	end endgenerate
 `endif
 
 	////////////////////////////////////////////////////////////////////////
@@ -1240,7 +1254,13 @@ module	wbxbar(i_clk, i_reset,
 	// following any write.
 	//
 	// These are the "assumptions" associated with our fictitious slave.
+`ifdef	VERIFIC
+	always @(*)
+	if (!f_past_valid)
+		assume(special_value == 0);
+`else
 	initial	assume(special_value == 0);
+`endif
 	always @(posedge i_clk)
 	if (special_slave < NS)
 	begin
@@ -1470,7 +1490,7 @@ module	wbxbar(i_clk, i_reset,
 		f_cvr_aborted <= 0;
 	else for(iN=0; iN<NM; iN=iN+1)
 	begin
-		if (request[N][NS])
+		if (request[iN][NS])
 			f_cvr_aborted = 1;
 		if ($fell(i_mcyc[iN]))
 		begin
@@ -1502,7 +1522,6 @@ module	wbxbar(i_clk, i_reset,
 
 	end endgenerate
 
-	reg	[NS-1:0]	f_s_ackd;
 	initial	f_s_ackd = 0;
 	generate for (M=0; M<NS; M=M+1)
 	begin
