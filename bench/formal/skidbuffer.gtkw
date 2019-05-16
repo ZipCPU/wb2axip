@@ -1,0 +1,52 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Tue May 14 23:56:06 2019
+[*]
+[dumpfile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/skidbuffer_cvr/engine_0/trace0.vcd"
+[dumpfile_mtime] "Tue May 14 23:30:00 2019"
+[dumpfile_size] 3009
+[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/skidbuffer.gtkw"
+[timestart] 0
+[size] 1177 600
+[pos] -1 -1
+*-5.436488 80 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 270
+[signals_width] 170
+[sst_expanded] 1
+[sst_vpaned_height] 143
+@28
+skidbuffer.i_clk
+skidbuffer.i_reset
+@200
+-
+@28
+[color] 3
+skidbuffer.i_valid
+[color] 2
+skidbuffer.o_ready
+@22
+[color] 3
+skidbuffer.i_data[7:0]
+@200
+-
+@28
+skidbuffer.r_valid
+@22
+skidbuffer.r_data[7:0]
+@200
+-
+@22
+skidbuffer.next_data[7:0]
+@200
+-
+@28
+[color] 2
+skidbuffer.o_valid
+@29
+[color] 3
+skidbuffer.i_ready
+@22
+[color] 2
+skidbuffer.o_data[7:0]
+[pattern_trace] 1
+[pattern_trace] 0

@@ -1,0 +1,25 @@
+[tasks]
+prf
+lp prf opt_lowpower
+cvr
+
+[options]
+prf: mode prove
+prf: depth 12
+cvr: mode cover
+cvr: depth 20
+
+[engines]
+smtbmc
+
+[script]
+read -formal skidbuffer.v
+# --pycode-begin--
+# cmd = "hierarchy -top skidbuffer"
+# cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+# output(cmd);
+# --pycode-end--
+prep -top skidbuffer
+
+[files]
+../../rtl/skidbuffer.v
