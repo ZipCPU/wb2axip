@@ -71,11 +71,21 @@
 //		formal verification, it needs to be kept short ...)
 //		Feel free to set this even as large as 1ms if you would like.
 //
+//	5) OPT_SELF_RESET	If set, will send a reset signal to the slave
+//		following any write or read fault.  This will cause the other
+//		side of the link (write or read) to fault as well.  Once the
+//		channel then becomes inactive, the slave will be released from
+//		reset and will be able to interact with the rest of the bus
+//		again.
+//
 // Performance:	As mentioned above, this core can handle one read burst and one
 //		write burst at a time, no more.  Further, the core will delay
 //	an input path by one clock and the output path by another clock, so that
 //	the latency involved with using this core is a minimum of two extra
 //	clocks beyond the latency user slave core.
+//
+//	Maximum write latency: N+3 clocks for a burst of N values
+//	Maximum read latency:  N+3 clocks for a burst of N values
 //
 // Faults detected:
 //
@@ -141,6 +151,7 @@ module axisafety #(
 	parameter C_S_AXI_ID_WIDTH	= 1,
 	parameter C_S_AXI_DATA_WIDTH	= 32,
 	parameter C_S_AXI_ADDR_WIDTH	= 6,
+	parameter [0:0] OPT_SELF_RESET  = 0,
 	//
 	// I use the following abbreviations, IW, DW, and AW, to simplify
 	// the code below (and to help it fit within an 80 col terminal)
@@ -152,7 +163,7 @@ module axisafety #(
 	// between raising the *VALID signal and when the respective
 	// *VALID return signal must be high.  You might wish to set this
 	// to a very high number, to allow your core to work its magic.
-	parameter	OPT_TIMEOUT = 10
+	parameter	OPT_TIMEOUT = 20
 	) (
 		//
 		output	reg	o_read_fault,
@@ -163,7 +174,8 @@ module axisafety #(
 		// Global Clock Signal
 		input wire			S_AXI_ACLK,
 		// Global Reset Signal. This Signal is Active LOW
-		input wire			S_AXI_ARESETN,
+		input	reg			S_AXI_ARESETN,
+		output	reg			M_AXI_ARESETN,
 		//
 		// The input side.  This is where slave requests come into
 		// the core.
@@ -264,6 +276,7 @@ module axisafety #(
 	//
 	//
 	reg			faulty_write_return, faulty_read_return;
+	reg			clear_fault;
 	//
 	// Timer/timeout variables
 	reg	[LGTIMEOUT-1:0]	write_timer,   read_timer;
@@ -331,16 +344,35 @@ module axisafety #(
 	reg	[0:0]	s_wbursts;
 	reg	[8:0]	m_wpending;
 	reg		m_wempty, m_wlastctr;
+	reg		waddr_valid, raddr_valid;
 
+	reg	last_sreset, last_sreset_2;
 
-	initial	S_AXI_AWREADY = 1;
+	initial	S_AXI_AWREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
-		S_AXI_AWREADY <= 1;
+		S_AXI_AWREADY <= !OPT_SELF_RESET;
 	else if (S_AXI_AWVALID && S_AXI_AWREADY)
 		S_AXI_AWREADY <= 0;
+	else if (clear_fault)
+		S_AXI_AWREADY <= 1;
 	else if (!S_AXI_AWREADY)
-		S_AXI_AWREADY <= !S_AXI_WREADY && S_AXI_BVALID && S_AXI_BREADY;
+		S_AXI_AWREADY <= !S_AXI_AWREADY && S_AXI_BVALID && S_AXI_BREADY;
+
+	generate if (OPT_SELF_RESET)
+	begin
+		initial	waddr_valid = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			waddr_valid <= 0;
+		else if (S_AXI_AWVALID && S_AXI_AWREADY)
+			waddr_valid <= 1;
+		else if (waddr_valid)
+			waddr_valid <= !S_AXI_BVALID || !S_AXI_BREADY;
+	end else begin
+		always @(*)
+			waddr_valid = !S_AXI_AWREADY;
+	end endgenerate
 
 	//
 	// Double buffer for the AW* channel
@@ -423,7 +455,7 @@ module axisafety #(
 			M_AXI_AWQOS   <= m_awqos;
 		end
 
-		if (!S_AXI_ARESETN)
+		if (!M_AXI_ARESETN)
 			M_AXI_AWVALID <= 0;
 	end
 
@@ -467,7 +499,7 @@ module axisafety #(
 	initial	m_wempty   = 1;
 	initial	m_wlastctr = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || o_write_fault)
 	begin
 		m_wpending <= 0;
 		m_wempty   <= 1;
@@ -526,7 +558,7 @@ module axisafety #(
 			S_AXI_WREADY <= 1;
 		else
 			S_AXI_WREADY <= 0;
-	end else if ((s_wbursts == 0)&&(!S_AXI_AWREADY)
+	end else if ((s_wbursts == 0)&&(waddr_valid)
 				&&(o_write_fault || M_AXI_WREADY))
 		S_AXI_WREADY <= 1;
 	else if (S_AXI_AWVALID && S_AXI_AWREADY)
@@ -549,7 +581,7 @@ module axisafety #(
 		r_wdata <= S_AXI_WDATA;
 		r_wstrb <= S_AXI_WSTRB;
 		r_wlast <= S_AXI_WLAST;
-	end else if (o_write_fault || M_AXI_WREADY)
+	end else if (o_write_fault || M_AXI_WREADY || !M_AXI_ARESETN)
 		r_wvalid <= 0;
 
 	//
@@ -602,7 +634,7 @@ module axisafety #(
 
 		// Override the WVALID signal (only) on reset, voiding any
 		// output we might otherwise send.
-		if (!S_AXI_ARESETN)
+		if (!M_AXI_ARESETN)
 			M_AXI_WVALID <= 0;
 	end
 
@@ -617,11 +649,11 @@ module axisafety #(
 	// if the slave responded in time.)
 	initial	write_timer = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || !waddr_valid)
 		write_timer <= 0;
-	else if (M_AXI_BVALID || S_AXI_AWREADY)
+	else if (!o_write_fault && M_AXI_BVALID)
 		write_timer <= 0;
-	else if (S_AXI_WVALID && S_AXI_WREADY)
+	else if (S_AXI_WREADY)
 		write_timer <= 0;
 	else if (!(&write_timer))
 		write_timer <= write_timer + 1;
@@ -634,13 +666,13 @@ module axisafety #(
 	// channel off line.
 	initial	write_timeout = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || clear_fault)
 		write_timeout <= 0;
-	else if (M_AXI_BVALID || S_AXI_AWREADY)
+	else if (M_AXI_BVALID)
 		write_timeout <= write_timeout;
 	else if (S_AXI_WVALID && S_AXI_WREADY)
 		write_timeout <= write_timeout;
-	else if (write_timer == OPT_TIMEOUT)
+	else if (write_timer >= OPT_TIMEOUT)
 		write_timeout <= 1;
 
 	//
@@ -690,12 +722,12 @@ module axisafety #(
 	// is our signal determining if the write channel is disconnected.
 	//
 	// Most of this work is determined within faulty_write_return above.
-	// Here we do just a bit more: 
+	// Here we do just a bit more:
 	initial	o_write_fault = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || clear_fault)
 		o_write_fault <= 0;
-	else if (write_timeout)
+	else if ((!M_AXI_ARESETN&&o_read_fault) || write_timeout)
 		o_write_fault <= 1;
 	else if (M_AXI_BVALID && M_AXI_BREADY)
 		o_write_fault <= (o_write_fault) || faulty_write_return;
@@ -761,15 +793,22 @@ module axisafety #(
 	//
 
 	// Read address channel
-	initial	S_AXI_ARREADY = 1;
+	initial	S_AXI_ARREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
-		S_AXI_ARREADY <= 1;
+		S_AXI_ARREADY <= !OPT_SELF_RESET;
 	else if (S_AXI_ARVALID && S_AXI_ARREADY)
-	begin
 		S_AXI_ARREADY <= 0;
-	end else if (!S_AXI_ARREADY)
+	else if (clear_fault)
+		S_AXI_ARREADY <= 1;
+	else if (!S_AXI_ARREADY)
 		S_AXI_ARREADY <= (S_AXI_RVALID && S_AXI_RLAST && S_AXI_RREADY);
+
+	always @(*)
+	if (OPT_SELF_RESET)
+		raddr_valid = !rfifo_empty;
+	else
+		raddr_valid = !S_AXI_ARREADY;
 
 	//
 	// Double buffer the values associated with any read address request
@@ -792,7 +831,7 @@ module axisafety #(
 		end else if (M_AXI_ARREADY)
 			r_arvalid <= 0;
 
-		if (!S_AXI_ARESETN)
+		if (!M_AXI_ARESETN)
 			r_arvalid <= 0;
 	end
 
@@ -849,7 +888,7 @@ module axisafety #(
 			M_AXI_ARQOS   <= m_arqos;
 		end
 
-		if (!S_AXI_ARESETN)
+		if (!M_AXI_ARESETN)
 			M_AXI_ARVALID <= 0;
 	end
 
@@ -867,9 +906,9 @@ module axisafety #(
 	// read.  Once the count saturates, it stops counting.
 	initial	read_timer = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || clear_fault)
 		read_timer <= 0;
-	else if ((rfifo_empty)||(S_AXI_RVALID))
+	else if (rfifo_empty||(S_AXI_RVALID))
 		read_timer <= 0;
 	else if (M_AXI_RVALID)
 		read_timer <= 0;
@@ -882,9 +921,9 @@ module axisafety #(
 	// timeout condition can only be cleared by a reset.
 	initial	read_timeout = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || clear_fault)
 		read_timeout <= 0;
-	else if ((rfifo_empty)||(S_AXI_RVALID))
+	else if (rfifo_empty||S_AXI_RVALID)
 		read_timeout <= read_timeout;
 	else if (M_AXI_RVALID)
 		read_timeout <= read_timeout;
@@ -915,21 +954,20 @@ module axisafety #(
 				faulty_read_return = 1;
 			if (rfifo_penultimate && S_AXI_RVALID && (r_rvalid || !M_AXI_RLAST))
 				faulty_read_return = 1;
-
 		end
 	end
 
 	initial	o_read_fault = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
+	if (!S_AXI_ARESETN || clear_fault)
 		o_read_fault <= 0;
-	else if (read_timeout)
+	else if ((!M_AXI_ARESETN && o_write_fault) || read_timeout)
 		o_read_fault <= 1;
 	else if (M_AXI_RVALID)
 	begin
 		if (faulty_read_return)
 			o_read_fault <= 1;
-		if (S_AXI_ARREADY)
+		if (!raddr_valid)
 			// It is a fault if we haven't issued an AR* request
 			// yet, and a value is returned
 			o_read_fault <= 1;
@@ -989,7 +1027,7 @@ module axisafety #(
 	if (S_AXI_ARVALID && S_AXI_ARREADY)
 		rfifo_id <= S_AXI_ARID;
 
-	// 
+	//
 	// Count the number of outstanding read elements.  This is the number
 	// of read returns we still expect--from the upstream perspective.  The
 	// downstream perspective will be off by both what's waiting for
@@ -1040,7 +1078,7 @@ module axisafety #(
 		m_rvalid = r_rvalid;
 		m_rresp  = r_rresp;
 	end else begin
-		m_rvalid = M_AXI_RVALID && !S_AXI_ARREADY&& !faulty_read_return;
+		m_rvalid = M_AXI_RVALID && raddr_valid && !faulty_read_return;
 		m_rresp  = M_AXI_RRESP;
 	end
 
@@ -1095,6 +1133,59 @@ module axisafety #(
 	end
 
 
+	generate if (OPT_SELF_RESET)
+	begin
+		reg	[4:0]	reset_counter;
+		reg		reset_timeout, r_clear_fault;
+
+		initial	M_AXI_ARESETN = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			M_AXI_ARESETN <= 0;
+		else if (clear_fault)
+			M_AXI_ARESETN <= 1;
+		else if (o_read_fault || o_write_fault)
+			M_AXI_ARESETN <= 0;
+
+		initial	reset_counter = 0;
+		always @(posedge S_AXI_ACLK)
+		if (M_AXI_ARESETN)
+			reset_counter <= 0;
+		else if (!reset_timeout)
+			reset_counter <= reset_counter+1;
+
+		always @(*)
+			reset_timeout <= reset_counter[4];
+
+		initial	r_clear_fault <= 1;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_clear_fault <= 1;
+		else if (!M_AXI_ARESETN && !reset_timeout)
+			r_clear_fault <= 0;
+		else if (!o_read_fault && !o_write_fault)
+			r_clear_fault <= 0;
+		else if (raddr_valid || waddr_valid)
+			r_clear_fault <= 0;
+		else
+			r_clear_fault <= 1;
+
+		always @(*)
+		if (S_AXI_AWVALID || S_AXI_ARVALID)
+			clear_fault = 0;
+		else if (raddr_valid || waddr_valid)
+			clear_fault = 0;
+		else
+			clear_fault = r_clear_fault;
+	
+	end else begin
+
+		always @(*)
+			M_AXI_ARESETN = S_AXI_ARESETN;
+		always @(*)
+			clear_fault = 0;
+
+	end endgenerate
 	//
 	//
 	//
@@ -1150,7 +1241,7 @@ module axisafety #(
 	//
 	//
 		// Response ID tag. This signal is the ID tag of the
-    		// write response.
+		// write response.
 		.i_axi_bid(S_AXI_BID),
 		.i_axi_bresp(S_AXI_BRESP),
 		.i_axi_bvalid(S_AXI_BVALID),
@@ -1269,7 +1360,7 @@ module axisafety #(
 	//
 	//
 		// Response ID tag. This signal is the ID tag of the
-    		// write response.
+		// write response.
 		.i_axi_bid(M_AXI_BID),
 		.i_axi_bresp(M_AXI_BRESP),
 		.i_axi_bvalid(M_AXI_BVALID),
