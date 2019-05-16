@@ -86,14 +86,54 @@
 module	axilxbar #(
 		parameter integer C_S_AXI_DATA_WIDTH = 32,
 		parameter integer C_S_AXI_ADDR_WIDTH = 32,
-		parameter	NM = 4,
-		parameter	NS = 8
 		//
+		// NM is the number of master interfaces this core supports
+		parameter	NM = 4,
+		//
+		// NS is the number of slave interfaces
+		parameter	NS = 8,
+		//
+		// SLAVE_ADDR is a bit vector containing AW bits for each of the
+		// slaves indicating the base address of the slave.  This
+		// goes with SLAVE_MASK below.
+		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
+			3'b111,  {(AW-3){1'b0}},
+			3'b110,  {(AW-3){1'b0}},
+			3'b101,  {(AW-3){1'b0}},
+			3'b100,  {(AW-3){1'b0}},
+			3'b011,  {(AW-3){1'b0}},
+			3'b010,  {(AW-3){1'b0}},
+			4'b0001, {(AW-4){1'b0}},
+			4'b0000, {(AW-4){1'b0}} },
+		//
+		// SLAVE_MASK indicates which bits in the SLAVE_ADDR bit vector
+		// need to be checked to determine if a given address request
+		// maps to the given slave or not
+		parameter	[NS*AW-1:0]	SLAVE_MASK =
+			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
+			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
+				{(2){ 4'b1111, {(AW-4){1'b0}}}} },
+		//
+		// If set, OPT_LOWPOWER will set all unused registers, both
+		// internal and external, to zero anytime their corresponding
+		// *VALID bit is clear
+		parameter [0:0]	OPT_LOWPOWER = 1,
+		//
+		// OPT_LINGER is the number of cycles to wait, following a
+		// transaction, before tearing down the bus grant.
+		parameter	OPT_LINGER = 4,
+		//
+		// LGMAXBURST is the log (base two) of the maximum number of
+		// requests that can be outstanding on any given channel at any
+		// given time.  It is used within this core to control the
+		// counters that are used to determine if a particular channel
+		// grant must stay open, or if it may be closed.
+		parameter	LGMAXBURST = 5
 	) (
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
 		//
-		input	wire	[NM*C_S_AXI_ADDR_WIDTH*NM-1:0]	M_AXI_AWADDR,
+		input	wire	[NM*C_S_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
 		input	wire	[NM*3-1:0]			M_AXI_AWPROT,
 		input	wire	[NM-1:0]			M_AXI_AWVALID,
 		output	wire	[NM-1:0]			M_AXI_AWREADY,
@@ -145,22 +185,6 @@ module	axilxbar #(
 	);
 	localparam	AW = C_S_AXI_ADDR_WIDTH;
 	localparam	DW = C_S_AXI_DATA_WIDTH;
-	parameter	[NS*AW-1:0]	SLAVE_ADDR = {
-		3'b111,  {(AW-3){1'b0}},
-		3'b110,  {(AW-3){1'b0}},
-		3'b101,  {(AW-3){1'b0}},
-		3'b100,  {(AW-3){1'b0}},
-		3'b011,  {(AW-3){1'b0}},
-		3'b010,  {(AW-3){1'b0}},
-		4'b0001, {(AW-4){1'b0}},
-		4'b0000, {(AW-4){1'b0}} };
-	parameter	[NS*AW-1:0]	SLAVE_MASK =
-		(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
-		: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
-			{(2){ 4'b1111, {(AW-4){1'b0}}}} };
-	parameter [0:0]	OPT_LOWPOWER = 1;
-	parameter	OPT_LINGER = 4;
-	parameter	LGMAXBURST = 5;
 	localparam	LGLINGER = (OPT_LINGER>1) ? $clog2(OPT_LINGER+1) : 1;
 	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
 	localparam	LGNS = (NS>1) ? $clog2(NS+1) : 1;
@@ -508,6 +532,13 @@ module	axilxbar #(
 	always @(*)
 	begin : DECONFLICT_WRITE_REQUESTS
 
+		// Vivado may complain about too many bits for wrequested.
+		// This is (currrently) expected.  mwindex is used to index
+		// into wrequested, and mwindex has LGNS bits, where LGNS
+		// is $clog2(NS+1) rather than $clog2(NS).  The extra bits
+		// are defined to be zeros, but the point is there are defined.
+		// Therefore, no matter what mwindex is, it will always
+		// reference something valid.
 		wrequested[NM] = 0;
 
 		for(iM=0; iM<NS; iM=iM+1)
@@ -529,6 +560,8 @@ module	axilxbar #(
 	always @(*)
 	begin : DECONFLICT_READ_REQUESTS
 
+		// See the note above for wrequested.  This applies to
+		// rrequested as well.
 		rrequested[NM] = 0;
 
 		for(iM=0; iM<NS; iM=iM+1)

@@ -172,9 +172,9 @@ module axisafety #(
 		// Do not modify the ports beyond this line
 
 		// Global Clock Signal
-		input wire			S_AXI_ACLK,
+		input	wire			S_AXI_ACLK,
 		// Global Reset Signal. This Signal is Active LOW
-		input	reg			S_AXI_ARESETN,
+		input	wire			S_AXI_ARESETN,
 		output	reg			M_AXI_ARESETN,
 		//
 		// The input side.  This is where slave requests come into
@@ -762,6 +762,14 @@ module axisafety #(
 	//
 	// We'll *never* stall the slaves BREADY channel
 	//
+	// If the slave returns the response we are expecting, then S_AXI_BVALID
+	// will be low and it can go directly into the S_AXI_BVALID slot.  If
+	// on the other hand the slave returns M_AXI_BVALID at the wrong time,
+	// then we'll quietly accept it and send the write interface into
+	// fault detected mode, setting o_write_fault.
+	//
+	// Sadly, this will create a warning in Vivado.  If/when you see it,
+	// see this note and then just ignore it.
 	assign M_AXI_BREADY = 1;
 
 	//

@@ -241,7 +241,12 @@ module demofull #(
 	reg	[AW-1:0]	waddr;
 	wire	[AW-1:0]	next_wr_addr;
 
+	// Vivado will warn about wlen only using 4-bits.  This is
+	// to be expected, since the axi_addr module only needs to use
+	// the bottom four bits of rlen to determine address increments
 	reg	[7:0]		wlen;
+	// Vivado will also warn about the top bit of wsize being unused.
+	// This is also to be expected for a DATA_WIDTH of 32-bits.
 	reg	[2:0]		wsize;
 	reg	[1:0]		wburst;
 
@@ -323,7 +328,13 @@ module demofull #(
 	//
 	// Read half
 	//
+	// Vivado will warn about rlen only using 4-bits.  This is
+	// to be expected, since for a DATA_WIDTH of 32-bits, the axi_addr
+	// module only uses the bottom four bits of rlen to determine
+	// address increments
 	reg	[7:0]		rlen;
+	// Vivado will also warn about the top bit of wsize being unused.
+	// This is also to be expected for a DATA_WIDTH of 32-bits.
 	reg	[2:0]		rsize;
 	reg	[1:0]		rburst;
 	reg	[IW-1:0]	rid;
