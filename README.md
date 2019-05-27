@@ -25,24 +25,14 @@ As of 20181228, the project now contains an
 [AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).  
 A third core, the [AXI-lite to WB core](rtl/axlite2wbsp.v) combines these
 two together using a  [Wishbone arbiter](rtl/wbartbiter.v).  All four of these
-designs have been formally verified, and should be reliable to use.
+designs have been *formally verified*, and should be reliable to use.
 
 As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
 FPGA proven.
 
-The full AXI4 protocol, however, is rather complicated--especially when
-[compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
-result, while there is a full-fledged
-[AXI4 to Wishbone bridge](rtl/axim2wbsp.v) within this project,
-this bridge is still not ready for prime time.  It is designed to
-synchronize the write channels, turning AXI read/write requests into pipeline
-wishbone requests, maintaining the AXI ID fields, handle burst transactions,
-etc.  As designed, it ignores the AXI xSIZE, xLOCK, xCACHE, xPROT, and xQOS
-fields, while supporting xBURST types of FIXED (2'b00) and INCR (2'b01)
-but not WRAP (2'b10) or reserved (2'b11).  The design supports bridging
-between buses of different widths.  The only problem is ...
-this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
-doesn't yet pass formal verification.
+The full AXI to WB bridge, however, remains a work in progress.  This includes
+the [write half](rtl/aximwr2wbsp.v), [read half](rtl/aximrd2wbsp.v), and the
+[read/write wrapper](rtl/axim2wbsp.v).
 
 # Wishbone pipeline to WB Classic
 
@@ -50,6 +40,7 @@ As of 20190424, there's now a [Wishbone (pipelined, master) to Wishbone
 (classic, slave)](rtl/wbp2classic.v) bridge, as well as the reverse
 [Wishbone (classic, master) to Wishbone (pipelined, slave)](rtl/wbc2pipeline.v)
 bridge.  It's recent as of this writing, but it has passed its formal tests.
+As written, it can only support Classic transactions.
 
 # Formal Verification
 
@@ -60,8 +51,10 @@ Currently, the project contains formal specifications for
 [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
 the one in the master branch is known to have issues.  (I actually have a
-good set of formal properties for verifying AXI transactions, they just aren't
-part of this repository at this time.)
+good set of formal properties for verifying full AXI4 transactions.  Those
+will be available as part of the [SymbioticEDA
+Suite](https://www.symbioticeda.com/seda-suite).
+Previews are available to my [sponsors](http://www.patreon.com/ZipCPU).)
 
 # Cross-bars and AXI demonstrators
 
@@ -97,42 +90,59 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   The key unusual feature?  The ability to maintain one transaction per clock
   over an extended period of time across any channel pair.
 
-- [AXIXBAR](rtl/axixbar.v) is a fun (but ongoing, work-in-progress) project to
-  develop a full `NxM` configurable cross bar using the full AXI protocol.
+- [AXIXBAR](rtl/axixbar.v) is a fun project to develop a full `NxM`
+  configurable cross bar using the full AXI protocol.
 
   Unique to this (full) AXI core is the ability to have multiple ongoing
   transactions on each of the master-to-slave channels.  Were Xilinx's
-  crossbar to do this, it would've broken their [demonstration AXI-full slave
+  crossbar to do this, it would've broken their [demonstration AXI4 slave
   core](bench/formal/xlnxfull_2018_3.v).
 
-  20190504 status update: The write-half of the [crossbar](rtl/axixbar.v) has
-  now been formally verified.  Work continues on the read half.  (Okay, the
-  write half is still missing a cover check, so perhaps its not quite as done
-  as I'd like to boast.)
+  *This core has been formally verified.*
 
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
   Particular differences include 1) this one passes a formal verification check
   (Xilinx's core has bugs), and 2) this one can handle a maximum throughput of
-  one transaction per clock.  (There's did at best two transactions per clock.)
-  You can read more about this [demonstration AXI-lite slave
+  one transaction per clock.  (Theirs did at best one transactions every other
+  clock period.) You can read more about this [demonstration AXI-lite slave
   core](rtl/demoaxi.v) on [ZipCPU.com](http://zipcpu.com) in
   [this article](http://zipcpu.com/blog/2019/01/12/demoaxilite.html).
+
   *This core has been formally verified.*
 
-- [DEMOFULL](rtl/demofull.v) is a new core recently added to this collection.
-  This is also a demonstration slave core, but this demonstration slave core
-  implements the full AXI protocol, rather than just the AXI-lite protocol.
-  Well, okay, it ignores QOS, CACHE, and LOCK flags, so perhaps it isn't
-  truly the *full* AXI protocol, but neither did [Xilinx's demonstration full
-  AXI slave core](bench/formal/xlnxfull_2018_3.v).
+- [DEMOFULL](rtl/demofull.v) is a fully capable AXI4 demonstration slave core,
+  rather than just the AXI-lite protocol.  Well, okay, it doesn't do anything
+  with the PROT, QOS, CACHE, and LOCK flags, so perhaps it isn't truly the
+  *full* AXI protocol.  Still, it's sufficient for most needs.
+
+  Unlike [Xilinx's demonstration AXI4 slave
+  core](bench/formal/xlnxfull_2018_3.v), [this one](rtl/demofull.v) can handle
+  100% loading on both read and write channels.  That is, it can handle one
+  read or write data beat per channel per clock with no stalls between bursts.
+
+  *This core has been formally verified.*
+
+- [AXISAFETY](rtl/axisafety.v) is a bus fault isolator AXI translator,
+  designed to support a connection to a trusted AXI master, and an untrusted
+  AXI slave.  Should the slave attempt to return an illegal response, or
+  perhaps a response beyond the internal timeouts within the core, then the
+  untrusted slave will be "disconnected" from the bus, and a bus error will be
+  return for both the errant transaction and any following.
+
+  [AXISAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
+  detected, the slave is reset and allowed to return to the bus infrastructure
+  until its next fault.
 
   *This core has been formally verified.*
 
 # Commercial Applications
 
-Should you find the GPLv3 license insufficient for your needs, other licenses
-can be purchased from Gisselquist Technology, LLc.
+Should you find the [GPLv3 license](doc/gpl-3.0.pdf) insufficient for your
+needs, other licenses can be purchased from Gisselquist Technology, LLC.
+Likewise the AXI4 (full) properties are available to
+[sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
+blog](http://zipcpu.com).
 
 # Thanks
 
