@@ -5,14 +5,16 @@
 // Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	Demonstrate a formally verified AXI4 core with a (basic)
-//		interface.
+//		interface.  This interface is explained below.
 //
-// Performance: This core has been designed for a throughput approaching
-//		one beat per clock cycle.  The read channel can achieve this,
-//	although it means overlapping reads by a beat.  (One beat for the
-//	address, the next beat(s) have the data.)  The write channel can
-//	achieve this within a burst, but otherwise requires a minimum of
-//	2+AWLEN cycles per transaction of (1+AWLEN) beats.
+// Performance: This core has been designed for a total throughput of one beat
+//		per clock cycle.  Both read and write channels can achieve
+//	this.  The write channel will also introduce two clocks of latency,
+//	assuming no other latency from the master.  This means it will take
+//	a minimum of 3+AWLEN clock cycles per transaction of (1+AWLEN) beats,
+//	including both address and acknowledgment cycles.  The read channel
+//	will introduce a single clock of latency, requiring 2+ARLEN cycles
+//	per transaction of 1+ARLEN beats.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -61,7 +63,7 @@ module demofull #(
 		//	always @(posedge S_AXI_ACLK)
 		//	if (o_we)
 		//	begin
-		//	    for(k=0; k<C_S_AXI_DATA_WIDTH; k=k+1)
+		//	    for(k=0; k<C_S_AXI_DATA_WIDTH/8; k=k+1)
 		//	    begin
 		//		if (o_wstrb[k])
 		//		mem[o_waddr[AW-1:LSB][k*8+:8] <= o_wdata[k*8+:8]
@@ -243,13 +245,37 @@ module demofull #(
 
 	// Vivado will warn about wlen only using 4-bits.  This is
 	// to be expected, since the axi_addr module only needs to use
-	// the bottom four bits of rlen to determine address increments
+	// the bottom four bits of wlen to determine address increments
 	reg	[7:0]		wlen;
 	// Vivado will also warn about the top bit of wsize being unused.
 	// This is also to be expected for a DATA_WIDTH of 32-bits.
 	reg	[2:0]		wsize;
 	reg	[1:0]		wburst;
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Skid buffer
+	//
+	wire			m_awvalid;
+	reg			m_awready;
+	wire	[AW-1:0]	m_awaddr;
+	wire	[1:0]		m_awburst;
+	wire	[2:0]		m_awsize;
+	wire	[7:0]		m_awlen;
+	wire	[IW-1:0]	m_awid;
+	//
+	skidbuffer #(.DW(AW+2+3+8+IW))
+		awbuf(S_AXI_ACLK, !S_AXI_ARESETN,
+		S_AXI_AWVALID, S_AXI_AWREADY,
+			{ S_AXI_AWADDR, S_AXI_AWBURST, S_AXI_AWSIZE,
+					S_AXI_AWLEN, S_AXI_AWID },
+		m_awvalid, m_awready,
+			{ m_awaddr, m_awburst, m_awsize, m_awlen, m_awid });
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write processing
+	//
 
 	wire	[AW-1:0]	next_rd_addr;
 	reg	[IW-1:0]	axi_rid;
@@ -262,28 +288,33 @@ module demofull #(
 	begin
 		axi_awready  <= 1;
 		axi_wready   <= 0;
-	end else if (S_AXI_AWVALID && S_AXI_AWREADY)
+	end else if (m_awvalid && m_awready)
 	begin
 		axi_awready <= 0;
 		axi_wready <= 1;
-		waddr    <= S_AXI_AWADDR;
-		wburst   <= S_AXI_AWBURST;
-		wsize    <= S_AXI_AWSIZE;
-		wlen     <= S_AXI_AWLEN;
 	end else if (S_AXI_WVALID && S_AXI_WREADY)
 	begin
-		waddr <= next_wr_addr;
 		axi_awready <= (S_AXI_WLAST)&&(!S_AXI_BVALID || S_AXI_BREADY);
 		axi_wready  <= (!S_AXI_WLAST);
-	end else if (!S_AXI_AWREADY)
+	end else if (!axi_awready)
 	begin
 		if (S_AXI_WREADY)
 			axi_awready <= 1'b0;
-		else if ((r_bvalid)&&(S_AXI_BVALID&&!S_AXI_BREADY))
+		else if ( r_bvalid && !S_AXI_BREADY)
 			axi_awready <= 1'b0;
 		else
 			axi_awready <= 1'b1;
 	end
+
+	always @(posedge S_AXI_ACLK)
+	if (m_awready)
+	begin
+		waddr    <= m_awaddr;
+		wburst   <= m_awburst;
+		wsize    <= m_awsize;
+		wlen     <= m_awlen;
+	end else if (S_AXI_WVALID)
+		waddr <= next_wr_addr;
 
 	axi_addr #(.AW(AW), .DW(DW))
 		get_next_wr_addr(waddr, wsize, wburst, wlen,
@@ -309,8 +340,8 @@ module demofull #(
 
 	always @(posedge S_AXI_ACLK)
 	begin
-		if (S_AXI_AWVALID && S_AXI_AWREADY)
-			r_bid    <= S_AXI_AWID;
+		if (m_awready)
+			r_bid    <= m_awid;
 
 		if (!S_AXI_BVALID || S_AXI_BREADY)
 			axi_bid <= r_bid;
@@ -322,9 +353,34 @@ module demofull #(
 		axi_bvalid <= 0;
 	else if (S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST)
 		axi_bvalid <= 1;
-	else if (S_AXI_BVALID && S_AXI_BREADY)
+	else if (S_AXI_BREADY)
 		axi_bvalid <= r_bvalid;
 
+	always @(*)
+	begin
+		m_awready = axi_awready;
+		if (S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST
+			&& (!S_AXI_BVALID || S_AXI_BREADY))
+			m_awready = 1;
+	end
+
+	// At one time, axi_awready was the same as S_AXI_AWREADY.  Now, though,
+	// with the extra write address skid buffer, this is no longer the case.
+	// S_AXI_AWREADY is handled/created/managed by the skid buffer.
+	//
+	// assign S_AXI_AWREADY = axi_awready;
+	//
+	// The rest of these signals can be set according to their registered
+	// values above.
+	assign	S_AXI_WREADY  = axi_wready;
+	assign	S_AXI_BVALID  = axi_bvalid;
+	assign	S_AXI_BID     = axi_bid;
+	//
+	// This core does not produce any bus errors, nor does it support
+	// exclusive access, so 2'b00 will always be the correct response.
+	assign	S_AXI_BRESP = 0;
+
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Read half
 	//
@@ -343,7 +399,6 @@ module demofull #(
 	reg	[AW-1:0]	raddr;
 
 	initial axi_arready = 1;
-	initial axi_rlen    = 0;
 	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -363,14 +418,48 @@ module demofull #(
 	else if (S_AXI_ARVALID && S_AXI_ARREADY)
 		axi_rlen <= (S_AXI_ARLEN+1)
 				+ ((S_AXI_RVALID && !S_AXI_RREADY) ? 1:0);
-	else if (S_AXI_RREADY && axi_rlen > 0)
+	else if (S_AXI_RREADY && S_AXI_RVALID)
 		axi_rlen <= axi_rlen - 1;
 
 	always @(posedge S_AXI_ACLK)
-	if (S_AXI_ARVALID && S_AXI_ARREADY)
-		raddr <= S_AXI_ARADDR;
-	else if (o_rd)
+	if (o_rd)
 		raddr <= next_rd_addr;
+	else if (S_AXI_ARREADY)
+		raddr <= S_AXI_ARADDR;
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARREADY)
+	begin
+		rburst   <= S_AXI_ARBURST;
+		rsize    <= S_AXI_ARSIZE;
+		rlen     <= S_AXI_ARLEN;
+		rid      <= S_AXI_ARID;
+	end
+
+	axi_addr #(.AW(AW), .DW(DW))
+		get_next_rd_addr((S_AXI_ARREADY ? S_AXI_ARADDR : raddr),
+				(S_AXI_ARREADY ? S_AXI_ARSIZE  : rsize),
+				(S_AXI_ARBURST ? S_AXI_ARBURST : rburst),
+				(S_AXI_ARLEN   ? S_AXI_ARLEN   : rlen),
+				next_rd_addr);
+
+	initial	axi_rvalid = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		axi_rvalid <= 0;
+	else if (o_rd)
+		axi_rvalid <= 1;
+	else if (S_AXI_RREADY)
+		axi_rvalid <= 0;
+
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_RVALID || S_AXI_RREADY)
+	begin
+		if (S_AXI_ARVALID && S_AXI_ARREADY)
+			axi_rid <= S_AXI_ARID;
+		else
+			axi_rid <= rid;
+	end
 
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
@@ -383,34 +472,6 @@ module demofull #(
 			axi_rlast <= (axi_rlen == 1);
 	end
 
-	always @(posedge S_AXI_ACLK)
-	if (S_AXI_ARVALID && S_AXI_ARREADY)
-	begin
-		rburst   <= S_AXI_ARBURST;
-		rsize    <= S_AXI_ARSIZE;
-		rlen     <= S_AXI_ARLEN;
-		rid      <= S_AXI_ARID;
-	end
-
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_RVALID || S_AXI_RREADY)
-	begin
-		if (S_AXI_ARVALID && S_AXI_ARREADY)
-			axi_rid <= S_AXI_ARID;
-		else
-			axi_rid <= rid;
-	end
-
-	axi_addr #(.AW(AW), .DW(DW))
-		get_next_rd_addr(raddr, rsize, rburst, rlen,
-			next_rd_addr);
-
-	initial	axi_rvalid = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		axi_rvalid <= 0;
-	else if (!S_AXI_RVALID || S_AXI_RREADY)
-		axi_rvalid <= o_rd;
 
 	always @(*)
 	begin
@@ -423,13 +484,6 @@ module demofull #(
 	always @(*)
 		axi_rdata = i_rdata;
 
-
-	assign	S_AXI_BRESP = 0;
-	//
-	assign	S_AXI_AWREADY = axi_awready;
-	assign	S_AXI_WREADY  = axi_wready;
-	assign	S_AXI_BVALID  = axi_bvalid;
-	assign	S_AXI_BID     = axi_bid;
 	//
 	assign	S_AXI_ARREADY = axi_arready;
 	assign	S_AXI_RVALID  = axi_rvalid;
