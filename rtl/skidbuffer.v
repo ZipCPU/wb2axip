@@ -44,6 +44,9 @@
 //		bus signals have a high fanout rate, or a long signal path
 //		across an FPGA.
 //
+//	OPT_OUTREG
+//		Causes the outputs to be registered
+//
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
@@ -78,7 +81,8 @@
 module skidbuffer(i_clk, i_reset,
 		i_valid, o_ready, i_data,
 		o_valid, i_ready, o_data);
-	parameter	[0:0]	OPT_LOWPOWER = 1;
+	parameter	[0:0]	OPT_LOWPOWER = 0;
+	parameter	[0:0]	OPT_OUTREG = 1;
 	parameter		DW = 8;
 	input	wire			i_clk, i_reset;
 	input	wire			i_valid;
@@ -92,13 +96,14 @@ module skidbuffer(i_clk, i_reset,
 	// We'll start with skid buffer itself
 	//
 	reg			r_valid;
-	reg	[DW-1:0]	r_data, next_data;
+	reg	[DW-1:0]	r_data;
 
 	initial	r_valid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 		r_valid <= 0;
-	else if (i_valid && o_ready && o_valid && !i_ready)
+	else if ((i_valid && o_ready) && (o_valid && !i_ready))
+		// We have incoming data, but the output is stalled
 		r_valid <= 1;
 	else if (i_ready)
 		r_valid <= 0;
@@ -109,7 +114,7 @@ module skidbuffer(i_clk, i_reset,
 		r_data <= 0;
 	else if (OPT_LOWPOWER && (!o_valid || i_ready))
 		r_data <= 0;
-	else if (o_ready)
+	else if ((!OPT_LOWPOWER || !OPT_OUTREG || i_valid) && o_ready)
 		r_data <= i_data;
 
 	always @(*)
@@ -118,25 +123,63 @@ module skidbuffer(i_clk, i_reset,
 	//
 	// And then move on to the output port
 	//
-	always @(*)
-		o_valid = (i_valid || r_valid);
+	generate if (!OPT_OUTREG)
+	begin
 
-	always @(*)
-	if (r_valid)
-		o_data = r_data;
-	else if (!OPT_LOWPOWER || i_valid)
-		o_data = i_data;
-	else
-		o_data = 0;
+		always @(*)
+			o_valid = (i_valid || r_valid);
+
+		always @(*)
+		if (r_valid)
+			o_data = r_data;
+		else if (!OPT_LOWPOWER || i_valid)
+			o_data = i_data;
+		else
+			o_data = 0;
+	end else begin
+
+		initial	o_valid = 0;
+		always @(posedge i_clk)
+		if (i_reset)
+			o_valid <= 0;
+		else if (!o_valid || i_ready)
+			o_valid <= (i_valid || r_valid);
+
+		initial	o_data = 0;
+		always @(posedge i_clk)
+		if (OPT_LOWPOWER && i_reset)
+			o_data <= 0;
+		else if (!o_valid || i_ready)
+		begin
+
+			if (r_valid)
+				o_data <= r_data;
+			else if (!OPT_LOWPOWER || i_valid)
+				o_data <= i_data;
+			else
+				o_data <= 0;
+		end
+
+	end endgenerate
 
 `ifdef	FORMAL
 	// Reset properties
-	assume property (@(posedge i_clk)
-		i_reset |=> !i_valid);
+	property RESET_CLEARS_IVALID;
+		@(posedge i_clk) i_reset |=> !i_valid;
+	endproperty
 
-	assume property (@(posedge i_clk)
-		disable iff (i_reset)
-		i_valid && !o_ready |=> i_valid && $stable(i_data));
+	property IDATA_HELD_WHEN_NOT_READY;
+		@(posedge i_clk) disable iff (i_reset)
+		i_valid && !o_ready |=> i_valid && $stable(i_data);
+	endproperty
+
+`ifdef	SKIDBUFFER
+	assume	property (RESET_CLEARS_IVALID);
+	assume	property (IDATA_HELD_WHEN_NOT_READY);
+`else
+	assert	property (RESET_CLEARS_IVALID);
+	assert	property (IDATA_HELD_WHEN_NOT_READY);
+`endif
 
 	assert property (@(posedge i_clk)
 		i_reset |=> !r_valid && !o_valid);
@@ -150,18 +193,34 @@ module skidbuffer(i_clk, i_reset,
 		|=> (o_valid && $stable(o_data)));
 
 	// Rule #2:
-	//	All incoming data must either go directly to the output port,
-	//	or into the skid buffer
+	//	All incoming data must either go directly to the
+	//	output port, or into the skid buffer
 	assert property (@(posedge i_clk)
 		disable iff (i_reset)
-		(i_valid && o_ready && !i_ready) |=>
-			(r_valid && r_data == $past(i_data)));
+		(i_valid && o_ready
+			&& (!OPT_OUTREG || o_valid) && !i_ready)
+			|=> (r_valid && r_data == $past(i_data)));
 
 	// Rule #3:
 	//	After the last transaction, o_valid should become idle
-	assert property (@(posedge i_clk)
-		disable iff (i_reset)
-		i_ready |=> (o_valid == i_valid));
+	generate if (!OPT_OUTREG)
+	begin
+
+		assert property (@(posedge i_clk)
+			disable iff (i_reset)
+			i_ready |=> (o_valid == i_valid));
+
+	end else begin
+
+		assert property (@(posedge i_clk)
+			disable iff (i_reset)
+			i_valid && o_ready |=> o_valid);
+
+		assert property (@(posedge i_clk)
+			disable iff (i_reset)
+			!i_valid && !r_valid && i_ready |=> !o_valid);
+
+	end endgenerate
 
 	// Rule #4
 	//	Same thing, but this time for r_valid
@@ -180,22 +239,23 @@ module skidbuffer(i_clk, i_reset,
 		assert property (@(posedge i_clk)
 			!r_valid |-> r_data == 0);
 
-	// else
-	//	if OPT_LOWPOWER isn't set, we can lower our object count
-	//	by not forcing these values to zero.
+		// else
+		//	if OPT_LOWPOWER isn't set, we can lower our logic
+		//	count by not forcing these values to zero.
 	end endgenerate
 
+`ifdef	SKIDBUFFER
 	reg	f_changed_data;
 
 	// Cover test
 	cover property (@(posedge i_clk)
 		disable iff (i_reset)
 		(!o_valid && !i_valid)
-		##1 i_valid && i_ready  [*3]
+		##1 i_valid &&  i_ready [*3]
 		##1 i_valid && !i_ready
-		##1 i_valid && i_ready  [*2]
+		##1 i_valid &&  i_ready [*2]
 		##1 i_valid && !i_ready [*2]
-		##1 i_valid && i_ready [*3]
+		##1 i_valid &&  i_ready [*3]
 		// Wait for the design to clear
 		##1 o_valid && i_ready [*0:5]
 		##1 (!o_valid && !i_valid && f_changed_data));
@@ -211,5 +271,6 @@ module skidbuffer(i_clk, i_reset,
 	end else if (!i_valid && i_data != 0)
 		f_changed_data <= 0;
 
+`endif // SKIDBUFFER
 `endif
 endmodule
