@@ -52,6 +52,7 @@ module	fwbc_master(i_clk, i_reset,
 			i_wb_ack, i_wb_idata, i_wb_err, i_wb_rty);
 	parameter		AW=32, DW=32;
 	parameter		F_MAX_DELAY = 4;
+	parameter	[0:0]	OPT_BUS_ABORT = 0;
 	localparam	DLYBITS= $clog2(F_MAX_DELAY+1);
 	//
 	input	wire			i_clk, i_reset;
@@ -71,6 +72,11 @@ module	fwbc_master(i_clk, i_reset,
 
 `define	SLAVE_ASSUME	assert
 `define	SLAVE_ASSERT	assume
+
+	// next_addr, for use in calculating the next address within a
+	// burst
+	reg	[AW-1:0]	next_addr;
+
 
 	//
 	// Wrap the request line in a bundle.  The top bit, named STB_BIT,
@@ -180,6 +186,20 @@ module	fwbc_master(i_clk, i_reset,
 		`SLAVE_ASSERT(!i_wb_rty);
 	end
 
+	//
+	// OPT_BUS_ABORT
+	//
+	// If CYC is dropped, this will abort the transaction in
+	// progress.  Not all busses support this option, and it's
+	// not specifically called out in the spec.  Therefore, we'll
+	// check if this is set (it will be clear by default) and
+	// prohibit a transaction from being aborted otherwise
+	always @(posedge i_clk)
+	if (f_past_valid && !$past(i_reset) && !OPT_BUS_ABORT
+		&& $past(i_wb_stb && !(i_wb_ack|i_wb_err|i_wb_rty)))
+		`SLAVE_ASSUME(i_wb_stb);
+
+	//
 	// No more than one of ACK, ERR or RTY may ever be true at a given time
 	always @(*)
 	begin
@@ -187,6 +207,64 @@ module	fwbc_master(i_clk, i_reset,
 			`SLAVE_ASSERT(!i_wb_err && !i_wb_rty);
 		else if (i_wb_err)
 			`SLAVE_ASSERT(!i_wb_rty);
+	end
+
+	localparam [2:0]	C_CLASSIC = 3'b000;
+	localparam [2:0]	C_FIXED   = 3'b001;
+	localparam [2:0]	C_INCR    = 3'b010;
+	localparam [2:0]	C_EOB     = 3'b111;
+	localparam [1:0]	B_LINEAR = 2'b00;
+	localparam [1:0]	B_WRAP4  = 2'b01;
+	localparam [1:0]	B_WRAP8  = 2'b10;
+	localparam [1:0]	B_WRAP16 = 2'b11;
+
+	// Burst address checking
+	always @(*)
+	if (i_wb_stb)
+	begin
+		// Several designations are reserved.  Using those
+		// designations is "illegal".
+		assert(i_wb_cti != 3'b011);
+		assert(i_wb_cti != 3'b100);
+		assert(i_wb_cti != 3'b101);
+		assert(i_wb_cti != 3'b110);
+	end
+
+	always @(posedge i_clk)
+		next_addr <= i_wb_addr + 1;
+
+	always @(posedge i_clk)
+	if (f_past_valid && !$past(i_reset) && !i_reset
+		&& $past(i_wb_stb)&&($past(i_wb_err|i_wb_rty|i_wb_ack))
+		&&($past(i_wb_cti != C_CLASSIC))&&($past(i_wb_cti != C_EOB)))
+	begin
+		assert(i_wb_stb);
+		if ($past(i_wb_cti) == C_FIXED)
+		begin
+			assert($stable(i_wb_addr));
+			assert((i_wb_cti == C_FIXED || i_wb_cti == C_EOB));
+		end else if ($past(i_wb_cti == C_INCR))
+		begin
+			assert($stable(i_wb_bte));
+			case(i_wb_bte)
+			B_LINEAR: assert(i_wb_addr == next_addr);
+			B_WRAP4: begin
+				// 4-beat wrap burst
+				assert(i_wb_addr[1:0] == next_addr[1:0]);
+				assert($stable(i_wb_addr[AW-1:2]));
+				end
+			B_WRAP8: begin
+				// 8-beat wrap burst
+				assert(i_wb_addr[2:0] == next_addr[2:0]);
+				assert($stable(i_wb_addr[AW-1:3]));
+				end
+			B_WRAP16: begin
+				// 16-beat wrap burst
+				assert(i_wb_addr[3:0] == next_addr[3:0]);
+				assert($stable(i_wb_addr[AW-1:4]));
+				end
+			endcase
+		end
 	end
 
 	generate if (F_MAX_DELAY > 0)
