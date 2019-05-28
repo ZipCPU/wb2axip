@@ -77,7 +77,7 @@ module	wbc2pipeline(i_clk, i_reset,
 
 	initial	last_stb = 0;
 	always @(posedge i_clk)
-	if (i_reset || !i_mstb)
+	if (i_reset || !i_mstb || o_mack || o_merr)
 		last_stb <= 0;
 	else if (!i_sstall)
 		last_stb <= 1;
@@ -95,7 +95,7 @@ module	wbc2pipeline(i_clk, i_reset,
 	initial	o_mack = 0;
 	initial	o_merr = 0;
 	always @(posedge i_clk)
-	if (i_reset || !i_mstb)
+	if (i_reset || !i_mstb || o_mack || o_merr)
 	begin
 		o_mack <= 0;
 		o_merr <= 0;
@@ -138,7 +138,7 @@ module	wbc2pipeline(i_clk, i_reset,
 	fwbc_slave #(.AW(AW), .DW(DW)) incoming (i_clk, i_reset,
 		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
 			i_mcti, i_mbti,
-			o_mack, o_mdata, o_merr);
+			o_mack, o_mdata, o_merr, 1'b0);
 
 	fwb_master #(.AW(AW), .DW(DW),
 			.F_MAX_STALL(3),

@@ -1,0 +1,23 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 14
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal wbc2pipeline.v
+read -formal fwb_master.v
+read -formal fwbc_slave.v
+prep -top wbc2pipeline
+
+[files]
+../../rtl/wbc2pipeline.v
+fwb_master.v
+fwbc_slave.v

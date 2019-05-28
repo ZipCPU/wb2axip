@@ -2,7 +2,7 @@
 //
 // Filename:	fwbc_master.v
 //
-// Project:	Zip CPU -- a small, lightweight, RISC CPU soft core
+// Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	This file describes the rules of a wishbone *classic*
 //		interaction from the perspective of a wishbone classic master.
@@ -48,8 +48,8 @@
 module	fwbc_master(i_clk, i_reset,
 		// The Wishbone bus
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
-			i_wb_cti, i_wb_bti,
-			i_wb_ack, i_wb_idata, i_wb_err);
+			i_wb_cti, i_wb_bte,
+			i_wb_ack, i_wb_idata, i_wb_err, i_wb_rty);
 	parameter		AW=32, DW=32;
 	parameter		F_MAX_DELAY = 4;
 	localparam	DLYBITS= $clog2(F_MAX_DELAY+1);
@@ -61,11 +61,12 @@ module	fwbc_master(i_clk, i_reset,
 	input	wire	[(DW-1):0]	i_wb_data;
 	input	wire	[(DW/8-1):0]	i_wb_sel;
 	input	wire	[2:0]		i_wb_cti;
-	input	wire	[1:0]		i_wb_bti;
+	input	wire	[1:0]		i_wb_bte;
 	//
 	input	wire			i_wb_ack;
 	input	wire	[(DW-1):0]	i_wb_idata;
 	input	wire			i_wb_err;
+	input	wire			i_wb_rty;
 	//
 
 `define	SLAVE_ASSUME	assert
@@ -79,7 +80,7 @@ module	fwbc_master(i_clk, i_reset,
 	localparam	STB_BIT = 2+AW+DW+DW/8+3+2-1;
 	wire	[STB_BIT:0]	f_request;
 	assign	f_request = { i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
-				i_wb_cti, i_wb_bti };
+				i_wb_cti, i_wb_bte };
 
 	//
 	// A quick register to be used later to know if the $past() operator
@@ -105,6 +106,7 @@ module	fwbc_master(i_clk, i_reset,
 	//
 	initial	`SLAVE_ASSERT(!i_wb_ack);
 	initial	`SLAVE_ASSERT(!i_wb_err);
+	initial	`SLAVE_ASSERT(!i_wb_rty);
 
 	always @(posedge i_clk)
 	if ((!f_past_valid)||($past(i_reset)))
@@ -114,11 +116,8 @@ module	fwbc_master(i_clk, i_reset,
 		//
 		`SLAVE_ASSERT(!i_wb_ack);
 		`SLAVE_ASSERT(!i_wb_err);
+		`SLAVE_ASSERT(!i_wb_rty);
 	end
-
-	always @(*)
-	if (!f_past_valid)
-		`SLAVE_ASSUME(!i_wb_cyc);
 
 	//
 	//
@@ -142,18 +141,19 @@ module	fwbc_master(i_clk, i_reset,
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))
 			&&($past(i_wb_stb))&&(i_wb_cyc)
-			&&(!$past(i_wb_ack | i_wb_err)))
+			&&(!$past(i_wb_ack | i_wb_err | i_wb_rty)))
 		`SLAVE_ASSUME(i_wb_stb);
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))
-			&&($past(i_wb_stb))&&(i_wb_stb))
+			&&($past(i_wb_stb))&&!$past(i_wb_ack|i_wb_err|i_wb_rty))
 	begin
+		`SLAVE_ASSUME(i_wb_stb);
 		`SLAVE_ASSUME($stable(i_wb_we));
 		`SLAVE_ASSUME($stable(i_wb_addr));
 		`SLAVE_ASSUME($stable(i_wb_sel));
 		`SLAVE_ASSUME($stable(i_wb_cti));
-		`SLAVE_ASSUME($stable(i_wb_bti));
+		`SLAVE_ASSUME($stable(i_wb_bte));
 		if (i_wb_we)
 			`SLAVE_ASSUME($stable(i_wb_data));
 	end
@@ -171,11 +171,23 @@ module	fwbc_master(i_clk, i_reset,
 	begin
 		`SLAVE_ASSERT(!i_wb_ack);
 		`SLAVE_ASSERT(!i_wb_err);
+		`SLAVE_ASSERT(!i_wb_rty);
+	end else if (f_past_valid && $past(i_wb_ack|i_wb_err|i_wb_rty)
+			&& !i_wb_stb)
+	begin
+		`SLAVE_ASSERT(!i_wb_ack);
+		`SLAVE_ASSERT(!i_wb_err);
+		`SLAVE_ASSERT(!i_wb_rty);
 	end
 
-	// ACK and ERR may never both be true at the same time
+	// No more than one of ACK, ERR or RTY may ever be true at a given time
 	always @(*)
-		`SLAVE_ASSERT((!i_wb_ack)||(!i_wb_err));
+	begin
+		if (i_wb_ack)
+			`SLAVE_ASSERT(!i_wb_err && !i_wb_rty);
+		else if (i_wb_err)
+			`SLAVE_ASSERT(!i_wb_rty);
+	end
 
 	generate if (F_MAX_DELAY > 0)
 	begin : DELAYCOUNT
@@ -188,7 +200,7 @@ module	fwbc_master(i_clk, i_reset,
 
 		initial	f_stall_count = 0;
 		always @(posedge i_clk)
-		if ((!i_reset)&&(i_wb_stb)&&(!i_wb_ack && !i_wb_err))
+		if ((!i_reset)&&(i_wb_stb)&&(!i_wb_ack && !i_wb_err && !i_wb_rty))
 			f_stall_count <= f_stall_count + 1'b1;
 		else
 			f_stall_count <= 0;
@@ -210,11 +222,13 @@ module	fwbc_master(i_clk, i_reset,
 	always @(posedge i_clk)
 	if (i_reset || !i_wb_cyc)
 		ack_count <= 0;
-	else if (f_past_valid && $fell(i_wb_stb))
+	else if (f_past_valid && i_wb_ack)
 		ack_count <= ack_count + 1;
 
 	always @(*)
 		cover(!i_wb_cyc && ack_count > 4);
+	always @(*)
+		cover(!i_wb_cyc && ack_count > 3);
 
 endmodule
 //

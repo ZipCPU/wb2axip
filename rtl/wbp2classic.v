@@ -43,7 +43,7 @@ module	wbp2classic(i_clk, i_reset,
 			o_mstall, o_mack, o_mdata, o_merr,
 		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
 			i_sack, i_sdata, i_serr,
-			o_scti, o_sbti);
+			o_scti, o_sbte);
 	parameter	AW = 12,
 			DW = 32;
 	//
@@ -68,7 +68,7 @@ module	wbp2classic(i_clk, i_reset,
 	input	wire			i_serr;
 	// Extra wires, not necessarily necessary for WB/B3
 	output	reg	[2:0]		o_scti;
-	output	reg	[1:0]		o_sbti;
+	output	reg	[1:0]		o_sbte;
 
 	//
 	// returned = whether we've received our return value or not.
@@ -87,7 +87,7 @@ module	wbp2classic(i_clk, i_reset,
 		o_scti = 3'b000;
 		// Burst type indicator--ignored for single transaction cycle
 		// types, such as the classic type above
-		o_sbti = 2'b00; // Linear burst
+		o_sbte = 2'b00; // Linear burst
 	end
 
 	initial	returned = 0;
@@ -110,8 +110,8 @@ module	wbp2classic(i_clk, i_reset,
 		o_mack <= 0;
 		o_merr <= 0;
 	end else begin
-		o_mack <= (i_mcyc) && (!returned) && i_sack;
-		o_merr <= (i_mcyc) && (!returned) && i_serr;
+		o_mack <= (i_mcyc) && i_sack;
+		o_merr <= (i_mcyc) && i_serr;
 	end
 
 	always @(posedge i_clk)
@@ -141,18 +141,25 @@ module	wbp2classic(i_clk, i_reset,
 
 	fwb_slave #(.AW(AW), .DW(DW),
 			.F_MAX_STALL(4),
-			.F_MAX_ACK_DELAY(2),
+			.F_MAX_ACK_DELAY(15),
 			.F_LGDEPTH(1)) incoming (i_clk, i_reset,
 		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
 			o_mack, o_mstall, o_mdata, o_merr,
 			f_nreqs, f_nacks, f_outstanding);
 
-	fwbc_master #(.AW(AW), .DW(DW)) classic (i_clk, i_reset,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel, o_scti, o_sbti,
-			i_sack, i_sdata, i_serr);
+	fwbc_master #(.AW(AW), .DW(DW), .F_MAX_DELAY(3))
+	classic (i_clk, i_reset,
+		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel, o_scti, o_sbte,
+			i_sack, i_sdata, i_serr, 1'b0);
 
-//	always @(*)
-//	if (f_outstanding)
-//		assert(returned);
+	//
+	// Disallow bus aborts
+	reg	f_ongoing;
+	always @(posedge i_clk)
+		f_ongoing <= (!i_reset && i_mstb && !(o_mack | o_merr));
 
+	always @(*)
+	if (f_ongoing)
+		assume(i_mstb);
+`endif
 endmodule
