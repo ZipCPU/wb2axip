@@ -352,7 +352,8 @@ module wbm2axilite (
 	//
 	//
 	//////////////////////////////////////////////
-	assume property(f_past_valid || i_reset);
+	always @(*)
+		assume(f_past_valid || i_reset);
 
 	wire	[(LGFIFOLN-1):0]	f_wb_nreqs, f_wb_nacks,f_wb_outstanding;
 	fwb_slave #(.DW(DW),.AW(AW),

@@ -15,7 +15,7 @@
 //	one transaction at a time: initiating the transaction, and then waiting
 //	for the transaction to complete before initiating the next.
 //
-//	The purpose of this core is to maintain the speed of both busses, while
+//	The purpose of this core is to maintain the speed of both buses, while
 //	transiting from the Wishbone (as master) to the AXI bus (as slave) and
 //	back again.
 //
@@ -55,20 +55,19 @@
 `default_nettype	none
 //
 module wbm2axisp #(
-	parameter C_AXI_ID_WIDTH	=   3, // The AXI id width used for R&W
-                                             // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 128,// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	=  28,	// AXI Address width (log wordsize)
+	parameter C_AXI_ID_WIDTH	=   1,
 	parameter DW			=  32,	// Wishbone data width
 	parameter AW			=  26,	// Wishbone address width (log wordsize)
-	parameter [0:0] STRICT_ORDER	= 1 	// Reorder, or not? 0 -> Reorder
+	parameter LGFIFO		=   6
 	) (
 	input	wire			i_clk,	// System clock
 	input	wire			i_reset,// Reset signal,drives AXI rst
 
 // AXI write address channel signals
 	input	wire			i_axi_awready, // Slave is ready to accept
-	output	reg	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
+	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,	// Write address
 	output	wire	[7:0]		o_axi_awlen,	// Write Burst Length
 	output	wire	[2:0]		o_axi_awsize,	// Write Burst size
@@ -83,7 +82,7 @@ module wbm2axisp #(
 	input	wire			i_axi_wready,  // Write data ready
 	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,	// Write data
 	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,	// Write strobes
-	output	wire			o_axi_wlast,	// Last write transaction   
+	output	wire			o_axi_wlast,	// Last write transaction
 	output	reg			o_axi_wvalid,	// Write valid
 
 // AXI write response channel signals
@@ -95,7 +94,7 @@ module wbm2axisp #(
 // AXI read address channel signals
 	input	wire			i_axi_arready,	// Read address ready
 	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_arid,	// Read ID
-	output	wire	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
+	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
 	output	wire	[7:0]		o_axi_arlen,	// Read Burst Length
 	output	wire	[2:0]		o_axi_arsize,	// Read Burst size
 	output	wire	[1:0]		o_axi_arburst,	// Read Burst type
@@ -105,7 +104,7 @@ module wbm2axisp #(
 	output	wire	[3:0]		o_axi_arqos,	// Read Protection type
 	output	reg			o_axi_arvalid,	// Read address valid
 
-// AXI read data channel signals   
+// AXI read data channel signals
 	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
 	input	wire	[1:0]		i_axi_rresp,   // Read response
 	input	wire			i_axi_rvalid,  // Read reponse valid
@@ -121,7 +120,7 @@ module wbm2axisp #(
 	input	wire	[(DW-1):0]	i_wb_data,
 	input	wire	[(DW/8-1):0]	i_wb_sel,
 	output	reg			o_wb_ack,
-	output	wire			o_wb_stall,
+	output	reg			o_wb_stall,
 	output	reg	[(DW-1):0]	o_wb_data,
 	output	reg			o_wb_err
 );
@@ -130,21 +129,10 @@ module wbm2axisp #(
 // Parameter declarations
 //*****************************************************************************
 
-	localparam	LG_AXI_DW	= ( C_AXI_DATA_WIDTH ==   8) ? 3
-					: ((C_AXI_DATA_WIDTH ==  16) ? 4
-					: ((C_AXI_DATA_WIDTH ==  32) ? 5
-					: ((C_AXI_DATA_WIDTH ==  64) ? 6
-					: ((C_AXI_DATA_WIDTH == 128) ? 7
-					: 8))));
-
-	localparam	LG_WB_DW	= ( DW ==   8) ? 3
-					: ((DW ==  16) ? 4
-					: ((DW ==  32) ? 5
-					: ((DW ==  64) ? 6
-					: ((DW == 128) ? 7
-					: 8))));
-	localparam	LGFIFOLN = C_AXI_ID_WIDTH;
-	localparam	FIFOLN = (1<<LGFIFOLN);
+	localparam	LG_AXI_DW	= $clog2(C_AXI_DATA_WIDTH);
+	localparam	LG_WB_DW	= $clog2(DW);
+	localparam	FIFOLN = (1<<LGFIFO);
+	localparam	SUBW = LG_AXI_DW-LG_WB_DW;
 
 
 //*****************************************************************************
@@ -152,591 +140,388 @@ module wbm2axisp #(
 //*****************************************************************************
 
 // Things we're not changing ...
+	localparam	DWSIZE = $clog2(DW)-3;
+	assign o_axi_awid    = 0;
 	assign o_axi_awlen   = 8'h0;	// Burst length is one
-	assign o_axi_awsize  = 3'b101;	// maximum bytes per burst is 32
+	assign o_axi_awsize  = DWSIZE[2:0];
+	assign o_axi_wlast   = 1;
 	assign o_axi_awburst = 2'b01;	// Incrementing address (ignored)
-	assign o_axi_arburst = 2'b01;	// Incrementing address (ignored)
 	assign o_axi_awlock  = 1'b0;	// Normal signaling
 	assign o_axi_arlock  = 1'b0;	// Normal signaling
 	assign o_axi_awcache = 4'h2;	// Normal: no cache, no buffer
+	//
+	assign o_axi_arid    = 0;
+	assign o_axi_arlen   = 8'h0;	// Burst length is one
+	assign o_axi_arsize  = DWSIZE[2:0];
+	assign o_axi_arburst = 2'b01;	// Incrementing address (ignored)
 	assign o_axi_arcache = 4'h2;	// Normal: no cache, no buffer
 	assign o_axi_awprot  = 3'b010;	// Unpriviledged, unsecure, data access
 	assign o_axi_arprot  = 3'b010;	// Unpriviledged, unsecure, data access
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	reg	wb_mid_cycle, wb_last_cyc_stb, wb_mid_abort, wb_cyc_stb;
-	wire	wb_abort;
+	// wire	[(C_AXI_DATA_WIDTH>DW ? $clog2(C_AXI_DATA_WIDTH/DW):0)+$clog2(DW)-4:0]	axi_lsbs;
+	wire	[$clog2(DW)-4:0]	axi_lsbs;
+	assign	axi_lsbs = 0;
+
+	reg			direction, full, empty, flushing, nearfull;
+	reg	[LGFIFO:0]	npending;
+	//
+	reg			r_stb, r_we, m_valid, m_we;
+	reg	[AW-1:0]	r_addr, m_addr;
+	reg	[DW-1:0]	r_data, m_data;
+	reg	[DW/8-1:0]	r_sel,  m_sel;
 
 // Command logic
-// Transaction ID logic
-	wire	[(LGFIFOLN-1):0]	fifo_head;
-	reg	[(C_AXI_ID_WIDTH-1):0]	transaction_id;
+	initial	direction = 0;
+	always @(posedge i_clk)
+	if (empty && i_wb_stb)
+		direction <= i_wb_we;
 
-	initial	transaction_id = 0;
+	initial	npending = 0;
+	initial	empty    = 1;
+	initial	full     = 0;
+	initial	nearfull = 0;
 	always @(posedge i_clk)
 	if (i_reset)
-		transaction_id <= 0;
-	else if ((i_wb_stb)&&(!o_wb_stall))
-		transaction_id <= transaction_id + 1'b1;
+	begin
+		npending <= 0;
+		empty    <= 1;
+		full     <= 0;
+		nearfull <= 0;
+	end else case ({i_wb_stb && !o_wb_stall, i_axi_bvalid||i_axi_rvalid})
+	2'b10: begin
+		npending <= npending + 1;
+		empty <= 0;
+		nearfull <= &(npending[LGFIFO-1:1]);
+		full <= &(npending[LGFIFO-1:0]);
+		end
+	2'b01: begin
+		nearfull <= full;
+		npending <= npending - 1;
+		empty <= (npending == 1);
+		full <= 0;
+		end
+	default: begin end
+	endcase
 
-	assign	fifo_head = transaction_id;
+	initial	flushing = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		flushing <= 0;
+	else if ((i_axi_rvalid && i_axi_rresp[1])
+		||(i_axi_bvalid && i_axi_bresp[1])
+		||(!i_wb_cyc && !empty))
+		flushing <= 1'b1;
+	else if (empty && !i_wb_cyc)
+		flushing <= 1'b0;
 
-	wire	[(DW/8-1):0]			no_sel;
-	wire	[(LG_AXI_DW-4):0]	axi_bottom_addr;
-	assign	no_sel = 0;
-	assign	axi_bottom_addr = 0;
+	initial	r_stb = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		r_stb <= 0;
+	else if (!m_we && (!direction||empty) && !flushing && !nearfull
+				&& (!o_axi_arvalid || i_axi_arready))
+		r_stb <= 0;
+	else if (m_we && (direction||empty) && !flushing && !nearfull
+				&& (!o_axi_awvalid || i_axi_awready)
+				&& (!o_axi_wvalid || i_axi_wready))
+		r_stb <= 0;
+	else if (!o_wb_stall)
+		// Double buffer a transaction
+		r_stb <= i_wb_stb;
 
+	always @(posedge i_clk)
+	if (!o_wb_stall)
+	begin
+		// Double buffer a transaction
+		r_we  <= i_wb_we;
+		r_addr<= i_wb_addr;
+		r_data<= i_wb_data;
+		r_sel <= i_wb_sel;
+	end
 
-// Write address logic
+	always @(*)
+		o_wb_stall = r_stb;
 
+	always @(*)
+	begin
+		m_valid = (i_wb_stb || r_stb); // && i_wb_cyc
+		m_we    = r_stb ? r_we   : i_wb_we;
+		m_addr  = r_stb ? r_addr : i_wb_addr;
+		m_data  = r_stb ? r_data : i_wb_data;
+		m_sel   = r_stb ? r_sel  : i_wb_sel;
+	end
+
+	// Send write transactions
 	initial	o_axi_awvalid = 0;
-	always @(posedge i_clk)
-	if (i_reset)
-		o_axi_awvalid <= 0;
-	else
-		o_axi_awvalid <= (!o_wb_stall)&&(i_wb_stb)&&(i_wb_we)
-			||(o_axi_awvalid)&&(!i_axi_awready);
-
-	generate
-
-	initial	o_axi_awid = -1;
-	always @(posedge i_clk)
-	if (i_reset)
-		o_axi_awid <= -1;
-	else if ((i_wb_stb)&&(!o_wb_stall))
-		o_axi_awid <= transaction_id;
-
-	if (C_AXI_DATA_WIDTH == DW)
-	begin
-		always @(posedge i_clk)
-		if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
-			o_axi_awaddr <= { i_wb_addr[AW-1:0], axi_bottom_addr };
-	end else if (C_AXI_DATA_WIDTH / DW == 2)
-	begin
-
-		always @(posedge i_clk)
-		if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
-			o_axi_awaddr <= { i_wb_addr[AW-1:1], axi_bottom_addr };
-
-	end else if (C_AXI_DATA_WIDTH / DW == 4)
-	begin
-		always @(posedge i_clk)
-		if ((i_wb_stb)&&(!o_wb_stall)) // 26 bit address becomes 28 bit ...
-			o_axi_awaddr <= { i_wb_addr[AW-1:2], axi_bottom_addr };
-	end endgenerate
-
-
-// Read address logic
-	assign	o_axi_arid   = o_axi_awid;
-	assign	o_axi_araddr = o_axi_awaddr;
-	assign	o_axi_arlen  = o_axi_awlen;
-	assign	o_axi_arsize = 3'b101;	// maximum bytes per burst is 32
-	initial	o_axi_arvalid = 1'b0;
-	always @(posedge i_clk)
-	if (i_reset)
-		o_axi_arvalid <= 1'b0;
-	else
-		o_axi_arvalid <= (!o_wb_stall)&&(i_wb_stb)&&(!i_wb_we)
-			||(o_axi_arvalid)&&(!i_axi_arready);
-
-// Write data logic
-	generate
-	if (C_AXI_DATA_WIDTH == DW)
-	begin
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				o_axi_wdata <= i_wb_data;
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				o_axi_wstrb<= i_wb_sel;
-
-	end else if (C_AXI_DATA_WIDTH/2 == DW)
-	begin
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				o_axi_wdata <= { i_wb_data, i_wb_data };
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-			case(i_wb_addr[0])
-			1'b0:o_axi_wstrb<={  no_sel,i_wb_sel };
-			1'b1:o_axi_wstrb<={i_wb_sel,  no_sel };
-			endcase
-
-	end else if (C_AXI_DATA_WIDTH/4 == DW)
-	begin
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				o_axi_wdata <= { i_wb_data, i_wb_data, i_wb_data, i_wb_data };
-
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-			case(i_wb_addr[1:0])
-			2'b00:o_axi_wstrb<={   no_sel,   no_sel,   no_sel, i_wb_sel };
-			2'b01:o_axi_wstrb<={   no_sel,   no_sel, i_wb_sel,   no_sel };
-			2'b10:o_axi_wstrb<={   no_sel, i_wb_sel,   no_sel,   no_sel };
-			2'b11:o_axi_wstrb<={ i_wb_sel,   no_sel,   no_sel,   no_sel };
-			endcase
-
-	end endgenerate
-
-	assign	o_axi_wlast = 1'b1;
 	initial	o_axi_wvalid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
-		o_axi_wvalid <= 0;
-	else
-		o_axi_wvalid <= ((!o_wb_stall)&&(i_wb_stb)&&(i_wb_we))
-			||(o_axi_wvalid)&&(!i_axi_wready);
+	begin
+		o_axi_awvalid <= 0;
+		o_axi_wvalid  <= 0;
+	end else if (m_valid && m_we && (direction||empty) && !flushing
+				&& !nearfull
+				&& (!o_axi_awvalid || i_axi_awready)
+				&& (!o_axi_wvalid  || i_axi_wready))
+	begin
+		o_axi_awvalid <= 1;
+		o_axi_wvalid  <= 1;
+	end else begin
+		if (i_axi_awready)
+			o_axi_awvalid <= 0;
+		if (i_axi_wready)
+			o_axi_wvalid <= 0;
+	end
+
+	always @(posedge i_clk)
+	if (!o_axi_wvalid || i_axi_wready)
+		o_axi_wdata   <= {(C_AXI_DATA_WIDTH/DW){m_data}};
+
+	// Send read transactions
+	initial	o_axi_arvalid = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		o_axi_arvalid <= 0;
+	else if (m_valid && !m_we && (!direction || empty) && !nearfull
+			&& (!o_axi_arvalid || i_axi_arready)
+			&& !flushing)
+		o_axi_arvalid <= 1;
+	else if (i_axi_arready)
+	begin
+		o_axi_arvalid <= 0;
+	end
+
+	always @(posedge i_clk)
+	if (!o_axi_awvalid || i_axi_awready)
+		o_axi_awaddr  <= { m_addr, axi_lsbs };
+
+	always @(posedge i_clk)
+	if (!o_axi_arvalid || i_axi_arready)
+		o_axi_araddr  <= { m_addr, axi_lsbs };
+
+
+	generate if (DW == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready)
+			o_axi_wstrb   <= m_sel;
+
+	end else if (DW*2 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready)
+		begin
+			if (m_addr[0])
+				o_axi_wstrb   <= { m_sel, {(DW/8){1'b0}} };
+			else
+				o_axi_wstrb   <= { {(DW/8){1'b0}}, m_sel };
+		end
+
+	end else if (DW*4 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready) case(~m_addr[1:0])
+		2'b00: o_axi_wstrb   <= { m_sel, {(3*DW/8){1'b0}} };
+		2'b01: o_axi_wstrb   <= { {(  DW/8){1'b0}}, m_sel, {(2*DW/8){1'b0}} };
+		2'b10: o_axi_wstrb   <= { {(2*DW/8){1'b0}}, m_sel, {(  DW/8){1'b0}} };
+		2'b11: o_axi_wstrb   <= { {(3*DW/8){1'b0}}, m_sel };
+		endcase
+
+	end else if (DW*8 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready) case(~m_addr[2:0])
+		3'b000: o_axi_wstrb   <= { m_sel, {(7*DW/8){1'b0}} };
+		3'b001: o_axi_wstrb   <= { {(  DW/8){1'b0}}, m_sel, {(6*DW/8){1'b0}} };
+		3'b010: o_axi_wstrb   <= { {(2*DW/8){1'b0}}, m_sel, {(5*DW/8){1'b0}} };
+		3'b011: o_axi_wstrb   <= { {(3*DW/8){1'b0}}, m_sel, {(4*DW/8){1'b0}} };
+		3'b100: o_axi_wstrb   <= { {(4*DW/8){1'b0}}, m_sel, {(3*DW/8){1'b0}} };
+		3'b101: o_axi_wstrb   <= { {(5*DW/8){1'b0}}, m_sel, {(2*DW/8){1'b0}} };
+		3'b110: o_axi_wstrb   <= { {(6*DW/8){1'b0}}, m_sel, {(  DW/8){1'b0}} };
+		3'b111: o_axi_wstrb   <= { {(7*DW/8){1'b0}}, m_sel };
+		endcase
+
+	end else if (DW*16 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready) case(~m_addr[3:0])
+		4'b0000: o_axi_wstrb   <= { m_sel, {(15*DW/8){1'b0}} };
+		4'b0001: o_axi_wstrb   <= { {(   DW/8){1'b0}}, m_sel, {(14*DW/8){1'b0}} };
+		4'b0010: o_axi_wstrb   <= { {( 2*DW/8){1'b0}}, m_sel, {(13*DW/8){1'b0}} };
+		4'b0011: o_axi_wstrb   <= { {( 3*DW/8){1'b0}}, m_sel, {(12*DW/8){1'b0}} };
+		4'b0100: o_axi_wstrb   <= { {( 4*DW/8){1'b0}}, m_sel, {(11*DW/8){1'b0}} };
+		4'b0101: o_axi_wstrb   <= { {( 5*DW/8){1'b0}}, m_sel, {(10*DW/8){1'b0}} };
+		4'b0110: o_axi_wstrb   <= { {( 6*DW/8){1'b0}}, m_sel, {( 9*DW/8){1'b0}} };
+		4'b0111: o_axi_wstrb   <= { {( 7*DW/8){1'b0}}, m_sel, {( 8*DW/8){1'b0}} };
+		4'b1000: o_axi_wstrb   <= { {( 8*DW/8){1'b0}}, m_sel, {( 7*DW/8){1'b0}} };
+		4'b1001: o_axi_wstrb   <= { {( 9*DW/8){1'b0}}, m_sel, {( 6*DW/8){1'b0}} };
+		4'b1010: o_axi_wstrb   <= { {(10*DW/8){1'b0}}, m_sel, {( 5*DW/8){1'b0}} };
+		4'b1011: o_axi_wstrb   <= { {(11*DW/8){1'b0}}, m_sel, {( 4*DW/8){1'b0}} };
+		4'b1100: o_axi_wstrb   <= { {(12*DW/8){1'b0}}, m_sel, {( 3*DW/8){1'b0}} };
+		4'b1101: o_axi_wstrb   <= { {(13*DW/8){1'b0}}, m_sel, {( 2*DW/8){1'b0}} };
+		4'b1110: o_axi_wstrb   <= { {(14*DW/8){1'b0}}, m_sel, {(   DW/8){1'b0}} };
+		4'b1111: o_axi_wstrb   <= { {(15*DW/8){1'b0}}, m_sel };
+		endcase
+
+	end else if (DW*32 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(posedge i_clk)
+		if (!o_axi_wvalid || i_axi_wready) case(~m_addr[4:0])
+		5'b00000: o_axi_wstrb   <= { m_sel, {(31*DW/8){1'b0}} };
+		5'b00001: o_axi_wstrb   <= { {(   DW/8){1'b0}}, m_sel, {(30*DW/8){1'b0}} };
+		5'b00010: o_axi_wstrb   <= { {( 2*DW/8){1'b0}}, m_sel, {(29*DW/8){1'b0}} };
+		5'b00011: o_axi_wstrb   <= { {( 3*DW/8){1'b0}}, m_sel, {(28*DW/8){1'b0}} };
+		5'b00100: o_axi_wstrb   <= { {( 4*DW/8){1'b0}}, m_sel, {(27*DW/8){1'b0}} };
+		5'b00101: o_axi_wstrb   <= { {( 5*DW/8){1'b0}}, m_sel, {(26*DW/8){1'b0}} };
+		5'b00110: o_axi_wstrb   <= { {( 6*DW/8){1'b0}}, m_sel, {(25*DW/8){1'b0}} };
+		5'b00111: o_axi_wstrb   <= { {( 7*DW/8){1'b0}}, m_sel, {(24*DW/8){1'b0}} };
+		5'b01000: o_axi_wstrb   <= { {( 8*DW/8){1'b0}}, m_sel, {(23*DW/8){1'b0}} };
+		5'b01001: o_axi_wstrb   <= { {( 9*DW/8){1'b0}}, m_sel, {(22*DW/8){1'b0}} };
+		5'b01010: o_axi_wstrb   <= { {(10*DW/8){1'b0}}, m_sel, {(21*DW/8){1'b0}} };
+		5'b01011: o_axi_wstrb   <= { {(11*DW/8){1'b0}}, m_sel, {(20*DW/8){1'b0}} };
+		5'b01100: o_axi_wstrb   <= { {(12*DW/8){1'b0}}, m_sel, {(19*DW/8){1'b0}} };
+		5'b01101: o_axi_wstrb   <= { {(13*DW/8){1'b0}}, m_sel, {(18*DW/8){1'b0}} };
+		5'b01110: o_axi_wstrb   <= { {(14*DW/8){1'b0}}, m_sel, {(17*DW/8){1'b0}} };
+		5'b01111: o_axi_wstrb   <= { {(15*DW/8){1'b0}}, m_sel, {(16*DW/8){1'b0}} };
+		5'b10000: o_axi_wstrb   <= { {(16*DW/8){1'b0}}, m_sel, {(15*DW/8){1'b0}} };
+		5'b10001: o_axi_wstrb   <= { {(17*DW/8){1'b0}}, m_sel, {(14*DW/8){1'b0}} };
+		5'b10010: o_axi_wstrb   <= { {(18*DW/8){1'b0}}, m_sel, {(13*DW/8){1'b0}} };
+		5'b10011: o_axi_wstrb   <= { {(19*DW/8){1'b0}}, m_sel, {(12*DW/8){1'b0}} };
+		5'b10100: o_axi_wstrb   <= { {(20*DW/8){1'b0}}, m_sel, {(11*DW/8){1'b0}} };
+		5'b10101: o_axi_wstrb   <= { {(21*DW/8){1'b0}}, m_sel, {(10*DW/8){1'b0}} };
+		5'b10110: o_axi_wstrb   <= { {(22*DW/8){1'b0}}, m_sel, {( 9*DW/8){1'b0}} };
+		5'b10111: o_axi_wstrb   <= { {(23*DW/8){1'b0}}, m_sel, {( 8*DW/8){1'b0}} };
+		5'b11000: o_axi_wstrb   <= { {(24*DW/8){1'b0}}, m_sel, {( 7*DW/8){1'b0}} };
+		5'b11001: o_axi_wstrb   <= { {(25*DW/8){1'b0}}, m_sel, {( 6*DW/8){1'b0}} };
+		5'b11010: o_axi_wstrb   <= { {(26*DW/8){1'b0}}, m_sel, {( 5*DW/8){1'b0}} };
+		5'b11011: o_axi_wstrb   <= { {(27*DW/8){1'b0}}, m_sel, {( 4*DW/8){1'b0}} };
+		5'b11100: o_axi_wstrb   <= { {(28*DW/8){1'b0}}, m_sel, {( 3*DW/8){1'b0}} };
+		5'b11101: o_axi_wstrb   <= { {(29*DW/8){1'b0}}, m_sel, {( 2*DW/8){1'b0}} };
+		5'b11110: o_axi_wstrb   <= { {(30*DW/8){1'b0}}, m_sel, {(   DW/8){1'b0}} };
+		5'b11111: o_axi_wstrb   <= { {(31*DW/8){1'b0}}, m_sel };
+		endcase
+
+	end endgenerate
+
+	generate if (DW == C_AXI_DATA_WIDTH)
+	begin : NO_READ_DATA_SELECT_NECESSARY
+
+		always @(*)
+			o_wb_data = i_axi_rdata;
+
+		always @(*)
+			o_wb_ack = !flushing&&((i_axi_rvalid && !i_axi_rresp[1])
+				||(i_axi_bvalid && !i_axi_bresp[1]));
+
+		always @(*)
+			o_wb_err = !flushing&&((i_axi_rvalid && i_axi_rresp[1])
+				||(i_axi_bvalid && i_axi_bresp[1]));
+
+	end else begin : READ_FIFO_DATA_SELECT
+
+	// wire	[$clog2(DW)-4:0]	axi_lsbs;
+		reg	[SUBW-1:0]	addr_fifo	[0:(1<<LGFIFO)-1];
+		reg	[SUBW-1:0]	fifo_value;
+		reg	[LGFIFO:0]	wr_addr, rd_addr;
+
+		initial	o_wb_ack = 0;
+		always @(posedge i_clk)
+		if (i_reset || !i_wb_cyc)
+			o_wb_ack <= 0;
+		else
+			o_wb_ack <= !flushing
+				&&((i_axi_rvalid && !i_axi_rresp[1])
+				||(i_axi_bvalid && !i_axi_bresp[1]));
+
+		initial	o_wb_err = 0;
+		always @(posedge i_clk)
+		if (i_reset || !i_wb_cyc)
+			o_wb_err <= 0;
+		else
+			o_wb_err <= !flushing
+				&&((i_axi_rvalid && i_axi_rresp[1])
+				||(i_axi_bvalid && i_axi_bresp[1]));
+
+
+		initial	wr_addr = 0;
+		always @(posedge i_clk)
+		if (i_reset)
+			wr_addr <= 0;
+		else if (i_wb_stb && !o_wb_stall)
+			wr_addr <= wr_addr + 1;
+
+		always @(posedge i_clk)
+		if (i_wb_stb && !o_wb_stall)
+			addr_fifo[wr_addr] <= i_wb_addr[SUBW-1:0];
+
+		initial	rd_addr = 0;
+		always @(posedge i_clk)
+		if (i_reset)
+			rd_addr <= 0;
+		else if (i_axi_bvalid || i_axi_rvalid)
+			rd_addr <= rd_addr + 1;
+
+		always @(*)
+			fifo_value = addr_fifo[rd_addr];
+
+		wire	[C_AXI_DATA_WIDTH-1:0]	return_data;
+		assign	return_data = i_axi_rdata >> (rd_addr * DW);
+		always @(*)
+			o_wb_data = return_data[DW-1:0];
+
+`ifdef	FORMAL
+		always @(*)
+			assert(wr_addr - rd_addr == npending);
+
+		//
+		// ...
+		//
+`endif
+	end endgenerate
 
 	// Read data channel / response logic
 	assign	o_axi_rready = 1'b1;
 	assign	o_axi_bready = 1'b1;
 
-	wire	[(LGFIFOLN-1):0]	n_fifo_head, nn_fifo_head;
-	assign	n_fifo_head = fifo_head+1'b1;
-	assign	nn_fifo_head = { fifo_head[(LGFIFOLN-1):1]+1'b1, fifo_head[0] };
-
-
-	wire	w_fifo_full;
-	reg	[(LGFIFOLN-1):0]	fifo_tail;
-
-	generate
-	if (C_AXI_DATA_WIDTH == DW)
-	begin
-		if (STRICT_ORDER == 0)
-		begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data [0:(FIFOLN-1)];
-
-			always @(posedge i_clk)
-				if ((o_axi_rready)&&(i_axi_rvalid))
-					reorder_fifo_data[i_axi_rid] <= i_axi_rdata;
-			always @(posedge i_clk)
-				o_wb_data <= reorder_fifo_data[fifo_tail];
-		end else begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data;
-
-			always @(posedge i_clk)
-				reorder_fifo_data <= i_axi_rdata;
-			always @(posedge i_clk)
-				o_wb_data <= reorder_fifo_data;
-		end
-	end else if (C_AXI_DATA_WIDTH / DW == 2)
-	begin
-		reg		reorder_fifo_addr [0:(FIFOLN-1)];
-
-		reg		low_addr;
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				low_addr <= i_wb_addr[0];
-		always @(posedge i_clk)
-			if ((o_axi_arvalid)&&(i_axi_arready))
-				reorder_fifo_addr[o_axi_arid] <= low_addr;
-
-		if (STRICT_ORDER == 0)
-		begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data [0:(FIFOLN-1)];
-
-			always @(posedge i_clk)
-				if ((o_axi_rready)&&(i_axi_rvalid))
-					reorder_fifo_data[i_axi_rid] <= i_axi_rdata;
-			always @(posedge i_clk)
-				reorder_fifo_data[i_axi_rid] <= i_axi_rdata;
-			always @(posedge i_clk)
-			case(reorder_fifo_addr[fifo_tail])
-			1'b0: o_wb_data <=reorder_fifo_data[fifo_tail][(  DW-1):    0 ];
-			1'b1: o_wb_data <=reorder_fifo_data[fifo_tail][(2*DW-1):(  DW)];
-			endcase
-		end else begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data;
-
-			always @(posedge i_clk)
-				reorder_fifo_data <= i_axi_rdata;
-			always @(posedge i_clk)
-			case(reorder_fifo_addr[fifo_tail])
-			1'b0: o_wb_data <=reorder_fifo_data[(  DW-1):    0 ];
-			1'b1: o_wb_data <=reorder_fifo_data[(2*DW-1):(  DW)];
-			endcase
-		end
-	end else if (C_AXI_DATA_WIDTH / DW == 4)
-	begin
-		reg	[1:0]	reorder_fifo_addr [0:(FIFOLN-1)];
-
-
-		reg	[1:0]	low_addr;
-		always @(posedge i_clk)
-			if ((i_wb_stb)&&(!o_wb_stall))
-				low_addr <= i_wb_addr[1:0];
-		always @(posedge i_clk)
-			if ((o_axi_arvalid)&&(i_axi_arready))
-				reorder_fifo_addr[o_axi_arid] <= low_addr;
-
-		if (STRICT_ORDER == 0)
-		begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data [0:(FIFOLN-1)];
-
-			always @(posedge i_clk)
-				if ((o_axi_rready)&&(i_axi_rvalid))
-					reorder_fifo_data[i_axi_rid] <= i_axi_rdata;
-			always @(posedge i_clk)
-			case(reorder_fifo_addr[fifo_tail][1:0])
-			2'b00: o_wb_data <=reorder_fifo_data[fifo_tail][(  DW-1):    0 ];
-			2'b01: o_wb_data <=reorder_fifo_data[fifo_tail][(2*DW-1):(  DW)];
-			2'b10: o_wb_data <=reorder_fifo_data[fifo_tail][(3*DW-1):(2*DW)];
-			2'b11: o_wb_data <=reorder_fifo_data[fifo_tail][(4*DW-1):(3*DW)];
-			endcase
-		end else begin
-			reg	[(C_AXI_DATA_WIDTH-1):0] reorder_fifo_data;
-
-			always @(posedge i_clk)
-				reorder_fifo_data <= i_axi_rdata;
-			always @(posedge i_clk)
-			case(reorder_fifo_addr[fifo_tail][1:0])
-			2'b00: o_wb_data <=reorder_fifo_data[(  DW-1): 0];
-			2'b01: o_wb_data <=reorder_fifo_data[(2*DW-1):(  DW)];
-			2'b10: o_wb_data <=reorder_fifo_data[(3*DW-1):(2*DW)];
-			2'b11: o_wb_data <=reorder_fifo_data[(4*DW-1):(3*DW)];
-			endcase
-		end
-	end
-
-	endgenerate
-
+	// Make verilator's -Wall happy
 	// verilator lint_off UNUSED
-	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req,
-		axi_rd_err, axi_wr_err;
+	wire	[6+DW+DW/8-1:0]	unused;
+	assign	unused = { full, i_axi_bid, i_axi_bresp[0], i_axi_rid, i_axi_rresp[0], i_axi_rlast, m_data, m_sel };
+	wire	[C_AXI_DATA_WIDTH-1:DW] unused_data;
+	assign	unused_data = i_axi_rdata[C_AXI_DATA_WIDTH-1:DW];
 	// verilator lint_on  UNUSED
-	//
-	assign	axi_ard_req = (o_axi_arvalid)&&(i_axi_arready);
-	assign	axi_awr_req = (o_axi_awvalid)&&(i_axi_awready);
-	assign	axi_wr_req  = (o_axi_wvalid )&&(i_axi_wready);
-	//
-	assign	axi_rd_ack = (i_axi_rvalid)&&(o_axi_rready);
-	assign	axi_wr_ack = (i_axi_bvalid)&&(o_axi_bready);
-	assign	axi_rd_err = (axi_rd_ack)&&(i_axi_rresp[1]);
-	assign	axi_wr_err = (axi_wr_ack)&&(i_axi_bresp[1]);
-
-	//
-	// We're going to need a FIFO on the return to make certain that we can
-	// select the right bits from the return value, in the case where
-	// DW != the axi data width.
-	//
-	// If we aren't using a strict order, this FIFO is can be used as a
-	// reorder buffer as well, to place our out of order bus responses
-	// back into order.  Responses on the wishbone, however, are *always*
-	// done in order.
-`ifdef	FORMAL
-	reg	[31:0]	reorder_count;
-`endif
-	integer	k;
-	generate
-	if (STRICT_ORDER == 0)
-	begin
-		// Reorder FIFO
-		//
-		// FIFO reorder buffer
-		reg	[(FIFOLN-1):0]	reorder_fifo_valid;
-		reg	[(FIFOLN-1):0]	reorder_fifo_err;
-
-		initial reorder_fifo_valid = 0;
-		initial reorder_fifo_err = 0;
-
-
-		initial	fifo_tail = 0;
-		initial	o_wb_ack  = 0;
-		initial	o_wb_err  = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-		begin
-			reorder_fifo_valid <= 0;
-			reorder_fifo_err <= 0;
-			o_wb_ack  <= 0;
-			o_wb_err  <= 0;
-			fifo_tail <= 0;
-		end else begin
-			if (axi_rd_ack)
-			begin
-				reorder_fifo_valid[i_axi_rid] <= 1'b1;
-				reorder_fifo_err[i_axi_rid] <= axi_rd_err;
-			end
-			if (axi_wr_ack)
-			begin
-				reorder_fifo_valid[i_axi_bid] <= 1'b1;
-				reorder_fifo_err[i_axi_bid] <= axi_wr_err;
-			end
-
-			if (reorder_fifo_valid[fifo_tail])
-			begin
-				o_wb_ack <= (!wb_abort)&&(!reorder_fifo_err[fifo_tail]);
-				o_wb_err <= (!wb_abort)&&( reorder_fifo_err[fifo_tail]);
-				fifo_tail <= fifo_tail + 1'b1;
-				reorder_fifo_valid[fifo_tail] <= 1'b0;
-				reorder_fifo_err[fifo_tail]   <= 1'b0;
-			end else begin
-				o_wb_ack <= 1'b0;
-				o_wb_err <= 1'b0;
-			end
-
-			if (!i_wb_cyc)
-			begin
-				// reorder_fifo_valid <= 0;
-				// reorder_fifo_err   <= 0;
-				o_wb_err <= 1'b0;
-				o_wb_ack <= 1'b0;
-			end
-		end
-
-`ifdef	FORMAL
-		always @(*)
-		begin
-			reorder_count = 0;
-			for(k=0; k<FIFOLN; k=k+1)
-				if (reorder_fifo_valid[k])
-					reorder_count = reorder_count + 1;
-		end
-
-		reg	[(FIFOLN-1):0]	f_reorder_fifo_valid_zerod,
-					f_reorder_fifo_err_zerod;
-		always @(*)
-			f_reorder_fifo_valid_zerod <=
-				((reorder_fifo_valid >> fifo_tail)
-				| (reorder_fifo_valid << (FIFOLN-fifo_tail)));
-		always @(*)
-			assert((f_reorder_fifo_valid_zerod & (~((1<<f_fifo_used)-1)))==0);
-		//
-		always @(*)
-			f_reorder_fifo_err_zerod <=
-				((reorder_fifo_valid >> fifo_tail)
-				| (reorder_fifo_valid << (FIFOLN-fifo_tail)));
-		always @(*)
-			assert((f_reorder_fifo_err_zerod & (~((1<<f_fifo_used)-1)))==0);
-`endif
-
-		reg	r_fifo_full;
-		initial	r_fifo_full = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-			r_fifo_full <= 0;
-		else begin
-			if ((i_wb_stb)&&(!o_wb_stall)
-					&&(reorder_fifo_valid[fifo_tail]))
-				r_fifo_full <= (fifo_tail==n_fifo_head);
-			else if ((i_wb_stb)&&(!o_wb_stall))
-				r_fifo_full <= (fifo_tail==nn_fifo_head);
-			else if (reorder_fifo_valid[fifo_tail])
-				r_fifo_full <= 1'b0;
-			else
-				r_fifo_full <= (fifo_tail==n_fifo_head);
-		end
-		assign w_fifo_full = r_fifo_full;
-	end else begin
-		//
-		// Strict ordering
-		//
-		reg	reorder_fifo_valid;
-		reg	reorder_fifo_err;
-
-		initial	reorder_fifo_valid = 1'b0;
-		initial	reorder_fifo_err   = 1'b0;
-		always @(posedge i_clk)
-		if (i_reset)
-		begin
-			reorder_fifo_valid <= 0;
-			reorder_fifo_err   <= 0;
-		end else begin
-			if (axi_rd_ack)
-			begin
-				reorder_fifo_valid <= 1'b1;
-				reorder_fifo_err   <= axi_rd_err;
-			end else if (axi_wr_ack)
-			begin
-				reorder_fifo_valid <= 1'b1;
-				reorder_fifo_err   <= axi_wr_err;
-			end else begin
-				reorder_fifo_valid <= 1'b0;
-				reorder_fifo_err   <= 1'b0;
-			end
-		end
-
-`ifdef	FORMAL
-		always @(*)
-			reorder_count = (reorder_fifo_valid) ? 1 : 0;
-`endif
-
-		initial	fifo_tail = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-			fifo_tail <= 0;
-		else if (reorder_fifo_valid)
-			fifo_tail <= fifo_tail + 1'b1;
-
-		initial	o_wb_ack  = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-			o_wb_ack <= 0;
-		else
-			o_wb_ack <= (reorder_fifo_valid)&&(i_wb_cyc)&&(!wb_abort);
-
-		initial	o_wb_err  = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-			o_wb_err <= 0;
-		else
-			o_wb_err <= (reorder_fifo_err)&&(i_wb_cyc)&&(!wb_abort);
-
-		reg	r_fifo_full;
-		initial	r_fifo_full = 0;
-		always @(posedge i_clk)
-		if (i_reset)
-			r_fifo_full <= 0;
-		else begin
-			if ((i_wb_stb)&&(!o_wb_stall)
-					&&(reorder_fifo_valid))
-				r_fifo_full <= (fifo_tail==n_fifo_head);
-			else if ((i_wb_stb)&&(!o_wb_stall))
-				r_fifo_full <= (fifo_tail==nn_fifo_head);
-			else if (reorder_fifo_valid)
-				r_fifo_full <= 1'b0;
-			else
-				r_fifo_full <= (fifo_tail==n_fifo_head);
-		end
-
-		assign w_fifo_full = r_fifo_full;
-	end endgenerate
-
-	//
-	// Wishbone abort logic
-	//
-
-	// Did we just accept something?
-	initial	wb_cyc_stb = 1'b0;
-	always @(posedge i_clk)
-	if (i_reset)
-		wb_cyc_stb <= 1'b0;
-	else
-		wb_cyc_stb <= (i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall);
-
-	// Else, are we mid-cycle?
-	initial	wb_mid_cycle = 0;
-	always @(posedge i_clk)
-	if (i_reset)
-		wb_mid_cycle <= 0;
-	else if ((fifo_head != fifo_tail)
-			||(o_axi_arvalid)||(o_axi_awvalid)
-			||(o_axi_wvalid)
-			||(i_wb_cyc)&&(i_wb_stb)&&(!o_wb_stall))
-		wb_mid_cycle <= 1'b1;
-	else
-		wb_mid_cycle <= 1'b0;
-
-	initial	wb_mid_abort = 0;
-	always @(posedge i_clk)
-	if (i_reset)
-		wb_mid_abort <= 0;
-	else if (wb_mid_cycle)
-		wb_mid_abort <= (wb_mid_abort)||(!i_wb_cyc);
-	else
-		wb_mid_abort <= 1'b0;
-
-	assign	wb_abort = ((wb_mid_cycle)&&(!i_wb_cyc))||(wb_mid_abort);
-
-	// Now, the difficult signal ... the stall signal
-	// Let's build for a single cycle input ... and only stall if something
-	// outgoing is valid and nothing is ready.
-	assign	o_wb_stall = (i_wb_cyc)&&(
-				(w_fifo_full)||(wb_mid_abort)
-				||((o_axi_awvalid)&&(!i_axi_awready))
-				||((o_axi_wvalid )&&(!i_axi_wready ))
-				||((o_axi_arvalid)&&(!i_axi_arready)));
-
 
 /////////////////////////////////////////////////////////////////////////
-//
-//
 //
 // Formal methods section
 //
-// These are only relevant when *proving* that this translator works
-//
-//
+// Below ar a scattering of the formal properties used.  They are not the
+// complete set of properties.  Those are maintained elsewhere.
 //
 /////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
-	reg	f_err_state;
-//
-`ifdef	WBM2AXISP
-// If we are the top-level of the design ...
-`define	ASSUME	assume
-`define	FORMAL_CLOCK	assume(i_clk == !f_last_clk); f_last_clk <= i_clk;
-`else
-`define	ASSUME	assert
-`define	FORMAL_CLOCK	f_last_clk <= i_clk; // Clock will be given to us valid already
-`endif
-
-	reg	[4:0]	f_reset_counter;
-	initial	f_reset_counter = 1'b0;
-	always @(posedge i_clk)
-	if ((i_reset)&&(f_reset_counter < 5'h1f))
-		f_reset_counter <= f_reset_counter + 1'b1;
-	else if (!i_reset)
-		f_reset_counter <= 0;
-
-	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_reset))&&($past(f_reset_counter < 5'h10)))
-		assume(i_reset);
+	//
+	// ...
+	//
 
 	// Parameters
-	initial	assert(	  (C_AXI_DATA_WIDTH / DW == 4)
+	initial	assert(	  (C_AXI_DATA_WIDTH / DW ==32)
+			||(C_AXI_DATA_WIDTH / DW ==16)
+			||(C_AXI_DATA_WIDTH / DW == 8)
+			||(C_AXI_DATA_WIDTH / DW == 4)
 			||(C_AXI_DATA_WIDTH / DW == 2)
 			||(C_AXI_DATA_WIDTH      == DW));
 	//
-	initial	assert( C_AXI_ADDR_WIDTH - LG_AXI_DW + LG_WB_DW == AW);
+	initial	assert( C_AXI_ADDR_WIDTH == AW + (LG_WB_DW-3));
 
-	//
-	// Setup
-	//
-
-	reg	f_past_valid, f_last_clk;
-
-	always @($global_clock)
-	begin
-		`FORMAL_CLOCK
-
-		// Assume our inputs will only change on the positive edge
-		// of the clock
-		if (!$rose(i_clk))
-		begin
-			// AXI inputs
-			`ASSUME($stable(i_axi_awready));
-			`ASSUME($stable(i_axi_wready));
-			`ASSUME($stable(i_axi_bid));
-			`ASSUME($stable(i_axi_bresp));
-			`ASSUME($stable(i_axi_bvalid));
-			`ASSUME($stable(i_axi_arready));
-			`ASSUME($stable(i_axi_rid));
-			`ASSUME($stable(i_axi_rresp));
-			`ASSUME($stable(i_axi_rvalid));
-			`ASSUME($stable(i_axi_rdata));
-			`ASSUME($stable(i_axi_rlast));
-			// Wishbone inputs
-			`ASSUME((i_reset)||($stable(i_reset)));
-			`ASSUME($stable(i_wb_cyc));
-			`ASSUME($stable(i_wb_stb));
-			`ASSUME($stable(i_wb_we));
-			`ASSUME($stable(i_wb_addr));
-			`ASSUME($stable(i_wb_data));
-			`ASSUME($stable(i_wb_sel));
-		end
-	end
-
-	initial	f_past_valid = 1'b0;
-	always @(posedge i_clk)
-		f_past_valid <= 1'b1;
 
 	//////////////////////////////////////////////
 	//
@@ -745,50 +530,45 @@ module wbm2axisp #(
 	//
 	//
 	//////////////////////////////////////////////
-	assume property(f_past_valid || i_reset);
+	//
+	// ...
 
-	wire	[(C_AXI_ID_WIDTH-1):0]	f_wb_nreqs, f_wb_nacks,f_wb_outstanding;
 	fwb_slave #(.DW(DW),.AW(AW),
 			.F_MAX_STALL(0),
 			.F_MAX_ACK_DELAY(0),
-			.F_LGDEPTH(C_AXI_ID_WIDTH),
-			.F_MAX_REQUESTS((1<<(C_AXI_ID_WIDTH))-2))
+			.F_LGDEPTH(F_LGDEPTH),
+			.F_MAX_REQUESTS(0))
 		f_wb(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr,
 					i_wb_data, i_wb_sel,
 				o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
 			f_wb_nreqs, f_wb_nacks, f_wb_outstanding);
 
-	wire	[(C_AXI_ID_WIDTH-1):0]	f_axi_rd_outstanding,
-					f_axi_wr_outstanding,
-					f_axi_awr_outstanding;
+	//////////////////////////////////////////////
+	//
+	//
+	// Assumptions about the AXI inputs
+	//
+	//
+	//////////////////////////////////////////////
 
-	wire	[((1<<C_AXI_ID_WIDTH)-1):0]	f_axi_rd_id_outstanding,
-						f_axi_wr_id_outstanding,
-						f_axi_awr_id_outstanding;
 
 	faxi_master #(
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
-		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
-		.F_AXI_MAXSTALL(3),
-		.F_AXI_MAXDELAY(3),
-		.F_STRICT_ORDER(STRICT_ORDER),
-		.F_CONSECUTIVE_IDS(1'b1),
-		.F_OPT_BURSTS(1'b0),
-		.F_CHECK_IDS(1'b1))
+		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH))
 		f_axi(.i_clk(i_clk), .i_axi_reset_n(!i_reset),
 			// Write address channel
-			.i_axi_awready(i_axi_awready), 
-			.i_axi_awid(   o_axi_awid), 
-			.i_axi_awaddr( o_axi_awaddr), 
-			.i_axi_awlen(  o_axi_awlen), 
-			.i_axi_awsize( o_axi_awsize), 
-			.i_axi_awburst(o_axi_awburst), 
-			.i_axi_awlock( o_axi_awlock), 
-			.i_axi_awcache(o_axi_awcache), 
-			.i_axi_awprot( o_axi_awprot), 
-			.i_axi_awqos(  o_axi_awqos), 
-			.i_axi_awvalid(o_axi_awvalid), 
+			.i_axi_awready(i_axi_awready),
+			.i_axi_awid(   o_axi_awid),
+			.i_axi_awaddr( o_axi_awaddr),
+			.i_axi_awlen(  o_axi_awlen),
+			.i_axi_awsize( o_axi_awsize),
+			.i_axi_awburst(o_axi_awburst),
+			.i_axi_awlock( o_axi_awlock),
+			.i_axi_awcache(o_axi_awcache),
+			.i_axi_awprot( o_axi_awprot),
+			.i_axi_awqos(  o_axi_awqos),
+			.i_axi_awvalid(o_axi_awvalid),
 			// Write data channel
 			.i_axi_wready( i_axi_wready),
 			.i_axi_wdata(  o_axi_wdata),
@@ -820,25 +600,85 @@ module wbm2axisp #(
 			.i_axi_rlast(  i_axi_rlast),
 			.i_axi_rready( o_axi_rready),
 			// Counts
-			.f_axi_rd_outstanding( f_axi_rd_outstanding),
-			.f_axi_wr_outstanding( f_axi_wr_outstanding),
-			.f_axi_awr_outstanding( f_axi_awr_outstanding),
-			// Outstanding ID's
-			.f_axi_rd_id_outstanding( f_axi_rd_id_outstanding),
-			.f_axi_wr_id_outstanding( f_axi_wr_id_outstanding),
-			.f_axi_awr_id_outstanding(f_axi_awr_id_outstanding)
+			.f_axi_awr_nbursts(f_axi_awr_nbursts),
+			.f_axi_wr_pending(f_axi_wr_pending),
+			.f_axi_rd_nbursts(f_axi_rd_nbursts),
+			.f_axi_rd_outstanding(f_axi_rd_outstanding)
+			//
+			// ...
+			//
 		);
 
+	always @(*)
+	if (!flushing && i_wb_cyc)
+		assert(f_wb_outstanding == npending
+			+ ( ((C_AXI_DATA_WIDTH != DW)
+				&& (o_wb_ack|o_wb_err))? 1:0));
 
+	always @(*)
+	if (f_axi_awr_nbursts > 0)
+	begin
+		assert(direction);
+		assert(f_axi_rd_nbursts == 0);
+		assert(f_axi_awr_nbursts + (o_axi_awvalid ? 1:0)
+				+ (r_stb ? 1:0) == npending);
+		assert(f_axi_wr_pending == (o_axi_wvalid&&!o_axi_awvalid ? 1:0));
+
+		//
+		// ...
+		//
+	end
+	always @(*)
+	if (o_axi_awvalid)
+		assert(o_axi_wvalid);
+
+	// Some quick read checks
+	always @(*)
+	if (f_axi_rd_nbursts > 0)
+	begin
+		assert(!direction);
+		assert(f_axi_rd_nbursts+(r_stb ? 1:0) +(o_axi_arvalid ? 1:0)
+				== npending);
+		assert(f_axi_awr_nbursts == 0);
+
+		//
+		// ...
+		//
+	end
+
+	always @(*)
+	if (direction)
+	begin
+		assert(npending == (r_stb ? 1:0) + (o_axi_awvalid ? 1:0)
+			+ f_axi_awr_nbursts);
+		assert(!o_axi_arvalid);
+		assert(f_axi_rd_nbursts == 0);
+		assert(!i_axi_rvalid);
+	end else begin
+		assert(npending == (r_stb ? 1:0) + (o_axi_arvalid ? 1:0)
+			+ f_axi_rd_nbursts);
+		assert(!o_axi_awvalid);
+		assert(!o_axi_wvalid);
+		assert(f_axi_awr_nbursts == 0);
+	end
 
 	//////////////////////////////////////////////
 	//
 	//
-	// Assumptions about the AXI inputs
+	// Pending counter properties
 	//
 	//
 	//////////////////////////////////////////////
 
+	always @(*)
+	begin
+		assert(npending <= { 1'b1, {(LGFIFO){1'b0}} });
+		assert(empty == (npending == 0));
+		assert(full == (npending == {1'b1, {(LGFIFO){1'b0}}}));
+		assert(nearfull == (npending >= {1'b0, {(LGFIFO){1'b1}}}));
+		if (full)
+			assert(o_wb_stall);
+	end
 
 	//////////////////////////////////////////////
 	//
@@ -847,16 +687,6 @@ module wbm2axisp #(
 	//
 	//
 	//////////////////////////////////////////////
-
-	wire	[(LGFIFOLN-1):0]	f_last_transaction_id;
-	assign	f_last_transaction_id = transaction_id- 1;
-	always @(posedge i_clk)
-	if ((f_past_valid)&&(!$past(i_reset)))
-	begin
-		assert(o_axi_awid == f_last_transaction_id);
-		if ($past(o_wb_stall))
-			assert($stable(o_axi_awid));
-	end
 
 	// Write response channel
 	always @(posedge i_clk)
@@ -871,167 +701,28 @@ module wbm2axisp #(
 		assert(o_axi_rready);
 
 	//
-	// Let's look into write requests
-	//
-	initial	assert(!o_axi_awvalid);
-	initial	assert(!o_axi_wvalid);
-	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we))&&(!$past(o_wb_stall)))
-	begin
-		if ($past(i_reset))
-		begin
-			assert(!o_axi_awvalid);
-			assert(!o_axi_wvalid);
-		end else begin
-			// Following any write request that we accept, awvalid
-			// and wvalid should both be true
-			assert(o_axi_awvalid);
-			assert(o_axi_wvalid);
-		end
-	end
-
-	// Let's assume all responses will come within 120 clock ticks
-	parameter	[(C_AXI_ID_WIDTH-1):0]	F_AXI_MAXDELAY = 3,
-						F_AXI_MAXSTALL = 3; // 7'd120;
-	localparam	[(C_AXI_ID_WIDTH):0]	F_WB_MAXDELAY = F_AXI_MAXDELAY + 4;
-
-	//
 	// AXI write address channel
 	//
-	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
+	//
+	always @(*)
 	begin
-		if (($past(i_reset))||(!$past(i_wb_stb)))
-			assert(!o_axi_awvalid);
-		else
-			assert(o_axi_awvalid == $past(i_wb_we));
+		if (o_axi_awvalid || o_axi_wvalid || f_axi_awr_nbursts>0)
+			assert(direction);
+		//
+		// ...
+		//
 	end
-	//
-	generate
-	if (C_AXI_DATA_WIDTH      == DW)
-	begin
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
-			&&(!$past(o_wb_stall)))
-			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:0]), axi_bottom_addr });
-
-	end else if (C_AXI_DATA_WIDTH / DW == 2)
-	begin
-
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
-			&&(!$past(o_wb_stall)))
-			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:1]), axi_bottom_addr });
-
-	end else if (C_AXI_DATA_WIDTH / DW == 4)
-	begin
-
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_cyc))&&($past(i_wb_stb))&&($past(i_wb_we))
-			&&(!$past(o_wb_stall)))
-			assert(o_axi_awaddr == { $past(i_wb_addr[AW-1:2]), axi_bottom_addr });
-
-	end endgenerate
-
-	//
-	// AXI write data channel
-	//
-	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
-	begin
-		if (($past(i_reset))||(!$past(i_wb_stb)))
-			assert(!o_axi_wvalid);
-		else
-			assert(o_axi_wvalid == $past(i_wb_we));
-	end
-	//
-	generate
-	if (C_AXI_DATA_WIDTH == DW)
-	begin
-
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we)))
-		begin
-			assert(o_axi_wdata == $past(i_wb_data));
-			assert(o_axi_wstrb == $past(i_wb_sel));
-		end
-
-	end else if (C_AXI_DATA_WIDTH / DW == 2)
-	begin
-
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_stb))&&($past(i_wb_we)))
-		begin
-			case($past(i_wb_addr[0]))
-			1'b0: assert(o_axi_wdata[(  DW-1): 0] == $past(i_wb_data));
-			1'b1: assert(o_axi_wdata[(2*DW-1):DW] == $past(i_wb_data));
-			endcase
-
-			case($past(i_wb_addr[0]))
-			1'b0: assert(o_axi_wstrb == {  no_sel,$past(i_wb_sel)});
-			1'b1: assert(o_axi_wstrb == {  $past(i_wb_sel),no_sel});
-			endcase
-		end
-
-	end else if (C_AXI_DATA_WIDTH / DW == 4)
-	begin
-
-		always @(posedge i_clk)
-		if ((f_past_valid)&&($past(i_wb_stb))&&(!$past(o_wb_stall))&&($past(i_wb_we)))
-		begin
-			case($past(i_wb_addr[1:0]))
-			2'b00: assert(o_axi_wdata[  (DW-1):    0 ] == $past(i_wb_data));
-			2'b00: assert(o_axi_wdata[(2*DW-1):(  DW)] == $past(i_wb_data));
-			2'b00: assert(o_axi_wdata[(3*DW-1):(2*DW)] == $past(i_wb_data));
-			2'b11: assert(o_axi_wdata[(4*DW-1):(3*DW)] == $past(i_wb_data));
-			endcase
-
-			case($past(i_wb_addr[1:0]))
-			2'b00: assert(o_axi_wstrb == { {(3){no_sel}},$past(i_wb_sel)});
-			2'b01: assert(o_axi_wstrb == { {(2){no_sel}},$past(i_wb_sel), {(1){no_sel}}});
-			2'b10: assert(o_axi_wstrb == { {(1){no_sel}},$past(i_wb_sel), {(2){no_sel}}});
-			2'b11: assert(o_axi_wstrb == {       $past(i_wb_sel),{(3){no_sel}}});
-			endcase
-		end
-	end endgenerate
-
 	//
 	// AXI read address channel
 	//
-	initial	assert(!o_axi_arvalid);
-	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_wb_cyc))&&(!$past(o_wb_stall)))
+	always @(*)
 	begin
-		if (($past(i_reset))||(!$past(i_wb_stb)))
-			assert(!o_axi_arvalid);
-		else
-			assert(o_axi_arvalid == !$past(i_wb_we));
+		if (o_axi_arvalid || i_axi_rvalid || f_axi_rd_nbursts > 0)
+			assert(!direction);
+		//
+		// ...
+		//
 	end
-	//
-	generate
-	if (C_AXI_DATA_WIDTH == DW)
-	begin
-		always @(posedge i_clk)
-			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
-				&&(!$past(o_wb_stall)))
-				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:0], axi_bottom_addr }));
-
-	end else if (C_AXI_DATA_WIDTH / DW == 2)
-	begin
-
-		always @(posedge i_clk)
-			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
-				&&(!$past(o_wb_stall)))
-				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:1], axi_bottom_addr }));
-
-	end else if (C_AXI_DATA_WIDTH / DW == 4)
-	begin
-		always @(posedge i_clk)
-			if ((f_past_valid)&&($past(i_wb_stb))&&($past(!i_wb_we))
-				&&(!$past(o_wb_stall)))
-				assert(o_axi_araddr == $past({ i_wb_addr[AW-1:2], axi_bottom_addr }));
-
-	end endgenerate
 
 	//
 	// AXI write response channel
@@ -1041,167 +732,213 @@ module wbm2axisp #(
 	//
 	// AXI read data channel signals
 	//
-	always @(posedge i_clk)
-		`ASSUME(f_axi_rd_outstanding <= f_wb_outstanding);
+
 	//
-	always @(posedge i_clk)
-		`ASSUME(f_axi_rd_outstanding + f_axi_wr_outstanding  <= f_wb_outstanding);
-	always @(posedge i_clk)
-		`ASSUME(f_axi_rd_outstanding + f_axi_awr_outstanding <= f_wb_outstanding);
+	// Bus contract
 	//
-	always @(posedge i_clk)
-		`ASSUME(f_axi_rd_outstanding + f_axi_wr_outstanding +2 > f_wb_outstanding);
-	always @(posedge i_clk)
-		`ASSUME(f_axi_rd_outstanding + f_axi_awr_outstanding +2 > f_wb_outstanding);
 
-	// Make sure we only create one request at a time
+	(* anyconst *) reg [C_AXI_ADDR_WIDTH-1:0]	f_const_addr;
+	reg		[C_AXI_DATA_WIDTH-1:0]		f_data;
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Assume a basic bus response to the given data and address
+	//
+	//
+	integer	iN;
+
+	initial	f_data = 0;
 	always @(posedge i_clk)
-		assert((!o_axi_arvalid)||(!o_axi_wvalid));
-	always @(posedge i_clk)
-		assert((!o_axi_arvalid)||(!o_axi_awvalid));
-
-	// Now, let's look into that FIFO.  Without it, we know nothing about the ID's
-
-	// Error handling
-	always @(posedge i_clk)
-		if (!i_wb_cyc)
-			f_err_state <= 0;
-		else if (o_wb_err)
-			f_err_state <= 1;
-	always @(posedge i_clk)
-		if ((f_past_valid)&&($past(f_err_state))&&(
-				(!$past(o_wb_stall))||(!$past(i_wb_stb))))
-			`ASSUME(!i_wb_stb);
-
-	// Head and tail pointers
-
-	// The head should only increment when something goes through
-	always @(posedge i_clk)
-		if ((f_past_valid)&&(!$past(i_reset))
-				&&((!$past(i_wb_stb))||($past(o_wb_stall))))
-			assert($stable(fifo_head));
-
-	// Can't overrun the FIFO
-	wire	[(LGFIFOLN-1):0]	f_fifo_tail_minus_one;
-	assign	f_fifo_tail_minus_one = fifo_tail - 1'b1;
-	always @(posedge i_clk)
-	if ((!f_past_valid)||($past(i_reset)))
-		assert(fifo_head == fifo_tail);
-	else if ((f_past_valid)&&($past(fifo_head == f_fifo_tail_minus_one)))
-		assert(fifo_head != fifo_tail);
-
-	reg			f_pre_ack;
-
-	wire	[(LGFIFOLN-1):0]	f_fifo_used;
-	assign	f_fifo_used = fifo_head - fifo_tail;
-
-	initial	assert(fifo_tail == 0);
-	initial assert(reorder_fifo_valid        == 0);
-	initial assert(reorder_fifo_err          == 0);
-	initial f_pre_ack = 1'b0;
-	always @(posedge i_clk)
+	if (o_axi_wvalid && i_axi_wready && o_axi_awaddr == f_const_addr)
 	begin
-		f_pre_ack <= (!wb_abort)&&((axi_rd_ack)||(axi_wr_ack));
-		if (STRICT_ORDER)
+		for(iN=0; iN<C_AXI_DATA_WIDTH/8; iN=iN+1)
 		begin
-			`ASSUME((!axi_rd_ack)||(!axi_wr_ack));
-
-			if ((f_past_valid)&&(!$past(i_reset)))
-				assert((!$past(i_wb_cyc))
-					||(o_wb_ack == $past(f_pre_ack)));
+			if (o_axi_wstrb[iN])
+				f_data[8*iN +: 8] <= o_axi_wdata[8*iN +: 8];
 		end
 	end
 
+	always @(*)
+	if (i_axi_rvalid && o_axi_rready && f_axi_rd_ckvalid
+			&& (f_axi_rd_ckaddr == f_const_addr))
+		assume(i_axi_rdata == f_data);
+
+	////////////////////////////////////////////////////////////////////////
 	//
-	// Verify that there are no outstanding requests outside of the FIFO
-	// window.  This should never happen, but the formal tools need to know
-	// that.
+	// Prove that a write to this address will change this value
 	//
+	//
+	(* anyconst *)	reg	[DW-1:0]	f_wb_data;
+	(* anyconst *)	reg	[DW/8-1:0]	f_wb_strb;
+			reg	[AW-1:0]	f_wb_addr;
+			reg	[C_AXI_DATA_WIDTH-1:0]		f_axi_data;
+			reg	[C_AXI_DATA_WIDTH/8-1:0]	f_axi_strb;
+
+	//
+	// ...
+	//
+
+	always @(*)
+		f_wb_addr = f_const_addr[C_AXI_ADDR_WIDTH-1:DWSIZE];
+	always @(*)
+		assume(f_const_addr[$clog2(DW)-4:0] == 0);
+	always @(*)
+		f_axi_data = {(C_AXI_DATA_WIDTH/DW){f_wb_data}};
+
+	//
+	// ...
+	//
+
 	always @(*)
 	begin
-		assert((f_axi_rd_id_outstanding&f_axi_wr_id_outstanding)==0);
-		assert((f_axi_rd_id_outstanding&f_axi_awr_id_outstanding)==0);
-
-		if (fifo_head == fifo_tail)
+		f_valid_wb_response = 1;
+		for(iN=0; iN<DW/8; iN=iN+1)
 		begin
-			assert(f_axi_rd_id_outstanding  == 0);
-			assert(f_axi_wr_id_outstanding  == 0);
-			assert(f_axi_awr_id_outstanding == 0);
-		end
-
-		for(k=0; k<(1<<LGFIFOLN); k=k+1)
-		begin
-			if (      ((fifo_tail < fifo_head)&&(k <  fifo_tail))
-				||((fifo_tail < fifo_head)&&(k >= fifo_head))
-				||((fifo_head < fifo_tail)&&(k >= fifo_head)&&(k < fifo_tail))
-				//||((fifo_head < fifo_tail)&&(k >=fifo_tail))
-				)
-			begin
-				assert(f_axi_rd_id_outstanding[k]==0);
-				assert(f_axi_wr_id_outstanding[k]==0);
-				assert(f_axi_awr_id_outstanding[k]==0);
-			end
+			if (f_wb_strb[iN] && (o_wb_data[iN*8 +: 8] != f_wb_data[iN*8 +: 8]))
+				f_valid_wb_response = 0;
 		end
 	end
 
-	generate
-	if (STRICT_ORDER)
-	begin : STRICTREQ
 
-		reg	[C_AXI_ID_WIDTH-1:0]	f_last_axi_id;
-		wire	[C_AXI_ID_WIDTH-1:0]	f_next_axi_id,
-						f_expected_last_id;
-		assign	f_next_axi_id = f_last_axi_id + 1'b1;
-		assign	f_expected_last_id = fifo_head - 1'b1 - f_fifo_used;
+	always @(*)
+	begin
+		f_valid_axi_data = 1;
+		for(iN=0; iN<C_AXI_DATA_WIDTH/8; iN=iN+1)
+		begin
+			if (f_axi_strb[iN] && (f_axi_data[iN*8 +: 8] != f_data[iN*8 +: 8]))
+				f_valid_axi_data = 0;
+		end
+	end
 
-		initial	f_last_axi_id = -1;
-		always @(posedge i_clk)
-			if (i_reset)
-				f_last_axi_id = -1;
-			else if ((axi_rd_ack)||(axi_wr_ack))
-				f_last_axi_id <= f_next_axi_id;
-			else if (f_fifo_used == 0)
-				assert(f_last_axi_id == fifo_head-1'b1);
+	always @(*)
+	begin
+		f_valid_axi_response = 1;
+		for(iN=0; iN<C_AXI_DATA_WIDTH/8; iN=iN+1)
+		begin
+			if (f_axi_strb[iN] && (i_axi_rdata[iN*8 +: 8] != f_data[iN*8 +: 8]))
+				f_valid_axi_response = 0;
+		end
+	end
 
-		always @(posedge i_clk)
-			if (axi_rd_ack)
-				`ASSUME(i_axi_rid == f_next_axi_id);
-			else if (axi_wr_ack)
-				`ASSUME(i_axi_bid == f_next_axi_id);
+	//
+	// ...
+	//
+
+	generate if (DW == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(*)
+			f_axi_strb = f_wb_strb;
+
+	end else if (DW*2 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(*)
+		begin
+			if (f_wb_addr[0])
+				f_axi_strb   <= { f_wb_strb, {(DW/8){1'b0}} };
+			else
+				f_axi_strb   <= { {(DW/8){1'b0}}, f_wb_strb };
+		end
+
+	end else if (DW*4 == C_AXI_DATA_WIDTH)
+	begin
+
+		always @(*)
+		begin
+		case(~f_wb_addr[1:0])
+		2'b00: f_axi_strb   = { f_wb_strb, {(3*DW/8){1'b0}} };
+		2'b01: f_axi_strb   = { {(  DW/8){1'b0}}, f_wb_strb, {(2*DW/8){1'b0}} };
+		2'b10: f_axi_strb   = { {(2*DW/8){1'b0}}, f_wb_strb, {(  DW/8){1'b0}} };
+		2'b11: f_axi_strb   = { {(3*DW/8){1'b0}}, f_wb_strb };
+		endcase
+		end
+
+	end else if // ...
+	//
+	// ...
+	//
+
 	end endgenerate
 
-	reg	f_pending, f_returning;
-	initial	f_pending = 1'b0;
-	always @(*)
-		f_pending <= (o_axi_arvalid)||(o_axi_awvalid);
-	always @(*)
-		f_returning <= (axi_rd_ack)||(axi_wr_ack);
+	generate if (DW != C_AXI_DATA_WIDTH)
+	begin
 
-	reg	[(LGFIFOLN):0]	f_pre_count;
-
-	always @(*)
-		f_pre_count <= f_axi_awr_outstanding
-		 	+ f_axi_rd_outstanding
-			+ reorder_count
-			+ { {(LGFIFOLN){1'b0}}, (o_wb_ack) }
-			+ { {(LGFIFOLN){1'b0}}, (f_pending) };
-	always @(posedge i_clk)
-		assert((wb_abort)||(o_wb_err)||(f_pre_count == f_wb_outstanding));
-
-	always @(posedge i_clk)
-		assert((wb_abort)||(o_wb_err)||(f_fifo_used == f_wb_outstanding
-					// + {{(LGFIFOLN){1'b0}},f_past_valid)(i_wb_stb)&&(!o_wb_ack)}
-					- {{(LGFIFOLN){1'b0}},(o_wb_ack)}));
-
-	always @(posedge i_clk)
-		if (o_axi_wvalid)
-			assert(f_fifo_used != 0);
-	always @(posedge i_clk)
-		if (o_axi_arvalid)
-			assert(f_fifo_used != 0);
-	always @(posedge i_clk)
+		always @(*)
 		if (o_axi_awvalid)
-			assert(f_fifo_used != 0);
+			assert(o_axi_awaddr[DWSIZE-1:0] == 0);
+		always @(*)
+		if (o_axi_arvalid)
+			assert(o_axi_araddr[DWSIZE-1:0] == 0);
 
+	end endgenerate
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover checks
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	reg	[F_LGDEPTH-1:0]	r_hit_reads, r_hit_writes,
+				r_check_fault, check_fault;
+
+	initial	r_hit_reads = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		r_hit_writes <= 0;
+	else if (f_axi_awr_nbursts > 3)
+		r_hit_writes <= 1;
+
+	initial	r_hit_reads = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		r_hit_reads <= 0;
+	else if (f_axi_rd_nbursts > 3)
+		r_hit_reads <= 1;
+
+	always @(*)
+	begin
+		check_fault = 0;
+		if (!i_wb_cyc && o_axi_awvalid)
+			check_fault = 1;
+		if (!i_wb_cyc && o_axi_wvalid)
+			check_fault = 1;
+		if (!i_wb_cyc && f_axi_awr_nbursts > 0)
+			check_fault = 1;
+		if (!i_wb_cyc && i_axi_bvalid)
+			check_fault = 1;
+		//
+		if (!i_wb_cyc && o_axi_arvalid)
+			check_fault = 1;
+		if (!i_wb_cyc && f_axi_rd_outstanding > 0)
+			check_fault = 1;
+		if (!i_wb_cyc && i_axi_rvalid)
+			check_fault = 1;
+		if (!i_wb_cyc && (o_wb_ack | o_wb_err))
+			check_fault = 1;
+
+		if (flushing)
+			check_fault = 1;
+	end
+
+	initial	r_check_fault = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		r_check_fault <= 0;
+	else if (check_fault)
+		r_check_fault <= 1;
+
+	always @(*)
+		cover(r_hit_writes && r_hit_reads && f_axi_rd_nbursts == 0
+			&& f_axi_awr_nbursts == 0
+			&& !o_axi_awvalid && !o_axi_arvalid && !o_axi_wvalid
+			&& !i_axi_bvalid && !i_axi_rvalid
+			&& !o_wb_ack && !o_wb_stall && !i_wb_stb
+			&& !check_fault && !r_check_fault);
+
+	//
+	// ...
+	//
 `endif
 endmodule

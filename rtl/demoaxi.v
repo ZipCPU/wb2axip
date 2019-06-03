@@ -389,6 +389,7 @@ module	demoaxi
 			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH),
 			// .F_OPT_NO_READS(1'b0),
 			// .F_OPT_NO_WRITES(1'b0),
+			.F_OPT_XILINX(1),
 			.F_LGDEPTH(F_LGDEPTH))
 		properties (
 		.i_clk(S_AXI_ACLK),

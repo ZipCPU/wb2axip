@@ -65,7 +65,6 @@ module	axi_addr(i_last_addr,
 	localparam [1:0]	WRAP      = 2'b10;
 
 	reg	[AW-1:0]	wrap_mask, increment;
-	integer	iB;
 
 	always @(*)
 	begin

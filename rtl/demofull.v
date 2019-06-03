@@ -224,14 +224,7 @@ module demofull #(
 	localparam	AW = C_S_AXI_ADDR_WIDTH;
 	localparam	DW = C_S_AXI_DATA_WIDTH;
 	localparam	IW = C_S_AXI_ID_WIDTH;
-	localparam	LSB = (C_S_AXI_DATA_WIDTH == 8) ? 0
-			: ((C_S_AXI_DATA_WIDTH ==  16) ? 1
-			: ((C_S_AXI_DATA_WIDTH ==  32) ? 2
-			: ((C_S_AXI_DATA_WIDTH ==  64) ? 3
-			: ((C_S_AXI_DATA_WIDTH == 128) ? 4
-			: ((C_S_AXI_DATA_WIDTH == 256) ? 5
-			: ((C_S_AXI_DATA_WIDTH == 512) ? 6
-			: 7))))));
+	localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3;
 
 	// Double buffer the write response channel only
 	reg	[IW-1 : 0]	r_bid;
@@ -291,7 +284,7 @@ module demofull #(
 	end else if (m_awvalid && m_awready)
 	begin
 		axi_awready <= 0;
-		axi_wready <= 1;
+		axi_wready  <= 1;
 	end else if (S_AXI_WVALID && S_AXI_WREADY)
 	begin
 		axi_awready <= (S_AXI_WLAST)&&(!S_AXI_BVALID || S_AXI_BREADY);
@@ -300,7 +293,7 @@ module demofull #(
 	begin
 		if (S_AXI_WREADY)
 			axi_awready <= 1'b0;
-		else if ( r_bvalid && !S_AXI_BREADY)
+		else if (r_bvalid && !S_AXI_BREADY)
 			axi_awready <= 1'b0;
 		else
 			axi_awready <= 1'b1;
@@ -399,7 +392,6 @@ module demofull #(
 	reg	[AW-1:0]	raddr;
 
 	initial axi_arready = 1;
-	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		axi_arready <= 1;
@@ -438,10 +430,18 @@ module demofull #(
 
 	axi_addr #(.AW(AW), .DW(DW))
 		get_next_rd_addr((S_AXI_ARREADY ? S_AXI_ARADDR : raddr),
-				(S_AXI_ARREADY ? S_AXI_ARSIZE  : rsize),
-				(S_AXI_ARBURST ? S_AXI_ARBURST : rburst),
-				(S_AXI_ARLEN   ? S_AXI_ARLEN   : rlen),
+				(S_AXI_ARREADY  ? S_AXI_ARSIZE : rsize),
+				(S_AXI_ARBURST  ? S_AXI_ARBURST: rburst),
+				(S_AXI_ARLEN    ? S_AXI_ARLEN  : rlen),
 				next_rd_addr);
+
+	always @(*)
+	begin
+		o_rd = (S_AXI_ARVALID || !S_AXI_ARREADY);
+		if (S_AXI_RVALID && !S_AXI_RREADY)
+			o_rd = 0;
+		o_raddr = (S_AXI_ARREADY ? S_AXI_ARADDR[AW-1:LSB] : raddr[AW-1:LSB]);
+	end
 
 	initial	axi_rvalid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -461,24 +461,16 @@ module demofull #(
 			axi_rid <= rid;
 	end
 
+	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
 		if (S_AXI_ARVALID && S_AXI_ARREADY)
 			axi_rlast <= (S_AXI_ARLEN == 0);
-		else if ((axi_rlen > 0)&&(S_AXI_RVALID))
+		else if (S_AXI_RVALID)
 			axi_rlast <= (axi_rlen == 2);
 		else
 			axi_rlast <= (axi_rlen == 1);
-	end
-
-
-	always @(*)
-	begin
-		o_rd = (S_AXI_ARVALID && S_AXI_ARREADY)||(!S_AXI_ARREADY);
-		if (S_AXI_RVALID && !S_AXI_RREADY)
-			o_rd = 0;
-		o_raddr = (S_AXI_ARREADY ? S_AXI_ARADDR[AW-1:LSB] : raddr[AW-1:LSB]);
 	end
 
 	always @(*)

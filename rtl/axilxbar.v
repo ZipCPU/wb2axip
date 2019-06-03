@@ -86,6 +86,7 @@
 module	axilxbar #(
 		parameter integer C_S_AXI_DATA_WIDTH = 32,
 		parameter integer C_S_AXI_ADDR_WIDTH = 32,
+		localparam	AW = C_S_AXI_ADDR_WIDTH,
 		//
 		// NM is the number of master interfaces this core supports
 		parameter	NM = 4,
@@ -183,7 +184,6 @@ module	axilxbar #(
 		input	wire	[NS-1:0]			S_AXI_RVALID,
 		output	wire	[NS-1:0]			S_AXI_RREADY
 	);
-	localparam	AW = C_S_AXI_ADDR_WIDTH;
 	localparam	DW = C_S_AXI_DATA_WIDTH;
 	localparam	LGLINGER = (OPT_LINGER>1) ? $clog2(OPT_LINGER+1) : 1;
 	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
@@ -1793,7 +1793,7 @@ module	axilxbar #(
 
 		always @(*)
 		if (S_AXI_ARESETN)
-			assert(fm_wr_outstanding[N] >= 
+			assert(fm_wr_outstanding[N] >=
 				(M_AXI_WREADY[N] ? 0:1)
 				+ (M_AXI_BVALID[N]? 1:0));
 
@@ -1823,13 +1823,13 @@ module	axilxbar #(
 		//
 		always @(*)
 		if (S_AXI_ARESETN)
-			assert(fm_rd_outstanding[N] >= 
+			assert(fm_rd_outstanding[N] >=
 				(M_AXI_ARREADY[N] ? 0:1)
 				+(M_AXI_RVALID[N] ? 1:0));
 
 		always @(*)
 		if (!mrgrant[N] || rgrant[N][NS])
-			assert(fm_rd_outstanding[N] == 
+			assert(fm_rd_outstanding[N] ==
 				(M_AXI_ARREADY[N] ? 0:1)
 				+(M_AXI_RVALID[N] ? 1:0));
 
@@ -1917,7 +1917,7 @@ module	axilxbar #(
 			.f_axi_awr_outstanding(fs_awr_outstanding[M]));
 
 		always @(*)
-		assert(fs_wr_outstanding[M] + (S_AXI_WVALID[M] ? 1:0) 
+		assert(fs_wr_outstanding[M] + (S_AXI_WVALID[M] ? 1:0)
 			<= fs_awr_outstanding[M] + (S_AXI_AWVALID[M]? 1:0));
 
 		always @(*)
@@ -2293,11 +2293,7 @@ module	axilxbar #(
 	generate for(N=0; N<NM; N=N+1)
 	begin
 
-//		always @(*)
-//			assume(!wgrant[N][NS]);
 
-//		always @(*)
-//			assume(!rgrant[N][NS]);
 	end endgenerate
 
 `endif
