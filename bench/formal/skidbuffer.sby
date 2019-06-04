@@ -1,6 +1,8 @@
 [tasks]
-prf
-lp prf opt_lowpower
+prfc prf
+prfo prf              opt_outreg
+lpc  prf opt_lowpower
+lpo  prf opt_lowpower opt_outreg
 cvr
 
 [options]
@@ -13,10 +15,12 @@ cvr: depth 20
 smtbmc
 
 [script]
+read -define SKIDBUFFER
 read -formal skidbuffer.v
 # --pycode-begin--
 # cmd = "hierarchy -top skidbuffer"
 # cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+# cmd += " -chparam OPT_OUTREG   %d" % (1 if "opt_outreg"   in tags else 0)
 # output(cmd);
 # --pycode-end--
 prep -top skidbuffer

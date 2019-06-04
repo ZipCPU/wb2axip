@@ -55,8 +55,8 @@ cvr: mode cover
 cvr: depth 64
 
 [engines]
-# smtbmc boolector
-smtbmc
+smtbmc boolector
+# smtbmc yices
 # smtbmc z3
 
 
@@ -64,18 +64,21 @@ smtbmc
 read -formal wbxbar.v
 read -formal fwb_slave.v
 read -formal fwb_master.v
-nxm: chparam -set NM 4 -set NS 8 wbxbar
-oxm: chparam -set NM 1 -set NS 8 wbxbar
-oxl: chparam -set NM 1 -set NS 3 wbxbar
-nxo: chparam -set NM 4 -set NS 1 wbxbar
-opt_dblbuffer:   chparam -set OPT_DBLBUFFER 1 wbxbar
-~opt_dblbuffer:  chparam -set OPT_DBLBUFFER 0 wbxbar
-opt_lowpower:    chparam -set OPT_LOWPOWER  1 wbxbar
-~opt_lowpower:   chparam -set OPT_LOWPOWER  0 wbxbar
-opt_timeout:     chparam -set OPT_TIMEOUT  20 wbxbar
-~opt_timeout:    chparam -set OPT_TIMEOUT   0 wbxbar
-opt_starvation:  chparam -set OPT_STARVATION_TIMEOUT  1 wbxbar
-~opt_starvation: chparam -set OPT_TIMEOUT   0 wbxbar
+--pycode-begin--
+cmd = "hierarchy -top axixbar"
+if ("nxm" in tags):
+	cmd += " -chparam  NM 4 -chparam NS 8"
+if ("oxm" in tags):
+	cmd += " -chparam  NM 1 -chparam NS 8"
+if ("oxl" in tags):
+	cmd += " -chparam  NM 1 -chparam NS 3"
+if ("nxo" in tags):
+	cmd += " -chparam  NM 4 -chparam NS 1"
+cmd += " -chparam OPT_DBLBUFFER %d" % (1  if "opt_dblbuffer" in tags else 0)
+cmd += " -chparam OPT_LOWPOWER  %d" % (1  if "opt_lowpower"  in tags else 0)
+cmd += " -chparam OPT_TIMEOUT   %d" % (20 if "opt_timeout"   in tags else 0)
+cmd += " -chparam OPT_STARVATION_TIMEOUT %d" % (1 if "opt_starvation" in tags else 0)
+--pycode-end--
 prep -top wbxbar
 
 [files]

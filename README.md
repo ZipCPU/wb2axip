@@ -22,7 +22,7 @@ and like the original one it has also been formally verified.
 
 As of 20181228, the project now contains an
 [AXI4 lite read channel to wishbone interface](rtl/axilrd2wbsp.v), and also an
-[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).  
+[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).
 A third core, the [AXI-lite to WB core](rtl/axlite2wbsp.v) combines these
 two together using a  [Wishbone arbiter](rtl/wbartbiter.v).  All four of these
 designs have been *formally verified*, and should be reliable to use.
@@ -30,17 +30,31 @@ designs have been *formally verified*, and should be reliable to use.
 As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
 FPGA proven.
 
-The full AXI to WB bridge, however, remains a work in progress.  This includes
-the [write half](rtl/aximwr2wbsp.v), [read half](rtl/aximrd2wbsp.v), and the
-[read/write wrapper](rtl/axim2wbsp.v).
+The full AXI to WB bridge, however, ris rather complicated--especially
+when [compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
+result, while there is a full-fledged
+[AXI4 to Wishbone bridge](rtl/axim2wbsp.v) within this project,
+this bridge is still not ready for prime time.  It is designed to
+synchronize the write channels, turning AXI read-write requests into pipeline
+wishbone requests, maintaining the AXI ID fields, handle burst transactions,
+etc. The only problem is ...
+this full AXI4 to WB converter _doesn't work_ (yet).  At best, it is a work
+in progress.
+
+If you need an AXI4 to WB capability, consider using this [AXI2AXILITE](rtl/axi2axilite.v) core to bridge from AXI to AXI-lite, and then [this AXI-lite to WB
+bridge](rtl/axlite2wbsp.v) bridge to get to wishbone pipeline.  If you need
+WB classic, you can then use [this pipeline to classic
+bridge](rtl/wbp2classic.v).
 
 # Wishbone pipeline to WB Classic
 
-As of 20190424, there's now a [Wishbone (pipelined, master) to Wishbone
+There's also a [Wishbone (pipelined, master) to Wishbone
 (classic, slave)](rtl/wbp2classic.v) bridge, as well as the reverse
 [Wishbone (classic, master) to Wishbone (pipelined, slave)](rtl/wbc2pipeline.v)
-bridge.  It's recent as of this writing, but it has passed its formal tests.
-As written, it can only support Classic transactions.
+bridge.  Both of these have passed their formal tests.  They are accompanied
+by a set of formal properties for Wishbone classic, both for
+[slaves](bench/formal/fwbc_slave.v) as well as
+[masters](bench/formal/fwbc_master.v).
 
 # Formal Verification
 
@@ -85,7 +99,8 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   *This core has been formally verified.*
 
   While I haven't tested Xilinx's interconnect to know, if the quality of
-  [their demonstration AXI-lite slave core](bench/formal/xlnxdemo.v) is any
+  [their demonstration AXI-lite slave
+  core](http://zipcpu.com/formal/2018/12/28/axilite.html) is any
   indication, then this cross-bar should easily outperform anything they have.
   The key unusual feature?  The ability to maintain one transaction per clock
   over an extended period of time across any channel pair.
@@ -95,8 +110,8 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
   Unique to this (full) AXI core is the ability to have multiple ongoing
   transactions on each of the master-to-slave channels.  Were Xilinx's
-  crossbar to do this, it would've broken their [demonstration AXI4 slave
-  core](bench/formal/xlnxfull_2018_3.v).
+  crossbar to do this, it would've broken their [demonstration AXI-full slave
+  core](http://zipcpu.com/formal/2019/05/13/axifull.html).
 
   *This core has been formally verified.*
 
@@ -104,8 +119,8 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   power and capability than Xilinx's demonstration AXI-lite slave core.
   Particular differences include 1) this one passes a formal verification check
   (Xilinx's core has bugs), and 2) this one can handle a maximum throughput of
-  one transaction per clock.  (Theirs did at best one transactions every other
-  clock period.) You can read more about this [demonstration AXI-lite slave
+  one transaction per clock.  (Theirs did at best one transaction every other
+  clock period.)  You can read more about this [demonstration AXI-lite slave
   core](rtl/demoaxi.v) on [ZipCPU.com](http://zipcpu.com) in
   [this article](http://zipcpu.com/blog/2019/01/12/demoaxilite.html).
 
@@ -117,9 +132,11 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   *full* AXI protocol.  Still, it's sufficient for most needs.
 
   Unlike [Xilinx's demonstration AXI4 slave
-  core](bench/formal/xlnxfull_2018_3.v), [this one](rtl/demofull.v) can handle
-  100% loading on both read and write channels.  That is, it can handle one
-  read or write data beat per channel per clock with no stalls between bursts.
+  core](http://zipcpu.com/formal/2019/05/13/axifull.html),
+  [this one](rtl/demofull.v) can handle 100% loading on both read and write
+  channels simultaneously.  That is, it can handle one read and one write beat
+  per channel per clock with no stalls between bursts if the environment will
+  allow it.
 
   *This core has been formally verified.*
 
@@ -133,6 +150,12 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   [AXISAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
   detected, the slave is reset and allowed to return to the bus infrastructure
   until its next fault.
+
+  *This core has been formally verified.*
+
+- [AXI2AXILITE](rtl/axi2axilite.v) converts incoming AXI4 (full) requests
+  for an AXI-lite slave.  This conversion is fully pipelined, and capable of
+  sending back to back AXI-lite requests on both channels.
 
   *This core has been formally verified.*
 
