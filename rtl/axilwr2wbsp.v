@@ -62,6 +62,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	parameter LGFIFO                =  3;
 	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	FLEN=(1<<LGFIFO);
+	localparam	AXI_LSBS = $clog2(C_AXI_DATA_WIDTH)-3;
 
 
 	input	wire			i_clk;	// Bus clock
@@ -112,11 +113,13 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	reg			fifo_full, fifo_empty;
 
-	reg	[LGFIFO:0]	r_first, r_mid, r_last, r_next;
-	wire	[LGFIFO:0]	w_first_plus_one;
-	wire	[LGFIFO:0]	next_first, next_last, next_mid, fifo_fill;
-	reg			wb_pending, last_ack;
+	reg	[LGFIFO:0]	r_first, r_mid, r_last;
+	wire	[LGFIFO:0]	next_first, next_last;
+	reg			wb_pending;
 	reg	[LGFIFO:0]	wb_outstanding;
+
+	reg	[LGFIFO:0]	err_loc;
+	reg			err_state;	
 
 	wire	axi_write_accepted, pending_axi_write;
 
@@ -147,7 +150,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		if (r_awvalid)
 			o_wb_addr <= r_addr;
 		else
-			o_wb_addr <= i_axi_awaddr[AW+1:2];
+			o_wb_addr <= i_axi_awaddr[AW+1:AXI_LSBS];
 
 		if (r_wvalid)
 		begin
@@ -159,12 +162,12 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 		end
 	end
 
-	initial	r_awvalid <= 1'b0;
+	initial	r_awvalid = 1'b0;
 	always @(posedge i_clk)
 	begin
 		if ((i_axi_awvalid)&&(o_axi_awready))
 		begin
-			r_addr <= i_axi_awaddr[AW+1:2];
+			r_addr <= i_axi_awaddr[AW+1:AXI_LSBS];
 			r_awvalid <= (!axi_write_accepted);
 		end else if (axi_write_accepted)
 			r_awvalid <= 1'b0;
@@ -173,7 +176,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 			r_awvalid <= 1'b0;
 	end
 
-	initial	r_wvalid <= 1'b0;
+	initial	r_wvalid = 1'b0;
 	always @(posedge i_clk)
 	begin
 		if ((i_axi_wvalid)&&(o_axi_wready))
@@ -255,31 +258,25 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	initial	wb_pending     = 0;
 	initial	wb_outstanding = 0;
-	initial	last_ack    = 1;
 	always @(posedge i_clk)
 	if ((w_reset)||(!o_wb_cyc)||(i_wb_err)||(err_state))
 	begin
 		wb_pending     <= 1'b0;
 		wb_outstanding <= 0;
-		last_ack       <= 1;
 	end else case({ (o_wb_stb)&&(!i_wb_stall), i_wb_ack })
 	2'b01: begin
 		wb_outstanding <= wb_outstanding - 1'b1;
 		wb_pending <= (wb_outstanding >= 2);
-		last_ack <= (wb_outstanding <= 2);
 		end
 	2'b10: begin
 		wb_outstanding <= wb_outstanding + 1'b1;
 		wb_pending <= 1'b1;
-		last_ack <= (wb_outstanding == 0);
 		end
 	default: begin end
 	endcase
 
 	assign	next_first = r_first + 1'b1;
 	assign	next_last  = r_last + 1'b1;
-	assign	next_mid   = r_mid + 1'b1;
-	assign	fifo_fill  = (r_first - r_last);
 
 	initial	fifo_full  = 1'b0;
 	initial	fifo_empty = 1'b1;
@@ -325,12 +322,9 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	else if ((o_axi_bvalid)&&(i_axi_bready))
 		r_last <= r_last + 1'b1;
 
-	reg	[LGFIFO:0]	err_loc;
 	always @(posedge i_clk)
 	if ((o_wb_cyc)&&(i_wb_err))
 		err_loc <= r_mid;
-
-	wire	[DW:0]	read_data;
 
 	initial	o_axi_bresp = 2'b00;
 	always @(posedge i_clk)
@@ -357,7 +351,6 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	end
 
 
-	reg	err_state;	
 	initial err_state  = 0;
 	always @(posedge i_clk)
 	if (w_reset)
@@ -383,6 +376,9 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	// Make Verilator happy
 	// verilator lint_off UNUSED
+	wire	[9:0]	unused;
+	assign	unused = { i_axi_awcache, i_axi_awprot,
+				fifo_empty, i_axi_awaddr[AXI_LSBS-1:0] };
 	// verilator lint_on  UNUSED
 
 `ifdef	FORMAL
@@ -395,7 +391,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 				f_axi_awr_outstanding;
 	wire	[LGFIFO:0]	f_mid_minus_err, f_err_minus_last,
 				f_first_minus_err;
-
+	wire	[LGFIFO:0]	f_fifo_fill;
 
 	initial f_past_valid = 1'b0;
 	always @(posedge i_clk)
@@ -410,6 +406,8 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	always @(*)
 	if (!f_past_valid)
 		`ASSUME(w_reset);
+
+	assign	f_fifo_fill  = (r_first - r_last);
 
 	always @(*)
 	if (err_state)
@@ -433,7 +431,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	end
 
 	always @(*)
-		assert(fifo_fill <= (1<<LGFIFO));
+		assert(f_fifo_fill <= (1<<LGFIFO));
 
 	always @(*)
 	if (fifo_full)
@@ -443,12 +441,9 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	end
 
 	always @(*)
-		assert(fifo_full == (fifo_fill >= (1<<LGFIFO)));
+		assert(fifo_full == (f_fifo_fill >= (1<<LGFIFO)));
 	always @(*)
 		assert(wb_pending == (wb_outstanding != 0));
-
-	always @(*)
-		assert(last_ack == (wb_outstanding <= 1));
 
 
 	assign	f_first    = r_first;
@@ -473,7 +468,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 	assign	wb_fill = r_first - r_mid;
 	always @(*)
-		assert(wb_fill <= fifo_fill);
+		assert(wb_fill <= f_fifo_fill);
 	always @(*)
 	if (!w_reset)
 	begin
@@ -513,9 +508,9 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	always @(*)
 		assert(f_axi_rd_outstanding == 0);
 	always @(*)
-		assert(f_axi_wr_outstanding - (r_wvalid ? 1:0) == fifo_fill);
+		assert(f_axi_wr_outstanding - (r_wvalid ? 1:0) == f_fifo_fill);
 	always @(*)
-		assert(f_axi_awr_outstanding - (r_awvalid ? 1:0) == fifo_fill);
+		assert(f_axi_awr_outstanding - (r_awvalid ? 1:0) == f_fifo_fill);
 	always @(*)
 		if (r_wvalid)  assert(f_axi_wr_outstanding > 0);
 	always @(*)
