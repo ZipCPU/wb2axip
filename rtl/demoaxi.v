@@ -139,11 +139,9 @@ module	demoaxi
 	// AXI4LITE signals
 	reg		axi_awready;
 	reg		axi_wready;
-	reg [1 : 0] 	axi_bresp;
 	reg		axi_bvalid;
 	reg		axi_arready;
 	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	axi_rdata;
-	reg [1 : 0] 	axi_rresp;
 	reg		axi_rvalid;
 
 	// Example-specific design signals
@@ -163,11 +161,11 @@ module	demoaxi
 
 	assign S_AXI_AWREADY	= axi_awready;
 	assign S_AXI_WREADY	= axi_wready;
-	assign S_AXI_BRESP	= axi_bresp;
+	assign S_AXI_BRESP	= 2'b00; // The OKAY response
 	assign S_AXI_BVALID	= axi_bvalid;
 	assign S_AXI_ARREADY	= axi_arready;
 	assign S_AXI_RDATA	= axi_rdata;
-	assign S_AXI_RRESP	= axi_rresp;
+	assign S_AXI_RRESP	= 2'b00; // The OKAY response
 	assign S_AXI_RVALID	= axi_rvalid;
 	// Implement axi_*wready generation
 
@@ -175,6 +173,10 @@ module	demoaxi
 	//
 	// Read processing
 	//
+	//
+
+	//
+	// The read response channel valid signal
 	//
 	initial	axi_rvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
@@ -189,11 +191,9 @@ module	demoaxi
 	else
 		axi_rvalid <= 1'b0;
 
-	always @(*)
-		axi_rresp  = 0;	// "OKAY" response
-
 	reg [C_S_AXI_ADDR_WIDTH-1 : 0] 	dly_addr, rd_addr;
 
+	// Buffer the address
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARREADY)
 		dly_addr <= S_AXI_ARADDR;
@@ -204,6 +204,9 @@ module	demoaxi
 	else
 		rd_addr = S_AXI_ARADDR;
 
+	//
+	// Read the data
+	//
 	always @(posedge S_AXI_ACLK)
 	if (((!S_AXI_RVALID)||(S_AXI_RREADY))
 		&&(!OPT_READ_SIDEEFFECTS
@@ -212,6 +215,9 @@ module	demoaxi
 		// then read
 		axi_rdata <= slv_mem[rd_addr[AW+ADDR_LSB-1:ADDR_LSB]];
 
+	//
+	// The read address channel ready signal
+	//
 	initial	axi_arready = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -318,7 +324,7 @@ module	demoaxi
 		wdata = S_AXI_WDATA;
 	end
 
-
+	// Write the data
 	always @( posedge S_AXI_ACLK )
 	// If the output channel isn't stalled, and
 	if (((!S_AXI_BVALID)||(S_AXI_BREADY))
@@ -341,6 +347,9 @@ module	demoaxi
 				<= wdata[31:24];
 	end
 
+	//
+	// The write response channel valid signal
+	//
 	initial	axi_bvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
 	if (!S_AXI_ARESETN)
@@ -356,9 +365,6 @@ module	demoaxi
 		axi_bvalid <= 1'b1;
 	else if (S_AXI_BREADY)
 		axi_bvalid <= 1'b0;
-
-	always @(*)
-		axi_bresp = 2'b0;	// "OKAY" response
 
 	// Make Verilator happy
 	// Verilator lint_off UNUSED
