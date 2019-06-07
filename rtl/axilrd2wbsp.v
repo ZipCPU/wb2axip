@@ -98,7 +98,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	reg			r_stb;
 	reg	[AW-1:0]	r_addr;
 
-	localparam	FLEN=(1<<LGFIFO);
+	localparam		FLEN=(1<<LGFIFO);
 
 	reg	[DW-1:0]	dfifo		[0:(FLEN-1)];
 	reg			fifo_full;
@@ -108,6 +108,8 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	reg			wb_pending;
 	reg	[LGFIFO:0]	wb_outstanding;
 	wire	[DW-1:0]	read_data;
+	reg			err_state;	
+	reg	[LGFIFO:0]	err_loc;
 
 
 
@@ -234,7 +236,6 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	if ((o_wb_cyc)&&((i_wb_ack)||(i_wb_err)))
 		dfifo[r_mid[(LGFIFO-1):0]] <= i_wb_data;
 
-	reg	[LGFIFO:0]	err_loc;
 	always @(posedge i_clk)
 	if ((o_wb_cyc)&&(i_wb_err))
 		err_loc <= r_mid;
@@ -266,7 +267,6 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	end
 
 
-	reg	err_state;	
 	initial err_state  = 0;
 	always @(posedge i_clk)
 	if (w_reset)
