@@ -139,11 +139,9 @@ module	demoaxi
 	// AXI4LITE signals
 	reg		axi_awready;
 	reg		axi_wready;
-	reg [1 : 0] 	axi_bresp;
 	reg		axi_bvalid;
 	reg		axi_arready;
 	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	axi_rdata;
-	reg [1 : 0] 	axi_rresp;
 	reg		axi_rvalid;
 
 	// Example-specific design signals
@@ -163,11 +161,11 @@ module	demoaxi
 
 	assign S_AXI_AWREADY	= axi_awready;
 	assign S_AXI_WREADY	= axi_wready;
-	assign S_AXI_BRESP	= axi_bresp;
+	assign S_AXI_BRESP	= 2'd0;
 	assign S_AXI_BVALID	= axi_bvalid;
 	assign S_AXI_ARREADY	= axi_arready;
 	assign S_AXI_RDATA	= axi_rdata;
-	assign S_AXI_RRESP	= axi_rresp;
+	assign S_AXI_RRESP	= 2'd0;
 	assign S_AXI_RVALID	= axi_rvalid;
 	// Implement axi_*wready generation
 
@@ -176,66 +174,77 @@ module	demoaxi
 	// Read processing
 	//
 	//
+	reg [C_S_AXI_ADDR_WIDTH-1 : 0]	pre_raddr;
+
+	wire [C_S_AXI_ADDR_WIDTH-1 : 0]	raddr;
+
+	wire	axi_ar_done, axi_r_done;
+
+	// If the address channel isn't stalled
+	assign	axi_ar_done = ~axi_arready | S_AXI_ARVALID;
+
+	// If the response channel isn't stalled
+	assign	axi_r_done = ~axi_rvalid | S_AXI_RREADY;
+
+	assign	raddr = axi_arready ? S_AXI_ARADDR : pre_raddr;
+
+	//
+	// The read response channel valid signal
+	//
 	initial	axi_rvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
 	if (!S_AXI_ARESETN)
 		axi_rvalid <= 0;
-	else if (S_AXI_ARVALID)
-		axi_rvalid <= 1'b1;
-	else if ((S_AXI_RVALID)&&(!S_AXI_RREADY))
-		axi_rvalid <= 1'b1;
-	else if (!axi_arready)
-		axi_rvalid <= 1'b1;
 	else
-		axi_rvalid <= 1'b0;
+		axi_rvalid <= ~axi_r_done | axi_ar_done;
 
-	always @(*)
-		axi_rresp  = 0;	// "OKAY" response
-
-	reg [C_S_AXI_ADDR_WIDTH-1 : 0] 	dly_addr, rd_addr;
-
+	// Buffer the address
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARREADY)
-		dly_addr <= S_AXI_ARADDR;
+		pre_raddr <= S_AXI_ARADDR;
 
-	always @(*)
-	if (!axi_arready)
-		rd_addr = dly_addr;
-	else
-		rd_addr = S_AXI_ARADDR;
-
+	// Read the data
 	always @(posedge S_AXI_ACLK)
-	if (((!S_AXI_RVALID)||(S_AXI_RREADY))
-		&&(!OPT_READ_SIDEEFFECTS
-			||(!S_AXI_ARREADY || S_AXI_ARVALID)))
-		// If the outgoing channel is not stalled (above)
-		// then read
-		axi_rdata <= slv_mem[rd_addr[AW+ADDR_LSB-1:ADDR_LSB]];
+	if (axi_r_done & (~OPT_READ_SIDEEFFECTS | axi_ar_done))
+		axi_rdata <= slv_mem[raddr[AW+ADDR_LSB-1:ADDR_LSB]];
 
+	//
+	// The read address channel ready signal
+	//
 	initial	axi_arready = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		axi_arready <= 1'b1;
-	else if ((S_AXI_RVALID)&&(!S_AXI_RREADY))
-	begin
-		// Outgoing channel is stalled
-		if (!axi_arready)
-			// If something is already in the buffer,
-			// axi_arready needs to stay low
-			axi_arready <= 1'b0;
-		else
-			axi_arready <= (!S_AXI_ARVALID);
-	end else
-		axi_arready <= 1'b1;
+	else
+		axi_arready <= ~axi_ar_done | axi_r_done;
 
 	//////////////////////////////////////
 	//
 	// Write processing
 	//
 	//
-	reg [C_S_AXI_ADDR_WIDTH-1 : 0]		pre_waddr, waddr;
-	reg [C_S_AXI_DATA_WIDTH-1 : 0]		pre_wdata, wdata;
-	reg [(C_S_AXI_DATA_WIDTH/8)-1 : 0]	pre_wstrb, wstrb;
+	reg [C_S_AXI_ADDR_WIDTH-1 : 0]		pre_waddr;
+	reg [C_S_AXI_DATA_WIDTH-1 : 0]		pre_wdata;
+	reg [(C_S_AXI_DATA_WIDTH/8)-1 : 0]	pre_wstrb;
+
+	wire [C_S_AXI_ADDR_WIDTH-1 : 0]		waddr;
+	wire [C_S_AXI_DATA_WIDTH-1 : 0]		wdata;
+	wire [(C_S_AXI_DATA_WIDTH/8)-1 : 0]	wstrb;
+
+	wire	axi_aw_done, axi_w_done, axi_b_done;
+
+	// If the address channel isn't stalled
+	assign	axi_aw_done = ~axi_awready | S_AXI_AWVALID;
+
+	// If the data channel isn't stalled
+	assign	axi_w_done = ~axi_wready | S_AXI_WVALID;
+
+	// If the response channel isn't stalled
+	assign	axi_b_done = ~axi_bvalid | S_AXI_BREADY;
+
+	assign	waddr = axi_awready ? S_AXI_AWADDR : pre_waddr;
+	assign	wdata = axi_wready ? S_AXI_WDATA : pre_waddr;
+	assign	wstrb = axi_wready ? S_AXI_WSTRB : pre_wstrb;
 
 	//
 	// The write address channel ready signal
@@ -244,24 +253,8 @@ module	demoaxi
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		axi_awready <= 1'b1;
-	else if ((S_AXI_BVALID)&&(!S_AXI_BREADY))
-	begin
-		// The output channel is stalled
-		if (!axi_awready)
-			// If our buffer is full, remain stalled
-			axi_awready <= 1'b0;
-		else
-			// If the buffer is empty, accept one transaction
-			// to fill it and then stall
-			axi_awready <= (!S_AXI_AWVALID);
-	end else if ((!axi_wready)||((S_AXI_WVALID)&&(S_AXI_WREADY)))
-		// The output channel is clear, and write data
-		// are available
-		axi_awready <= 1'b1;
 	else
-		// If we were ready before, then remain ready unless an
-		// address unaccompanied by data shows up
-		axi_awready <= ((axi_awready)&&(!S_AXI_AWVALID));
+		axi_awready <= ~axi_aw_done | (axi_w_done & axi_b_done);
 
 	//
 	// The write data channel ready signal
@@ -270,62 +263,25 @@ module	demoaxi
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		axi_wready <= 1'b1;
-	else if ((S_AXI_BVALID)&&(!S_AXI_BREADY))
-	begin
-		// The output channel is stalled
-		if (!axi_wready)
-			axi_wready <= 1'b0;
-		else
-			axi_wready <= (!S_AXI_WVALID);
-	end else if ((!axi_awready)||((S_AXI_AWVALID)&&(S_AXI_AWREADY)))
-		// The output channel is clear, and a write address
-		// is available
-		axi_wready <= 1'b1;
 	else
-		// if we were ready before, and there's no new data avaialble
-		// to cause us to stall, remain ready
-		axi_wready <= (axi_wready)&&(!S_AXI_WVALID);
-
+		axi_wready <= ~axi_w_done | (axi_aw_done & axi_b_done);
 
 	// Buffer the address
 	always @(posedge S_AXI_ACLK)
-	if ((S_AXI_AWREADY)&&(S_AXI_AWVALID))
+	if (S_AXI_AWREADY)
 		pre_waddr <= S_AXI_AWADDR;
 
 	// Buffer the data
 	always @(posedge S_AXI_ACLK)
-	if ((S_AXI_WREADY)&&(S_AXI_WVALID))
+	if (S_AXI_WREADY)
 	begin
 		pre_wdata <= S_AXI_WDATA;
 		pre_wstrb <= S_AXI_WSTRB;
 	end
 
-	always @(*)
-	if (!axi_awready)
-		// Read the write address from our "buffer"
-		waddr = pre_waddr;
-	else
-		waddr = S_AXI_AWADDR;
-
-	always @(*)
-	if (!axi_wready)
-	begin
-		// Read the write data from our "buffer"
-		wstrb = pre_wstrb;
-		wdata = pre_wdata;
-	end else begin
-		wstrb = S_AXI_WSTRB;
-		wdata = S_AXI_WDATA;
-	end
-
-
+	// Write the data
 	always @( posedge S_AXI_ACLK )
-	// If the output channel isn't stalled, and
-	if (((!S_AXI_BVALID)||(S_AXI_BREADY))
-		// If we have a valid address, and
-		&&((!axi_awready)||(S_AXI_AWVALID))
-		// If we have valid data
-		&&((!axi_wready)||((S_AXI_WVALID))))
+	if (axi_aw_done & axi_w_done & axi_b_done)
 	begin
 		if (wstrb[0])
 			slv_mem[waddr[AW+ADDR_LSB-1:ADDR_LSB]][7:0]
@@ -341,32 +297,23 @@ module	demoaxi
 				<= wdata[31:24];
 	end
 
-	initial	axi_bvalid = 1'b0;
+	//
+	// The write response channel valid signal
+	//
+ 	initial	axi_bvalid = 1'b0;
 	always @( posedge S_AXI_ACLK )
 	if (!S_AXI_ARESETN)
 		axi_bvalid <= 1'b0;
-	//
-	// The outgoing response channel should indicate a valid write if ...
-		// 1. We have a valid address, and
-	else if (((!axi_awready)||(S_AXI_AWVALID))
-			// 2. We had valid data
-			&&((!axi_wready)||((S_AXI_WVALID))))
-		// It doesn't matter here if we are stalled or not
-		// We can keep setting ready as often as we want
-		axi_bvalid <= 1'b1;
-	else if (S_AXI_BREADY)
-		axi_bvalid <= 1'b0;
-
-	always @(*)
-		axi_bresp = 2'b0;	// "OKAY" response
+	else
+		axi_bvalid <= ~axi_b_done | (axi_aw_done & axi_w_done);
 
 	// Make Verilator happy
 	// Verilator lint_off UNUSED
 	wire	[5*ADDR_LSB+5:0]	unused;
 	assign	unused = { S_AXI_AWPROT, S_AXI_ARPROT,
 				S_AXI_AWADDR[ADDR_LSB-1:0],
-				dly_addr[ADDR_LSB-1:0],
-				rd_addr[ADDR_LSB-1:0],
+				pre_raddr[ADDR_LSB-1:0],
+				raddr[ADDR_LSB-1:0],
 				waddr[ADDR_LSB-1:0],
 				S_AXI_ARADDR[ADDR_LSB-1:0] };
 	// Verilator lint_on UNUSED
