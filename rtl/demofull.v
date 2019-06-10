@@ -431,8 +431,8 @@ module demofull #(
 	axi_addr #(.AW(AW), .DW(DW))
 		get_next_rd_addr((S_AXI_ARREADY ? S_AXI_ARADDR : raddr),
 				(S_AXI_ARREADY  ? S_AXI_ARSIZE : rsize),
-				(S_AXI_ARBURST  ? S_AXI_ARBURST: rburst),
-				(S_AXI_ARLEN    ? S_AXI_ARLEN  : rlen),
+				(S_AXI_ARREADY  ? S_AXI_ARBURST: rburst),
+				(S_AXI_ARREADY  ? S_AXI_ARLEN  : rlen),
 				next_rd_addr);
 
 	always @(*)
