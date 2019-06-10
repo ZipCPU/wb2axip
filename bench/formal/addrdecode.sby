@@ -1,0 +1,30 @@
+[tasks]
+prfrlp prf opt_registered opt_lowpower
+prfr   prf opt_registered
+prfc   prf
+cvrrlp cvr opt_registered opt_lowpower
+cvrr   cvr opt_registered
+cvrc   cvr
+
+[options]
+prf: mode prove
+prf: depth 4
+cvr: mode cover
+cvr: depth 16
+
+[engines]
+smtbmc
+
+[script]
+read -define ADDRDECODE
+read -formal addrdecode.v
+--pycode-begin--
+cmd = "hierarchy -top addrdecode"
+cmd += " -chparam OPT_LOWPOWER   %d" % (1 if "opt_lowpower"   in tags else 0)
+cmd += " -chparam OPT_REGISTERED %d" % (1 if "opt_registered" in tags else 0)
+output(cmd)
+--pycode-end--
+prep -top addrdecode
+
+[files]
+../../rtl/addrdecode.v

@@ -87,6 +87,7 @@ module skidbuffer(i_clk, i_reset,
 		o_valid, i_ready, o_data);
 	parameter	[0:0]	OPT_LOWPOWER = 0;
 	parameter	[0:0]	OPT_OUTREG = 1;
+	//
 	parameter	[0:0]	OPT_PASSTHROUGH = 0;
 	parameter		DW = 8;
 	input	wire			i_clk, i_reset;
@@ -96,6 +97,8 @@ module skidbuffer(i_clk, i_reset,
 	output	reg			o_valid;
 	input	wire			i_ready;
 	output	reg	[DW-1:0]	o_data;
+
+	reg	[DW-1:0]	r_data;
 
 	generate if (OPT_PASSTHROUGH)
 	begin
@@ -110,12 +113,13 @@ module skidbuffer(i_clk, i_reset,
 		else
 			o_data = i_data;
 
+		always @(*)
+			r_data = 0;
 	end else begin
 		//
 		// We'll start with skid buffer itself
 		//
 		reg			r_valid;
-		reg	[DW-1:0]	r_data;
 
 		initial	r_valid = 0;
 		always @(posedge i_clk)
@@ -146,7 +150,7 @@ module skidbuffer(i_clk, i_reset,
 		begin
 
 			always @(*)
-				o_valid = (i_valid || r_valid);
+				o_valid = !i_reset && (i_valid || r_valid);
 
 			always @(*)
 			if (r_valid)
@@ -183,6 +187,12 @@ module skidbuffer(i_clk, i_reset,
 	end endgenerate
 
 `ifdef	FORMAL
+`ifdef	VERIFIC
+`define	FORMAL_VERIFIC
+`endif
+`endif
+//
+`ifdef	FORMAL_VERIFIC
 	// Reset properties
 	property RESET_CLEARS_IVALID;
 		@(posedge i_clk) i_reset |=> !i_valid;
@@ -194,18 +204,16 @@ module skidbuffer(i_clk, i_reset,
 	endproperty
 
 `ifdef	SKIDBUFFER
-	assume	property (RESET_CLEARS_IVALID);
 	assume	property (IDATA_HELD_WHEN_NOT_READY);
 `else
-	assert	RESET_CLEARS_IVALID;
-	assert	IDATA_HELD_WHEN_NOT_READY;
+	assert	property (IDATA_HELD_WHEN_NOT_READY);
 `endif
 
 	generate if (!OPT_PASSTHROUGH)
 	begin
 
 		assert property (@(posedge i_clk)
-			i_reset |=> !r_valid && !o_valid);
+			i_reset |=> o_ready && !o_valid);
 
 		// Rule #1:
 		//	Once o_valid goes high, the data cannot change until the
@@ -222,7 +230,7 @@ module skidbuffer(i_clk, i_reset,
 			disable iff (i_reset)
 			(i_valid && o_ready
 				&& (!OPT_OUTREG || o_valid) && !i_ready)
-				|=> (r_valid && r_data == $past(i_data)));
+				|=> (!o_ready && r_data == $past(i_data)));
 
 		// Rule #3:
 		//	After the last transaction, o_valid should become idle
@@ -241,14 +249,14 @@ module skidbuffer(i_clk, i_reset,
 
 			assert property (@(posedge i_clk)
 				disable iff (i_reset)
-				!i_valid && !r_valid && i_ready |=> !o_valid);
+				!i_valid && o_ready && i_ready |=> !o_valid);
 
 		end
 
 		// Rule #4
 		//	Same thing, but this time for r_valid
 		assert property (@(posedge i_clk)
-			r_valid && i_ready |=> !r_valid);
+			!o_ready && i_ready |=> o_ready);
 
 
 		if (OPT_LOWPOWER)
@@ -260,7 +268,7 @@ module skidbuffer(i_clk, i_reset,
 				!o_valid |-> o_data == 0);
 
 			assert property (@(posedge i_clk)
-				!r_valid |-> r_data == 0);
+				o_ready |-> r_data == 0);
 
 			// else
 			//	if OPT_LOWPOWER isn't set, we can lower our
@@ -297,5 +305,5 @@ module skidbuffer(i_clk, i_reset,
 `endif	// SKIDCOVER
 	end endgenerate
 
-`endif
+`endif	// FORMAL
 endmodule

@@ -274,6 +274,8 @@ module	demoaxi
 		// If we were ready before, then remain ready unless an
 		// address unaccompanied by data shows up
 		axi_awready <= ((axi_awready)&&(!S_AXI_AWVALID));
+		// This is equivalent to
+		// axi_awready <= !valid_write_address
 
 	//
 	// The write data channel ready signal
@@ -295,6 +297,8 @@ module	demoaxi
 		// if we were ready before, and there's no new data avaialble
 		// to cause us to stall, remain ready
 		axi_wready <= (axi_wready)&&(!S_AXI_WVALID);
+		// This is equivalent to
+		// axi_wready <= !valid_write_data
 
 
 	// Buffer the address

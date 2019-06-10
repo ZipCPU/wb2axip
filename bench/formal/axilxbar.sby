@@ -15,7 +15,7 @@ cvr4x1      nxo              cvr
 
 [options]
 ~cvr: mode prove
-~cvr: depth 6
+~cvr: depth 4
 cvr:  mode cover
 cvr:  depth 64
 
@@ -26,6 +26,8 @@ smtbmc boolector
 
 
 [script]
+read -formal addrdecode.v
+read -formal skidbuffer.v
 read -formal axilxbar.v
 read -formal faxil_slave.v
 read -formal faxil_master.v
@@ -40,6 +42,8 @@ prep -top axilxbar
 dump
 
 [files]
+../../rtl/skidbuffer.v
+../../rtl/addrdecode.v
 ../../rtl/axilxbar.v
 faxil_slave.v
 faxil_master.v

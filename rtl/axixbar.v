@@ -2012,12 +2012,12 @@ module	axixbar #(
 				(m_wvalid[N] && slave_waccepts[N])})
 		2'b01: begin
 			wpending <= wpending - 1;
-			r_wdata_expected <= (wpending != 1);
+			r_wdata_expected <= (wpending > 1);
 			end
 		2'b10: begin
 			// wpending <= wpending + (m_awlen[N]+1);
 			wpending <= (m_awlen[N]+1);
-			r_wdata_expected <= (wpending != 1);
+			r_wdata_expected <= 1;
 			end
 		2'b11: begin
 			wpending <= wpending + (m_awlen[N]);

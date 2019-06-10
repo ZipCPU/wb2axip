@@ -186,7 +186,7 @@ module	wbxbar(i_clk, i_reset,
 	// reg	[NM-1:0][NS:0]		grant;
 	//
 	// These definitions work with both
-	reg	[NS:0]			request		[0:NM-1];
+	wire	[NS:0]			request		[0:NM-1];
 	reg	[NS-1:0]		requested	[0:NM-1];
 	reg	[NS:0]			grant		[0:NM-1];
 	reg	[NM-1:0]		mgrant;
@@ -197,94 +197,80 @@ module	wbxbar(i_clk, i_reset,
 
 	localparam	NMFULL = (NM > 1) ? (1<<LGNM) : 1;
 	localparam	NSFULL = (1<<LGNS);
-	reg	[NMFULL-1:0]	r_stb;
-	reg	[NMFULL-1:0]	r_we;
-	reg	[AW-1:0]	r_addr		[0:NMFULL-1];
-	reg	[DW-1:0]	r_data		[0:NMFULL-1];
-	reg	[DW/8-1:0]	r_sel		[0:NMFULL-1];
-
 
 	reg	[LGNS-1:0]	mindex		[0:NMFULL-1];
 	reg	[LGNM-1:0]	sindex		[0:NSFULL-1];
 
 	reg	[NMFULL-1:0]	m_cyc;
 	reg	[NMFULL-1:0]	m_stb;
-	reg	[NMFULL-1:0]	m_we;
-	reg	[AW-1:0]	m_addr		[0:NMFULL-1];
-	reg	[DW-1:0]	m_data		[0:NMFULL-1];
-	reg	[DW/8-1:0]	m_sel		[0:NMFULL-1];
+	wire	[NMFULL-1:0]	m_we;
+	wire	[AW-1:0]	m_addr		[0:NMFULL-1];
+	wire	[DW-1:0]	m_data		[0:NMFULL-1];
+	wire	[DW/8-1:0]	m_sel		[0:NMFULL-1];
+	reg	[NM-1:0]	m_stall;
 	//
 	reg	[NSFULL-1:0]	s_stall;
 	reg	[DW-1:0]	s_data		[0:NSFULL-1];
 	reg	[NSFULL-1:0]	s_ack;
 	reg	[NSFULL-1:0]	s_err;
+	wire	[NM-1:0]	dcd_stb;
+
+	localparam [0:0]	OPT_BUFFER_DECODER = (NS != 1 || SLAVE_MASK != 0);
 
 	genvar	N, M;
 	integer	iN, iM;
 	generate for(N=0; N<NM; N=N+1)
 	begin : DECODE_REQUEST
-		reg	none_sel;
+		wire			skd_stb, skd_stall;
+		wire			skd_we;
+		wire	[AW-1:0]	skd_addr;
+		wire	[DW-1:0]	skd_data;
+		wire	[DW/8-1:0]	skd_sel;
+		wire	[NS:0]		decoded;
 
-		always @(*)
-		begin
-			none_sel = !m_stb[N];
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
+		skidbuffer #(// .OPT_LOWPOWER(OPT_LOWPOWER),
+			.DW(1+AW+DW+DW/8),
+`ifdef	FORMAL
+			.OPT_PASSTHROUGH(1),
+`endif
+			.OPT_OUTREG(0))
+		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N] && i_mcyc[N], o_mstall[N],
+			{ i_mwe[N], i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
+					i_msel[N*DW/8 +: DW/8] },
+			skd_stb, skd_stall,
+				{ skd_we, skd_addr, skd_data, skd_sel });
 
-				none_sel = none_sel
-					|| (((m_addr[N] ^ SLAVE_ADDR[iM*AW +: AW])
-						&SLAVE_MASK[iM*AW +: AW])==0);
-			end
+		addrdecode #(// .OPT_LOWPOWER(OPT_LOWPOWER),
+			.NS(NS), .AW(AW), .DW(DW+DW/8+1),
+			.SLAVE_ADDR(SLAVE_ADDR),
+			.SLAVE_MASK(SLAVE_MASK),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+		) adcd(i_clk, i_reset, skd_stb && i_mcyc[N], skd_stall,
+			skd_addr, { skd_we, skd_data, skd_sel },
+			dcd_stb[N], (m_stall[N]&&i_mcyc[N]),decoded, m_addr[N],
+				{ m_we[N], m_data[N], m_sel[N] });
 
-
-			none_sel = !none_sel;
-		end
-
-		always @(*)
-		begin
-			for(iM=0; iM<NS; iM=iM+1)
-				request[N][iM] = m_stb[N]
-					&&(((m_addr[N] ^ SLAVE_ADDR[iM*AW +: AW])
-						&SLAVE_MASK[iM*AW +: AW])==0);
-
-			// Is this address non-existant?
-			request[N][NS] = m_stb[N] && none_sel;
-		end
+		assign	request[N] = (m_cyc[N] && dcd_stb[N]) ? decoded : 0;
 
 		always @(*)
 			m_cyc[N] = i_mcyc[N];
 		always @(*)
 		if (mfull[N])
 			m_stb[N] = 1'b0;
-		else if (mnearfull[N])
-			m_stb[N] = i_mstb[N] && !r_stb[N];
 		else
-			m_stb[N] = i_mstb[N] || (i_mcyc[N] && r_stb[N]);
-		always @(*)
-			m_we[N]   = r_stb[N] ? r_we[N] : i_mwe[N];
-		always @(*)
-			m_addr[N] = r_stb[N] ? r_addr[N] : i_maddr[N*AW +: AW];
-		always @(*)
-			m_data[N] = r_stb[N] ? r_data[N] : i_mdata[N*DW +: DW];
-		always @(*)
-			m_sel[N]  = r_stb[N] ? r_sel[N]: i_msel[N*DW/8 +: DW/8];
+			m_stb[N] = i_mcyc[N] && dcd_stb[N];
 
+always @(*) if (mfull[N]) assert(m_stall[N]);
 	end for(N=NM; N<NMFULL; N=N+1)
 	begin
 		// in case NM isn't one less than a power of two, complete
 		// the set
-		always @(*)
-			m_cyc[N] = 0;
-		always @(*)
-			m_stb[N] = 0;
-		always @(*)
-			m_we[N]   = 0;
-		always @(*)
-			m_addr[N] = 0;
-		always @(*)
-			m_data[N] = 0;
-		always @(*)
-			m_sel[N]  = 0;
+		assign	m_cyc[N]  = 0;
+		assign	m_stb[N]  = 0;
+		assign	m_we[N]   = 0;
+		assign	m_addr[N] = 0;
+		assign	m_data[N] = 0;
+		assign	m_sel[N]  = 0;
 
 	end endgenerate
 
@@ -294,14 +280,45 @@ module	wbxbar(i_clk, i_reset,
 		begin
 			requested[0][iM] = 0;
 			for(iN=1; iN<NM; iN=iN+1)
-			requested[iN][iM]
-				= (request[iN-1][iM] || requested[iN-1][iM]);
+			begin
+				requested[iN][iM] = requested[iN-1][iM];
+				if (request[iN-1][iM] &&
+					(grant[iN-1][iM]
+					|| (!mgrant[iN-1]||mempty[iN-1])))
+					requested[iN][iM] = 1;
+			end
 		end
 	end
 
 	generate for(M=0; M<NS; M=M+1)
-	begin
+	begin : SLAVE_GRANT
 
+`define	REGISTERED_SGRANT
+`ifdef	REGISTERED_SGRANT
+		reg	drop_sgrant;
+		always @(*)
+		begin
+			drop_sgrant = !m_cyc[sindex[M]];
+			if (!request[sindex[M]][M] && m_stb[sindex[M]]
+				&& mempty[sindex[M]])
+				drop_sgrant = 1;
+			if (!sgrant[M])
+				drop_sgrant = 0;
+			if (i_reset)
+				drop_sgrant = 1;
+		end
+
+		initial	sgrant[M] = 0;
+		always @(posedge i_clk)
+		begin
+			sgrant[M] <= sgrant[M];
+			for(iN=0; iN<NM; iN=iN+1)
+			if (request[iN][M] && (!mgrant[iN] || mempty[iN]))
+				sgrant[M] <= 1;
+			if (drop_sgrant)
+				sgrant[M] <= 0;
+		end
+`else
 		always @(*)
 		begin
 			sgrant[M] = 0;
@@ -309,6 +326,7 @@ module	wbxbar(i_clk, i_reset,
 				if (grant[iN][M])
 					sgrant[M] = 1;
 		end
+`endif
 
 		always @(*)
 			s_data[M]  = i_sdata[M*DW +: DW];
@@ -384,6 +402,8 @@ module	wbxbar(i_clk, i_reset,
 				if (request[N][iM] && grant[N][iM])
 					stay_on_channel = 1;
 			end
+			if (mgrant[N] && !mempty[N])
+				stay_on_channel = 1;
 		end
 
 		reg	requested_channel_is_available;
@@ -391,12 +411,14 @@ module	wbxbar(i_clk, i_reset,
 		always @(*)
 		begin
 			requested_channel_is_available = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (request[N][iM] && !sgrant[iM]
-						&& !requested[N][iM])
-					requested_channel_is_available = 1;
-			end
+			requested_channel_is_available =
+			|(request[N][NS-1:0] & ~sgrant & ~requested[N][NS-1:0]);
+
+			if (request[N][NS])
+				requested_channel_is_available = 1;
+
+			if (NM < 2)
+				requested_channel_is_available = m_stb[N];
 		end
 
 		initial	grant[N] = 0;
@@ -406,37 +428,16 @@ module	wbxbar(i_clk, i_reset,
 		begin
 			grant[N] <= 0;
 			mgrant[N] <= 0;
-		end else if (!mgrant[N] || mempty[N])
+		end else if (!stay_on_channel)
 		begin
-			if (stay_on_channel)
+			if (requested_channel_is_available)
+			begin
 				mgrant[N] <= 1'b1;
-			else if (requested_channel_is_available)
-				mgrant[N] <= 1'b1;
-			else if (i_mstb[N] || r_stb[N])
+				grant[N] <= request[N];
+			end else if (m_stb[N])
+			begin
 				mgrant[N] <= 1'b0;
-
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-
-				if (request[N][iM] && grant[N][iM])
-					// Maintain any open channels
-					grant[N][iM] <= 1;
-				else if (request[N][iM] && !sgrant[iM]
-						&& !requested[N][iM])
-					// Open a new channel if necessary
-					grant[N][iM] <= 1;
-				else if (i_mstb[N] || r_stb[N])
-					grant[N][iM] <= 0;
-
-			end
-			if (request[N][NS])
-			begin
-				grant[N][NS] <= 1'b1;
-				mgrant[N] <= 1'b1;
-			end else begin
-				grant[N][NS] <= 1'b0;
-				if (grant[N][NS])
-					mgrant[N] <= 1'b1;
+				grant[N]  <= 0;
 			end
 		end
 
@@ -546,7 +547,7 @@ module	wbxbar(i_clk, i_reset,
 					if (!s_stall[M])
 						o_sstb[M] <= m_stb[sindex[M]]
 						  && request[sindex[M]][M]
-						  && !mnearfull[sindex[M]];
+						  && !mfull[sindex[M]];
 				end
 			end else begin
 				o_scyc[M]  <= 1'b0;
@@ -631,14 +632,27 @@ module	wbxbar(i_clk, i_reset,
 
 		for(N=0; N<NM; N=N+1)
 		begin
-			initial	o_mstall[N] = 0;
+			// m_stall isn't buffered, since it depends upon
+			// the already existing buffer within the address
+			// decoder
+			always @(*)
+			begin
+				if (grant[N][NS])
+					m_stall[N] = 1;
+				else if (mgrant[N] && request[N][mindex[N]])
+					m_stall[N] = mfull[N] || s_stall[mindex[N]];
+				else
+					m_stall[N] = m_stb[N];
+
+				if (o_merr[N])
+					m_stall[N] = 0;
+			end
+
 			initial	o_mack[N]   = 0;
 			initial	o_merr[N]   = 0;
 			always @(posedge i_clk)
 			begin
 				iM = mindex[N];
-				o_mstall[N] <= o_mstall[N]
-						|| (i_mstb[N] && !o_mstall[N]);
 				o_mack[N]   <= mgrant[N] && s_ack[mindex[N]];
 				o_merr[N]   <= mgrant[N] && s_err[mindex[N]];
 				if (OPT_LOWPOWER && !mgrant[N])
@@ -646,77 +660,19 @@ module	wbxbar(i_clk, i_reset,
 				else
 					o_mdata[N*DW +: DW] <= s_data[mindex[N]];
 
-				if (mgrant[N])
+				if (grant[N][NS]||(timed_out[N] && !o_mack[N]))
 				begin
-					if ((i_mstb[N]||o_mstall[N])
-								&& mnearfull[N])
-						o_mstall[N] <= 1'b1;
-					else if ((i_mstb[N] || o_mstall[N])
-							&& !request[N][iM])
-						// Requesting another channel
-						o_mstall[N] <= 1'b1;
-					else if (!s_stall[iM])
-						// Downstream channel is clear
-						o_mstall[N] <= 1'b0;
-					else // if (o_sstb[mindex[N]]
-						//   && i_sstall[mindex[N]])
-						// Downstream channel is stalled
-						o_mstall[N] <= i_mstb[N];
-				end
-
-				if (mnearfull[N] && i_mstb[N])
-					o_mstall[N] <= 1'b1;
-
-				if ((o_mstall[N] && grant[N][NS])
-					||(timed_out[N] && !o_mack[N]))
-				begin
-					o_mstall[N] <= 1'b0;
 					o_mack[N]   <= 1'b0;
-					o_merr[N]   <= 1'b1;
+					o_merr[N]   <= !o_merr[N];
 				end
 
 				if (i_reset || !i_mcyc[N])
 				begin
-					o_mstall[N] <= 1'b0;
 					o_mack[N]   <= 1'b0;
 					o_merr[N]   <= 1'b0;
 				end
 			end
-
-			always @(*)
-				r_stb[N] = o_mstall[N];
-
-			always @(posedge i_clk)
-			if (OPT_LOWPOWER && !i_mcyc[N])
-			begin
-				r_we[N]   <= 0;
-				r_addr[N] <= 0;
-				r_data[N] <= 0;
-				r_sel[N]  <= 0;
-			end else if ((!OPT_LOWPOWER || i_mstb[N]) && !o_mstall[N])
-			begin
-				r_we[N]   <= i_mwe[N];
-				r_addr[N] <= i_maddr[N*AW +: AW];
-				r_data[N] <= i_mdata[N*DW +: DW];
-				r_sel[N]  <= i_msel[N*(DW/8) +: DW/8];
-			end
 		end
-
-		for(N=NM; N<NMFULL; N=N+1)
-		begin
-
-			always @(*)
-				r_stb[N] <= 1'b0;
-
-			always @(*)
-			begin
-				r_we[N]   = 0;
-				r_addr[N] = 0;
-				r_data[N] = 0;
-				r_sel[N]  = 0;
-			end
-		end
-
 
 	end else if (NS == 1) // && !OPT_DBLBUFFER
 	begin : SINGLE_SLAVE
@@ -725,26 +681,26 @@ module	wbxbar(i_clk, i_reset,
 		begin
 			always @(*)
 			begin
-				o_mstall[N] = !mgrant[N] || s_stall[0]
-					|| (i_mstb[N] && !request[N][0]);
+				m_stall[N] = !mgrant[N] || s_stall[0]
+					|| (m_stb[N] && !request[N][0]);
 				o_mack[N]   =  mgrant[N] && i_sack[0];
 				o_merr[N]   =  mgrant[N] && i_serr[0];
 				o_mdata[N*DW +: DW]  = (!mgrant[N] && OPT_LOWPOWER)
 					? 0 : i_sdata;
 
 				if (mnearfull[N])
-					o_mstall[N] = 1'b1;
+					m_stall[N] = 1'b1;
 
 				if (timed_out[N]&&!o_mack[0])
 				begin
-					o_mstall[N] = 1'b0;
+					m_stall[N] = 1'b0;
 					o_mack[N]   = 1'b0;
 					o_merr[N]   = 1'b1;
 				end
 
 				if (grant[N][NS] && m_stb[N])
 				begin
-					o_mstall[N] = 1'b0;
+					m_stall[N] = 1'b0;
 					o_mack[N]   = 1'b0;
 					o_merr[N]   = 1'b1;
 				end
@@ -754,21 +710,6 @@ module	wbxbar(i_clk, i_reset,
 					o_mack[N] = 1'b0;
 					o_merr[N] = 1'b0;
 				end
-			end
-		end
-
-		for(N=0; N<NMFULL; N=N+1)
-		begin
-
-			always @(*)
-				r_stb[N] <= 1'b0;
-
-			always @(*)
-			begin
-				r_we[N]   = 0;
-				r_addr[N] = 0;
-				r_data[N] = 0;
-				r_sel[N]  = 0;
 			end
 		end
 
@@ -779,7 +720,7 @@ module	wbxbar(i_clk, i_reset,
 			// initial	o_mack[N]   = 0;
 			always @(*)
 			begin
-				o_mstall[N] = 1;
+				m_stall[N] = 1;
 				o_mack[N]   = mgrant[N] && s_ack[mindex[N]];
 				o_merr[N]   = mgrant[N] && s_err[mindex[N]];
 				if (OPT_LOWPOWER && !mgrant[N])
@@ -790,16 +731,16 @@ module	wbxbar(i_clk, i_reset,
 				if (mgrant[N])
 				begin
 					iM = mindex[N];
-					o_mstall[N]       = (s_stall[mindex[N]])
-					    || (i_mstb[N] && !request[N][iM]);
+					m_stall[N]       = (s_stall[mindex[N]])
+					    || (m_stb[N] && !request[N][iM]);
 				end
 
 				if (mnearfull[N])
-					o_mstall[N] = 1'b1;
+					m_stall[N] = 1'b1;
 
 				if (grant[N][NS] ||(timed_out[N]&&!o_mack[0]))
 				begin
-					o_mstall[N] = 1'b0;
+					m_stall[N] = 1'b0;
 					o_mack[N]   = 1'b0;
 					o_merr[N]   = 1'b1;
 				end
@@ -812,27 +753,13 @@ module	wbxbar(i_clk, i_reset,
 			end
 		end
 
-		for(N=0; N<NMFULL; N=N+1)
-		begin
-
-			always @(*)
-				r_stb[N] = 1'b0;
-
-			always @(*)
-			begin
-				r_we[N]   = 0;
-				r_addr[N] = 0;
-				r_data[N] = 0;
-				r_sel[N]  = 0;
-			end
-		end
-
 	end endgenerate
 
 	//
 	// Count the pending transactions per master
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : COUNT_PENDING_TRANSACTIONS
+
 		reg	[LGMAXBURST-1:0]	lclpending;
 		initial	lclpending  = 0;
 		initial	mempty[N]    = 1;
@@ -845,7 +772,7 @@ module	wbxbar(i_clk, i_reset,
 			mfull[N]    <= 0;
 			mempty[N]   <= 1'b1;
 			mnearfull[N]<= 0;
-		end else case({ (i_mstb[N] && !o_mstall[N]), o_mack[N] })
+		end else case({ (m_stb[N] && !m_stall[N]), o_mack[N] })
 		2'b01: begin
 			lclpending <= lclpending - 1'b1;
 			mnearfull[N]<= mfull[N];
@@ -877,10 +804,8 @@ module	wbxbar(i_clk, i_reset,
 			initial	timed_out[N] = 0;
 			always @(posedge i_clk)
 			if (i_reset || !i_mcyc[N]
-					||((w_mpending[N] == 0)
-						&&(!i_mstb[N] && !r_stb[N]))
-					||((i_mstb[N] || r_stb[N])
-						&&(!o_mstall[N]))
+					||((w_mpending[N] == 0) && !m_stb[N])
+					||(m_stb[N] && !m_stall[N])
 					||(o_mack[N] || o_merr[N])
 					||(!OPT_STARVATION_TIMEOUT&&!mgrant[N]))
 			begin
@@ -971,7 +896,7 @@ module	wbxbar(i_clk, i_reset,
 
 		always @(*)
 		if (&w_mpending[N])
-			assert(o_merr[N] || o_mstall[N]);
+			assert(o_merr[N] || m_stall[N]);
 
 		reg	checkgrant;
 		always @(*)
@@ -991,7 +916,7 @@ module	wbxbar(i_clk, i_reset,
 
 	// Double check the grant mechanism and its dependent variables
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : CHECK_GRANTS
 
 		for(M=0; M<NS; M=M+1)
 		begin
@@ -1000,9 +925,30 @@ module	wbxbar(i_clk, i_reset,
 			begin
 				assert(mgrant[N]);
 				assert(mindex[N] == M);
+				assert(sgrant[M]);
 				assert(sindex[M] == N);
 			end
 		end
+	end endgenerate
+
+	generate for(M=0; M<NS; M=M+1)
+	begin : CHECK_SGRANT
+		reg	f_sgrant;
+
+		always @(*)
+		if (sgrant[M])
+			assert(grant[sindex[M]][M]);
+
+		always @(*)
+		begin
+			f_sgrant = 0;
+			for(iN=0; iN<NM; iN=iN+1)
+			if (grant[iN][M])
+				f_sgrant = 1;
+		end
+
+		always @(*)
+			assert(sgrant[M] == f_sgrant);
 	end endgenerate
 
 	// Double check the timeout flags for consistency
@@ -1033,6 +979,7 @@ module	wbxbar(i_clk, i_reset,
 		begin
 			assume(o_scyc[M] == 0);
 			assume(o_sstb[M] == 0);
+			assume(sgrant[M] == 0);
 		end
 	end endgenerate
 
@@ -1075,8 +1022,8 @@ module	wbxbar(i_clk, i_reset,
 			assert(f_moutstanding[N] <= 1);
 
 		always @(*)
-		if ((f_past_valid)&&(grant[N][NS] && i_mcyc[N]))
-			assert(o_mstall[N] || o_merr[N]);
+		if (f_past_valid && grant[N][NS] && i_mcyc[N])
+			assert(m_stall[N] || o_merr[N]);
 
 	end endgenerate
 
@@ -1103,57 +1050,59 @@ module	wbxbar(i_clk, i_reset,
 
 		always @(posedge i_clk)
 		if (i_mcyc[N])
-			assert(f_moutstanding[N] == w_mpending[N]);
+			assert(f_moutstanding[N] == w_mpending[N]
+				+((OPT_BUFFER_DECODER & dcd_stb[N]) ? 1:0));
 
 		reg	[LGMAXBURST:0]	n_outstanding;
 		always @(*)
 		if (i_mcyc[N])
 			assert(f_moutstanding[N] >=
-				(o_mstall[N] && OPT_DBLBUFFER) ? 1:0
+				((OPT_BUFFER_DECODER && dcd_stb[N]) ? 1:0)
 				+ (o_mack[N] && OPT_DBLBUFFER) ? 1:0);
 
 		always @(*)
 			n_outstanding = f_moutstanding[N]
-				- ((o_mstall[N] && OPT_DBLBUFFER) ? 1:0)
+				- ((OPT_BUFFER_DECODER && dcd_stb[N]) ? 1:0)
 				- ((o_mack[N] && OPT_DBLBUFFER) ? 1:0);
+
 		always @(posedge i_clk)
 		if (i_mcyc[N] && !mgrant[N] && !o_merr[N])
 			assert(f_moutstanding[N]
-					== (o_mstall[N]&&OPT_DBLBUFFER ? 1:0));
-		else if (i_mcyc[N] && mgrant[N])
+				== ((OPT_BUFFER_DECODER & dcd_stb[N]) ? 1:0));
+
+		else if (i_mcyc[N] && mgrant[N] && !i_reset)
 		for(iM=0; iM<NS; iM=iM+1)
 		if (grant[N][iM] && o_scyc[iM] && !i_serr[iM] && !o_merr[N])
 			assert(n_outstanding
-				== {1'b0,f_soutstanding[iM]}+(o_sstb[iM] ? 1:0));
+				== {1'b0,f_soutstanding[iM]}
+					+(o_sstb[iM] ? 1:0));
 
 		always @(*)
-		if (i_mcyc[N] && r_stb[N] && OPT_DBLBUFFER)
-			assume(i_mwe[N] == r_we[N]);
-
-		always @(*)
-		if (!OPT_DBLBUFFER && !mnearfull[N])
-			assert(i_mstb[N] == m_stb[N]);
-
-		always @(*)
-		if (!OPT_DBLBUFFER)
-			assert(i_mwe[N] == m_we[N]);
-
-		always @(*)
-		for(iM=0; iM<NS; iM=iM+1)
-		if (grant[N][iM] && i_mcyc[N])
+		if (!i_reset)
 		begin
-			if (f_soutstanding[iM] > 0)
-				assert(i_mwe[N] == o_swe[iM]);
-			if (o_sstb[iM])
-				assert(i_mwe[N] == o_swe[iM]);
-			if (o_mack[N])
-				assert(i_mwe[N] == o_swe[iM]);
-			if (o_scyc[iM] && i_sack[iM])
-				assert(i_mwe[N] == o_swe[iM]);
-			if (o_merr[N] && !timed_out[N])
-				assert(i_mwe[N] == o_swe[iM]);
-			if (o_scyc[iM] && i_serr[iM])
-				assert(i_mwe[N] == o_swe[iM]);
+			for(iM=0; iM<NS; iM=iM+1)
+			if (grant[N][iM] && i_mcyc[N])
+			begin
+				if (f_soutstanding[iM] > 0)
+					assert(i_mwe[N] == o_swe[iM]);
+				if (o_sstb[iM])
+					assert(i_mwe[N] == o_swe[iM]);
+				if (o_mack[N])
+					assert(i_mwe[N] == o_swe[iM]);
+				if (o_scyc[iM] && i_sack[iM])
+					assert(i_mwe[N] == o_swe[iM]);
+				if (o_merr[N] && !timed_out[N])
+					assert(i_mwe[N] == o_swe[iM]);
+				if (o_scyc[iM] && i_serr[iM])
+					assert(i_mwe[N] == o_swe[iM]);
+			end
+		end
+
+		always @(*)
+		if (!i_reset && OPT_BUFFER_DECODER && i_mcyc[N])
+		begin
+			if (dcd_stb[N])
+				assert(i_mwe[N] == m_we[N]);
 		end
 
 	end endgenerate
@@ -1535,13 +1484,13 @@ module	wbxbar(i_clk, i_reset,
 	end endgenerate
 
 	always @(posedge i_clk)
-		cover(!f_cvr_aborted && (&f_s_ackd));
+		cover(!f_cvr_aborted && (&f_s_ackd[NS-1:0]));
 
 	generate if (NS > 1)
 	begin
 
 		always @(posedge i_clk)
-			cover(!f_cvr_aborted && (&f_s_ackd[1:0]));
+			cover(!f_cvr_aborted && (&f_s_ackd[NS-1:0]));
 
 	end endgenerate
 

@@ -50,7 +50,7 @@ prf4x1_cheapkos nxo                            opt_timeout opt_starvation
 
 [options]
 ~cvr: mode prove
-~cvr: depth 5
+~cvr: depth 6
 cvr: mode cover
 cvr: depth 64
 
@@ -61,11 +61,13 @@ smtbmc boolector
 
 
 [script]
+read -formal addrdecode.v
+read -formal skidbuffer.v
 read -formal wbxbar.v
 read -formal fwb_slave.v
 read -formal fwb_master.v
 --pycode-begin--
-cmd = "hierarchy -top axixbar"
+cmd = "hierarchy -top wbxbar"
 if ("nxm" in tags):
 	cmd += " -chparam  NM 4 -chparam NS 8"
 if ("oxm" in tags):
@@ -78,10 +80,13 @@ cmd += " -chparam OPT_DBLBUFFER %d" % (1  if "opt_dblbuffer" in tags else 0)
 cmd += " -chparam OPT_LOWPOWER  %d" % (1  if "opt_lowpower"  in tags else 0)
 cmd += " -chparam OPT_TIMEOUT   %d" % (20 if "opt_timeout"   in tags else 0)
 cmd += " -chparam OPT_STARVATION_TIMEOUT %d" % (1 if "opt_starvation" in tags else 0)
+output(cmd)
 --pycode-end--
 prep -top wbxbar
 
 [files]
+../../rtl/skidbuffer.v
+../../rtl/addrdecode.v
 ../../rtl/wbxbar.v
 fwb_slave.v
 fwb_master.v
