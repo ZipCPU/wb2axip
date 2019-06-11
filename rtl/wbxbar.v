@@ -260,7 +260,6 @@ module	wbxbar(i_clk, i_reset,
 		else
 			m_stb[N] = i_mcyc[N] && dcd_stb[N];
 
-always @(*) if (mfull[N]) assert(m_stall[N]);
 	end for(N=NM; N<NMFULL; N=N+1)
 	begin
 		// in case NM isn't one less than a power of two, complete
@@ -410,7 +409,6 @@ always @(*) if (mfull[N]) assert(m_stall[N]);
 
 		always @(*)
 		begin
-			requested_channel_is_available = 0;
 			requested_channel_is_available =
 			|(request[N][NS-1:0] & ~sgrant & ~requested[N][NS-1:0]);
 
@@ -1048,6 +1046,10 @@ always @(*) if (mfull[N]) assert(m_stall[N]);
 	generate for(N=0; N<NM; N=N+1)
 	begin : CHECK_OUTSTANDING
 
+		always @(*)
+		if (mfull[N])
+			assert(m_stall[N]);
+
 		always @(posedge i_clk)
 		if (i_mcyc[N])
 			assert(f_moutstanding[N] == w_mpending[N]
@@ -1252,7 +1254,6 @@ always @(*) if (mfull[N]) assert(m_stall[N]);
 	always @(*)
 		f_read_ack = (f_read_seq[2] || ((!OPT_DBLBUFFER)&&f_read_seq[1]
 					&& !f_read_sstall));
-
 	initial	f_read_seq = 0;
 	always @(posedge i_clk)
 	if ((special_master < NM)&&(special_slave < NS)
