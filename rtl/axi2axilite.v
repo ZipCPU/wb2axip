@@ -440,12 +440,12 @@ module axi2axilite #(
 			axi_bresp = 0;
 			axi_bid   = 0;
 
-			wfifo_empty = 1;
-			wfifo_full  = 0;
-			wfifo_count = 0;
-
-			read_from_wrfifo = 0;
 		end
+		assign	wfifo_full  = 0;
+		assign	wfifo_empty = 1;
+		assign	wfifo_count = 0;
+		assign	read_from_wrfifo = 0;
+
 	end endgenerate
 
 
@@ -621,10 +621,10 @@ module axi2axilite #(
 			rcounts = 0;
 			rid = 0;
 
-			rfifo_empty = 1;
-			rfifo_full  = 0;
-			rfifo_count = 0;
 		end
+		assign	rfifo_empty = 1;
+		assign	rfifo_full  = 0;
+		assign	rfifo_count = 0;
 
 	end endgenerate
 
