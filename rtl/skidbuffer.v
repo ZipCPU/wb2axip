@@ -305,5 +305,5 @@ module skidbuffer(i_clk, i_reset,
 `endif	// SKIDCOVER
 	end endgenerate
 
-`endif	// FORMAL
+`endif	// FORMAL_VERIFIC
 endmodule

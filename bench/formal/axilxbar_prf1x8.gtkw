@@ -1,0 +1,183 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Apr 10 17:07:04 2019
+[*]
+[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/axilxbar_prf1x8/engine_0/trace_induct.vcd"
+[dumpfile_mtime] "Wed Apr 10 16:32:28 2019"
+[dumpfile_size] 94139
+[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/axilxbar_prf1x8.gtkw"
+[timestart] 0
+[size] 1920 1054
+[pos] -1 -1
+*-4.270011 30 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axilxbar.
+[sst_width] 196
+[signals_width] 270
+[sst_expanded] 1
+[sst_vpaned_height] 315
+@28
+axilxbar.S_AXI_ACLK
+axilxbar.S_AXI_ARESETN
+@c00200
+-Master write
+@28
+[color] 3
+axilxbar.M_AXI_AWVALID
+[color] 2
+axilxbar.M_AXI_AWREADY
+@22
+[color] 3
+axilxbar.M_AXI_AWADDR[31:0]
+@28
+[color] 3
+axilxbar.M_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilxbar.M_AXI_WVALID
+[color] 2
+axilxbar.M_AXI_WREADY
+@22
+[color] 3
+axilxbar.M_AXI_WDATA[31:0]
+[color] 3
+axilxbar.M_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+axilxbar.M_AXI_BVALID
+[color] 3
+axilxbar.M_AXI_BREADY
+[color] 2
+axilxbar.M_AXI_BRESP[1:0]
+@1401200
+-Master write
+@800200
+-Master read
+@29
+[color] 3
+axilxbar.M_AXI_ARVALID
+@28
+[color] 2
+axilxbar.M_AXI_ARREADY
+@22
+[color] 3
+axilxbar.M_AXI_ARADDR[31:0]
+@28
+[color] 3
+axilxbar.M_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilxbar.M_AXI_RVALID
+[color] 3
+axilxbar.M_AXI_RREADY
+@22
+[color] 2
+axilxbar.M_AXI_RDATA[31:0]
+@28
+[color] 2
+axilxbar.M_AXI_RRESP[1:0]
+@1000200
+-Master read
+@22
+axilxbar.fm_awr_outstanding<0>[5:0]
+axilxbar.fm_wr_outstanding<0>[5:0]
+axilxbar.fm_rd_outstanding<0>[5:0]
+@28
+axilxbar.slave_awaccepts
+axilxbar.slave_raccepts
+axilxbar.slave_waccepts
+@800200
+-Slave write
+@22
+[color] 2
+axilxbar.S_AXI_AWVALID[7:0]
+[color] 3
+axilxbar.S_AXI_AWREADY[7:0]
+[color] 2
+axilxbar.S_AXI_AWADDR[255:0]
+[color] 2
+axilxbar.S_AXI_AWPROT[23:0]
+@200
+-
+@22
+[color] 2
+axilxbar.S_AXI_WVALID[7:0]
+[color] 3
+axilxbar.S_AXI_WREADY[7:0]
+[color] 2
+axilxbar.S_AXI_WDATA[255:0]
+[color] 2
+axilxbar.S_AXI_WSTRB[31:0]
+@200
+-
+@22
+[color] 3
+axilxbar.S_AXI_BVALID[7:0]
+[color] 2
+axilxbar.S_AXI_BREADY[7:0]
+[color] 3
+axilxbar.S_AXI_BRESP[15:0]
+@1000200
+-Slave write
+@200
+-
+@800200
+-Slave reads
+@22
+[color] 2
+axilxbar.S_AXI_ARVALID[7:0]
+[color] 3
+axilxbar.S_AXI_ARREADY[7:0]
+[color] 2
+axilxbar.S_AXI_RDATA[255:0]
+[color] 2
+axilxbar.S_AXI_ARPROT[23:0]
+@200
+-
+@22
+[color] 3
+axilxbar.S_AXI_RVALID[7:0]
+[color] 2
+axilxbar.S_AXI_RREADY[7:0]
+[color] 3
+axilxbar.S_AXI_RRESP[15:0]
+axilxbar.S_AXI_ARADDR[255:0]
+@1000200
+-Slave reads
+@28
+axilxbar.mrgrant
+@22
+axilxbar.mrindex<0>[3:0]
+@28
+axilxbar.WRITE_RETURN_CHANNEL<0>.r_bvalid
+axilxbar.WRITE_RETURN_CHANNEL<0>.r_bresp[1:0]
+axilxbar.WRITE_RETURN_CHANNEL<0>.axi_bvalid
+@22
+axilxbar.rgrant<0>[8:0]
+axilxbar.rrequest<0>[8:0]
+@28
+axilxbar.mrempty
+axilxbar.ARBITRATE_READ_REQUESTS<0>.leave_channel
+axilxbar.ARBITRATE_READ_REQUESTS<0>.requested_channel_is_available
+axilxbar.ARBITRATE_READ_REQUESTS<0>.stay_on_channel
+@200
+-
+@28
+axilxbar.mwgrant
+@22
+axilxbar.mwindex<0>[3:0]
+axilxbar.w_mwpending<0>[4:0]
+axilxbar.wrequest<0>[8:0]
+axilxbar.wgrant<0>[8:0]
+@28
+axilxbar.mwempty
+axilxbar.ARBITRATE_WRITE_REQUESTS<0>.stay_on_channel
+axilxbar.ARBITRATE_WRITE_REQUESTS<0>.leave_channel
+axilxbar.ARBITRATE_WRITE_REQUESTS<0>.requested_channel_is_available
+[pattern_trace] 1
+[pattern_trace] 0

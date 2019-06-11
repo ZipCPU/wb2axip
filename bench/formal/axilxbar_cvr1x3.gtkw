@@ -1,0 +1,414 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Apr 10 13:45:40 2019
+[*]
+[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/axilxbar_cvr1x3/engine_0/trace16.vcd"
+[dumpfile_mtime] "Wed Apr 10 13:30:22 2019"
+[dumpfile_size] 161016
+[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/axilxbar_cvr1x3.gtkw"
+[timestart] 0
+[size] 1920 1054
+[pos] 3839 0
+*-6.088337 260 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axilxbar.
+[sst_width] 196
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 324
+@28
+axilxbar.S_AXI_ACLK
+axilxbar.S_AXI_ARESETN
+@c00200
+-Master write
+@28
+[color] 3
+axilxbar.M_AXI_AWVALID
+[color] 3
+axilxbar.M_AXI_AWREADY
+@22
+[color] 3
+axilxbar.M_AXI_AWADDR[31:0]
+@28
+[color] 3
+axilxbar.M_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilxbar.M_AXI_WVALID
+[color] 3
+axilxbar.M_AXI_WREADY
+@22
+[color] 3
+axilxbar.M_AXI_WDATA[31:0]
+[color] 3
+axilxbar.M_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+axilxbar.M_AXI_BVALID
+[color] 2
+axilxbar.M_AXI_BREADY
+[color] 2
+axilxbar.M_AXI_BRESP[1:0]
+@1401200
+-Master write
+@c00200
+-Master read
+@28
+[color] 3
+axilxbar.M_AXI_ARVALID
+[color] 3
+axilxbar.M_AXI_ARREADY
+@22
+[color] 3
+axilxbar.M_AXI_ARADDR[31:0]
+@28
+[color] 3
+axilxbar.M_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilxbar.M_AXI_RVALID
+[color] 2
+axilxbar.M_AXI_RREADY
+@22
+[color] 2
+axilxbar.M_AXI_RDATA[31:0]
+@28
+[color] 2
+axilxbar.M_AXI_RRESP[1:0]
+@1401200
+-Master read
+@200
+-
+@800200
+-Slave write
+@800028
+[color] 2
+axilxbar.S_AXI_AWVALID[2:0]
+@28
+[color] 2
+(0)axilxbar.S_AXI_AWVALID[2:0]
+[color] 2
+(1)axilxbar.S_AXI_AWVALID[2:0]
+[color] 2
+(2)axilxbar.S_AXI_AWVALID[2:0]
+@1001200
+-group_end
+@28
+[color] 2
+axilxbar.S_AXI_AWREADY[2:0]
+@22
+[color] 2
+axilxbar.S_AXI_AWADDR[95:0]
+[color] 2
+axilxbar.S_AXI_AWPROT[8:0]
+@200
+-
+@28
+[color] 2
+axilxbar.S_AXI_WVALID[2:0]
+[color] 2
+axilxbar.S_AXI_WREADY[2:0]
+@22
+[color] 2
+axilxbar.S_AXI_WDATA[95:0]
+[color] 2
+axilxbar.S_AXI_WSTRB[11:0]
+@200
+-
+@28
+[color] 3
+axilxbar.S_AXI_BREADY[2:0]
+@22
+[color] 3
+axilxbar.S_AXI_BRESP[5:0]
+@28
+[color] 3
+axilxbar.S_AXI_BVALID[2:0]
+@1000200
+-Slave write
+@800200
+-Slave read
+@800028
+[color] 2
+axilxbar.S_AXI_ARVALID[2:0]
+@28
+[color] 2
+(0)axilxbar.S_AXI_ARVALID[2:0]
+[color] 2
+(1)axilxbar.S_AXI_ARVALID[2:0]
+[color] 2
+(2)axilxbar.S_AXI_ARVALID[2:0]
+@1001200
+-group_end
+@c00029
+[color] 3
+axilxbar.S_AXI_ARREADY[2:0]
+@28
+[color] 2
+(0)axilxbar.S_AXI_ARREADY[2:0]
+[color] 2
+(1)axilxbar.S_AXI_ARREADY[2:0]
+[color] 2
+(2)axilxbar.S_AXI_ARREADY[2:0]
+@1401201
+-group_end
+@c00022
+[color] 2
+axilxbar.S_AXI_ARADDR[95:0]
+@28
+[color] 2
+(0)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(1)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(2)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(3)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(4)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(5)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(6)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(7)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(8)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(9)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(10)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(11)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(12)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(13)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(14)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(15)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(16)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(17)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(18)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(19)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(20)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(21)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(22)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(23)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(24)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(25)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(26)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(27)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(28)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(29)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(30)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(31)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(32)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(33)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(34)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(35)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(36)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(37)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(38)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(39)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(40)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(41)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(42)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(43)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(44)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(45)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(46)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(47)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(48)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(49)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(50)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(51)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(52)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(53)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(54)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(55)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(56)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(57)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(58)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(59)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(60)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(61)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(62)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(63)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(64)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(65)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(66)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(67)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(68)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(69)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(70)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(71)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(72)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(73)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(74)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(75)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(76)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(77)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(78)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(79)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(80)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(81)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(82)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(83)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(84)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(85)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(86)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(87)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(88)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(89)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(90)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(91)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(92)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(93)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(94)axilxbar.S_AXI_ARADDR[95:0]
+[color] 2
+(95)axilxbar.S_AXI_ARADDR[95:0]
+@1401200
+-group_end
+@22
+[color] 2
+axilxbar.S_AXI_ARPROT[8:0]
+@200
+-
+@c00028
+axilxbar.S_AXI_RVALID[2:0]
+@28
+(0)axilxbar.S_AXI_RVALID[2:0]
+(1)axilxbar.S_AXI_RVALID[2:0]
+(2)axilxbar.S_AXI_RVALID[2:0]
+@1401200
+-group_end
+@c00028
+[color] 3
+axilxbar.S_AXI_RREADY[2:0]
+@28
+[color] 3
+(0)axilxbar.S_AXI_RREADY[2:0]
+[color] 3
+(1)axilxbar.S_AXI_RREADY[2:0]
+[color] 3
+(2)axilxbar.S_AXI_RREADY[2:0]
+@1401200
+-group_end
+@22
+[color] 3
+axilxbar.S_AXI_RDATA[95:0]
+[color] 3
+axilxbar.S_AXI_RRESP[5:0]
+@1000200
+-Slave read
+@200
+-
+@28
+axilxbar.mwgrant
+axilxbar.mwindex<0>[1:0]
+axilxbar.mrgrant
+axilxbar.mrindex<0>[1:0]
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.err_wr_return
+@22
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.r_returns[3:0]
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.w_returns[3:0]
+@28
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.was_revery
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.was_wevery
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.err_wr_return
+@22
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.r_every[3:0]
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.r_returns[3:0]
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.w_every[3:0]
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.w_returns[3:0]
+@28
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.was_revery
+axilxbar.COVER_CONNECTIVITY_FROM_MASTER<0>.was_wevery
+[pattern_trace] 1
+[pattern_trace] 0
