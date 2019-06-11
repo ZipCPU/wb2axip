@@ -80,7 +80,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	output	reg [(AW-1):0]			o_wb_addr;
 	input	wire				i_wb_ack;
 	input	wire				i_wb_stall;
-	input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data;
+	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data;
 	input	wire				i_wb_err;
 `ifdef	FORMAL
 	// Output connections only used in formal mode
