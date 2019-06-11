@@ -239,7 +239,7 @@ module axi2axilite #(
 			{ skids_wdata, skids_wstrb, skids_wlast });
 		//
 		// The downstream AXI-lite write data (M_AXI_W*) skid buffer
-		skidbuffer #(.DW(2), .OPT_LOWPOWER(0), .OPT_OUTREG(1))
+		skidbuffer #(.DW(DW+DW/8), .OPT_LOWPOWER(0), .OPT_OUTREG(1))
 		mwskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			skidm_wvalid, skidm_wready, { skidm_wdata, skidm_wstrb },
 			M_AXI_WVALID, M_AXI_WREADY, { M_AXI_WDATA, M_AXI_WSTRB });
