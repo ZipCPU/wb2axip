@@ -177,7 +177,7 @@ module	axi_addr(i_last_addr,
 		begin
 			// WRAP!
 			o_next_addr[AW-1:0] = (i_last_addr & ~wrap_mask)
-					| (o_next_addr & wrap_mask);;
+					| (o_next_addr & wrap_mask);
 		end
 
 		if (AW > 12)
