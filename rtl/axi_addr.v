@@ -128,7 +128,7 @@ module	axi_addr(i_last_addr,
 		// But verilator complains about the left-hand side of
 		// the shift having only 3 bits.
 		//
-		if (DW < DSZ)
+		if (DSZ < 2)
 			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size[0]));
 		else if (DSZ < 4)
 			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size[1:0]));

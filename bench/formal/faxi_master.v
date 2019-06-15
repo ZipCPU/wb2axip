@@ -62,7 +62,6 @@ module faxi_master #(
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXSTALL = 3,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXRSTALL= 3,
 	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 3,
-	parameter [0:0]			F_OPT_READCHECK = 0,
 	localparam			F_OPT_BURSTS    = (OPT_MAXBURST != 0),
 	//
 	localparam IW			= C_AXI_ID_WIDTH,
@@ -777,7 +776,7 @@ module faxi_master #(
 	// the write strobe.  An STRB of 0 is always allowed.
 	//
 	always @(*)
-	if (i_axi_wvalid && (f_axi_wr_pending > 0))
+	if (i_axi_wvalid)
 		`SLAVE_ASSUME(wstb_valid);
 
 	//
@@ -795,6 +794,8 @@ module faxi_master #(
 	always @(*)
 	if (f_axi_wr_pending > 0)
 		assert(f_axi_wr_pending <= f_axi_wr_len + 1);
+	always @(*)
+		assert(f_axi_wr_pending <= 9'h100);
 
 	always @(*)
 	if ((f_axi_wr_pending > 0)&&(f_axi_wr_burst == 2'b10))

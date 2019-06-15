@@ -305,7 +305,7 @@ module axi2axilite #(
 		assign	skids_wready = s_axi_wready && skidm_wready;
 
 		assign	read_from_wrfifo = (bcounts <= 1)&&(!wfifo_empty)
-				&&(skidm_bvalid && skidm_bready);
+			    &&(skidm_bvalid && skidm_bready);
 
 		// BFIFO
 		sfifo	#(.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO))
@@ -377,7 +377,7 @@ module axi2axilite #(
 		assign	S_AXI_BRESP  = axi_bresp;
 		assign	S_AXI_BVALID = s_axi_bvalid;
 	
-	end else begin // if (!OPT_WRITES
+	end else begin // if (!OPT_WRITES)
 
 		assign	S_AXI_AWREADY = 0;
 		assign	S_AXI_WREADY  = 0;
@@ -441,6 +441,7 @@ module axi2axilite #(
 			axi_bid   = 0;
 
 		end
+
 		assign	wfifo_full  = 0;
 		assign	wfifo_empty = 1;
 		assign	wfifo_count = 0;

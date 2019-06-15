@@ -51,6 +51,12 @@ module demofull #(
 	parameter integer C_S_AXI_ID_WIDTH	= 2,
 	parameter integer C_S_AXI_DATA_WIDTH	= 32,
 	parameter integer C_S_AXI_ADDR_WIDTH	= 6,
+	// Some useful short-hand definitions
+	localparam	AW = C_S_AXI_ADDR_WIDTH,
+	localparam	DW = C_S_AXI_DATA_WIDTH,
+	localparam	IW = C_S_AXI_ID_WIDTH,
+	localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3,
+
 	parameter [0:0]	OPT_NARROW_BURST = 1
 	) (
 		// Users to add ports here
@@ -220,11 +226,6 @@ module demofull #(
 		// accept the read data and response information.
 		input wire  S_AXI_RREADY
 	);
-
-	localparam	AW = C_S_AXI_ADDR_WIDTH;
-	localparam	DW = C_S_AXI_DATA_WIDTH;
-	localparam	IW = C_S_AXI_ID_WIDTH;
-	localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3;
 
 	// Double buffer the write response channel only
 	reg	[IW-1 : 0]	r_bid;

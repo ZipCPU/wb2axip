@@ -121,10 +121,12 @@ module	axixbar #(
 		// which of the bits in SLAVE_ADDR are relevant.  It is
 		// important to maintain for every slave that
 		// 	(~SLAVE_MASK[i] & SLAVE_ADDR[i]) == 0.
+		// Verilator lint_off WIDTH
 		parameter	[NS*AW-1:0]	SLAVE_MASK =
 			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
 			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
 				{(2){ 4'b1111, {(AW-4){1'b0}}}} },
+		// Verilator lint_on  WIDTH
 		//
 		// OPT_LOWPOWER: If set, it forces all unused values to zero,
 		// preventing them from unnecessarily toggling.  This will
@@ -152,93 +154,93 @@ module	axixbar #(
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
 		//
-		input	wire	[NM*C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
-		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
-		input	wire	[NM*8-1:0]			M_AXI_AWLEN,
-		input	wire	[NM*3-1:0]			M_AXI_AWSIZE,
-		input	wire	[NM*2-1:0]			M_AXI_AWBURST,
-		input	wire	[NM-1:0]			M_AXI_AWLOCK,
-		input	wire	[NM*4-1:0]			M_AXI_AWCACHE,
-		input	wire	[NM*3-1:0]			M_AXI_AWPROT,
-		input	wire	[NM*4-1:0]			M_AXI_AWQOS,
-		input	wire	[NM-1:0]			M_AXI_AWVALID,
-		output	wire	[NM-1:0]			M_AXI_AWREADY,
+		input	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_AWID,
+		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
+		input	wire	[NM*8-1:0]			S_AXI_AWLEN,
+		input	wire	[NM*3-1:0]			S_AXI_AWSIZE,
+		input	wire	[NM*2-1:0]			S_AXI_AWBURST,
+		input	wire	[NM-1:0]			S_AXI_AWLOCK,
+		input	wire	[NM*4-1:0]			S_AXI_AWCACHE,
+		input	wire	[NM*3-1:0]			S_AXI_AWPROT,
+		input	wire	[NM*4-1:0]			S_AXI_AWQOS,
+		input	wire	[NM-1:0]			S_AXI_AWVALID,
+		output	wire	[NM-1:0]			S_AXI_AWREADY,
 		//
-		input	wire	[NM*C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
-		input	wire	[NM*C_AXI_DATA_WIDTH/8-1:0]	M_AXI_WSTRB,
-		input	wire	[NM-1:0]			M_AXI_WLAST,
-		input	wire	[NM-1:0]			M_AXI_WVALID,
-		output	wire	[NM-1:0]			M_AXI_WREADY,
+		input	wire	[NM*C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
+		input	wire	[NM*C_AXI_DATA_WIDTH/8-1:0]	S_AXI_WSTRB,
+		input	wire	[NM-1:0]			S_AXI_WLAST,
+		input	wire	[NM-1:0]			S_AXI_WVALID,
+		output	wire	[NM-1:0]			S_AXI_WREADY,
 		//
-		output	wire	[NM*C_AXI_ID_WIDTH-1:0]	M_AXI_BID,
-		output	wire	[NM*2-1:0]			M_AXI_BRESP,
-		output	wire	[NM-1:0]			M_AXI_BVALID,
-		input	wire	[NM-1:0]			M_AXI_BREADY,
+		output	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_BID,
+		output	wire	[NM*2-1:0]			S_AXI_BRESP,
+		output	wire	[NM-1:0]			S_AXI_BVALID,
+		input	wire	[NM-1:0]			S_AXI_BREADY,
 		//
-		input	wire	[NM*C_AXI_ID_WIDTH-1:0]	M_AXI_ARID,
-		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
-		input	wire	[NM*8-1:0]			M_AXI_ARLEN,
-		input	wire	[NM*3-1:0]			M_AXI_ARSIZE,
-		input	wire	[NM*2-1:0]			M_AXI_ARBURST,
-		input	wire	[NM-1:0]			M_AXI_ARLOCK,
-		input	wire	[NM*4-1:0]			M_AXI_ARCACHE,
-		input	wire	[NM*3-1:0]			M_AXI_ARPROT,
-		input	wire	[NM*4-1:0]			M_AXI_ARQOS,
-		input	wire	[NM-1:0]			M_AXI_ARVALID,
-		output	wire	[NM-1:0]			M_AXI_ARREADY,
+		input	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_ARID,
+		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,
+		input	wire	[NM*8-1:0]			S_AXI_ARLEN,
+		input	wire	[NM*3-1:0]			S_AXI_ARSIZE,
+		input	wire	[NM*2-1:0]			S_AXI_ARBURST,
+		input	wire	[NM-1:0]			S_AXI_ARLOCK,
+		input	wire	[NM*4-1:0]			S_AXI_ARCACHE,
+		input	wire	[NM*3-1:0]			S_AXI_ARPROT,
+		input	wire	[NM*4-1:0]			S_AXI_ARQOS,
+		input	wire	[NM-1:0]			S_AXI_ARVALID,
+		output	wire	[NM-1:0]			S_AXI_ARREADY,
 		//
-		output	wire	[NM*C_AXI_ID_WIDTH-1:0]	M_AXI_RID,
-		output	wire	[NM*C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
-		output	wire	[NM*2-1:0]			M_AXI_RRESP,
-		output	wire	[NM-1:0]			M_AXI_RLAST,
-		output	wire	[NM-1:0]			M_AXI_RVALID,
-		input	wire	[NM-1:0]			M_AXI_RREADY,
-		//
-		//
-		//
-		output	wire	[NS*C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
-		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
-		output	wire	[NS*8-1:0]			S_AXI_AWLEN,
-		output	wire	[NS*3-1:0]			S_AXI_AWSIZE,
-		output	wire	[NS*2-1:0]			S_AXI_AWBURST,
-		output	wire	[NS-1:0]			S_AXI_AWLOCK,
-		output	wire	[NS*4-1:0]			S_AXI_AWCACHE,
-		output	wire	[NS*3-1:0]			S_AXI_AWPROT,
-		output	wire	[NS*4-1:0]			S_AXI_AWQOS,
-		output	wire	[NS-1:0]			S_AXI_AWVALID,
-		input	wire	[NS-1:0]			S_AXI_AWREADY,
+		output	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_RID,
+		output	wire	[NM*C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
+		output	wire	[NM*2-1:0]			S_AXI_RRESP,
+		output	wire	[NM-1:0]			S_AXI_RLAST,
+		output	wire	[NM-1:0]			S_AXI_RVALID,
+		input	wire	[NM-1:0]			S_AXI_RREADY,
 		//
 		//
-		output	wire	[NS*C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
-		output	wire	[NS*C_AXI_DATA_WIDTH/8-1:0]	S_AXI_WSTRB,
-		output	wire	[NS-1:0]			S_AXI_WLAST,
-		output	wire	[NS-1:0]			S_AXI_WVALID,
-		input	wire	[NS-1:0]			S_AXI_WREADY,
 		//
-		input	wire	[NS*C_AXI_ID_WIDTH-1:0]	S_AXI_BID,
-		input	wire	[NS*2-1:0]			S_AXI_BRESP,
-		input	wire	[NS-1:0]			S_AXI_BVALID,
-		output	wire	[NS-1:0]			S_AXI_BREADY,
-		//
-		output	wire	[NS*C_AXI_ID_WIDTH-1:0]	S_AXI_ARID,
-		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,
-		output	wire	[NS*8-1:0]			S_AXI_ARLEN,
-		output	wire	[NS*3-1:0]			S_AXI_ARSIZE,
-		output	wire	[NS*2-1:0]			S_AXI_ARBURST,
-		output	wire	[NS-1:0]			S_AXI_ARLOCK,
-		output	wire	[NS*4-1:0]			S_AXI_ARCACHE,
-		output	wire	[NS*4-1:0]			S_AXI_ARQOS,
-		output	wire	[NS*3-1:0]			S_AXI_ARPROT,
-		output	wire	[NS-1:0]			S_AXI_ARVALID,
-		input	wire	[NS-1:0]			S_AXI_ARREADY,
+		output	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_AWID,
+		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
+		output	wire	[NS*8-1:0]			M_AXI_AWLEN,
+		output	wire	[NS*3-1:0]			M_AXI_AWSIZE,
+		output	wire	[NS*2-1:0]			M_AXI_AWBURST,
+		output	wire	[NS-1:0]			M_AXI_AWLOCK,
+		output	wire	[NS*4-1:0]			M_AXI_AWCACHE,
+		output	wire	[NS*3-1:0]			M_AXI_AWPROT,
+		output	wire	[NS*4-1:0]			M_AXI_AWQOS,
+		output	wire	[NS-1:0]			M_AXI_AWVALID,
+		input	wire	[NS-1:0]			M_AXI_AWREADY,
 		//
 		//
-		input	wire	[NS*C_AXI_ID_WIDTH-1:0]	S_AXI_RID,
-		input	wire	[NS*C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
-		input	wire	[NS*2-1:0]			S_AXI_RRESP,
-		input	wire	[NS-1:0]			S_AXI_RLAST,
-		input	wire	[NS-1:0]			S_AXI_RVALID,
-		output	wire	[NS-1:0]			S_AXI_RREADY
+		output	wire	[NS*C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
+		output	wire	[NS*C_AXI_DATA_WIDTH/8-1:0]	M_AXI_WSTRB,
+		output	wire	[NS-1:0]			M_AXI_WLAST,
+		output	wire	[NS-1:0]			M_AXI_WVALID,
+		input	wire	[NS-1:0]			M_AXI_WREADY,
+		//
+		input	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_BID,
+		input	wire	[NS*2-1:0]			M_AXI_BRESP,
+		input	wire	[NS-1:0]			M_AXI_BVALID,
+		output	wire	[NS-1:0]			M_AXI_BREADY,
+		//
+		output	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_ARID,
+		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
+		output	wire	[NS*8-1:0]			M_AXI_ARLEN,
+		output	wire	[NS*3-1:0]			M_AXI_ARSIZE,
+		output	wire	[NS*2-1:0]			M_AXI_ARBURST,
+		output	wire	[NS-1:0]			M_AXI_ARLOCK,
+		output	wire	[NS*4-1:0]			M_AXI_ARCACHE,
+		output	wire	[NS*4-1:0]			M_AXI_ARQOS,
+		output	wire	[NS*3-1:0]			M_AXI_ARPROT,
+		output	wire	[NS-1:0]			M_AXI_ARVALID,
+		input	wire	[NS-1:0]			M_AXI_ARREADY,
+		//
+		//
+		input	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_RID,
+		input	wire	[NS*C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
+		input	wire	[NS*2-1:0]			M_AXI_RRESP,
+		input	wire	[NS-1:0]			M_AXI_RLAST,
+		input	wire	[NS-1:0]			M_AXI_RVALID,
+		output	wire	[NS-1:0]			M_AXI_RREADY
 	);
 	//
 	// Local parameters, derived from those above
@@ -255,6 +257,8 @@ module	axixbar #(
 	localparam	NSFULL = (NS>1) ? (1<<LGNS) : 2;
 	//
 	localparam [1:0] INTERCONNECT_ERROR = 2'b11;
+	localparam [0:0]	OPT_SKID_INPUT = 0;
+	localparam [0:0]	OPT_BUFFER_DECODER = 1;
 
 	genvar	N,M;
 	integer	iN, iM;
@@ -272,13 +276,10 @@ module	axixbar #(
 
 	// verilator lint_off UNUSED
 	wire	[LGMAXBURST-1:0]	w_mawpending	[0:NM-1];
-	wire	[LGMAXBURST+8-1:0]	w_mwpending	[0:NM-1];
 	wire	[LGMAXBURST-1:0]	w_mrpending	[0:NM-1];
 	// verilator lint_on  UNUSED
 	reg	[NM-1:0]		mwfull;
 	reg	[NM-1:0]		mrfull;
-	reg	[NM-1:0]		mwnearfull;
-	reg	[NM-1:0]		mrnearfull;
 	reg	[NM-1:0]		mwempty;
 	reg	[NM-1:0]		mrempty;
 	//
@@ -289,198 +290,234 @@ module	axixbar #(
 
 	(* keep *) reg	[NM-1:0]		wdata_expected;
 
-	// The skid buffers
-	reg	[NMFULL-1:0]	r_awvalid, r_wvalid, r_arvalid;
+	// The shadow buffers
+	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
+	reg	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
-	reg	[C_AXI_ID_WIDTH-1:0]		r_awid		[0:NMFULL-1];
-	reg	[C_AXI_ADDR_WIDTH-1:0]	r_awaddr	[0:NMFULL-1];
-	reg	[7:0]				r_awlen		[0:NMFULL-1];
-	reg	[2:0]				r_awsize	[0:NMFULL-1];
-	reg	[1:0]				r_awburst	[0:NMFULL-1];
-	reg	[NMFULL-1:0]			r_awlock;
-	reg	[3:0]				r_awcache	[0:NMFULL-1];
-	reg	[2:0]				r_awprot	[0:NMFULL-1];
-	reg	[3:0]				r_awqos		[0:NMFULL-1];
+	wire	[C_AXI_ID_WIDTH-1:0]		m_awid		[0:NMFULL-1];
+	wire	[C_AXI_ADDR_WIDTH-1:0]		m_awaddr	[0:NMFULL-1];
+	wire	[7:0]				m_awlen		[0:NMFULL-1];
+	wire	[2:0]				m_awsize	[0:NMFULL-1];
+	wire	[1:0]				m_awburst	[0:NMFULL-1];
+	wire	[NMFULL-1:0]			m_awlock;
+	wire	[3:0]				m_awcache	[0:NMFULL-1];
+	wire	[2:0]				m_awprot	[0:NMFULL-1];
+	wire	[3:0]				m_awqos		[0:NMFULL-1];
 	//
 	reg	[C_AXI_ID_WIDTH-1:0]		r_wid		[0:NMFULL-1];
-	reg	[C_AXI_DATA_WIDTH-1:0]		r_wdata		[0:NMFULL-1];
-	reg	[C_AXI_DATA_WIDTH/8-1:0]	r_wstrb		[0:NMFULL-1];
-	reg	[NMFULL-1:0]			r_wlast;
+	wire	[C_AXI_DATA_WIDTH-1:0]		m_wdata		[0:NMFULL-1];
+	wire	[C_AXI_DATA_WIDTH/8-1:0]	m_wstrb		[0:NMFULL-1];
+	wire	[NMFULL-1:0]			m_wlast;
 
-	reg	[C_AXI_ID_WIDTH-1:0]		r_arid		[0:NMFULL-1];
-	reg	[C_AXI_ADDR_WIDTH-1:0]	r_araddr	[0:NMFULL-1];
-	reg	[8-1:0]				r_arlen		[0:NMFULL-1];
-	reg	[3-1:0]				r_arsize	[0:NMFULL-1];
-	reg	[2-1:0]				r_arburst	[0:NMFULL-1];
-	reg	[NMFULL-1:0]			r_arlock;
-	reg	[4-1:0]				r_arcache	[0:NMFULL-1];
-	reg	[2:0]				r_arprot	[0:NMFULL-1];
-	reg	[3:0]				r_arqos		[0:NMFULL-1];
+	wire	[C_AXI_ID_WIDTH-1:0]		m_arid		[0:NMFULL-1];
+	wire	[C_AXI_ADDR_WIDTH-1:0]		m_araddr	[0:NMFULL-1];
+	wire	[8-1:0]				m_arlen		[0:NMFULL-1];
+	wire	[3-1:0]				m_arsize	[0:NMFULL-1];
+	wire	[2-1:0]				m_arburst	[0:NMFULL-1];
+	wire	[NMFULL-1:0]			m_arlock;
+	wire	[4-1:0]				m_arcache	[0:NMFULL-1];
+	wire	[2:0]				m_arprot	[0:NMFULL-1];
+	wire	[3:0]				m_arqos		[0:NMFULL-1];
 	//
+	//
+	reg	[NM-1:0]			berr_valid;
+	reg	[IW-1:0]			berr_id		[0:NM-1];
 	//
 	reg	[NM-1:0]			rerr_none;
 	reg	[NM-1:0]			rerr_last;
 	reg	[8:0]				rerr_outstanding [0:NM-1];
 	reg	[IW-1:0]			rerr_id		 [0:NM-1];
 
-	// The shadow buffers
-	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
-
-	reg	[C_AXI_ID_WIDTH-1:0]		m_awid		[0:NMFULL-1];
-	reg	[C_AXI_ADDR_WIDTH-1:0]	m_awaddr	[0:NMFULL-1];
-	reg	[7:0]				m_awlen		[0:NMFULL-1];
-	reg	[2:0]				m_awsize	[0:NMFULL-1];
-	reg	[1:0]				m_awburst	[0:NMFULL-1];
-	reg	[NMFULL-1:0]			m_awlock;
-	reg	[3:0]				m_awcache	[0:NMFULL-1];
-	reg	[2:0]				m_awprot	[0:NMFULL-1];
-	reg	[3:0]				m_awqos		[0:NMFULL-1];
+	wire	[NM-1:0]	skd_awvalid, skd_awstall;
+	wire	[NM-1:0]	skd_arvalid, skd_arstall;
+	wire	[IW-1:0]	skd_awid			[0:NM-1];
+	wire	[AW-1:0]	skd_awaddr			[0:NM-1];
+	wire	[8-1:0]		skd_awlen			[0:NM-1];
+	wire	[3-1:0]		skd_awsize			[0:NM-1];
+	wire	[2-1:0]		skd_awburst			[0:NM-1];
+	wire	[NM-1:0]	skd_awlock;
+	wire	[4-1:0]		skd_awcache			[0:NM-1];
+	wire	[3-1:0]		skd_awprot			[0:NM-1];
+	wire	[4-1:0]		skd_awqos			[0:NM-1];
 	//
-	//
-	reg	[C_AXI_ID_WIDTH-1:0]		m_wid		[0:NMFULL-1];
-	reg	[C_AXI_DATA_WIDTH-1:0]	m_wdata		[0:NMFULL-1];
-	reg	[C_AXI_DATA_WIDTH/8-1:0]	m_wstrb		[0:NMFULL-1];
-	reg	[NMFULL-1:0]			m_wlast;
+	wire	[IW-1:0]	skd_arid			[0:NM-1];
+	wire	[AW-1:0]	skd_araddr			[0:NM-1];
+	wire	[8-1:0]		skd_arlen			[0:NM-1];
+	wire	[3-1:0]		skd_arsize			[0:NM-1];
+	wire	[2-1:0]		skd_arburst			[0:NM-1];
+	wire	[NM-1:0]	skd_arlock;
+	wire	[4-1:0]		skd_arcache			[0:NM-1];
+	wire	[3-1:0]		skd_arprot			[0:NM-1];
+	wire	[4-1:0]		skd_arqos			[0:NM-1];
 
-	reg	[C_AXI_ID_WIDTH-1:0]		m_arid		[0:NMFULL-1];
-	reg	[C_AXI_ADDR_WIDTH-1:0]		m_araddr	[0:NMFULL-1];
-	reg	[8-1:0]				m_arlen		[0:NMFULL-1];
-	reg	[3-1:0]				m_arsize	[0:NMFULL-1];
-	reg	[2-1:0]				m_arburst	[0:NMFULL-1];
-	reg	[NMFULL-1:0]			m_arlock;
-	reg	[4-1:0]				m_arcache	[0:NMFULL-1];
-	reg	[2:0]				m_arprot	[0:NMFULL-1];
-	reg	[3:0]				m_arqos		[0:NMFULL-1];
-	//
-
-	reg	[NSFULL-1:0]	s_axi_awvalid;
-	reg	[NSFULL-1:0]	s_axi_awready;
-	reg	[IW-1:0]	s_axi_awid	[0:NSFULL-1];
-	reg	[7:0]		s_axi_awlen	[0:NSFULL-1];
-
-	reg	[NSFULL-1:0]	s_axi_wvalid;
-	reg	[NSFULL-1:0]	s_axi_wready;
-	reg	[NSFULL-1:0]	s_axi_bvalid;
-	reg	[NSFULL-1:0]	s_axi_bready;
-	reg	[1:0]		s_axi_bresp	[0:NSFULL-1];
-	reg	[IW-1:0]	s_axi_bid	[0:NSFULL-1];
-
-	reg	[NSFULL-1:0]	s_axi_arvalid;
-	reg	[7:0]		s_axi_arlen	[0:NSFULL-1];
-	reg	[IW-1:0]	s_axi_arid	[0:NSFULL-1];
+	reg	[NSFULL-1:0]	m_axi_awvalid;
+	reg	[NSFULL-1:0]	m_axi_awready;
+	reg	[AW-1:0]	m_axi_awaddr			[0:NSFULL-1];
+	reg	[2-1:0]		m_axi_awburst			[0:NSFULL-1];
+	reg	[3-1:0]		m_axi_awsize			[0:NSFULL-1];
+	reg	[NSFULL-1:0]	m_axi_awlock;
 	// Verilator lint_off UNUSED
-	reg	[NSFULL-1:0]	s_axi_arready;
-	// Verilator lint_on  UNUSED
-	reg	[NSFULL-1:0]	s_axi_rvalid;
-	// Verilator lint_off UNUSED
-	reg	[NSFULL-1:0]	s_axi_rready;
+	reg	[IW-1:0]	m_axi_awid	[0:NSFULL-1];
+	reg	[7:0]		m_axi_awlen	[0:NSFULL-1];
 	// Verilator lint_on  UNUSED
 
-	reg	[DW-1:0]	s_axi_rdata	[0:NSFULL-1];
-	reg	[1:0]		s_axi_rresp	[0:NSFULL-1];
-	reg	[IW-1:0]	s_axi_rid	[0:NSFULL-1];
-	reg	[NSFULL-1:0]	s_axi_rlast;
+	reg	[NSFULL-1:0]	m_axi_wvalid;
+	reg	[NSFULL-1:0]	m_axi_wready;
+	reg	[NSFULL-1:0]	m_axi_wlast;
+	reg	[NSFULL-1:0]	m_axi_bvalid;
+	// Verilator lint_off UNUSED
+	reg	[NSFULL-1:0]	m_axi_bready;
+	// Verilator lint_on  UNUSED
+	reg	[1:0]		m_axi_bresp	[0:NSFULL-1];
+	reg	[IW-1:0]	m_axi_bid	[0:NSFULL-1];
+
+	reg	[NSFULL-1:0]	m_axi_arvalid;
+	// Verilator lint_off UNUSED
+	reg	[7:0]		m_axi_arlen	[0:NSFULL-1];
+	reg	[IW-1:0]	m_axi_arid	[0:NSFULL-1];
+	reg	[NSFULL-1:0]	m_axi_arready;
+	// Verilator lint_on  UNUSED
+	reg	[NSFULL-1:0]	m_axi_rvalid;
+	// Verilator lint_off UNUSED
+	reg	[NSFULL-1:0]	m_axi_rready;
+	// Verilator lint_on  UNUSED
+	//
+	reg	[IW-1:0]	m_axi_rid	[0:NSFULL-1];
+	reg	[DW-1:0]	m_axi_rdata	[0:NSFULL-1];
+	reg	[NSFULL-1:0]	m_axi_rlast;
+	reg	[2-1:0]		m_axi_rresp	[0:NSFULL-1];
 
 	reg	[NM-1:0]	slave_awaccepts;
 	reg	[NM-1:0]	slave_waccepts;
 	reg	[NM-1:0]	slave_raccepts;
 
+	reg	[NM-1:0]	bskd_valid;
+	reg	[NM-1:0]	rskd_valid, rskd_rlast;
+	wire	[NM-1:0]	bskd_ready;
+	wire	[NM-1:0]	rskd_ready;
+
+
 	always @(*)
 	begin
-		s_axi_awvalid = -1;
-		s_axi_awready = -1;
-		s_axi_wvalid = -1;
-		s_axi_wready = -1;
-		s_axi_bvalid = 0;
-		s_axi_bready = -1;
+		m_axi_awvalid = -1;
+		m_axi_awready = -1;
+		m_axi_awlock  =  0;
+		m_axi_wvalid = -1;
+		m_axi_wready = -1;
+		m_axi_wlast  = -1;
+		m_axi_bvalid = 0;
+		m_axi_bready = -1;
 
-		s_axi_awvalid[NS-1:0] = S_AXI_AWVALID;
-		s_axi_awready[NS-1:0] = S_AXI_AWREADY;
-		s_axi_wvalid[NS-1:0]  = S_AXI_WVALID;
-		s_axi_wready[NS-1:0]  = S_AXI_WREADY;
-		s_axi_bvalid[NS-1:0]  = S_AXI_BVALID;
-		s_axi_bready[NS-1:0]  = S_AXI_BREADY;
+		m_axi_awvalid[NS-1:0] = M_AXI_AWVALID;
+		m_axi_awready[NS-1:0] = M_AXI_AWREADY;
+		m_axi_awlock[NS-1:0]  = M_AXI_AWLOCK;
+		m_axi_wvalid[NS-1:0]  = M_AXI_WVALID;
+		m_axi_wready[NS-1:0]  = M_AXI_WREADY;
+		m_axi_wlast[NS-1:0]   = M_AXI_WLAST;
+		m_axi_bvalid[NS-1:0]  = M_AXI_BVALID;
+		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
-			s_axi_awid[iM]  = S_AXI_AWID[ iM*IW +: IW];
-			s_axi_awlen[iM] = S_AXI_AWLEN[iM* 8 +:  8];
+			m_axi_awid[iM]   = M_AXI_AWID[   iM*IW +: IW];
+			m_axi_awaddr[iM] = M_AXI_AWADDR[ iM*AW +: AW];
+			m_axi_awlen[iM]  = M_AXI_AWLEN[  iM* 8 +:  8];
+			m_axi_awburst[iM]= M_AXI_AWBURST[iM* 2 +:  2];
+			m_axi_awsize[iM] = M_AXI_AWSIZE[ iM* 3 +:  3];
 
-			s_axi_bid[iM]   = S_AXI_BID[iM* IW +:  IW];
-			s_axi_bresp[iM] = S_AXI_BRESP[iM* 2 +:  2];
+			m_axi_bid[iM]   = M_AXI_BID[iM* IW +:  IW];
+			m_axi_bresp[iM] = M_AXI_BRESP[iM* 2 +:  2];
 
-			s_axi_rid[iM]   = S_AXI_RID[  iM*IW +: IW];
-			s_axi_rdata[iM] = S_AXI_RDATA[iM*DW +: DW];
-			s_axi_rresp[iM] = S_AXI_RRESP[iM* 2 +:  2];
-			s_axi_rlast[iM] = S_AXI_RLAST[iM];
+			m_axi_rid[iM]   = M_AXI_RID[  iM*IW +: IW];
+			m_axi_rdata[iM] = M_AXI_RDATA[iM*DW +: DW];
+			m_axi_rresp[iM] = M_AXI_RRESP[iM* 2 +:  2];
+			m_axi_rlast[iM] = M_AXI_RLAST[iM];
 		end
 		for(iM=NS; iM<NSFULL; iM=iM+1)
 		begin
-			s_axi_awid[iM]  = 0;
-			s_axi_awlen[iM] = 0;
+			m_axi_awid[iM]   = 0;
+			m_axi_awaddr[iM] = 0;
+			m_axi_awlen[iM]  = 0;
+			m_axi_awburst[iM]= 0;
+			m_axi_awsize[iM] = 0;
 
-			s_axi_bresp[iM] = INTERCONNECT_ERROR;
-			s_axi_bid[iM]   = 0;
+			m_axi_bresp[iM] = INTERCONNECT_ERROR;
+			m_axi_bid[iM]   = 0;
 
-			s_axi_rid[iM]   = 0;
-			s_axi_rdata[iM] = 0;
-			s_axi_rresp[iM] = INTERCONNECT_ERROR;
-			s_axi_rlast[iM] = 1;
+			m_axi_rid[iM]   = 0;
+			m_axi_rdata[iM] = 0;
+			m_axi_rresp[iM] = INTERCONNECT_ERROR;
+			m_axi_rlast[iM] = 1;
 		end
 	end
 
 	generate for(N=0; N<NM; N=N+1)
-	begin : DECODE_WRITE_REQUEST
-		reg	none_sel;
+	begin : W1_DECODE_WRITE_REQUEST
+		wire	[NS:0]	wdecode;
 
-		always @(*)
-		begin
-			none_sel = 1'b1;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (((m_awaddr[N]^SLAVE_ADDR[iM*AW +:AW])
-						& SLAVE_MASK[iM*AW +: AW])==0)
-					none_sel = 1'b0;
-			end
-			if (!m_awvalid[N])
-				none_sel = 1'b0;
-		end
+		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
+					.OPT_OUTREG(OPT_SKID_INPUT))
+		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
+			S_AXI_AWVALID[N], S_AXI_AWREADY[N],
+			{ S_AXI_AWID[N*IW +: IW], S_AXI_AWADDR[N*AW +: AW],
+			  S_AXI_AWLEN[N*8 +: 8], S_AXI_AWSIZE[N*3 +: 3],
+			  S_AXI_AWBURST[N*2 +: 2], S_AXI_AWLOCK[N],
+			  S_AXI_AWCACHE[N*4 +: 4], S_AXI_AWPROT[N*3 +: 3],
+			  S_AXI_AWQOS[N*4 +: 4] },
+			skd_awvalid[N], !skd_awstall[N],
+			{ skd_awid[N], skd_awaddr[N], skd_awlen[N],
+			  skd_awsize[N], skd_awburst[N], skd_awlock[N],
+			  skd_awcache[N], skd_awprot[N], skd_awqos[N] });
 
+		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
+			.SLAVE_ADDR(SLAVE_ADDR),
+			.SLAVE_MASK(SLAVE_MASK),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER))
+		wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_valid(skd_awvalid[N]), .o_stall(skd_awstall[N]),
+				.i_addr(skd_awaddr[N]), .i_data({ skd_awid[N],
+				skd_awlen[N], skd_awsize[N], skd_awburst[N],
+				skd_awlock[N], skd_awcache[N], skd_awprot[N],
+				skd_awqos[N] }),
+			.o_valid(dcd_awvalid[N]),
+				.i_stall(!dcd_awvalid[N]||!slave_awaccepts[N]),
+				.o_decode(wdecode), .o_addr(m_awaddr[N]),
+				.o_data({ m_awid[N], m_awlen[N], m_awsize[N],
+				  m_awburst[N], m_awlock[N], m_awcache[N],
+				  m_awprot[N], m_awqos[N]}));
 
-		always @(*)
-		begin
-			wrequest[N] = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-				wrequest[N][iM] = m_awvalid[N]
-					&&(((m_awaddr[N]^ SLAVE_ADDR[iM*AW+:AW])
-						& SLAVE_MASK[iM*AW +: AW])==0);
-			wrequest[N][NS] = m_awvalid[N] && none_sel;
-		end
+		skidbuffer #(.DW(DW+DW/8+1),
+					.OPT_OUTREG(OPT_SKID_INPUT))
+		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
+			S_AXI_WVALID[N], S_AXI_WREADY[N],
+			{ S_AXI_WDATA[N*DW +: DW], S_AXI_WSTRB[N*DW/8 +: DW/8],
+			  S_AXI_WLAST[N] },
+			m_wvalid[N], slave_waccepts[N],
+			{ m_wdata[N], m_wstrb[N], m_wlast[N] });
 
 		always @(*)
 		begin
 			slave_awaccepts[N] = 1'b1;
 			if (!mwgrant[N])
 				slave_awaccepts[N] = 1'b0;
-			if (mwnearfull[N])
+			if (mwfull[N])
 				slave_awaccepts[N] = 1'b0;
 			if (!wrequest[N][mwindex[N]])
 				slave_awaccepts[N] = 1'b0;
 			if (!wgrant[N][NS])
 			begin
-				if ((s_axi_awvalid[mwindex[N]] && !s_axi_awready[mwindex[N]]))
+				if ((m_axi_awvalid[mwindex[N]] && !m_axi_awready[mwindex[N]]))
 					slave_awaccepts[N] = 1'b0;
-				if ((s_axi_wvalid[mwindex[N]] && !s_axi_wready[mwindex[N]]))
+				if ((m_axi_wvalid[mwindex[N]] && !m_axi_wready[mwindex[N]]))
 					slave_awaccepts[N] = 1'b0;
-			end else if (M_AXI_BVALID[N] && !M_AXI_BREADY[N])
+			end else if (!berr_valid[N] || !bskd_ready[N])
 			begin
-				// Can't accept an write address channel
-				// value if the B* channel is stalled, lest
-				// we lose the ID of the transaction
+				// Can't accept an write address channel request
+				// for the no-address-mapped channel if the
+				// B* channel is stalled, lest we lose the ID
+				// of the transaction
 				slave_awaccepts[N] = 1'b0;
 			end
-			// ERRORs are always accepted
-			//	back pressure is handled in the write side
 		end
 
 		always @(*)
@@ -488,108 +525,23 @@ module	axixbar #(
 			slave_waccepts[N] = 1'b1;
 			if (!mwgrant[N])
 				slave_waccepts[N] = 1'b0;
-			// if ((!wdata_expected[N]) && (!slave_awaccepts[N]))
-			//	slave_waccepts[N] = 1'b0;
 			if (!wdata_expected[N])
 				slave_waccepts[N] = 1'b0;
-			if (!wgrant[N][NS] &&(s_axi_wvalid[mwindex[N]]
-						&& !s_axi_wready[mwindex[N]]))
+			if (!wgrant[N][NS])
+			begin
+				if (m_axi_wvalid[mwindex[N]]
+						&& !m_axi_wready[mwindex[N]])
+					slave_waccepts[N] = 1'b0;
+			end else if (berr_valid[N] || bskd_ready[N])
 				slave_waccepts[N] = 1'b0;
-			if (wgrant[N][NS]&&(M_AXI_BVALID[N]&& !M_AXI_BREADY[N]))
-				slave_waccepts[N] = 1'b0;
-		end
-
-		initial	r_awvalid[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_awvalid[N] <= 0;
-		else if (r_awvalid[N])
-		begin
-			if (slave_awaccepts[N])
-				r_awvalid[N] <= 1'b0;
-		end else if (M_AXI_AWVALID[N] && M_AXI_AWREADY[N])
-		begin
-			if (slave_awaccepts[N])
-				r_awvalid[N] <= 1'b0;
-			else
-				r_awvalid[N] <= 1'b1;
-		end
-
-
-		initial	r_wvalid[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_wvalid[N] <= 0;
-		else if (r_wvalid[N])
-		begin
-			if (slave_waccepts[N])
-				r_wvalid[N] <= 1'b0;
-		end else if (M_AXI_WVALID[N] && M_AXI_WREADY[N])
-		begin
-			if (slave_waccepts[N])
-				r_wvalid[N] <= 1'b0;
-			else
-				r_wvalid[N] <= 1'b1;
-		end
-
-
-		always @(*)
-		if (mwfull[N])
-			m_awvalid[N] = 1'b0;
-		else if (r_awvalid[N])
-			m_awvalid[N] = 1'b1;
-		else if (mwnearfull[N])
-			m_awvalid[N] = (M_AXI_AWVALID[N] && M_AXI_AWREADY[N]);
-		else
-			m_awvalid[N] = (M_AXI_AWVALID[N] && M_AXI_AWREADY[N]);
-
-		always @(*)
-		if (r_awvalid[N])
-		begin
-			m_awid[N]    = r_awid[N];
-			m_awaddr[N]  = r_awaddr[N];
-			m_awlen[N]   = r_awlen[N];
-			m_awsize[N]  = r_awsize[N];
-			m_awburst[N] = r_awburst[N];
-			m_awlock[N]  = r_awlock[N];
-			m_awcache[N] = r_awcache[N];
-			m_awprot[N]  = r_awprot[N];
-			m_awqos[N]   = r_awqos[N];
-		end else begin
-			m_awid[N]    = M_AXI_AWID[   N*IW+: IW];
-			m_awaddr[N]  = M_AXI_AWADDR[ N*AW+: AW];
-			m_awlen[N]   = M_AXI_AWLEN[  N* 8 +: 8];
-			m_awsize[N]  = M_AXI_AWSIZE[ N* 3 +: 3];
-			m_awburst[N] = M_AXI_AWBURST[N* 2 +: 2];
-			m_awlock[N]  = M_AXI_AWLOCK[ N];
-			m_awcache[N] = M_AXI_AWCACHE[N* 4 +: 4];
-			m_awprot[N]  = M_AXI_AWPROT[ N* 3 +: 3];
-			m_awqos[N]   = M_AXI_AWQOS[  N* 4 +: 4];
 		end
 
 		always @(*)
 		begin
-			m_wvalid[N] = r_wvalid[N];
-			if (M_AXI_WVALID[N] && M_AXI_WREADY[N])
-				m_wvalid[N] = 1'b1;
-		end
-
-		always @(*)
-		if (m_awvalid[N] && m_wvalid[N] && !wdata_expected)
-			m_wid[N] = m_awid[N];
-		else
-			m_wid[N] = r_wid[N];
-
-		always @(*)
-		if (r_wvalid[N])
-		begin
-			m_wdata[N] = r_wdata[N];
-			m_wstrb[N] = r_wstrb[N];
-			m_wlast[N] = r_wlast[N];
-		end else begin
-			m_wdata[N] = M_AXI_WDATA[N*DW+:DW];
-			m_wstrb[N] = M_AXI_WSTRB[N*DW/8+:DW/8];
-			m_wlast[N] = M_AXI_WLAST[N];
+			m_awvalid[N]= dcd_awvalid[N] && !mwfull[N];
+			wrequest[N]= 0;
+			if (!mwfull[N])
+				wrequest[N][NS:0] = wdecode;
 		end
 
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -616,34 +568,63 @@ module	axixbar #(
 		always @(*)
 			m_wlast[N] = 0;
 
+		assign	m_awid[N]    = 0;
+		assign	m_awaddr[N]  = 0;
+		assign	m_awlen[N]   = 0;
+		assign	m_awsize[N]  = 0;
+		assign	m_awburst[N] = 0;
+		assign	m_awlock[N]  = 0;
+		assign	m_awcache[N] = 0;
+		assign	m_awprot[N]  = 0;
+		assign	m_awqos[N]   = 0;
+
+		assign	m_wdata[N] = 0;
+		assign	m_wstrb[N] = 0;
+		assign	m_wlast[N] = 0;
+
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
-	begin : DECODE_READ_REQUEST
-		reg	none_sel;
+	begin : R1_DECODE_READ_REQUEST
+		wire	[NS:0]	rdecode;
+
+		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
+					.OPT_OUTREG(OPT_SKID_INPUT))
+		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
+			S_AXI_ARVALID[N], S_AXI_ARREADY[N],
+			{ S_AXI_ARID[N*IW +: IW], S_AXI_ARADDR[N*AW +: AW],
+			  S_AXI_ARLEN[N*8 +: 8], S_AXI_ARSIZE[N*3 +: 3],
+			  S_AXI_ARBURST[N*2 +: 2], S_AXI_ARLOCK[N],
+			  S_AXI_ARCACHE[N*4 +: 4], S_AXI_ARPROT[N*3 +: 3],
+			  S_AXI_ARQOS[N*4 +: 4] },
+			skd_arvalid[N], !skd_arstall[N],
+			{ skd_arid[N], skd_araddr[N], skd_arlen[N],
+			  skd_arsize[N], skd_arburst[N], skd_arlock[N],
+			  skd_arcache[N], skd_arprot[N], skd_arqos[N] });
+
+		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
+			.SLAVE_ADDR(SLAVE_ADDR),
+			.SLAVE_MASK(SLAVE_MASK),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER))
+		rdaddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_valid(skd_arvalid[N]), .o_stall(skd_arstall[N]),
+				.i_addr(skd_araddr[N]), .i_data({ skd_arid[N],
+				skd_arlen[N], skd_arsize[N], skd_arburst[N],
+				skd_arlock[N], skd_arcache[N], skd_arprot[N],
+				skd_arqos[N] }),
+			.o_valid(dcd_arvalid[N]),
+				.i_stall(!m_arvalid[N] || !slave_raccepts[N]),
+				.o_decode(rdecode), .o_addr(m_araddr[N]),
+				.o_data({ m_arid[N], m_arlen[N], m_arsize[N],
+				  m_arburst[N], m_arlock[N], m_arcache[N],
+				  m_arprot[N], m_arqos[N]}));
 
 		always @(*)
 		begin
-			none_sel = 1'b1;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (((m_araddr[N]^SLAVE_ADDR[iM*AW +:AW])
-						& SLAVE_MASK[iM*AW +: AW])==0)
-					none_sel = 1'b0;
-			end
-			if (!m_arvalid[N])
-				none_sel = 1'b0;
-		end
-
-
-		always @(*)
-		begin
+			m_arvalid[N] = dcd_arvalid[N] && !mrfull[N];
 			rrequest[N] = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-				rrequest[N][iM] = m_arvalid[N]
-					&&(((m_araddr[N]^ SLAVE_ADDR[iM*AW+:AW])
-						& SLAVE_MASK[iM*AW +: AW])==0);
-			rrequest[N][NS] = m_arvalid[N] && none_sel;
+			if (!mrfull[N])
+				rrequest[N][NS:0] = rdecode;
 		end
 
 		always @(*)
@@ -651,65 +632,18 @@ module	axixbar #(
 			slave_raccepts[N] = 1'b1;
 			if (!mrgrant[N])
 				slave_raccepts[N] = 1'b0;
-			if (mrnearfull[N])
+			if (mrfull[N])
 				slave_raccepts[N] = 1'b0;
 			// verilator lint_off  WIDTH
 			if (!rrequest[N][mrindex[N]])
 				slave_raccepts[N] = 1'b0;
 			// verilator lint_on  WIDTH
-			if (!rgrant[N][NS]&&(s_axi_arvalid[mrindex[N]] && !s_axi_arready[mrindex[N]]))
+			if (!rgrant[N][NS])
+			begin
+				if (m_axi_arvalid[mrindex[N]] && !m_axi_arready[mrindex[N]])
+					slave_raccepts[N] = 1'b0;
+			end else if (!mrempty[N] || !rerr_none[N] || rskd_valid[N])
 				slave_raccepts[N] = 1'b0;
-			if (rgrant[N][NS]&& (!mrempty[N] || !rerr_none[N] || M_AXI_RVALID[N]))
-				slave_raccepts[N] = 1'b0;
-		end
-
-		initial	r_arvalid[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_arvalid[N] <= 0;
-		else if (r_arvalid[N])
-		begin
-			if (slave_raccepts[N])
-				r_arvalid[N] <= 1'b0;
-		end else if (M_AXI_ARVALID[N] && M_AXI_ARREADY[N])
-		begin
-			if (slave_raccepts[N])
-				r_arvalid[N] <= 1'b0;
-			else
-				r_arvalid[N] <= 1'b1;
-		end
-
-
-		always @(*)
-		if (mrfull[N])
-			m_arvalid[N] = 1'b0;
-		else if (mrnearfull[N])
-			m_arvalid[N] = M_AXI_ARVALID[N] && !r_arvalid[N];
-		else
-			m_arvalid[N] = M_AXI_ARVALID[N] || r_arvalid[N];
-
-		always @(*)
-		if (r_arvalid[N])
-		begin
-			m_arid[N]    = r_arid[N];
-			m_araddr[N]  = r_araddr[N];
-			m_arlen[N]   = r_arlen[N];
-			m_arsize[N]  = r_arsize[N];
-			m_arburst[N] = r_arburst[N];
-			m_arlock[N]  = r_arlock[N];
-			m_arcache[N] = r_arcache[N];
-			m_arprot[N]  = r_arprot[N];
-			m_arqos[N]   = r_arqos[N];
-		end else begin
-			m_arid[N]    = M_AXI_ARID[   N*IW +: IW];
-			m_araddr[N]  = M_AXI_ARADDR[ N*AW +: AW];
-			m_arlen[N]   = M_AXI_ARLEN[  N* 8 +:  8];
-			m_arsize[N]  = M_AXI_ARSIZE[ N* 3 +:  3];
-			m_arburst[N] = M_AXI_ARBURST[N* 2 +:  2];
-			m_arlock[N]  = M_AXI_ARLOCK[ N];
-			m_arcache[N] = M_AXI_ARCACHE[N* 4 +:  4];
-			m_arprot[N]  = M_AXI_ARPROT[ N* 3 +:  3];
-			m_arqos[N]   = M_AXI_ARQOS[  N* 4 +:  4];
 		end
 
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -717,60 +651,83 @@ module	axixbar #(
 
 		always @(*)
 			m_arvalid[N] = 0;
-		always @(*)
-		begin
-			m_arid[N]    = 0;
-			m_araddr[N]  = 0;
-			m_arlen[N]   = 0;
-			m_arsize[N]  = 0;
-			m_arburst[N] = 0;
-			m_arlock[N]  = 0;
-			m_arcache[N] = 0;
-			m_arprot[N]  = 0;
-			m_arqos[N]   = 0;
-		end
+		assign	m_arid[N]    = 0;
+		assign	m_araddr[N]  = 0;
+		assign	m_arlen[N]   = 0;
+		assign	m_arsize[N]  = 0;
+		assign	m_arburst[N] = 0;
+		assign	m_arlock[N]  = 0;
+		assign	m_arcache[N] = 0;
+		assign	m_arprot[N]  = 0;
+		assign	m_arqos[N]   = 0;
+
 	end endgenerate
 
 	always @(*)
-	begin : DECONFLICT_WRITE_REQUESTS
+	begin : W2_DECONFLICT_WRITE_REQUESTS
 
+		for(iN=0; iN<=NM; iN=iN+1)
+			wrequested[iN] = 0;
+
+		// Vivado may complain about too many bits for wrequested.
+		// This is (currrently) expected.  mwindex is used to index
+		// into wrequested, and mwindex has LGNS bits, where LGNS
+		// is $clog2(NS+1) rather than $clog2(NS).  The extra bits
+		// are defined to be zeros, but the point is there are defined.
+		// Therefore, no matter what mwindex is, it will always
+		// reference something valid.
 		wrequested[NM] = 0;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
-			wrequested[0][iM] = 0;
+			wrequested[0][iM] = 1'b0;
 			for(iN=1; iN<NM ; iN=iN+1)
-			wrequested[iN][iM]
-				= (wrequest[iN-1][iM] || wrequested[iN-1][iM]);
+			begin
+				// Continue to request any channel with
+				// a grant and pending operations
+				if (wrequest[iN-1][iM] && wgrant[iN-1][iM])
+					wrequested[iN][iM] = 1;
+				if (wrequest[iN-1][iM] && (!mwgrant[iN-1]||mwempty[iN-1]))
+					wrequested[iN][iM] = 1;
+				// Otherwise, if it's already claimed, then
+				// it can't be claimed again
+				if (wrequested[iN-1][iM])
+					wrequested[iN][iM] = 1;
+			end
 			wrequested[NM][iM] = wrequest[NM-1][iM] || wrequested[NM-1][iM];
 		end
 
-		for(iM=NS; iM<NSFULL; iM=iM+1)
-		begin
-			for(iN=0; iN<NM+1; iN=iN+1)
-				wrequested[iN][iM] = 0;
-		end
 	end
 
 	always @(*)
-	begin : DECONFLICT_READ_REQUESTS
+	begin : R2_DECONFLICT_READ_REQUESTS
 
+		for(iN=0; iN<NM ; iN=iN+1)
+			rrequested[iN] = 0;
+
+		// See the note above for wrequested.  This applies to
+		// rrequested as well.
 		rrequested[NM] = 0;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
 			rrequested[0][iM] = 0;
 			for(iN=1; iN<NM ; iN=iN+1)
-			rrequested[iN][iM]
-				= (rrequest[iN-1][iM] || rrequested[iN-1][iM]);
+			begin
+				// Continue to request any channel with
+				// a grant and pending operations
+				if (rrequest[iN-1][iM] && rgrant[iN-1][iM])
+					rrequested[iN][iM] = 1;
+				if (rrequest[iN-1][iM] && (!mrgrant[iN-1] || mrempty[iN-1]))
+					rrequested[iN][iM] = 1;
+				// Otherwise, if it's already claimed, then
+				// it can't be claimed again
+				if (rrequested[iN-1][iM])
+					rrequested[iN][iM] = 1;
+			end
 			rrequested[NM][iM] = rrequest[NM-1][iM] || rrequested[NM-1][iM];
 		end
 
-		for(iM=NS; iM<NSFULL; iM=iM+1)
-		begin
-			for(iN=0; iN<NM ; iN=iN+1)
-				rrequested[iN][iM] = 0;
-		end
 	end
 
 	generate for(M=0; M<NS; M=M+1)
@@ -780,47 +737,47 @@ module	axixbar #(
 		begin
 			swgrant[M] = 0;
 			for(iN=0; iN<NM; iN=iN+1)
-				if (wgrant[iN][M])
-					swgrant[M] = 1;
+			if (wgrant[iN][M])
+				swgrant[M] = 1;
 		end
 
 		always @(*)
 		begin
 			srgrant[M] = 0;
 			for(iN=0; iN<NM; iN=iN+1)
-				if (rgrant[iN][M])
-					srgrant[M] = 1;
+			if (rgrant[iN][M])
+				srgrant[M] = 1;
 		end
 
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
-	begin : ARBITRATE_WRITE_REQUESTS
-		reg	stay_on_channel;
+	begin : W3_ARBITRATE_WRITE_REQUESTS
+		reg			stay_on_channel;
+		reg			requested_channel_is_available;
+		reg			leave_channel;
+		reg	[LGNS-1:0]	requested_index;
 
 		always @(*)
 		begin
-			stay_on_channel = 0;
-			for(iM=0; iM<=NS; iM=iM+1)
-			begin
-				if (wrequest[N][iM] && wgrant[N][iM])
-					stay_on_channel = 1;
-			end
+			stay_on_channel = |(wrequest[N][NS:0] & wgrant[N]);
+
+			if (mwgrant[N] && !mwempty[N])
+				stay_on_channel = 1;
+			if (berr_valid[N])
+				stay_on_channel = 1;
 		end
 
-		reg	requested_channel_is_available;
-
 		always @(*)
 		begin
-			requested_channel_is_available = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (wrequest[N][iM] && !swgrant[iM]
-					&& !wrequested[N][iM])
-					requested_channel_is_available = 1;
-			end
+			requested_channel_is_available = 
+				|(wrequest[N][NS-1:0] & ~swgrant
+						& ~wrequested[N][NS-1:0]);
 			if (wrequest[N][NS])
 				requested_channel_is_available = 1;
+
+			if (NM < 2)
+				requested_channel_is_available = m_awvalid[N];
 		end
 
 		reg	linger;
@@ -839,7 +796,7 @@ module	axixbar #(
 			begin
 				linger <= 0;
 				linger_counter <= 0;
-			end else if (!mwempty[N] || M_AXI_BVALID[N])
+			end else if (!mwempty[N] || bskd_valid[N])
 			begin
 				linger_counter <= OPT_LINGER;
 				linger <= 1;
@@ -852,11 +809,10 @@ module	axixbar #(
 
 		end
 
-		reg	leave_channel;
 		always @(*)
 		begin
 			leave_channel = 0;
-			if (!M_AXI_AWVALID[N] && !r_awvalid[N]
+			if (!m_awvalid[N]
 				&& (!linger || wrequested[NM][mwindex[N]]))
 				// Leave the channel after OPT_LINGER counts
 				// of the channel being idle, or when someone
@@ -866,14 +822,6 @@ module	axixbar #(
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
-
-			if (!mwempty[N])
-				// Can't leave this channel until we've gotten
-				// all of the acknowledgments
-				leave_channel = 0;
-			if (!mwgrant[N])
-				// Can't leave a channel we aren't a part of
-				leave_channel = 0;
 		end
 
 
@@ -884,39 +832,34 @@ module	axixbar #(
 		begin
 			wgrant[N]  <= 0;
 			mwgrant[N] <= 0;
-		end else if (!stay_on_channel && (!mwgrant[N] || mwempty[N]))
+		end else if (!stay_on_channel)
 		begin
 			if (requested_channel_is_available)
 			begin
 				// Switching channels
 				mwgrant[N] <= 1'b1;
 				wgrant[N]  <= wrequest[N][NS:0];
-			end else if (M_AXI_AWVALID[N] || r_awvalid[N])
-			begin
-				// Requested channel isn't yet available
-				mwgrant[N] <= 1'b0;
-				wgrant[N]  <= 0;
 			end else if (leave_channel)
 			begin
 				mwgrant[N] <= 1'b0;
-				wgrant[N]  <= wrequest[N][NS:0];
+				wgrant[N]  <= 0;
 			end
+		end
+
+		always @(*)
+		begin
+			requested_index = 0;
+			for(iM=0; iM<=NS; iM=iM+1)
+			if (wrequest[N][iM])
+				requested_index= requested_index | iM[LGNS-1:0];
 		end
 
 		// Now for mwindex
 		initial	mwindex[N] = 0;
 		always @(posedge S_AXI_ACLK)
-		if (!stay_on_channel && (!mwgrant[N] || mwempty[N])
-			&& requested_channel_is_available)
-		begin
+		if (!stay_on_channel && requested_channel_is_available)
+			mwindex[N] <= requested_index;
 
-			for(iM=0; iM<=NS; iM=iM+1)
-			begin
-
-				if (wrequest[N][iM])
-					mwindex[N] <= iM[LGNS-1:0];
-			end
-		end
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
 
@@ -926,34 +869,33 @@ module	axixbar #(
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
-	begin : ARBITRATE_READ_REQUESTS
-		reg	stay_on_channel;
+	begin : R3_ARBITRATE_READ_REQUESTS
+		reg			stay_on_channel;
+		reg			requested_channel_is_available;
+		reg			leave_channel;
+		reg	[LGNS-1:0]	requested_index;
+
 
 		always @(*)
 		begin
-			stay_on_channel = 0;
-			for(iM=0; iM<=NS; iM=iM+1)
-			begin
-				if (rrequest[N][iM] && rgrant[N][iM])
-					stay_on_channel = 1;
-			end
-			if (rgrant[N][NS] && (!rerr_none[N] || M_AXI_RVALID[N]))
+			stay_on_channel = |(rrequest[N][NS:0] & rgrant[N]);
+
+			if (rgrant[N][NS] && (!rerr_none[N] || rskd_valid[N]))
+				stay_on_channel = 1;
+			if (mrgrant[N] && !mrempty[N])
 				stay_on_channel = 1;
 		end
 
-		reg	requested_channel_is_available;
-
 		always @(*)
 		begin
-			requested_channel_is_available = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (rrequest[N][iM] && !srgrant[iM]
-					&& !rrequested[N][iM])
-					requested_channel_is_available = 1;
-			end
+			requested_channel_is_available = 
+				|(rrequest[N][NS-1:0] & ~srgrant
+						& ~rrequested[N][NS-1:0]);
 			if (rrequest[N][NS])
 				requested_channel_is_available = 1;
+
+			if (NM < 2)
+				requested_channel_is_available = m_arvalid[N];
 		end
 
 		reg	linger;
@@ -972,7 +914,7 @@ module	axixbar #(
 			begin
 				linger <= 0;
 				linger_counter <= 0;
-			end else if (!mrempty[N] || M_AXI_RVALID[N])
+			end else if (!mrempty[N] || rskd_valid[N])
 			begin
 				linger_counter <= OPT_LINGER;
 				linger <= 1;
@@ -985,32 +927,19 @@ module	axixbar #(
 
 		end
 
-		reg	leave_channel;
 		always @(*)
 		begin
 			leave_channel = 0;
-			if (!M_AXI_ARVALID[N] && !r_arvalid[N]
+			if (!m_arvalid[N]
 				&& (!linger || rrequested[NM][mrindex[N]]))
 				// Leave the channel after OPT_LINGER counts
 				// of the channel being idle, or when someone
 				// else asks for the channel
 				leave_channel = 1;
-			if (m_arvalid[N])
+			if (m_arvalid[N] && !rrequest[N][mrindex[N]])
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
-
-			if (!mrempty[N])
-				// Can't leave this channel until we've gotten
-				// all of the acknowledgments
-				leave_channel = 0;
-			if (!mrgrant[N])
-				// Can't leave a channel we aren't a part of
-				leave_channel = 0;
-			if (!rerr_none[N])
-				// Can't leave the error channel if more
-				// returns are required
-				leave_channel = 0;
 		end
 
 
@@ -1021,19 +950,13 @@ module	axixbar #(
 		begin
 			rgrant[N]  <= 0;
 			mrgrant[N] <= 0;
-		end else if (!stay_on_channel && (!mrgrant[N] || mrempty[N]))
+		end else if (!stay_on_channel)
 		begin
 			if (requested_channel_is_available)
 			begin
 				// Switching channels
 				mrgrant[N] <= 1'b1;
 				rgrant[N] <= rrequest[N][NS:0];
-			end else if (M_AXI_ARVALID[N] || r_arvalid[N])
-			begin
-				// Requesting another channel, which isn't
-				// (yet) available
-				mrgrant[N] <= 1'b0;
-				rgrant[N]  <= 0;
 			end else if (leave_channel)
 			begin
 				mrgrant[N] <= 1'b0;
@@ -1041,18 +964,20 @@ module	axixbar #(
 			end
 		end
 
+
+		always @(*)
+		begin
+			requested_index = 0;
+			for(iM=0; iM<=NS; iM=iM+1)
+			if (rrequest[N][iM])
+				requested_index = requested_index|iM[LGNS-1:0];
+		end
+
 		// Now for mrindex
 		initial	mrindex[N] = 0;
 		always @(posedge S_AXI_ACLK)
-		if (!stay_on_channel && (!mrgrant[N] || mrempty[N])
-			&& requested_channel_is_available)
-		begin
-			for(iM=0; iM<=NS; iM=iM+1)
-			begin
-				if (rrequest[N][iM])
-					mrindex[N] <= iM[LGNS-1:0];
-			end
-		end
+		if (!stay_on_channel && requested_channel_is_available)
+			mrindex[N] <= requested_index;
 
 
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -1063,169 +988,9 @@ module	axixbar #(
 
 	end endgenerate
 
-	generate for (N=0; N<NM; N=N+1)
-	begin : INCOMING_SKID_BUFFERS
-
-		initial	r_awid[N]    = 0;
-		initial	r_awaddr[N]  = 0;
-		initial	r_awlen[N]   = 0;
-		initial	r_awsize[N]  = 0;
-		initial	r_awburst[N] = 0;
-		initial	r_awlock[N]  = 0;
-		initial	r_awcache[N] = 0;
-		initial	r_awprot[N]  = 0;
-		initial	r_awqos[N]   = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			r_awid[N]    <= 0;
-			r_awaddr[N]  <= 0;
-			r_awlen[N]   <= 0;
-			r_awsize[N]  <= 0;
-			r_awburst[N] <= 0;
-			r_awlock[N]  <= 0;
-			r_awcache[N] <= 0;
-			r_awprot[N]  <= 0;
-			r_awqos[N]   <= 0;
-		end else if (M_AXI_AWREADY[N])
-		begin
-			if (M_AXI_AWVALID[N] || !OPT_LOWPOWER)
-			begin
-				r_awid[N]    <= M_AXI_AWID[   N*IW +: IW];
-				r_awaddr[N]  <= M_AXI_AWADDR[ N*AW +: AW];
-				r_awlen[N]   <= M_AXI_AWLEN[  N* 8 +:  8];
-				r_awsize[N]  <= M_AXI_AWSIZE[ N* 3 +:  3];
-				r_awburst[N] <= M_AXI_AWBURST[N* 2 +:  2];
-				r_awlock[N]  <= M_AXI_AWLOCK[ N];
-				r_awcache[N] <= M_AXI_AWCACHE[N* 4 +:  4];
-				r_awprot[N]  <= M_AXI_AWPROT[ N* 3 +:  3];
-				r_awqos[N]   <= M_AXI_AWQOS[  N* 4 +:  4];
-			end else // if (OPT_LOWPOWER)
-			begin
-				r_awid[N]    <= 0;
-				r_awaddr[N]  <= 0;
-				r_awlen[N]   <= 0;
-				r_awsize[N]  <= 0;
-				r_awburst[N] <= 0;
-				r_awlock[N]  <= 0;
-				r_awcache[N] <= 0;
-				r_awprot[N]  <= 0;
-				r_awqos[N]   <= 0;
-			end
-		end else if (OPT_LOWPOWER && slave_awaccepts[N])
-		begin
-			r_awid[N]    <= 0;
-			r_awaddr[N]  <= 0;
-			r_awlen[N]   <= 0;
-			r_awsize[N]  <= 0;
-			r_awburst[N] <= 0;
-			r_awlock[N]  <= 0;
-			r_awcache[N] <= 0;
-			r_awprot[N]  <= 0;
-			r_awqos[N]   <= 0;
-		end
-
-		initial	r_wdata[N] = 0;
-		initial	r_wstrb[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			r_wdata[N] <= 0;
-			r_wstrb[N] <= 0;
-			r_wlast[N] <= 0;
-		end else if (M_AXI_WREADY[N])
-		begin
-			if (M_AXI_WVALID[N] || !OPT_LOWPOWER)
-			begin
-				r_wdata[N] <= M_AXI_WDATA[N*DW   +: DW];
-				r_wstrb[N] <= M_AXI_WSTRB[N*DW/8 +: DW/8];
-				r_wlast[N] <= M_AXI_WLAST[N];
-			end else // if (OPT_LOWPOWER)
-			begin
-				r_wdata[N] <= 0;
-				r_wstrb[N] <= 0;
-				r_wlast[N] <= 0;
-			end
-		end else if (OPT_LOWPOWER && slave_waccepts[N])
-		begin
-			r_wdata[N] <= 0;
-			r_wstrb[N] <= 0;
-			r_wlast[N] <= 0;
-		end
-
-		always @(posedge S_AXI_ACLK)
-		if (!wdata_expected[N])
-			r_wid[N] <= m_awid[N];
-
-		//
-		//
-
-		initial	r_arid[N]    = 0;
-		initial	r_araddr[N]  = 0;
-		initial	r_arlen[N]   = 0;
-		initial	r_arsize[N]  = 0;
-		initial	r_arburst[N] = 0;
-		initial	r_arlock[N]  = 0;
-		initial	r_arcache[N] = 0;
-		initial	r_arprot[N]  = 0;
-		initial	r_arqos[N]   = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			r_arid[N]    <= 0;
-			r_araddr[N]  <= 0;
-			r_arlen[N]   <= 0;
-			r_arsize[N]  <= 0;
-			r_arburst[N] <= 0;
-			r_arlock[N]  <= 0;
-			r_arcache[N] <= 0;
-			r_arprot[N]  <= 0;
-			r_arqos[N]   <= 0;
-		end else if (M_AXI_ARREADY[N])
-		begin
-			if ((M_AXI_ARVALID[N]&&!slave_raccepts[N])
-				|| !OPT_LOWPOWER)
-			begin
-				r_arid[N]    <= M_AXI_ARID[   N*IW +: IW];
-				r_araddr[N]  <= M_AXI_ARADDR[ N*AW +: AW];
-				r_arlen[N]   <= M_AXI_ARLEN[  N* 8 +:  8];
-				r_arsize[N]  <= M_AXI_ARSIZE[ N* 3 +:  3];
-				r_arburst[N] <= M_AXI_ARBURST[N* 2 +:  2];
-				r_arlock[N]  <= M_AXI_ARLOCK[ N];
-				r_arcache[N] <= M_AXI_ARCACHE[N* 4 +:  4];
-				r_arprot[N]  <= M_AXI_ARPROT[ N* 3 +:  3];
-				r_arqos[N]   <= M_AXI_ARQOS[  N* 4 +:  4];
-			end else // if (OPT_LOWPOWER)
-			begin
-				r_arid[N]    <= 0;
-				r_araddr[N]  <= 0;
-				r_arlen[N]   <= 0;
-				r_arsize[N]  <= 0;
-				r_arburst[N] <= 0;
-				r_arlock[N]  <= 0;
-				r_arcache[N] <= 0;
-				r_arprot[N]  <= 0;
-				r_arqos[N]   <= 0;
-			end
-		end else if (OPT_LOWPOWER && slave_raccepts[N])
-		begin
-			r_arid[N]    <= 0;
-			r_araddr[N]  <= 0;
-			r_arlen[N]   <= 0;
-			r_arsize[N]  <= 0;
-			r_arburst[N] <= 0;
-			r_arlock[N]  <= 0;
-			r_arcache[N] <= 0;
-			r_arprot[N]  <= 0;
-			r_arqos[N]   <= 0;
-		end
-
-
-	end endgenerate
-
 	// Calculate swindex
 	generate for (M=0; M<NS; M=M+1)
-	begin : SLAVE_WRITE_INDEX
+	begin : W4_SLAVE_WRITE_INDEX
 
 		if (NM <= 1)
 		begin
@@ -1235,17 +1000,20 @@ module	axixbar #(
 
 		end else begin : MULTIPLE_MASTERS
 
+			reg [LGNM-1:0]	reqwindex;
+
+			always @(*)
+			begin
+				reqwindex = 0;
+			for(iN=0; iN<NM; iN=iN+1)
+			if ((!mwgrant[iN] || mwempty[iN])
+				&&(wrequest[iN][M] && !wrequested[iN][M]))
+					reqwindex = reqwindex | iN[LGNM-1:0];
+			end
+
 			always @(posedge S_AXI_ACLK)
 			if (!swgrant[M])
-			begin
-				for(iN=0; iN<NM; iN=iN+1)
-				begin
-					if ((!mwgrant[iN] || mwempty[iN])
-						&&(wrequest[iN][M]
-						&& !wrequested[iN][M]))
-						swindex[M] <= iN[LGNM-1:0];
-				end
-			end
+				swindex[M] <= reqwindex;
 		end
 
 	end for (M=NS; M<NSFULL; M=M+1)
@@ -1258,7 +1026,7 @@ module	axixbar #(
 
 	// Calculate srindex
 	generate for (M=0; M<NS; M=M+1)
-	begin : SLAVE_READ_INDEX
+	begin : R4_SLAVE_READ_INDEX
 
 		if (NM <= 1)
 		begin
@@ -1268,17 +1036,20 @@ module	axixbar #(
 
 		end else begin : MULTIPLE_MASTERS
 
+			reg [LGNM-1:0]	reqrindex;
+
+			always @(*)
+			begin
+				reqrindex = 0;
+			for(iN=0; iN<NM; iN=iN+1)
+			if ((!mrgrant[iN] || mrempty[iN])
+				&&(rrequest[iN][M] && !rrequested[iN][M]))
+					reqrindex = reqrindex | iN[LGNM-1:0];
+			end
+
 			always @(posedge S_AXI_ACLK)
 			if (!srgrant[M])
-			begin
-				for(iN=0; iN<NM; iN=iN+1)
-				begin
-					if ((!mrgrant[iN] || mrempty[iN])
-						&& (rrequest[iN][M]
-						&& !rrequested[iN][M]))
-						srindex[M] <= iN[LGNM-1:0];
-				end
-			end
+				srindex[M] <= reqrindex;
 		end
 
 	end for (M=NS; M<NSFULL; M=M+1)
@@ -1292,7 +1063,7 @@ module	axixbar #(
 
 	// Assign outputs to the various slaves
 	generate for(M=0; M<NS; M=M+1)
-	begin : WRITE_SLAVE_OUTPUTS
+	begin : W5_WRITE_SLAVE_OUTPUTS
 
 		reg			axi_awvalid;
 		reg	[IW-1:0]	axi_awid;
@@ -1314,24 +1085,24 @@ module	axixbar #(
 
 		reg	sawstall, swstall, mbstall;
 		always @(*)
-			sawstall= (S_AXI_AWVALID[M]&& !S_AXI_AWREADY[M]);
+			sawstall= (M_AXI_AWVALID[M]&& !M_AXI_AWREADY[M]);
 		always @(*)
-			swstall = (S_AXI_WVALID[M] && !S_AXI_WREADY[M]);
+			swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
 		always @(*)
-			mbstall = (M_AXI_BVALID[swindex[M]] && !M_AXI_BREADY[swindex[M]]);
+			mbstall = (bskd_valid[swindex[M]] && !bskd_ready[swindex[M]]);
 
 		reg	awaccepts;
 		always @(*)
 		begin
-			awaccepts = 1'b1;
 			if (!swgrant[M])
 				awaccepts = 1'b0;
-			if (mwnearfull[swindex[M]])
+			if (mwfull[swindex[M]])
 				awaccepts = 1'b0;
 			if (!wrequest[swindex[M]][M])
 				awaccepts = 1'b0;
-			if ((s_axi_wvalid[M] && !s_axi_wready[M]))
+			if ((m_axi_wvalid[M] && !m_axi_wready[M]))
 				awaccepts = 1'b0;
+			awaccepts = slave_awaccepts[swindex[M]];
 		end
 
 
@@ -1354,18 +1125,7 @@ module	axixbar #(
 		initial	axi_awprot  = 0;
 		initial	axi_awqos   = 0;
 		always @(posedge  S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			axi_awid    <= 0;
-			axi_awaddr  <= 0;
-			axi_awlen   <= 0;
-			axi_awsize  <= 0;
-			axi_awburst <= 0;
-			axi_awlock  <= 0;
-			axi_awcache <= 0;
-			axi_awprot  <= 0;
-			axi_awqos   <= 0;
-		end else if (OPT_LOWPOWER && !swgrant[M])
+		if (OPT_LOWPOWER && (!S_AXI_ARESETN || !swgrant[M]))
 		begin
 			axi_awid    <= 0;
 			axi_awaddr  <= 0;
@@ -1445,93 +1205,79 @@ module	axixbar #(
 		end
 
 		//
-		initial	axi_bready = 1;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN || !swgrant[M])
+		always @(*)
+		if (!swgrant[M])
 			axi_bready <= 1;
-		else if (!mbstall)
-			axi_bready <= 1;
-		else if (S_AXI_BVALID[M]) // && mbstall
-			axi_bready <= 0;
+		else
+			axi_bready <= bskd_ready[swindex[M]];
 
 		//
-		assign	S_AXI_AWVALID[M]          = axi_awvalid;
-		assign	S_AXI_AWID[   M*IW +: IW] = axi_awid;
-		assign	S_AXI_AWADDR[ M*AW +: AW] = axi_awaddr;
-		assign	S_AXI_AWLEN[  M* 8 +:  8] = axi_awlen;
-		assign	S_AXI_AWSIZE[ M* 3 +:  3] = axi_awsize;
-		assign	S_AXI_AWBURST[M* 2 +:  2] = axi_awburst;
-		assign	S_AXI_AWLOCK[ M]          = axi_awlock;
-		assign	S_AXI_AWCACHE[M* 4 +:  4] = axi_awcache;
-		assign	S_AXI_AWPROT[ M* 3 +:  3] = axi_awprot;
-		assign	S_AXI_AWQOS[  M* 4 +:  4] = axi_awqos;
+		assign	M_AXI_AWVALID[M]          = axi_awvalid;
+		assign	M_AXI_AWID[   M*IW +: IW] = axi_awid;
+		assign	M_AXI_AWADDR[ M*AW +: AW] = axi_awaddr;
+		assign	M_AXI_AWLEN[  M* 8 +:  8] = axi_awlen;
+		assign	M_AXI_AWSIZE[ M* 3 +:  3] = axi_awsize;
+		assign	M_AXI_AWBURST[M* 2 +:  2] = axi_awburst;
+		assign	M_AXI_AWLOCK[ M]          = axi_awlock;
+		assign	M_AXI_AWCACHE[M* 4 +:  4] = axi_awcache;
+		assign	M_AXI_AWPROT[ M* 3 +:  3] = axi_awprot;
+		assign	M_AXI_AWQOS[  M* 4 +:  4] = axi_awqos;
 		//
 		//
-		assign	S_AXI_WVALID[M]             = axi_wvalid;
-		assign	S_AXI_WDATA[M*DW +: DW]     = axi_wdata;
-		assign	S_AXI_WSTRB[M*DW/8 +: DW/8] = axi_wstrb;
-		assign	S_AXI_WLAST[M]              = axi_wlast;
+		assign	M_AXI_WVALID[M]             = axi_wvalid;
+		assign	M_AXI_WDATA[M*DW +: DW]     = axi_wdata;
+		assign	M_AXI_WSTRB[M*DW/8 +: DW/8] = axi_wstrb;
+		assign	M_AXI_WLAST[M]              = axi_wlast;
 		//
 		//
-		assign	S_AXI_BREADY[M]             = axi_bready;
+		assign	M_AXI_BREADY[M]             = axi_bready;
 		//
 	end endgenerate
 
 
 	generate for(M=0; M<NS; M=M+1)
-	begin : READ_SLAVE_OUTPUTS
+	begin : R5_READ_SLAVE_OUTPUTS
 
-		reg					axi_arvalid;
-		reg	[C_AXI_ID_WIDTH-1:0]		axi_arid;
-		reg	[C_AXI_ADDR_WIDTH-1:0]	axi_araddr;
-		reg	[7:0]				axi_arlen;
-		reg	[2:0]				axi_arsize;
-		reg	[1:0]				axi_arburst;
-		reg					axi_arlock;
-		reg	[3:0]				axi_arcache;
-		reg	[2:0]				axi_arprot;
-		reg	[3:0]				axi_arqos;
+		reg				axi_arvalid;
+		reg	[IW-1:0]		axi_arid;
+		reg	[AW-1:0]		axi_araddr;
+		reg	[7:0]			axi_arlen;
+		reg	[2:0]			axi_arsize;
+		reg	[1:0]			axi_arburst;
+		reg				axi_arlock;
+		reg	[3:0]			axi_arcache;
+		reg	[2:0]			axi_arprot;
+		reg	[3:0]			axi_arqos;
 		//
-		reg					axi_rready;
+		reg				axi_rready;
 
 		reg	arstall, mrstall;
 		always @(*)
-			arstall= (S_AXI_ARVALID[M]&& !S_AXI_ARREADY[M]);
+			arstall= axi_arvalid && !M_AXI_ARREADY[M];
 		always @(*)
-			mrstall = (M_AXI_RVALID[srindex[M]]
-						&& !M_AXI_RREADY[srindex[M]]);
+			mrstall = (rskd_valid[srindex[M]]
+						&& !rskd_ready[srindex[M]]);
 
 		initial	axi_arvalid = 0;
 		always @(posedge  S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !srgrant[M])
 			axi_arvalid <= 0;
 		else if (!arstall)
-		begin
 			axi_arvalid <= m_arvalid[srindex[M]] && slave_raccepts[srindex[M]];
-		end
+		else if (M_AXI_ARREADY[M])
+			axi_arvalid <= 0;
 
-		initial	axi_arid    = 0;
-		initial	axi_araddr  = 0;
-		initial	axi_arlen   = 0;
-		initial	axi_arsize  = 0;
-		initial	axi_arburst = 0;
-		initial	axi_arlock  = 0;
-		initial	axi_arcache = 0;
-		initial	axi_arprot  = 0;
-		initial	axi_arqos   = 0;
+		initial axi_arid    = 0;
+		initial axi_araddr  = 0;
+		initial axi_arlen   = 0;
+		initial axi_arsize  = 0;
+		initial axi_arburst = 0;
+		initial axi_arlock  = 0;
+		initial axi_arcache = 0;
+		initial axi_arprot  = 0;
+		initial axi_arqos   = 0;
 		always @(posedge  S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			axi_arid    <= 0;
-			axi_araddr  <= 0;
-			axi_arlen   <= 0;
-			axi_arsize  <= 0;
-			axi_arburst <= 0;
-			axi_arlock  <= 0;
-			axi_arcache <= 0;
-			axi_arprot  <= 0;
-			axi_arqos   <= 0;
-		end else if (OPT_LOWPOWER && !srgrant[M])
+		if (OPT_LOWPOWER && (!S_AXI_ARESETN || !srgrant[M]))
 		begin
 			axi_arid    <= 0;
 			axi_araddr  <= 0;
@@ -1570,500 +1316,220 @@ module	axixbar #(
 		end
 
 		initial	axi_rready = 1;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN || !srgrant[M])
+		always @(*)
+		if (!srgrant[M])
 			axi_rready <= 1;
-		else if (!mrstall)
-			axi_rready <= 1;
-		else if (S_AXI_RVALID[M] && S_AXI_RREADY[M]) // && mrstall
-			axi_rready <= 0;
+		else
+			axi_rready <= rskd_ready[srindex[M]];
 
 		//
-		assign	S_AXI_ARVALID[M]         = axi_arvalid;
-		assign	S_AXI_ARID[   M*IW +: IW] = axi_arid;
-		assign	S_AXI_ARADDR[ M*AW +: AW] = axi_araddr;
-		assign	S_AXI_ARLEN[  M* 8 +:  8] = axi_arlen;
-		assign	S_AXI_ARSIZE[ M* 3 +:  3] = axi_arsize;
-		assign	S_AXI_ARBURST[M* 2 +:  2] = axi_arburst;
-		assign	S_AXI_ARLOCK[ M]          = axi_arlock;
-		assign	S_AXI_ARCACHE[M* 4 +:  4] = axi_arcache;
-		assign	S_AXI_ARPROT[ M* 3 +:  3] = axi_arprot;
-		assign	S_AXI_ARQOS[  M* 4 +:  4] = axi_arqos;
+		assign	M_AXI_ARVALID[M]          = axi_arvalid;
+		assign	M_AXI_ARID[   M*IW +: IW] = axi_arid;
+		assign	M_AXI_ARADDR[ M*AW +: AW] = axi_araddr;
+		assign	M_AXI_ARLEN[  M* 8 +:  8] = axi_arlen;
+		assign	M_AXI_ARSIZE[ M* 3 +:  3] = axi_arsize;
+		assign	M_AXI_ARBURST[M* 2 +:  2] = axi_arburst;
+		assign	M_AXI_ARLOCK[ M]          = axi_arlock;
+		assign	M_AXI_ARCACHE[M* 4 +:  4] = axi_arcache;
+		assign	M_AXI_ARPROT[ M* 3 +:  3] = axi_arprot;
+		assign	M_AXI_ARQOS[  M* 4 +:  4] = axi_arqos;
 		//
-		assign	S_AXI_RREADY[M]          = axi_rready;
+		assign	M_AXI_RREADY[M]          = axi_rready;
 		//
 	end endgenerate
 
-	reg			r_bvalid	[0:NM-1];
-	reg	[1:0]		r_bresp		[0:NM-1];
-	reg	[IW-1:0]	r_bid		[0:NM-1];
-
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
-	begin : WRITE_RETURN_CHANNEL
+	begin : W6_WRITE_RETURN_CHANNEL
 
-		reg		axi_awready, axi_wready;
-		reg		axi_bvalid;
-		reg	[1:0]	axi_bresp;
-		reg	[IW-1:0] axi_bid;
-		reg		i_axi_bvalid;
 		reg	[1:0]	i_axi_bresp;
 		reg	[IW-1:0] i_axi_bid;
-		reg		mbstall;
+
+		initial	berr_valid[N] = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			berr_valid[N] <= 0;
+		else if (wgrant[N][NS] && m_wvalid[N] && m_wlast[N]
+				&& slave_waccepts[N])
+			berr_valid[N] <= 1;
+		else if (bskd_ready[N])
+			berr_valid[N] <= 0;
 
 		always @(*)
-		if (wgrant[N][NS])
-			i_axi_bvalid = m_wvalid[N] && (!M_AXI_BVALID[N]||M_AXI_BREADY[N]) && m_wlast[N] && wdata_expected[N];
-//			i_axi_bvalid = m_wvalid[N] && slave_waccepts[N] && m_wlast[N];
+		if (berr_valid[N])
+			bskd_valid[N] = 1;
 		else
-			i_axi_bvalid = s_axi_bvalid[mwindex[N]];
+			bskd_valid[N] = mwgrant[N]&&m_axi_bvalid[mwindex[N]];
+
+		always @(posedge S_AXI_ACLK)
+		if (m_awvalid[N] && slave_awaccepts[N])
+			berr_id[N] <= m_awid[N];
 
 		always @(*)
 		if (wgrant[N][NS])
 		begin
-			i_axi_bid   = m_wid[N];
+			i_axi_bid   = berr_id[N];
 			i_axi_bresp = INTERCONNECT_ERROR;
-		end else if (NS <= 1)
-		begin
-			i_axi_bid   = S_AXI_BID[IW-1:0];
-			i_axi_bresp = S_AXI_BID[IW-1:0];
 		end else begin
-			i_axi_bid   = s_axi_bid[mwindex[N]];
-			i_axi_bresp = s_axi_bresp[mwindex[N]];
+			i_axi_bid   = m_axi_bid[mwindex[N]];
+			i_axi_bresp = m_axi_bresp[mwindex[N]];
 		end
 
-		always @(*)
-			mbstall = M_AXI_BVALID[N] && !M_AXI_BREADY[N];
+		skidbuffer #(.DW(IW+2),
+				.OPT_LOWPOWER(OPT_LOWPOWER),
+				.OPT_OUTREG(1))
+		bskid(S_AXI_ACLK, !S_AXI_ARESETN,
+			bskd_valid[N], bskd_ready[N],
+			{ i_axi_bid, i_axi_bresp },
+			S_AXI_BVALID[N], S_AXI_BREADY[N],
+			{ S_AXI_BID[N*IW +: IW], S_AXI_BRESP[N*2 +: 2] });
 
-		initial	axi_awready = 1;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			axi_awready <= 1;
-		else begin
-			if (M_AXI_AWVALID[N] && axi_awready)
-			begin
-				if (!slave_awaccepts[N])
-					axi_awready <= 1'b0;
-				// else if (m_awlen[N] > 0)
-				//	axi_awready <= 1'b0;
-				else if (!M_AXI_WVALID[N] || !M_AXI_WREADY[N]
-					|| !M_AXI_WLAST[N])
-					axi_awready <= 1'b0;
-			end else if (m_wvalid[N] && m_wlast[N]
-							&& slave_waccepts[N])
-				axi_awready <= 1'b1;
-		end
-
-		initial	axi_wready = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			axi_wready <= 0;
-		else begin
-
-			if (m_wvalid[N] && !slave_waccepts[N])
-				axi_wready <= 0;
-			else if (m_wvalid[N] && !m_wlast[N]&& slave_waccepts[N])
-				axi_wready <= 1;
-			else if (!axi_wready
-					&& (!r_wvalid[N] || slave_waccepts[N])
-					&& (M_AXI_AWVALID[N] && axi_awready))
-				axi_wready <= 1;
-			else if (m_wvalid[N] && m_wlast[N] && slave_waccepts[N])
-				axi_wready <= 0;
-		end
-
-		initial	r_bvalid[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_bvalid[N] <= 0;
-		else if (mbstall && !r_bvalid[N] && !wgrant[N][NS])
-			r_bvalid[N] <= mwgrant[N] && i_axi_bvalid;
-		else if (!mbstall)
-			r_bvalid[N] <= 1'b0;
-
-		initial	r_bid[N]   = 0;
-		initial	r_bresp[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			r_bid[N]   <= 0;
-			r_bresp[N] <= 0;
-		end else if (OPT_LOWPOWER && (!mwgrant[N] || M_AXI_BREADY[N]))
-		begin
-			r_bid[N]   <= 0;
-			r_bresp[N] <= 0;
-		end else if (!r_bvalid[N])
-		begin
-			if (!OPT_LOWPOWER ||(i_axi_bvalid && !wgrant[N][NS] && mbstall))
-			begin
-				r_bid[N]   <= i_axi_bid;
-				r_bresp[N] <= i_axi_bresp;
-			end else begin
-				r_bid[N]   <= 0;
-				r_bresp[N] <= 0;
-			end
-		end
-
-		initial	axi_bvalid = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			axi_bvalid <= 0;
-		else if (!mbstall)
-			axi_bvalid <= mwgrant[N] && (r_bvalid[N] || i_axi_bvalid);
-
-		initial	axi_bid   = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-			axi_bid <= 0;
-		else if (OPT_LOWPOWER && !mwgrant[N])
-			axi_bid   <= 0;
-		else if (!mbstall)
-		begin
-			if (wgrant[N][NS])
-			begin
-				if (m_awvalid[N] && slave_awaccepts[N])
-					axi_bid <= m_awid[N];
-			end else if (r_bvalid[N])
-				axi_bid   <= r_bid[N];
-			else if (!OPT_LOWPOWER || i_axi_bvalid)
-				axi_bid   <= i_axi_bid;
-			else
-				axi_bid   <= 0;
-		end
-
-		initial	axi_bresp = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			axi_bresp <= 0;
-		end else if (OPT_LOWPOWER && !mwgrant[N])
-		begin
-			axi_bresp <= 0;
-		end else if (!mbstall)
-		begin
-			if (r_bvalid[N])
-				axi_bresp <= r_bresp[N];
-			else if (!OPT_LOWPOWER || i_axi_bvalid)
-				axi_bresp <= i_axi_bresp;
-			else
-				axi_bresp <= 0;
-		end
-
-		assign	M_AXI_AWREADY[N]      = axi_awready;
-		assign	M_AXI_WREADY[N]       = axi_wready;
-		//
-		assign	M_AXI_BVALID[N]       = axi_bvalid;
-		assign	M_AXI_BID[  N*IW +: IW] = axi_bid;
-		assign	M_AXI_BRESP[N* 2 +:  2] = axi_bresp;
 	end endgenerate
 
 	always @(*)
 	begin
-		s_axi_arvalid = 0;
-		s_axi_arready = 0;
-		s_axi_rvalid = 0;
-		s_axi_rready = 0;
+		m_axi_arvalid = 0;
+		m_axi_arready = 0;
+		m_axi_rvalid = 0;
+		m_axi_rready = 0;
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
-			s_axi_arlen[iM] = S_AXI_ARLEN[iM* 8 +:  8];
-			s_axi_arid[iM]  = S_AXI_ARID[ iM*IW +: IW];
+			m_axi_arlen[iM] = M_AXI_ARLEN[iM* 8 +:  8];
+			m_axi_arid[iM]  = M_AXI_ARID[ iM*IW +: IW];
 		end
 		for(iM=NS; iM<NSFULL; iM=iM+1)
 		begin
-			s_axi_arlen[iM] = 0;
-			s_axi_arid[iM]  = 0;
+			m_axi_arlen[iM] = 0;
+			m_axi_arid[iM]  = 0;
 		end
 
-		s_axi_arvalid[NS-1:0] = S_AXI_ARVALID;
-		s_axi_arready[NS-1:0] = S_AXI_ARREADY;
-		s_axi_rvalid[NS-1:0]  = S_AXI_RVALID;
-		s_axi_rready[NS-1:0]  = S_AXI_RREADY;
+		m_axi_arvalid[NS-1:0] = M_AXI_ARVALID;
+		m_axi_arready[NS-1:0] = M_AXI_ARREADY;
+		m_axi_rvalid[NS-1:0]  = M_AXI_RVALID;
+		m_axi_rready[NS-1:0]  = M_AXI_RREADY;
 	end
 
-	reg			r_rvalid	[0:NM-1];
-	reg	[1:0]		r_rresp		[0:NM-1];
-	reg	[IW-1:0]	r_rid		[0:NM-1];
-	reg	[DW-1:0]	r_rdata		[0:NM-1];
-	reg	[NM-1:0]	r_rlast;
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
-	begin : READ_RETURN_CHANNEL
+	begin : R6_READ_RETURN_CHANNEL
 
-		reg			axi_rvalid;
-		reg	[1:0]		axi_rresp;
-		reg	[DW-1:0]	axi_rdata;
-		reg	[IW-1:0]	axi_rid;
-		reg			axi_rlast;
-		reg			axi_arready;
-		// reg	[((NM>1)?($clog2(NM)-1):0):0]		rindex;
-		reg			mrstall;
-		reg			i_axi_rvalid;
+		reg	[DW-1:0]	i_axi_rdata;
+		reg	[IW-1:0]	i_axi_rid;
+		reg	[2-1:0]		i_axi_rresp;
 
 		always @(*)
 		if (rgrant[N][NS])
-			i_axi_rvalid = !rerr_none[N];
-		else if (NS <= 1)
-			i_axi_rvalid = s_axi_rvalid[0];
+			rskd_valid[N] = !rerr_none[N];
 		else
-			i_axi_rvalid = s_axi_rvalid[mrindex[N]];
+			rskd_valid[N] = mrgrant[N] && m_axi_rvalid[mrindex[N]];
 
 		always @(*)
-			mrstall = M_AXI_RVALID[N] && !M_AXI_RREADY[N];
-
-
-
-		initial	axi_arready = 1;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			axi_arready <= 1'b1;
-		else begin
-			if (M_AXI_ARVALID[N] && axi_arready)
-			begin
-				if (!slave_raccepts[N])
-					axi_arready <= 1'b0;
-			end else if (!axi_arready && slave_raccepts[N])
-				axi_arready <= 1'b1;
+		if (rgrant[N][NS])
+		begin
+			i_axi_rid   = rerr_id[N];
+			i_axi_rdata = 0;
+			rskd_rlast[N] = rerr_last[N];
+			i_axi_rresp = INTERCONNECT_ERROR;
+		end else begin
+			i_axi_rid   = m_axi_rid[mrindex[N]];
+			i_axi_rdata = m_axi_rdata[mrindex[N]];
+			rskd_rlast[N]= m_axi_rlast[mrindex[N]];
+			i_axi_rresp = m_axi_rresp[mrindex[N]];
 		end
 
-		//
-		// The read return channel's double buffer
-		//
-		initial	r_rvalid[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_rvalid[N] <= 0;
-		else if (mrstall && !r_rvalid[N])
-			r_rvalid[N] <= mrgrant[N] && !rgrant[N][NS]&&i_axi_rvalid;
-		else if (!mrstall)
-			r_rvalid[N] <= 0;
+		skidbuffer #(.DW(IW+DW+1+2),
+				.OPT_LOWPOWER(OPT_LOWPOWER),
+				.OPT_OUTREG(1))
+		rskid(S_AXI_ACLK, !S_AXI_ARESETN,
+			rskd_valid[N], rskd_ready[N],
+			{ i_axi_rid, i_axi_rdata, rskd_rlast[N], i_axi_rresp },
+			S_AXI_RVALID[N], S_AXI_RREADY[N],
+			{ S_AXI_RID[N*IW +: IW], S_AXI_RDATA[N*DW +: DW],
+			  S_AXI_RLAST[N], S_AXI_RRESP[N*2 +: 2] });
 
-		initial	r_rid[N]   = 0;
-		initial	r_rresp[N] = 0;
-		initial	r_rdata[N] = 0;
-		initial	r_rlast[N] = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			r_rid[N]   <= 0;
-			r_rresp[N] <= 0;
-			r_rdata[N] <= 0;
-			r_rlast[N] <= 0;
-		end else if (OPT_LOWPOWER && (!mrgrant[N] || M_AXI_RREADY[N]))
-		begin
-			r_rid[N]   <= 0;
-			r_rresp[N] <= 0;
-			r_rdata[N] <= 0;
-			r_rlast[N] <= 0;
-		end else if (!r_rvalid[N])
-		begin
-			if (!OPT_LOWPOWER || (i_axi_rvalid && !rgrant[N][NS] && mrstall))
-			begin
-				if (NS == 1)
-				begin
-					r_rid[N]   <= s_axi_rid[0];
-					r_rresp[N] <= s_axi_rresp[0];
-					r_rdata[N] <= s_axi_rdata[0];
-					r_rlast[N] <= s_axi_rlast[0];
-				end else begin
-					r_rid[N]   <= s_axi_rid[mrindex[N]];
-					r_rresp[N] <= s_axi_rresp[mrindex[N]];
-					r_rdata[N] <= s_axi_rdata[mrindex[N]];
-					r_rlast[N] <= s_axi_rlast[mrindex[N]];
-				end
-			end else begin
-				r_rid[N]   <= 0;
-				r_rresp[N] <= 0;
-				r_rdata[N] <= 0;
-				r_rlast[N] <= 0;
-			end
-		end
-
-		//
-		// The read return channel's outputs
-		//
-		initial	axi_rvalid = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			axi_rvalid <= 0;
-		else if (!mrstall)
-		begin
-			axi_rvalid <= mrgrant[N] && (r_rvalid[N] || i_axi_rvalid);
-			if (rgrant[N][NS])
-				axi_rvalid <= !rerr_none[N];
-		end
-
-		initial	axi_rid  = 0;
-		initial	axi_rresp = 0;
-		initial	axi_rdata = 0;
-		initial	axi_rlast = 0;
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			axi_rid   <= 0;
-			axi_rresp <= 0;
-			axi_rdata <= 0;
-			axi_rlast <= 0;
-		end else if (OPT_LOWPOWER && !mrgrant[N])
-		begin
-			axi_rid   <= 0;
-			axi_rresp <= 0;
-			axi_rdata <= 0;
-			axi_rlast <= 0;
-		end else if (!mrstall)
-		begin
-			if (r_rvalid[N])
-			begin
-				axi_rid   <= r_rid[N];
-				axi_rresp <= r_rresp[N];
-				axi_rdata <= r_rdata[N];
-				axi_rlast <= r_rlast[N];
-			end else if (!OPT_LOWPOWER || i_axi_rvalid)
-			begin
-				if (NS == 1)
-				begin
-					axi_rid   <= s_axi_rid[0];
-					axi_rresp <= s_axi_rresp[0];
-					axi_rdata <= s_axi_rdata[0];
-					axi_rlast <= s_axi_rlast[0];
-				end else begin
-					axi_rid   <= s_axi_rid[mrindex[N]];
-					axi_rresp <= s_axi_rresp[mrindex[N]];
-					axi_rdata <= s_axi_rdata[mrindex[N]];
-					axi_rlast <= s_axi_rlast[mrindex[N]];
-				end
-
-			end else begin
-				axi_rid   <= 0;
-				axi_rresp <= 0;
-				axi_rdata <= 0;
-				axi_rlast <= 0;
-			end
-
-			if (rgrant[N][NS])
-			begin
-				if (!OPT_LOWPOWER || !rerr_none[N])
-				begin
-					axi_rid   <= rerr_id[N];
-					axi_rresp <= INTERCONNECT_ERROR;
-				end else begin
-					axi_rid   <= 0;
-					axi_rresp <= 0;
-				end
-				axi_rlast <= rerr_last[N];
-			end
-		end
-
-		assign	M_AXI_ARREADY[N]       = axi_arready;
-		//
-		assign	M_AXI_RVALID[N]        = axi_rvalid;
-		assign	M_AXI_RID[  N*IW +: IW]= axi_rid;
-		assign	M_AXI_RRESP[N* 2 +:  2]= axi_rresp;
-		assign	M_AXI_RDATA[N*DW +: DW]= axi_rdata;
-		assign	M_AXI_RLAST[N]         = axi_rlast;
 	end endgenerate
 
 	// Count pending transactions
 	generate for (N=0; N<NM; N=N+1)
-	begin : COUNT_PENDING
+	begin : W7_COUNT_PENDING_WRITES
 
-		reg	[LGMAXBURST-1:0]	awpending, rpending;
-		reg	[8:0]			missing_wdata;
-		reg	[8:0]			wpending;
-		//reg				rempty, awempty; // wempty;
-		(* keep *) reg	r_wdata_expected;
+		reg	[LGMAXBURST-1:0]	awpending;
+		reg				r_wdata_expected;
 
 		initial	awpending    = 0;
 		initial	mwempty[N]   = 1;
 		initial	mwfull[N]    = 0;
-		initial	mwnearfull[N]= 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			awpending     <= 0;
 			mwempty[N]    <= 1;
 			mwfull[N]     <= 0;
-			mwnearfull[N] <= 0;
 		end else case ({(m_awvalid[N] && slave_awaccepts[N]),
-				(M_AXI_BVALID[N] && M_AXI_BREADY[N])})
+				(bskd_valid[N] && bskd_ready[N])})
 		2'b01: begin
 			awpending     <= awpending - 1;
 			mwempty[N]    <= (awpending <= 1);
 			mwfull[N]     <= 0;
-			mwnearfull[N] <= (&awpending[LGMAXBURST-1:0]);
 			end
 		2'b10: begin
 			awpending <= awpending + 1;
 			mwempty[N] <= 0;
 			mwfull[N]     <= &awpending[LGMAXBURST-1:1];
-			mwnearfull[N] <= (&awpending[LGMAXBURST-1:2])
-					&&(awpending[1:0] > 2'b00);
 			end
 		default: begin end
 		endcase
 
-		initial	wpending = 0;
 		initial	r_wdata_expected = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
-			wpending <= 0;
 			r_wdata_expected <= 0;
 		end else case ({(m_awvalid[N] && slave_awaccepts[N]),
 				(m_wvalid[N] && slave_waccepts[N])})
-		2'b01: begin
-			wpending <= wpending - 1;
-			r_wdata_expected <= (wpending > 1);
-			end
-		2'b10: begin
-			// wpending <= wpending + (m_awlen[N]+1);
-			wpending <= (m_awlen[N]+1);
-			r_wdata_expected <= 1;
-			end
-		2'b11: begin
-			wpending <= wpending + (m_awlen[N]);
-			r_wdata_expected <= (m_awlen[N] != 0);
-			end
+		2'b01: r_wdata_expected <= !m_wlast[N];
+		2'b10: r_wdata_expected <= 1;
+		2'b11: r_wdata_expected <= r_wdata_expected || !m_wlast[N];
 		default: begin end
 		endcase
 
+		assign	w_mawpending[N] = awpending;
+
+		always @(*)
+			wdata_expected[N] = r_wdata_expected;
+
+
+	end endgenerate
+
+	generate for (N=0; N<NM; N=N+1)
+	begin : R7_COUNT_PENDING_READS
+
+		reg	[LGMAXBURST-1:0]	rpending;
 
 		initial	rpending     = 0;
 		initial	mrempty[N]   = 1;
 		initial	mrfull[N]    = 0;
-		initial	mrnearfull[N]= 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			rpending  <= 0;
 			mrempty[N]<= 1;
 			mrfull[N] <= 0;
-			mrnearfull[N] <= 0;
 		end else case ({(m_arvalid[N] && slave_raccepts[N] && !rgrant[N][NS]),
-				(M_AXI_RVALID[N] && M_AXI_RREADY[N]
-					&& M_AXI_RLAST[N] && !rgrant[N][NS])})
+				(rskd_valid[N] && rskd_ready[N]
+					&& rskd_rlast[N] && !rgrant[N][NS])})
 		2'b01: begin
 			rpending      <= rpending - 1;
 			mrempty[N]    <= (rpending == 1);
 			mrfull[N]     <= 0;
-			mrnearfull[N] <= (&rpending[LGMAXBURST-1:0]);
 			end
 		2'b10: begin
 			rpending      <= rpending + 1;
 			mrfull[N]     <= &rpending[LGMAXBURST-1:1];
-			mrnearfull[N] <= (&rpending[LGMAXBURST-1:2])
-					&&(rpending[1:0] > 2'b00);
 			mrempty[N]    <= 0;
 			end
 		default: begin end
 		endcase
-
-		assign	w_mawpending[N] = awpending;
-		assign	w_mwpending[N]  = wpending;
-		assign	w_mrpending[N]  = rpending;
-
-		always @(*)
-			wdata_expected[N] = r_wdata_expected;
-
 
 		initial	rerr_outstanding[N] = 0;
 		initial	rerr_last[N] = 0;
@@ -2076,7 +1542,7 @@ module	axixbar #(
 			rerr_none[N] <= 1;
 		end else if (!rerr_none[N])
 		begin
-			if (!M_AXI_RVALID[N] || M_AXI_RREADY[N])
+			if (!rskd_valid[N] || rskd_ready[N])
 			begin
 				rerr_none[N] <= (rerr_outstanding[N] == 1);
 				rerr_last[N] <= (rerr_outstanding[N] == 2);
@@ -2101,27 +1567,36 @@ module	axixbar #(
 			else
 				rerr_id[N] <= 0;
 		end else if (OPT_LOWPOWER && rerr_last[N]
-				&& (!M_AXI_RVALID[N] || M_AXI_RREADY[N]))
+				&& (!rskd_valid[N] || rskd_ready[N]))
 			rerr_id[N] <= 0;
 
+		assign	w_mrpending[N]  = rpending;
+
+`ifdef	FORMAL
+		always @(*)
+			assert(rerr_none[N] ==  (rerr_outstanding[N] == 0));
+		always @(*)
+			assert(rerr_last[N] ==  (rerr_outstanding[N] == 1));
+		always @(*)
+		if (OPT_LOWPOWER && rerr_none[N])
+			assert(rerr_id[N] ==  0);
+`endif
 	end endgenerate
 
 	initial begin
 		if (NM == 0) begin
-                        $display("At least one master must be defind");
+                        $display("At least one master must be defined");
                         $stop;
                 end
 
 		if (NS == 0) begin
-                        $display("At least one slave must be defind");
+                        $display("At least one slave must be defined");
                         $stop;
                 end
         end
 
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = LGMAXBURST+9;
-	localparam [0:0]	OPT_READS  = 1;
-	localparam [0:0]	OPT_WRITES = 0;
 
 
 	//
@@ -2132,7 +1607,77 @@ module	axixbar #(
 	initial	assert(NM >= 1);
 
 	generate for(N=0; N<NM; N=N+1)
-	begin : CHECK_MASTERS
+	begin : F1_CHECK_MASTER_GRANTS
+
+		// Write grants
+		always @(*)
+		for(iM=0; iM<=NS; iM=iM+1)
+		begin
+			if (wgrant[N][iM])
+			begin
+				assert((wgrant[N] ^ (1<<iM))==0);
+				assert(mwgrant[N]);
+				assert(mwindex[N] == iM);
+				if (iM < NS)
+				begin
+					assert(swgrant[iM]);
+					assert(swindex[iM] == N);
+				end
+			end
+		end
+
+		always @(*)
+		if (mwgrant[N])
+			assert(wgrant[N] != 0);
+
+		always @(*)
+		if (wrequest[N][NS])
+			assert(wrequest[N][NS-1:0] == 0);
+
+
+		always @(posedge S_AXI_ACLK)
+		if (S_AXI_ARESETN && f_past_valid && bskd_valid[N])
+		begin
+			assert($stable(wgrant[N]));
+			assert($stable(mwindex[N]));
+		end
+
+		////////////////////////////////////////////////////////////////
+		//
+		// Read grant checking
+		//
+		always @(*)
+		for(iM=0; iM<=NS; iM=iM+1)
+		begin
+			if (rgrant[N][iM])
+			begin
+				assert((rgrant[N] ^ (1<<iM))==0);
+				assert(mrgrant[N]);
+				assert(mrindex[N] == iM);
+				if (iM < NS)
+				begin
+					assert(srgrant[iM]);
+					assert(srindex[iM] == N);
+				end
+			end
+		end
+
+		always @(*)
+		if (mrgrant[N])
+			assert(rgrant[N] != 0);
+
+		always @(posedge S_AXI_ACLK)
+		if (S_AXI_ARESETN && f_past_valid && S_AXI_RVALID[N])
+		begin
+			assert($stable(rgrant[N]));
+			assert($stable(mrindex[N]));
+			if (!rgrant[N][NS])
+				assert(!mrempty[N]);
+		end
+	end endgenerate
+
+	generate for(N=0; N<NM; N=N+1)
+	begin : F2_CHECK_MASTERS
 
 		faxi_slave #(
 			.C_AXI_ID_WIDTH(IW),
@@ -2148,48 +1693,48 @@ module	axixbar #(
 		  mstri(.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(S_AXI_ARESETN),
 			//
-			.i_axi_awid(   M_AXI_AWID[   N*IW +:IW]),
-			.i_axi_awaddr( M_AXI_AWADDR[ N*AW +:AW]),
-			.i_axi_awlen(  M_AXI_AWLEN[  N* 8 +: 8]),
-			.i_axi_awsize( M_AXI_AWSIZE[ N* 3 +: 3]),
-			.i_axi_awburst(M_AXI_AWBURST[N* 2 +: 2]),
-			.i_axi_awlock( M_AXI_AWLOCK[ N]),
-			.i_axi_awcache(M_AXI_AWCACHE[N* 4 +: 4]),
-			.i_axi_awprot( M_AXI_AWPROT[ N* 3 +: 3]),
-			.i_axi_awqos(  M_AXI_AWQOS[  N* 4 +: 4]),
-			.i_axi_awvalid(M_AXI_AWVALID[N]),
-			.i_axi_awready(M_AXI_AWREADY[N]),
+			.i_axi_awid(   S_AXI_AWID[   N*IW +:IW]),
+			.i_axi_awaddr( S_AXI_AWADDR[ N*AW +:AW]),
+			.i_axi_awlen(  S_AXI_AWLEN[  N* 8 +: 8]),
+			.i_axi_awsize( S_AXI_AWSIZE[ N* 3 +: 3]),
+			.i_axi_awburst(S_AXI_AWBURST[N* 2 +: 2]),
+			.i_axi_awlock( S_AXI_AWLOCK[ N]),
+			.i_axi_awcache(S_AXI_AWCACHE[N* 4 +: 4]),
+			.i_axi_awprot( S_AXI_AWPROT[ N* 3 +: 3]),
+			.i_axi_awqos(  S_AXI_AWQOS[  N* 4 +: 4]),
+			.i_axi_awvalid(S_AXI_AWVALID[N]),
+			.i_axi_awready(S_AXI_AWREADY[N]),
 			//
-			.i_axi_wdata( M_AXI_WDATA[ N*DW   +: DW]),
-			.i_axi_wstrb( M_AXI_WSTRB[ N*DW/8 +: DW/8]),
-			.i_axi_wlast( M_AXI_WLAST[ N]),
-			.i_axi_wvalid(M_AXI_WVALID[N]),
-			.i_axi_wready(M_AXI_WREADY[N]),
+			.i_axi_wdata( S_AXI_WDATA[ N*DW   +: DW]),
+			.i_axi_wstrb( S_AXI_WSTRB[ N*DW/8 +: DW/8]),
+			.i_axi_wlast( S_AXI_WLAST[ N]),
+			.i_axi_wvalid(S_AXI_WVALID[N]),
+			.i_axi_wready(S_AXI_WREADY[N]),
 			//
-			.i_axi_bid(   M_AXI_BID[   N*IW +:IW]),
-			.i_axi_bresp( M_AXI_BRESP[ N*2 +: 2]),
-			.i_axi_bvalid(M_AXI_BVALID[N]),
-			.i_axi_bready(M_AXI_BREADY[N]),
+			.i_axi_bid(   S_AXI_BID[   N*IW +:IW]),
+			.i_axi_bresp( S_AXI_BRESP[ N*2 +: 2]),
+			.i_axi_bvalid(S_AXI_BVALID[N]),
+			.i_axi_bready(S_AXI_BREADY[N]),
 			//
-			.i_axi_arid(   M_AXI_ARID[   N*IW +:IW]),
-			.i_axi_arready(M_AXI_ARREADY[N]),
-			.i_axi_araddr( M_AXI_ARADDR[ N*AW +:AW]),
-			.i_axi_arlen(  M_AXI_ARLEN[  N* 8 +: 8]),
-			.i_axi_arsize( M_AXI_ARSIZE[ N* 3 +: 3]),
-			.i_axi_arburst(M_AXI_ARBURST[N* 2 +: 2]),
-			.i_axi_arlock( M_AXI_ARLOCK[ N]),
-			.i_axi_arcache(M_AXI_ARCACHE[N* 4 +: 4]),
-			.i_axi_arprot( M_AXI_ARPROT[ N* 3 +: 3]),
-			.i_axi_arqos(  M_AXI_ARQOS[  N* 4 +: 4]),
-			.i_axi_arvalid(M_AXI_ARVALID[N]),
+			.i_axi_arid(   S_AXI_ARID[   N*IW +:IW]),
+			.i_axi_arready(S_AXI_ARREADY[N]),
+			.i_axi_araddr( S_AXI_ARADDR[ N*AW +:AW]),
+			.i_axi_arlen(  S_AXI_ARLEN[  N* 8 +: 8]),
+			.i_axi_arsize( S_AXI_ARSIZE[ N* 3 +: 3]),
+			.i_axi_arburst(S_AXI_ARBURST[N* 2 +: 2]),
+			.i_axi_arlock( S_AXI_ARLOCK[ N]),
+			.i_axi_arcache(S_AXI_ARCACHE[N* 4 +: 4]),
+			.i_axi_arprot( S_AXI_ARPROT[ N* 3 +: 3]),
+			.i_axi_arqos(  S_AXI_ARQOS[  N* 4 +: 4]),
+			.i_axi_arvalid(S_AXI_ARVALID[N]),
 			//
 			//
-			.i_axi_rid(   M_AXI_RID[   N*IW +: IW]),
-			.i_axi_rdata( M_AXI_RDATA[ N*DW +: DW]),
-			.i_axi_rresp( M_AXI_RRESP[ N* 2 +: 2]),
-			.i_axi_rlast( M_AXI_RLAST[ N]),
-			.i_axi_rvalid(M_AXI_RVALID[N]),
-			.i_axi_rready(M_AXI_RREADY[N])
+			.i_axi_rid(   S_AXI_RID[   N*IW +: IW]),
+			.i_axi_rdata( S_AXI_RDATA[ N*DW +: DW]),
+			.i_axi_rresp( S_AXI_RRESP[ N* 2 +: 2]),
+			.i_axi_rlast( S_AXI_RLAST[ N]),
+			.i_axi_rvalid(S_AXI_RVALID[N]),
+			.i_axi_rready(S_AXI_RREADY[N]),
 			//
 			// ...
 			//
@@ -2198,10 +1743,28 @@ module	axixbar #(
 		//
 		// ...
 		//
+
+		//
+		// Check full/empty flags
+		//
+
+		always @(*)
+		begin
+			assert(mwfull[N] == &w_mawpending[N]);
+			assert(mwempty[N] == (w_mawpending[N] == 0));
+		end
+
+		always @(*)
+		begin
+			assert(mrfull[N] == &w_mrpending[N]);
+			assert(mrempty[N] == (w_mrpending[N] == 0));
+		end
+
+
 	end endgenerate
 
 	generate for(M=0; M<NS; M=M+1)
-	begin : CHECK_SLAVES
+	begin : F3_CHECK_SLAVES
 
 		faxi_master #(
 			.C_AXI_ID_WIDTH(IW),
@@ -2217,56 +1780,67 @@ module	axixbar #(
 		  slvi(.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(S_AXI_ARESETN),
 			//
-			.i_axi_awid(   S_AXI_AWID[   M*IW+:IW]),
-			.i_axi_awaddr( S_AXI_AWADDR[ M*AW +: AW]),
-			.i_axi_awlen(  S_AXI_AWLEN[  M*8 +: 8]),
-			.i_axi_awsize( S_AXI_AWSIZE[ M*3 +: 3]),
-			.i_axi_awburst(S_AXI_AWBURST[M*2 +: 2]),
-			.i_axi_awlock( S_AXI_AWLOCK[ M]),
-			.i_axi_awcache(S_AXI_AWCACHE[M*4 +: 4]),
-			.i_axi_awprot( S_AXI_AWPROT[ M*3 +: 3]),
-			.i_axi_awqos(  S_AXI_AWQOS[  M*4 +: 4]),
-			.i_axi_awvalid(S_AXI_AWVALID[M]),
-			.i_axi_awready(S_AXI_AWREADY[M]),
+			.i_axi_awid(   M_AXI_AWID[   M*IW+:IW]),
+			.i_axi_awaddr( M_AXI_AWADDR[ M*AW +: AW]),
+			.i_axi_awlen(  M_AXI_AWLEN[  M*8 +: 8]),
+			.i_axi_awsize( M_AXI_AWSIZE[ M*3 +: 3]),
+			.i_axi_awburst(M_AXI_AWBURST[M*2 +: 2]),
+			.i_axi_awlock( M_AXI_AWLOCK[ M]),
+			.i_axi_awcache(M_AXI_AWCACHE[M*4 +: 4]),
+			.i_axi_awprot( M_AXI_AWPROT[ M*3 +: 3]),
+			.i_axi_awqos(  M_AXI_AWQOS[  M*4 +: 4]),
+			.i_axi_awvalid(M_AXI_AWVALID[M]),
+			.i_axi_awready(M_AXI_AWREADY[M]),
 			//
-			.i_axi_wready(S_AXI_WREADY[M]),
-			.i_axi_wdata( S_AXI_WDATA[ M*DW   +: DW]),
-			.i_axi_wstrb( S_AXI_WSTRB[ M*DW/8 +: DW/8]),
-			.i_axi_wlast( S_AXI_WLAST[ M]),
-			.i_axi_wvalid(S_AXI_WVALID[M]),
+			.i_axi_wready(M_AXI_WREADY[M]),
+			.i_axi_wdata( M_AXI_WDATA[ M*DW   +: DW]),
+			.i_axi_wstrb( M_AXI_WSTRB[ M*DW/8 +: DW/8]),
+			.i_axi_wlast( M_AXI_WLAST[ M]),
+			.i_axi_wvalid(M_AXI_WVALID[M]),
 			//
-			.i_axi_bid(   S_AXI_BID[   M*IW +: IW]),
-			.i_axi_bresp( S_AXI_BRESP[ M*2 +: 2]),
-			.i_axi_bvalid(S_AXI_BVALID[M]),
-			.i_axi_bready(S_AXI_BREADY[M]),
+			.i_axi_bid(   M_AXI_BID[   M*IW +: IW]),
+			.i_axi_bresp( M_AXI_BRESP[ M*2 +: 2]),
+			.i_axi_bvalid(M_AXI_BVALID[M]),
+			.i_axi_bready(M_AXI_BREADY[M]),
 			//
-			.i_axi_arid(   S_AXI_ARID[   M*IW +:IW]),
-			.i_axi_araddr( S_AXI_ARADDR[ M*AW +:AW]),
-			.i_axi_arlen(  S_AXI_ARLEN[  M*8  +: 8]),
-			.i_axi_arsize( S_AXI_ARSIZE[ M*3  +: 3]),
-			.i_axi_arburst(S_AXI_ARBURST[M*2  +: 2]),
-			.i_axi_arlock( S_AXI_ARLOCK[ M]),
-			.i_axi_arcache(S_AXI_ARCACHE[M* 4 +: 4]),
-			.i_axi_arprot( S_AXI_ARPROT[ M* 3 +: 3]),
-			.i_axi_arqos(  S_AXI_ARQOS[  M* 4 +: 4]),
-			.i_axi_arvalid(S_AXI_ARVALID[M]),
-			.i_axi_arready(S_AXI_ARREADY[M]),
+			.i_axi_arid(   M_AXI_ARID[   M*IW +:IW]),
+			.i_axi_araddr( M_AXI_ARADDR[ M*AW +:AW]),
+			.i_axi_arlen(  M_AXI_ARLEN[  M*8  +: 8]),
+			.i_axi_arsize( M_AXI_ARSIZE[ M*3  +: 3]),
+			.i_axi_arburst(M_AXI_ARBURST[M*2  +: 2]),
+			.i_axi_arlock( M_AXI_ARLOCK[ M]),
+			.i_axi_arcache(M_AXI_ARCACHE[M* 4 +: 4]),
+			.i_axi_arprot( M_AXI_ARPROT[ M* 3 +: 3]),
+			.i_axi_arqos(  M_AXI_ARQOS[  M* 4 +: 4]),
+			.i_axi_arvalid(M_AXI_ARVALID[M]),
+			.i_axi_arready(M_AXI_ARREADY[M]),
 			//
 			//
-			.i_axi_rresp( S_AXI_RRESP[ M*2 +: 2]),
-			.i_axi_rvalid(S_AXI_RVALID[M]),
-			.i_axi_rdata( S_AXI_RDATA[ M*DW +: DW]),
-			.i_axi_rready(S_AXI_RREADY[M]),
-			.i_axi_rlast( S_AXI_RLAST[ M]),
-			.i_axi_rid(   S_AXI_RID[   M*IW +: IW])
+			.i_axi_rresp( M_AXI_RRESP[ M*2 +: 2]),
+			.i_axi_rvalid(M_AXI_RVALID[M]),
+			.i_axi_rdata( M_AXI_RDATA[ M*DW +: DW]),
+			.i_axi_rready(M_AXI_RREADY[M]),
+			.i_axi_rlast( M_AXI_RLAST[ M]),
+			.i_axi_rid(   M_AXI_RID[   M*IW +: IW]),
 			//
 			// ...
 			//
 			);
 
-		//
-		// ...
-		//
+			//
+			// ...
+			//
+
+		always @(*)
+		if (M_AXI_AWVALID[M])
+			assert(((M_AXI_AWADDR[M*AW +:AW]^SLAVE_ADDR[M*AW +:AW])
+				& SLAVE_MASK[M*AW +: AW]) == 0);
+
+		always @(*)
+		if (M_AXI_ARVALID[M])
+			assert(((M_AXI_ARADDR[M*AW +:AW]^SLAVE_ADDR[M*AW +:AW])
+				& SLAVE_MASK[M*AW +: AW]) == 0);
+
 	end endgenerate
 
 
@@ -2282,36 +1856,31 @@ module	axixbar #(
 	//
 	//
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : F6_LIMITING_ASSUMPTIONS
 
 		if (!OPT_WRITES)
 		begin
 			always @(*)
-				assume(M_AXI_AWVALID == 0);
+				assume(S_AXI_AWVALID[N] == 0);
 			always @(*)
-				assert(!wgrant[N][NS]);
-			always @(*)
-				assert(r_awvalid[N] == 0);
+				assert(wgrant[N] == 0);
 			always @(*)
 				assert(mwgrant[N] == 0);
 			always @(*)
-				assert(fm_awr_nbursts[N] == 0);
+				assert(S_AXI_BVALID[N]== 0);
 		end
 
 		if (!OPT_READS)
 		begin
 			always @(*)
-				assume(M_AXI_ARVALID == 0);
+				assume(S_AXI_ARVALID [N]== 0);
 			always @(*)
-				assert(r_arvalid[N] == 0);
+				assert(rgrant[N] == 0);
 			always @(*)
-				assert(!rgrant[N][NS]);
-			always @(*)
-				assert(fm_rd_nbursts[N] == 0);
+				assert(S_AXI_RVALID[N] == 0);
 		end
 
 	end endgenerate
-
 
 	always@(*)
 		assert(OPT_READS | OPT_WRITES);
