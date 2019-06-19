@@ -153,3 +153,4 @@ module	wbc2pipeline(i_clk, i_reset,
 //		assert(returned);
 `endif
 endmodule
+`default_nettype wire

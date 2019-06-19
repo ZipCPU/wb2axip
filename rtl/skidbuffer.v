@@ -307,3 +307,4 @@ module skidbuffer(i_clk, i_reset,
 
 `endif	// FORMAL_VERIFIC
 endmodule
+`default_nettype wire

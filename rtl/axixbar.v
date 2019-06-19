@@ -1886,3 +1886,4 @@ module	axixbar #(
 		assert(OPT_READS | OPT_WRITES);
 `endif
 endmodule
+`default_nettype wire

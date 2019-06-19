@@ -635,3 +635,4 @@ module wbm2axilite (
 
 `endif
 endmodule
+`default_nettype wire

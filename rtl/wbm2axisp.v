@@ -942,3 +942,4 @@ module wbm2axisp #(
 	//
 `endif
 endmodule
+`default_nettype wire
