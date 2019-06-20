@@ -2206,3 +2206,4 @@ module	axilxbar #(
 
 `endif
 endmodule
+`default_nettype wire

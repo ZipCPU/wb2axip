@@ -1812,3 +1812,4 @@ module axisafety #(
 `endif
 // User logic ends
 endmodule
+`default_nettype wire

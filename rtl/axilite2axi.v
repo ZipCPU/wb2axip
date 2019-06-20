@@ -157,3 +157,4 @@ module axilite2axi #(
 //	It has passed a desk-check inspection only
 `endif
 endmodule
+`default_nettype wire
