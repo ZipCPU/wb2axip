@@ -362,7 +362,8 @@ module faxil_slave #(
 		// WR-PENDING > 0.
 		initial	f_axi_awstall = 0;
 		always @(posedge i_clk)
-		if ((!i_axi_reset_n)||(!i_axi_awvalid)||(i_axi_awready))
+		if ((!i_axi_reset_n)||(!i_axi_awvalid)||(i_axi_awready)
+				||(i_axi_bvalid))
 			f_axi_awstall <= 0;
 		else if ((f_axi_awr_outstanding >= f_axi_wr_outstanding)
 			&&(i_axi_awvalid && !i_axi_wvalid))
@@ -384,7 +385,8 @@ module faxil_slave #(
 		// counting clock cycles in that circumstance
 		initial	f_axi_wstall = 0;
 		always @(posedge i_clk)
-		if ((!i_axi_reset_n)||(!i_axi_wvalid)||(i_axi_wready))
+		if ((!i_axi_reset_n)||(!i_axi_wvalid)||(i_axi_wready)
+				||(i_axi_bvalid))
 			f_axi_wstall <= 0;
 		else if ((f_axi_wr_outstanding >= f_axi_awr_outstanding)
 			&&(!i_axi_awvalid && i_axi_wvalid))
@@ -408,9 +410,10 @@ module faxil_slave #(
 		// since many slaves can only accept one request at a time.
 		initial	f_axi_arstall = 0;
 		always @(posedge i_clk)
-		if ((!i_axi_reset_n)||(!i_axi_arvalid)||(i_axi_arready))
+		if ((!i_axi_reset_n)||(!i_axi_arvalid)||(i_axi_arready)
+				||(i_axi_rvalid))
 			f_axi_arstall <= 0;
-		else if ((!i_axi_rvalid)||(i_axi_rready))
+		else if (i_axi_rready)
 			f_axi_arstall <= f_axi_arstall + 1'b1;
 
 		always @(*)
@@ -588,7 +591,9 @@ module faxil_slave #(
 
 		initial	f_axi_wr_ack_delay = 0;
 		always @(posedge i_clk)
-		if ((!i_axi_reset_n)||(i_axi_bvalid)||(f_axi_wr_outstanding==0))
+		if ((!i_axi_reset_n)||(i_axi_bvalid)
+				||(f_axi_awr_outstanding==0)
+				||(f_axi_wr_outstanding==0))
 			f_axi_wr_ack_delay <= 0;
 		else if (f_axi_wr_outstanding > 0)
 			f_axi_wr_ack_delay <= f_axi_wr_ack_delay + 1'b1;
