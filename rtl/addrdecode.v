@@ -77,20 +77,17 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 	begin
 		// Let's assume nothing's been selected, and then check
 		// to prove ourselves wrong.
-		none_sel = 1;
+		//
+		// Note that none_sel will be considered an error condition
+		// in the follow-on processing.  Therefore it's important
+		// to clear it if no request is pending.
+		none_sel = i_valid;
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
 			if (((i_addr ^ SLAVE_ADDR[iM*AW +: AW])
 					&SLAVE_MASK[iM*AW +: AW])==0)
 				none_sel = 0;
 		end
-
-		// Then nothing is selected if i_valid is true and
-		// none_sel indicates that nothing was selected.
-		// After this, none_sel indicates that there's a request
-		// for a slave, where the request doesn't match any slave
-		// addresses.
-		none_sel = i_valid && none_sel;
 	end
 
 	always @(*)
@@ -105,7 +102,7 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 		// slave.  A request that should (eventually) return a bus
 		// error
 		//
-		request[NS] = i_valid && none_sel;
+		request[NS] = none_sel;
 	end
 
 	generate if (OPT_REGISTERED)

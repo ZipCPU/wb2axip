@@ -277,10 +277,19 @@ module	wbxbar(i_clk, i_reset,
 	begin
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
+			// For each slave
 			requested[0][iM] = 0;
 			for(iN=1; iN<NM; iN=iN+1)
 			begin
+				// This slave has been requested if a prior
+				// master has requested it
+				//
+				// This includes any master before the last one
 				requested[iN][iM] = requested[iN-1][iM];
+				//
+				// As well as if the last master has requested
+				// this slave.  Only count this request, though,
+				// if this master could act upon it.
 				if (request[iN-1][iM] &&
 					(grant[iN-1][iM]
 					|| (!mgrant[iN-1]||mempty[iN-1])))
@@ -392,20 +401,15 @@ module	wbxbar(i_clk, i_reset,
 		//	then grant[sindex[M]][M] must be true
 		//
 		reg	stay_on_channel;
+		reg	requested_channel_is_available;
 
 		always @(*)
 		begin
-			stay_on_channel = 0;
-			for(iM=0; iM<NS; iM=iM+1)
-			begin
-				if (request[N][iM] && grant[N][iM])
-					stay_on_channel = 1;
-			end
+			stay_on_channel = |(request[N] & grant[N]);
+
 			if (mgrant[N] && !mempty[N])
 				stay_on_channel = 1;
 		end
-
-		reg	requested_channel_is_available;
 
 		always @(*)
 		begin
@@ -438,6 +442,8 @@ module	wbxbar(i_clk, i_reset,
 				grant[N]  <= 0;
 			end
 		end
+			reg	[NS:0]		regrant;
+			reg	[LGNS-1:0]	reindex;
 
 		if (NS == 1)
 		begin
@@ -447,6 +453,46 @@ module	wbxbar(i_clk, i_reset,
 
 		end else begin
 
+`define	NEW_MINDEX_CODE
+`ifdef	NEW_MINDEX_CODE
+
+			always @(*)
+			begin
+				regrant = 1'b0;
+				for(iM=0; iM<NS; iM=iM+1)
+				begin
+					if (grant[N][iM])
+						// Maintain any open channels
+						regrant[iM] = 1'b1;
+					else if (!sgrant[iM]&&!requested[N][iM])
+						regrant[iM] = 1'b1;
+
+					if (!request[N][iM])
+						regrant[iM] = 1'b0;
+				end
+
+				if (grant[N][NS])
+					regrant[NS] = 1;
+				if (!request[N][NS])
+					regrant[NS] = 0;
+
+				if (mgrant[N] && !mempty[N])
+					regrant = 0;
+			end
+
+			always @(*)
+			begin
+				reindex = 0;
+				for(iM=0; iM<=NS; iM=iM+1)
+				if (regrant[iM])
+					reindex = reindex | iM;
+				if (regrant == 0)
+					reindex = mindex[N];
+			end
+
+			always @(posedge i_clk)
+				mindex[N] <= reindex;
+`else
 			always @(posedge i_clk)
 			if (!mgrant[N] || mempty[N])
 			begin
@@ -467,6 +513,7 @@ module	wbxbar(i_clk, i_reset,
 					end
 				end
 			end
+`endif // NEW_MINDEX_CODE
 		end
 
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -494,6 +541,46 @@ module	wbxbar(i_clk, i_reset,
 
 		end else begin : SINDEX_MORE_THAN_ONE_MASTER
 
+`define	NEW_SINDEX_CODE
+`ifdef	NEW_SINDEX_CODE
+			reg	[NM-1:0]	regrant;
+			reg	[LGNM-1:0]	reindex;
+
+			always @(*)
+			begin
+				regrant = 0;
+				for (iN=0; iN<NM; iN=iN+1)
+				begin
+					// Each bit depends upon 6 inputs, so
+					// one 6-LUT should be sufficient
+					if (grant[iN][M])
+						regrant[iN] = 1;
+					else if (!sgrant[M]&& !requested[iN][M])
+						regrant[iN] = 1;
+
+					if (!request[iN][M])
+						regrant[iN] = 0;
+					if (mgrant[iN] && !mempty[iN])
+						regrant[iN] = 0;
+				end
+			end
+
+			always @(*)
+			begin
+				reindex = 0;
+				// Each bit in reindex depends upon all of the
+				// bits in regrant--should still be one LUT
+				// per bit though
+				if (regrant == 0)
+					reindex = sindex[M];
+				else for(iN=0; iN<NM; iN=iN+1)
+					if (regrant[iN])
+						reindex = reindex | iN;
+			end
+
+			always @(posedge i_clk)
+				sindex[M] <= reindex;
+`else
 			always @(posedge i_clk)
 			for (iN=0; iN<NM; iN=iN+1)
 			begin
@@ -506,6 +593,7 @@ module	wbxbar(i_clk, i_reset,
 						sindex[M] <= iN;
 				end
 			end
+`endif
 		end
 
 	end for(M=NS; M<NSFULL; M=M+1)
@@ -542,9 +630,8 @@ module	wbxbar(i_clk, i_reset,
 				end else begin
 					o_scyc[M] <= 1'b1;
 
-					if (!s_stall[M])
-						o_sstb[M] <= m_stb[sindex[M]]
-						  && request[sindex[M]][M]
+					if (!o_sstb[M] || !s_stall[M])
+						o_sstb[M]<=request[sindex[M]][M]
 						  && !mfull[sindex[M]];
 				end
 			end else begin
@@ -686,7 +773,7 @@ module	wbxbar(i_clk, i_reset,
 				o_mdata[N*DW +: DW]  = (!mgrant[N] && OPT_LOWPOWER)
 					? 0 : i_sdata;
 
-				if (mnearfull[N])
+				if (mfull[N])
 					m_stall[N] = 1'b1;
 
 				if (timed_out[N]&&!o_mack[0])
@@ -727,13 +814,11 @@ module	wbxbar(i_clk, i_reset,
 					o_mdata[N*DW +: DW] = s_data[mindex[N]];
 
 				if (mgrant[N])
-				begin
-					iM = mindex[N];
-					m_stall[N]       = (s_stall[mindex[N]])
-					    || (m_stb[N] && !request[N][iM]);
-				end
+					// Possibly lower the stall signal
+					m_stall[N] = s_stall[mindex[N]]
+					    || !request[N][mindex[N]];
 
-				if (mnearfull[N])
+				if (mfull[N])
 					m_stall[N] = 1'b1;
 
 				if (grant[N][NS] ||(timed_out[N]&&!o_mack[0]))
