@@ -1812,4 +1812,6 @@ module axisafety #(
 `endif
 // User logic ends
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

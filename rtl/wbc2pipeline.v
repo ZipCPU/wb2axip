@@ -153,4 +153,6 @@ module	wbc2pipeline(i_clk, i_reset,
 //		assert(returned);
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

@@ -521,4 +521,6 @@ module	aximrd2wbsp #(
 
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

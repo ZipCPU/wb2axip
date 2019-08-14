@@ -593,4 +593,6 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

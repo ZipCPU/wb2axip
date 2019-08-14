@@ -1886,4 +1886,6 @@ module	axixbar #(
 		assert(OPT_READS | OPT_WRITES);
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

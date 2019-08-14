@@ -315,6 +315,6 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 `endif
 
 endmodule
-
-
+`ifndef	YOSYS
 `default_nettype wire
+`endif

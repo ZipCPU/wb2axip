@@ -929,4 +929,6 @@ module axi2axilite #(
 `undef	BMC_ASSERT
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

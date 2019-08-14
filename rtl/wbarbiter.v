@@ -362,5 +362,6 @@ module	wbarbiter(i_clk, i_reset,
 		cover(o_cyc && o_b_ack);
 `endif
 endmodule
-
+`ifndef	YOSYS
 `default_nettype wire
+`endif

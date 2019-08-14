@@ -492,4 +492,6 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 			&& $past(o_axi_rvalid && i_axi_rready,2));
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

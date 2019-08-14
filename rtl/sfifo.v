@@ -326,4 +326,6 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 
 `endif // FORMAL
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

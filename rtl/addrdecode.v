@@ -292,4 +292,6 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 
 `endif	// FORMAL
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

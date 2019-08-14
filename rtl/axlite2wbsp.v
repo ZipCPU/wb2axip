@@ -479,5 +479,6 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 	end
 `endif
 endmodule
-
+`ifndef	YOSYS
 `default_nettype wire
+`endif

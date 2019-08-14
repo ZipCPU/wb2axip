@@ -498,4 +498,6 @@ module demofull #(
 // The formal properties for this core are maintained elsewhere
 `endif
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

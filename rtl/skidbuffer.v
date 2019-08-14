@@ -307,4 +307,6 @@ module skidbuffer(i_clk, i_reset,
 
 `endif	// FORMAL_VERIFIC
 endmodule
+`ifndef	YOSYS
 `default_nettype wire
+`endif

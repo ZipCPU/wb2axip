@@ -10,25 +10,25 @@
 //
 //	Still need to implement the lock feature.
 //
-	// We're going to need to keep track of transaction bursts in progress,
-	// since the wishbone doesn't.  For this, we'll use a FIFO, but with
-	// multiple pointers:
-	//
-	//	fifo_ahead	- pointer to where to write the next incoming
-	//				bus request .. adjusted when
-	//				(o_axi_awready)&&(i_axi_awvalid)
-	//	fifo_neck	- pointer to where to read from the FIFO in
-	//				order to issue another request.  Used
-	//				when (o_wb_stb)&&(!i_wb_stall)
-	//	fifo_torso	- pointer to where to write a wishbone
-	//				transaction upon return.
-	//				when (i_ack)
-	//	fifo_tail	- pointer to where the last transaction is to
-	//				be retired when
-	//					(i_axi_rvalid)&&(i_axi_rready)
-	//
-	// All of these are to be set to zero upon a reset signal.
-	//
+// We're going to need to keep track of transaction bursts in progress,
+// since the wishbone doesn't.  For this, we'll use a FIFO, but with
+// multiple pointers:
+//
+//	fifo_ahead	- pointer to where to write the next incoming
+//				bus request .. adjusted when
+//				(o_axi_awready)&&(i_axi_awvalid)
+//	fifo_neck	- pointer to where to read from the FIFO in
+//				order to issue another request.  Used
+//				when (o_wb_stb)&&(!i_wb_stall)
+//	fifo_torso	- pointer to where to write a wishbone
+//				transaction upon return.
+//				when (i_ack)
+//	fifo_tail	- pointer to where the last transaction is to
+//				be retired when
+//					(i_axi_rvalid)&&(i_axi_rready)
+//
+// All of these are to be set to zero upon a reset signal.
+//
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -358,5 +358,6 @@ module aximwr2wbsp #(
 			assert(!i_axi_awburst[1]);
 `endif
 endmodule
-
+`ifndef	YOSYS
 `default_nettype wire
+`endif
