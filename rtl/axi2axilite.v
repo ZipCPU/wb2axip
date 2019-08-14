@@ -929,3 +929,4 @@ module axi2axilite #(
 `undef	BMC_ASSERT
 `endif
 endmodule
+`default_nettype wire

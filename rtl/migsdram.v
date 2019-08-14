@@ -317,3 +317,4 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 endmodule
 
 
+`default_nettype wire

@@ -1582,3 +1582,4 @@ module	wbxbar(i_clk, i_reset,
 
 `endif
 endmodule
+`default_nettype wire

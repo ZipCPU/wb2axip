@@ -359,3 +359,4 @@ module axilite2axi #(
 
 `endif
 endmodule
+`default_nettype wire

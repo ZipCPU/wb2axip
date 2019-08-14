@@ -521,3 +521,4 @@ module	aximrd2wbsp #(
 
 `endif
 endmodule
+`default_nettype wire

@@ -292,3 +292,4 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 
 `endif	// FORMAL
 endmodule
+`default_nettype wire

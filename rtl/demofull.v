@@ -498,3 +498,4 @@ module demofull #(
 // The formal properties for this core are maintained elsewhere
 `endif
 endmodule
+`default_nettype wire

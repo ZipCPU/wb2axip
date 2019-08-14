@@ -163,3 +163,4 @@ module	wbp2classic(i_clk, i_reset,
 		assume(i_mstb);
 `endif
 endmodule
+`default_nettype wire

@@ -191,3 +191,4 @@ module	axi_addr(i_last_addr,
 	// Verilator lint_on UNUSED
 
 endmodule
+`default_nettype wire
