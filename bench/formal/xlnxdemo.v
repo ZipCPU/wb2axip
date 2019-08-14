@@ -1,3 +1,31 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// Filename: 	xlnxdemo.v
+//
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
+//
+// Purpose:	To test the formal tools on an AXI-lite core that is "known"
+//		to work.  (Only this one doesn't--at least that was my purpose.
+//	Most of this code comes directly from Vivado's core generator--starting
+//	at the end of this comment block and going down directly to the
+//	`ifdef	FORMAL block at the bottom.  I have made superficial adjustments
+//	to Xilinx's code: I swapped spaces for tabs, I removed any white space
+//	at the ends of lines, I fixed a spelling error in the comments, added
+//	the default_nettype, added initial statements (at the bottom) for things
+//	that should've had them in the first place, etc.  I may have even
+//	swapped an always @(somevalue) for an always @(*), but that's as far
+//	as I've gone.
+//
+//	Since 2016, Vivado has made updates to their core.  The last time I
+//	checked, however, it still failed to pass a formal verification check.
+//
+//	This core will fail a verification check.
+//
+// Creator:	Vivado, 2016 (I think it was 2016.1)
+//
+////////////////////////////////////////////////////////////////////////////////
+//
+//
 `default_nettype none	// Added to the raw demo
 `timescale 1 ns / 1 ps
 //

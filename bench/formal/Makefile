@@ -44,9 +44,9 @@
 ##
 HELPERS   := sfifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
-BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline
-AXISLAVES := demoaxi # demofull xlnxfull axisafety wbm2axisp # axim2wbsp?
-TESTS := $(HELPERS) $(CROSSBARS) $(BRIDGES) $(AXISLAVES)
+BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline # wbm2axisp axi2axilite axilite2axi
+AXISLAVES := demoaxi # demofull xlnxfull axisafety
+TESTS := $(HELPERS) $(BRIDGES) $(CROSSBARS) $(AXISLAVES)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -60,7 +60,7 @@ SFIFO      := sfifo
 SKIDBUFFER := skidbuffer
 XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SFIFO).v $(RTL)/$(SKIDBUFFER).v
 #
-# SLAVES
+# Slaves
 DEMOAXI    := demoaxi
 XILINXDEMO := xlnxdemo
 XLNXSTREAM := xlnxstream_2018_3
@@ -105,21 +105,21 @@ $(WBARB)_cvr/PASS: $(RTL)/$(WBARB).v $(WBARB).sby $(WB)
 #	sby -f $(WB2AXI).sby
 
 $(RDLITE): $(RDLITE)_prf/PASS $(RDLITE)_cvr/PASS
-$(RDLITE)_prf/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB)
+$(RDLITE)_prf/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB) $(AXIL)
 	sby -f $(RDLITE).sby prf
-$(RDLITE)_cvr/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB)
+$(RDLITE)_cvr/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB) $(AXIL)
 	sby -f $(RDLITE).sby cvr
 
 $(WRLITE): $(WRLITE)_prf/PASS $(WRLITE)_cvr/PASS
-$(WRLITE)_prf/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB)
+$(WRLITE)_prf/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB) $(AXIL)
 	sby -f $(WRLITE).sby prf
-$(WRLITE)_cvr/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB)
+$(WRLITE)_cvr/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB) $(AXIL)
 	sby -f $(WRLITE).sby cvr
 
+.PHONY: $(AXLITE)
 $(AXLITE): $(AXLITE)_prf/PASS $(AXLITE)_cvr/PASS
-AXLITE_DEPS := $(RTL)/$(RDLITE).v $(RTL)/$(WRLITE).v \
-	$(RTL)/$(WBARB).v fwb_master.v faxil_slave.v			\
-	$(AXLITE).sby $(RTL)/$(AXLITE).v				\
+AXLITE_DEPS := $(RTL)/$(RDLITE).v $(RTL)/$(WRLITE).v $(AXIL) $(WB)	\
+	$(RTL)/$(WBARB).v $(AXLITE).sby $(RTL)/$(AXLITE).v		\
 	$(RDLITE)_prf/PASS $(RDLITE)_cvr/PASS				\
 	$(WRLITE)_prf/PASS $(WRLITE)_cvr/PASS
 
@@ -131,25 +131,27 @@ $(AXLITE)_cvr/PASS: $(AXLITE_DEPS)
 
 .PHONY: $(WB2LITE)
 $(WB2LITE): $(WB2LITE)_cvr/PASS $(WB2LITE)_prf/PASS
-$(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v
-$(WB2LITE)_prf/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
+$(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v $(WB) $(AXIL)
+$(WB2LITE)_prf/PASS: $(WB2LITE).sby
 	sby -f $(WB2LITE).sby prf
 
-$(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v
-$(WB2LITE)_cvr/PASS: $(WB2LITE).sby fwb_slave.v faxil_master.v
+$(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v $(WB) $(AXIL)
+$(WB2LITE)_cvr/PASS: $(WB2LITE).sby
 	sby -f $(WB2LITE).sby cvr
 
 $(DEMOAXI): $(DEMOAXI)_prf/PASS $(DEMOAXI)_cvr/PASS
-$(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
+$(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby prf
-$(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby faxil_slave.v
+$(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby cvr
 
 .PHONY: $(XILINXDEMO)
 $(XILINXDEMO): $(XILINXDEMO)_prf/PASS $(XILINXDEMO)_cvr/PASS
-$(XILINXDEMO)_prf/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby faxil_slave.v
+$(XILINXDEMO)_prf/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
+	@echo "Expect the Xilinx demo proof to fail."
+	@echo "Xilinx's code didn't work in the first place."
 	sby -f $(XILINXDEMO).sby prf
-$(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby faxil_slave.v
+$(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	sby -f $(XILINXDEMO).sby cvr
 
 

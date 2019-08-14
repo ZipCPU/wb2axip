@@ -70,6 +70,17 @@ will be available as part of the [SymbioticEDA
 Suite](https://www.symbioticeda.com/seda-suite).
 Previews are available to my [sponsors](http://www.patreon.com/ZipCPU).)
 
+# Xilinx Cores
+
+The formal properties were first tested on a pair of Xilinx AXI demonstration
+cores.  These cores failed formal verification.  You can read about them
+on [my blog, at zipcpu.com](https://zipcpu.com), [here for
+AXI-lite](http://zipcpu.com/formal/2018/12/28/axilite.html) and
+[here for AXI](http://zipcpu.com/formal/2019/05/13/axifull.html).
+You can find the Xilinx cores referenced in those articles
+[here](bench/formal/xlnxdemo.v) and [here](bench/formal/xlnxfull_2018_3.v) for
+reference, for those who wish to repeat or examine my proofs.
+
 # Cross-bars and AXI demonstrators
 
 This repository has since become a repository for all kinds of bus-based
@@ -156,6 +167,16 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 - [AXI2AXILITE](rtl/axi2axilite.v) converts incoming AXI4 (full) requests
   for an AXI-lite slave.  This conversion is fully pipelined, and capable of
   sending back to back AXI-lite requests on both channels.
+
+  *This core has been formally verified.*
+
+- [AXILITE2AXI](rtl/axilite2axi.v) should be one of those obvious cores.
+  Sadly, Xilinx's version restricts the AXI-lite bus to a single transaction
+  at a time, and that transaction can only be a read or a write
+  transaction--never a transaction on both channels.  This core allows an
+  aggressive AXI-lite master to have full access to the AXI bugs, and able
+  to achieve full bus throughput--assuming the downstream cores can handle
+  that.
 
   *This core has been formally verified.*
 
