@@ -44,7 +44,7 @@
 module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	// AXI read address channel signals
 	o_axi_arready, i_axi_araddr, i_axi_arcache, i_axi_arprot, i_axi_arvalid,
-	// AXI read data channel signals   
+	// AXI read data channel signals
 	o_axi_rresp, o_axi_rvalid, o_axi_rdata, i_axi_rready,
 	// We'll share the clock and the reset
 	o_wb_cyc, o_wb_stb, o_wb_addr,
@@ -67,8 +67,8 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	input	wire	[3:0]		i_axi_arcache;	// Read Cache type
 	input	wire	[2:0]		i_axi_arprot;	// Read Protection type
 	input	wire			i_axi_arvalid;	// Read address valid
-  
-// AXI read data channel signals   
+
+// AXI read data channel signals
 	output	reg [1:0]		o_axi_rresp;   // Read response
 	output	reg			o_axi_rvalid;  // Read reponse valid
 	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata;    // Read data
@@ -108,7 +108,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	reg			wb_pending;
 	reg	[LGFIFO:0]	wb_outstanding;
 	wire	[DW-1:0]	read_data;
-	reg			err_state;	
+	reg			err_state;
 	reg	[LGFIFO:0]	err_loc;
 
 
@@ -200,7 +200,7 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 		o_axi_arready <= 1'b0;
 	else if (fifo_full && (!o_axi_rvalid || !i_axi_rready))
 		// If the FIFO is full, we must remain not ready until at
-		// least one acknowledgment is accepted 
+		// least one acknowledgment is accepted
 		o_axi_arready <= 1'b0;
 	else if ( (!o_axi_rvalid || !i_axi_rready)
 			&& (i_axi_arvalid && o_axi_arready))

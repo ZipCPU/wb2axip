@@ -119,7 +119,7 @@ module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	reg	[LGFIFO:0]	wb_outstanding;
 
 	reg	[LGFIFO:0]	err_loc;
-	reg			err_state;	
+	reg			err_state;
 
 	wire	axi_write_accepted, pending_axi_write;
 
