@@ -148,6 +148,7 @@
 `default_nettype	none
 //
 module axisafety #(
+	// {{{
 	parameter C_S_AXI_ID_WIDTH	= 1,
 	parameter C_S_AXI_DATA_WIDTH	= 32,
 	parameter C_S_AXI_ADDR_WIDTH	= 6,
@@ -164,6 +165,7 @@ module axisafety #(
 	// *VALID return signal must be high.  You might wish to set this
 	// to a very high number, to allow your core to work its magic.
 	parameter	OPT_TIMEOUT = 20
+	// }}}
 	) (
 		//
 		output	reg	o_read_fault,
@@ -222,11 +224,13 @@ module axisafety #(
 		output	reg			S_AXI_RLAST,
 		output	reg			S_AXI_RVALID,
 		input	wire			S_AXI_RREADY,
+		// }}}
 		//
 		// The output side, where slave requests are forwarded to the
 		// actual slave
-		//
+		// {{{
 		//	Write address
+		// {{{
 		output	reg [IW-1 : 0]		M_AXI_AWID,
 		output	reg [AW-1 : 0]		M_AXI_AWADDR,
 		output	reg [7 : 0]		M_AXI_AWLEN,
@@ -249,7 +253,9 @@ module axisafety #(
 		input	wire [1 : 0]		M_AXI_BRESP,
 		input	wire			M_AXI_BVALID,
 		output	wire			M_AXI_BREADY,
+		// }}}
 		//	Read address
+		// {{{
 		output	reg [IW-1 : 0]		M_AXI_ARID,
 		output	reg [AW-1 : 0]		M_AXI_ARADDR,
 		output	reg [7 : 0]		M_AXI_ARLEN,
@@ -268,6 +274,8 @@ module axisafety #(
 		input	wire			M_AXI_RLAST,
 		input	wire			M_AXI_RVALID,
 		output	wire			M_AXI_RREADY
+		// }}}
+		// }}}
 	);
 
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
@@ -346,6 +354,16 @@ module axisafety #(
 	reg		m_wempty, m_wlastctr;
 	reg		waddr_valid, raddr_valid;
 
+	reg	last_sreset, last_sreset_2;
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write channel processing
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	initial	S_AXI_AWREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -790,6 +808,7 @@ module axisafety #(
 		S_AXI_BID    <= m_bid;
 		S_AXI_BRESP  <= m_bresp;
 	end
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -797,7 +816,7 @@ module axisafety #(
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
-
+	// {{{
 	// Read address channel
 	initial	S_AXI_ARREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
@@ -1137,8 +1156,15 @@ module axisafety #(
 		S_AXI_RLAST  <= m_rlast;
 		S_AXI_RDATA  <= m_rdata;
 	end
+	// }}}
 
-
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Self-reset
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	generate if (OPT_SELF_RESET)
 	begin
 		reg	[4:0]	reset_counter;
@@ -1192,15 +1218,17 @@ module axisafety #(
 			clear_fault = 0;
 
 	end endgenerate
-	//
+	// }}}
 	//
 	//
 
 	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	[20:0]	unused;
 	assign	unused = 0;
 	// Verilator lint_on  UNUSED
+	// }}}
 // Add user logic here
 `ifdef	FORMAL
 	//
@@ -1222,6 +1250,7 @@ module axisafety #(
 		f_slave(
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
+		// {{{
 		//
 		// Address write channel
 		//
@@ -1293,7 +1322,7 @@ module axisafety #(
 		.f_axi_rd_outstanding(f_axi_rd_outstanding)
 		//
 		// ...
-		//
+		// }}}
 	);
 
 	////////////////////////////////////////////////////////////////////////
@@ -1303,6 +1332,7 @@ module axisafety #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	// {{{
 
 	// 1. We will only ever handle a single burst--never any more
 	always @(*)
@@ -1481,6 +1511,7 @@ module axisafety #(
 	always @(*)
 	if (f_axi_wr_pending == 0)
 		assert(!S_AXI_WREADY);
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1488,6 +1519,7 @@ module axisafety #(
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
+	// {{{
 	//
 
 	always @(*)
@@ -1573,15 +1605,17 @@ module axisafety #(
 		if (!M_AXI_ARESETN)
 			assert(o_read_fault || o_write_fault /* ... */ );
 	end
+	// }}}
 
 
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover properties
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
-	//
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1597,14 +1631,16 @@ module axisafety #(
 		//
 
 		faxi_master	#(
+			// {{{
 			.C_AXI_ID_WIDTH(C_S_AXI_ID_WIDTH),
 			.C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
-			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
+			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH))
 			// ...
-			)
+			// }}}
 		f_master(
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(M_AXI_ARESETN),
+		// {{{
 		//
 		// Address write channel
 		//
@@ -1675,8 +1711,10 @@ module axisafety #(
 		//
 		// ...
 		//
+		// }}}
 		);
 
+		// {{{
 		always @(*)
 		if (OPT_SELF_RESET)
 			assert(!o_write_fault || !M_AXI_ARESETN);
