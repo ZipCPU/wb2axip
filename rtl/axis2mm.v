@@ -259,7 +259,7 @@ module	axis2mm #(
 		w_cmd_start, w_complete, w_cmd_abort;
 	// reg	cmd_start;
 	reg			axi_abort_pending;
-	reg	[LGLEN-1:0]	aw_requests_remaining,
+	reg	[LGLENW-1:0]	aw_requests_remaining,
 				aw_bursts_outstanding;
 	reg	[LGMAXBURST:0]	wr_writes_pending;
 	reg	[8:0]		w_next_len;
@@ -340,8 +340,7 @@ module	axis2mm #(
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
 		.o_data(awskd_addr));
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8),
-		.OPT_PASSTHROUGH(SKID_PASSTHROUGH))
+	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8))
 	axilwskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_WVALID), .o_ready(S_AXIL_WREADY),
@@ -622,10 +621,10 @@ module	axis2mm #(
 	if (!axil_read_valid || rskd_ready)
 	begin
 		case(arskd_addr)
-		CMD_CONTROL:   axil_read_data = w_status_word;
-		CMD_ADDR:      axil_read_data = w_addr_word;
-		CMD_LEN:       axil_read_data = w_len_word;
-		CMD_THRESHOLD: axil_read_data = w_threshold_word;
+		CMD_CONTROL:   axil_read_data <= w_status_word;
+		CMD_ADDR:      axil_read_data <= w_addr_word;
+		CMD_LEN:       axil_read_data <= w_len_word;
+		CMD_THRESHOLD: axil_read_data <= w_threshold_word;
 		endcase
 	end
 
@@ -671,7 +670,7 @@ module	axis2mm #(
 	if (!r_busy)
 	begin
 		aw_requests_remaining <= cmd_length_w;
-		aw_none_remaining <= zero_length;
+		aw_none_remaining     <= zero_length;
 	end else if (axi_abort_pending)
 	begin
 		aw_requests_remaining <= 0;
@@ -681,8 +680,8 @@ module	axis2mm #(
 		// Verilator lint_off WIDTH
 		aw_requests_remaining
 			<= aw_requests_remaining - (M_AXI_AWLEN + 1);
-		// Verilator lint_on WIDTH
 		aw_none_remaining <= (aw_requests_remaining == (M_AXI_AWLEN+1));
+		// Verilator lint_on WIDTH
 	end
 	// }}}
 
@@ -736,21 +735,21 @@ module	axis2mm #(
 	if (i_reset)
 	begin
 		wr_writes_pending <= 0;
-		wr_none_pending = 1;
+		wr_none_pending   <= 1;
 	end else case ({M_AXI_AWVALID && M_AXI_AWREADY,
 			M_AXI_WVALID && M_AXI_WREADY })
 	2'b00: begin end
 	2'b01: begin
 		wr_writes_pending <= wr_writes_pending - 1;
-		wr_none_pending <= (wr_writes_pending == 1);
+		wr_none_pending   <= (wr_writes_pending == 1);
 		end
 	2'b10: begin
 		wr_writes_pending <= wr_writes_pending + (M_AXI_AWLEN + 1);
-		wr_none_pending <= 0;
+		wr_none_pending   <= 0;
 		end
 	2'b11: begin
 		wr_writes_pending <= wr_writes_pending + (M_AXI_AWLEN);
-		wr_none_pending <= 0;
+		wr_none_pending   <= 0;
 		end
 	endcase
 	// }}}
@@ -773,7 +772,7 @@ module	axis2mm #(
 		2'b10: axi_addr <= M_AXI_AWADDR;
 		2'b11: axi_addr <= M_AXI_AWADDR + (r_increment ? (1<<ADDRLSB):0);
 		endcase
-		axi_addr[ADDRLSB-1:0] = 0;
+		axi_addr[ADDRLSB-1:0] <= 0;
 	end
 	// }}}
 
@@ -827,7 +826,7 @@ module	axis2mm #(
 	always @(*)
 	begin
 		if (fifo_fill < (1<<LGMAXBURST))
-			w_next_len <= fifo_fill;
+			w_next_len = fifo_fill[8:0];
 		else
 			w_next_len = (1<<(LGMAXBURST));
 
@@ -1016,19 +1015,10 @@ module	axis2mm #(
 		// }}}
 		);
 
-	// {{{
-	generate if (SKID_PASSTHROUGH)
-	begin
-		always @(*)
-		begin
-			assert(faxil_rd_outstanding == (S_AXIL_RVALID ? 1:0));
-			assert(faxil_wr_outstanding == (S_AXIL_BVALID ? 1:0));
-			assert(faxil_awr_outstanding== (S_AXIL_BVALID ? 1:0));
-		end
+	//
+	// ...
+	//
 
-	end endgenerate
-
-	// }}}
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
