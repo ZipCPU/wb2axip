@@ -293,13 +293,26 @@ module wbm2axisp #(
 		o_axi_arvalid <= 0;
 	end
 
-	always @(posedge i_clk)
-	if (!o_axi_awvalid || i_axi_awready)
-		o_axi_awaddr  <= { m_addr, axi_lsbs };
+	generate if (DW == 8)
+	begin
 
-	always @(posedge i_clk)
-	if (!o_axi_arvalid || i_axi_arready)
-		o_axi_araddr  <= { m_addr, axi_lsbs };
+		always @(posedge i_clk)
+		if (!o_axi_awvalid || i_axi_awready)
+			o_axi_awaddr  <= m_addr;
+
+		always @(posedge i_clk)
+		if (!o_axi_arvalid || i_axi_arready)
+			o_axi_araddr  <= m_addr;
+
+	end else begin
+		always @(posedge i_clk)
+		if (!o_axi_awvalid || i_axi_awready)
+			o_axi_awaddr  <= { m_addr, axi_lsbs };
+
+		always @(posedge i_clk)
+		if (!o_axi_arvalid || i_axi_arready)
+			o_axi_araddr  <= { m_addr, axi_lsbs };
+	end endgenerate
 
 
 	generate if (DW == C_AXI_DATA_WIDTH)
@@ -427,7 +440,6 @@ module wbm2axisp #(
 
 	end else begin : READ_FIFO_DATA_SELECT
 
-	// wire	[$clog2(DW)-4:0]	axi_lsbs;
 		reg	[SUBW-1:0]	addr_fifo	[0:(1<<LGFIFO)-1];
 		reg	[SUBW-1:0]	fifo_value;
 		reg	[LGFIFO:0]	wr_addr, rd_addr;
@@ -460,7 +472,7 @@ module wbm2axisp #(
 
 		always @(posedge i_clk)
 		if (i_wb_stb && !o_wb_stall)
-			addr_fifo[wr_addr] <= i_wb_addr[SUBW-1:0];
+			addr_fifo[wr_addr[LGFIFO-1:0]] <= i_wb_addr[SUBW-1:0];
 
 		initial	rd_addr = 0;
 		always @(posedge i_clk)
@@ -495,11 +507,16 @@ module wbm2axisp #(
 	// verilator lint_off UNUSED
 	wire	[6+DW+DW/8-1:0]	unused;
 	assign	unused = { full, i_axi_bid, i_axi_bresp[0], i_axi_rid, i_axi_rresp[0], i_axi_rlast, m_data, m_sel };
-	wire	[C_AXI_DATA_WIDTH-1:DW] unused_data;
-	assign	unused_data = i_axi_rdata[C_AXI_DATA_WIDTH-1:DW];
+	generate if (C_AXI_DATA_WIDTH > DW)
+	begin
+		wire	[C_AXI_DATA_WIDTH-1:DW] unused_data;
+		assign	unused_data = i_axi_rdata[C_AXI_DATA_WIDTH-1:DW];
+	end endgenerate
 	// verilator lint_on  UNUSED
 
 /////////////////////////////////////////////////////////////////////////
+//
+//
 //
 // Formal methods section
 //
@@ -557,6 +574,7 @@ module wbm2axisp #(
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH))
 		f_axi(.i_clk(i_clk), .i_axi_reset_n(!i_reset),
+			// {{{
 			// Write address channel
 			.i_axi_awready(i_axi_awready),
 			.i_axi_awid(   o_axi_awid),
@@ -607,6 +625,7 @@ module wbm2axisp #(
 			//
 			// ...
 			//
+			// }}}
 		);
 
 	always @(*)

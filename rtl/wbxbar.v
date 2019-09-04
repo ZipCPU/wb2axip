@@ -227,6 +227,7 @@ module	wbxbar(i_clk, i_reset,
 		wire	[DW-1:0]	skd_data;
 		wire	[DW/8-1:0]	skd_sel;
 		wire	[NS:0]		decoded;
+		wire			iskd_ready;
 
 		skidbuffer #(// .OPT_LOWPOWER(OPT_LOWPOWER),
 			.DW(1+AW+DW+DW/8),
@@ -234,11 +235,14 @@ module	wbxbar(i_clk, i_reset,
 			.OPT_PASSTHROUGH(1),
 `endif
 			.OPT_OUTREG(0))
-		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N] && i_mcyc[N], o_mstall[N],
+		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N] && i_mcyc[N], iskd_ready,
 			{ i_mwe[N], i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
 					i_msel[N*DW/8 +: DW/8] },
-			skd_stb, skd_stall,
+			skd_stb, !skd_stall,
 				{ skd_we, skd_addr, skd_data, skd_sel });
+
+		always @(*)
+			o_mstall[N] = !iskd_ready;
 
 		addrdecode #(// .OPT_LOWPOWER(OPT_LOWPOWER),
 			.NS(NS), .AW(AW), .DW(DW+DW/8+1),
@@ -264,8 +268,13 @@ module	wbxbar(i_clk, i_reset,
 	begin
 		// in case NM isn't one less than a power of two, complete
 		// the set
-		assign	m_cyc[N]  = 0;
-		assign	m_stb[N]  = 0;
+		always @(*)
+		begin
+			m_cyc[N]  = 0;
+			m_stb[N]  = 0;
+		end
+
+
 		assign	m_we[N]   = 0;
 		assign	m_addr[N] = 0;
 		assign	m_data[N] = 0;
@@ -442,8 +451,6 @@ module	wbxbar(i_clk, i_reset,
 				grant[N]  <= 0;
 			end
 		end
-			reg	[NS:0]		regrant;
-			reg	[LGNS-1:0]	reindex;
 
 		if (NS == 1)
 		begin
@@ -453,12 +460,14 @@ module	wbxbar(i_clk, i_reset,
 
 		end else begin
 
+			reg	[NS:0]		regrant;
+			reg	[LGNS-1:0]	reindex;
 `define	NEW_MINDEX_CODE
 `ifdef	NEW_MINDEX_CODE
 
 			always @(*)
 			begin
-				regrant = 1'b0;
+				regrant = 0;
 				for(iM=0; iM<NS; iM=iM+1)
 				begin
 					if (grant[N][iM])
@@ -485,7 +494,7 @@ module	wbxbar(i_clk, i_reset,
 				reindex = 0;
 				for(iM=0; iM<=NS; iM=iM+1)
 				if (regrant[iM])
-					reindex = reindex | iM;
+					reindex = reindex | iM[LGNS-1:0];
 				if (regrant == 0)
 					reindex = mindex[N];
 			end
@@ -575,7 +584,7 @@ module	wbxbar(i_clk, i_reset,
 					reindex = sindex[M];
 				else for(iN=0; iN<NM; iN=iN+1)
 					if (regrant[iN])
-						reindex = reindex | iN;
+						reindex = reindex | iN[LGNM-1:0];
 			end
 
 			always @(posedge i_clk)
@@ -1108,6 +1117,9 @@ module	wbxbar(i_clk, i_reset,
 		if (f_past_valid && grant[N][NS] && i_mcyc[N])
 			assert(m_stall[N] || o_merr[N]);
 
+		always @(posedge i_clk)
+		if (f_past_valid && $past(!i_reset && i_mstb[N] && o_mstall[N]))
+			assume($stable(i_mdata[N*DW +: DW]));
 	end endgenerate
 
 	generate for(M=0; M<NS; M=M+1)

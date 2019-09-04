@@ -30,18 +30,19 @@ designs have been *formally verified*, and should be reliable to use.
 As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
 FPGA proven.
 
-The full AXI to WB bridge, however, ris rather complicated--especially
-when [compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
+The full AXI4 protocol, however, is rather complicated--especially when
+[compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
 result, while there is a full-fledged
 [AXI4 to Wishbone bridge](rtl/axim2wbsp.v) within this project,
 this bridge is still not ready for prime time.  It is designed to
-synchronize the write channels, turning AXI read-write requests into pipeline
+synchronize the write channels, turning AXI read/write requests into pipeline
 wishbone requests, maintaining the AXI ID fields, handle burst transactions,
 etc. The only problem is ...
-this full AXI4 to WB converter _doesn't work_ (yet).  At best, it is a work
-in progress.
+this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
+doesn't yet pass formal verification.
 
-If you need an AXI4 to WB capability, consider using this [AXI2AXILITE](rtl/axi2axilite.v) core to bridge from AXI to AXI-lite, and then [this AXI-lite to WB
+If you need an AXI4 to WB capability, consider using this [AXI2AXILITE](rtl/axi2axilite.v)
+core to bridge from AXI to AXI-lite, and then [this AXI-lite to WB
 bridge](rtl/axlite2wbsp.v) bridge to get to wishbone pipeline.  If you need
 WB classic, you can then use [this pipeline to classic
 bridge](rtl/wbp2classic.v).
@@ -65,10 +66,7 @@ Currently, the project contains formal specifications for
 [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
 the one in the master branch is known to have issues.  (I actually have a
-good set of formal properties for verifying full AXI4 transactions.  Those
-will be available as part of the [SymbioticEDA
-Suite](https://www.symbioticeda.com/seda-suite).
-Previews are available to my [sponsors](http://www.patreon.com/ZipCPU).)
+good set of formal properties for verifying full AXI transactions.)
 
 # Xilinx Cores
 
@@ -170,23 +168,20 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
   *This core has been formally verified.*
 
-- [AXILITE2AXI](rtl/axilite2axi.v) should be one of those obvious cores.
-  Sadly, Xilinx's version restricts the AXI-lite bus to a single transaction
-  at a time, and that transaction can only be a read or a write
-  transaction--never a transaction on both channels.  This core allows an
-  aggressive AXI-lite master to have full access to the AXI bugs, and able
-  to achieve full bus throughput--assuming the downstream cores can handle
-  that.
+- [AXIS2MM](rtl/axis2mm.v) converts an incoming stream signal into outgoinng
+  AXI (full) requests.  Supports bursting and aborted transactions.  Also
+  supports writes to a constant address, and continuous writes to concurrent
+  addresses.  This core depends upon all stream addresses being aligned.
 
-  *This core has been formally verified.*
 
 # Commercial Applications
 
 Should you find the [GPLv3 license](doc/gpl-3.0.pdf) insufficient for your
 needs, other licenses can be purchased from Gisselquist Technology, LLC.
-Likewise the AXI4 (full) properties are available to
-[sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
-blog](http://zipcpu.com).
+Likewise the AXI4 (full) properties are both shipped with the [Symbiotic
+EDA Suite](https://www.symbioticeda.com/sed-suite), and hosted on gitlab
+where they are available to [sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
+blog](http://zipcpu.com) upon request.
 
 # Thanks
 
