@@ -1001,6 +1001,7 @@ module	axis2mm #(
 		//
 		.i_axi_arvalid(S_AXIL_ARVALID),
 		.i_axi_arready(S_AXIL_ARREADY),
+		.i_axi_araddr( S_AXIL_ARADDR),
 		.i_axi_arcache(4'h0),
 		.i_axi_arprot( S_AXIL_ARPROT),
 		//
