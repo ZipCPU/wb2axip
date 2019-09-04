@@ -82,9 +82,6 @@
 //
 //
 `default_nettype none
-`ifdef	VERILATOR
-`define	FORMAL
-`endif
 //
 module	axilxbar #(
 		parameter integer C_AXI_DATA_WIDTH = 32,

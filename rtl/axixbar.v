@@ -547,27 +547,6 @@ module	axixbar #(
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_WSKID_BUFFERS
 
-		always @(*)
-		begin
-			m_awid[N]    = 0;
-			m_awaddr[N]  = 0;
-			m_awlen[N]   = 0;
-			m_awsize[N]  = 0;
-			m_awburst[N] = 0;
-			m_awlock[N]  = 0;
-			m_awcache[N] = 0;
-			m_awprot[N]  = 0;
-			m_awqos[N]   = 0;
-			m_awvalid[N] = 0;
-		end
-		//
-		always @(*)
-			m_wdata[N] = 0;
-		always @(*)
-			m_wstrb[N] = 0;
-		always @(*)
-			m_wlast[N] = 0;
-
 		assign	m_awid[N]    = 0;
 		assign	m_awaddr[N]  = 0;
 		assign	m_awlen[N]   = 0;
@@ -578,6 +557,9 @@ module	axixbar #(
 		assign	m_awprot[N]  = 0;
 		assign	m_awqos[N]   = 0;
 
+		always @(*)
+			m_awvalid[N] = 0;
+		//
 		assign	m_wdata[N] = 0;
 		assign	m_wstrb[N] = 0;
 		assign	m_wlast[N] = 0;
