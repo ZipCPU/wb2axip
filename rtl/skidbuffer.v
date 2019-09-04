@@ -213,7 +213,10 @@ module skidbuffer(i_clk, i_reset,
 	begin
 
 		assert property (@(posedge i_clk)
-			i_reset |=> o_ready && !o_valid);
+			OPT_OUTREG && i_reset |=> o_ready && !o_valid);
+
+		assert property (@(posedge i_clk)
+			!OPT_OUTREG && i_reset |-> !o_valid);
 
 		// Rule #1:
 		//	Once o_valid goes high, the data cannot change until the
@@ -265,7 +268,7 @@ module skidbuffer(i_clk, i_reset,
 			// If OPT_LOWPOWER is set, o_data and r_data both need
 			// to be zero any time !o_valid or !r_valid respectively
 			assert property (@(posedge i_clk)
-				!o_valid |-> o_data == 0);
+				(OPT_OUTREG || !i_reset) && !o_valid |-> o_data == 0);
 
 			assert property (@(posedge i_clk)
 				o_ready |-> r_data == 0);
