@@ -109,9 +109,8 @@
 //
 // Status:
 // {{{
-//	1. While the core passes a formal property check, that formal check
-//		doesn't (yet) include any cover checks.  These need to be
-//		added in order to be complete.
+//	1. The core passes both cover checks and formal property (assertion)
+//		based checks.  It has not (yet) been tested in real hardware.
 //
 //	2. I'd like to support unaligned addresses and lengths.  This will
 //		require aligning the data coming out of the FIFO as well.
@@ -259,10 +258,11 @@ module	axis2mm #(
 		w_cmd_start, w_complete, w_cmd_abort;
 	// reg	cmd_start;
 	reg			axi_abort_pending;
+
 	reg	[LGLENW-1:0]	aw_requests_remaining,
 				aw_bursts_outstanding;
 	reg	[LGMAXBURST:0]	wr_writes_pending;
-	reg	[8:0]		w_next_len;
+	reg	[8:0]		w_next_len, r_max_burst;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_addr;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	next_awaddr;
 
@@ -281,14 +281,13 @@ module	axis2mm #(
 					fifo_threshold_trigger;
 
 	wire				awskd_valid, axil_write_ready;
-	reg				axil_write_valid;
 	wire	[C_AXIL_ADDR_WIDTH-1:0]	awskd_addr;
 	//
 	wire				wskd_valid;
 	wire	[C_AXIL_DATA_WIDTH-1:0]	wskd_data;
 	wire [C_AXIL_DATA_WIDTH/8-1:0]	wskd_strb;
+	reg				axil_bvalid;
 	//
-	wire				bskd_ready, ignore_bzero;
 	wire	arskd_valid, axil_read_ready, rskd_ready;
 	wire	[C_AXIL_ADDR_WIDTH-1:0]	arskd_addr;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	axil_read_data;
@@ -306,14 +305,19 @@ module	axis2mm #(
 	reg				axi_awvalid;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_awaddr;
 	reg	[7:0]			axi_awlen;
-	reg				axi_wvalid;
+	reg				axi_wvalid, axi_wlast;
 	reg	[C_AXI_DATA_WIDTH-1:0]	axi_wdata;
 	reg [C_AXI_DATA_WIDTH/8-1:0]	axi_wstrb;
 	reg	[1:0]			awburst;
 
 	// Speed up checking for zeros
-	reg	aw_none_remaining, aw_none_outstanding, wr_none_pending,
-		r_none_remaining;
+	reg				aw_none_remaining, aw_none_outstanding,
+					aw_last_outstanding,
+					wr_none_pending, r_none_remaining;
+
+	reg				w_phantom_start, phantom_start;
+	reg				drain_triggered;
+	reg	[8:0]			w_max_len, r_max_len;
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////
@@ -349,25 +353,18 @@ module	axis2mm #(
 		.o_data({ wskd_data, wskd_strb }));
 
 	assign	axil_write_ready = awskd_valid && wskd_valid
-			&& (!axil_write_valid || bskd_ready);
+			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
 
-	initial	axil_write_valid = 0;
+	initial	axil_bvalid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
-		axil_write_valid <= 0;
+		axil_bvalid <= 0;
 	else if (axil_write_ready)
-		axil_write_valid <= 1;
-	else if (bskd_ready)
-		axil_write_valid <= 0;
+		axil_bvalid <= 1;
+	else if (S_AXIL_BREADY)
+		axil_bvalid <= 0;
 
-	skidbuffer #(.OPT_OUTREG(1), .DW(1))
-	axilbskid(//
-		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
-		.i_valid(axil_write_valid), .o_ready(bskd_ready),
-		.i_data(1'b0),
-		.o_valid(S_AXIL_BVALID), .i_ready(S_AXIL_BREADY),
-		.o_data(ignore_bzero));
-
+	assign	S_AXIL_BVALID = axil_bvalid;
 	assign	S_AXIL_BRESP = 2'b00;
 	// }}}
 
@@ -638,7 +635,7 @@ module	axis2mm #(
 	// {{{
 	assign	reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
 	assign	write_to_fifo  = S_AXIS_TVALID && S_AXIS_TREADY;
-	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY;
+	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY && !axi_abort_pending;
 	assign	S_AXIS_TREADY  = !fifo_full;
 
 	sfifothresh #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
@@ -675,7 +672,7 @@ module	axis2mm #(
 	begin
 		aw_requests_remaining <= 0;
 		aw_none_remaining <= 1;
-	end else if (M_AXI_AWVALID && M_AXI_AWREADY)
+	end else if (phantom_start)
 	begin
 		// Verilator lint_off WIDTH
 		aw_requests_remaining
@@ -685,10 +682,35 @@ module	axis2mm #(
 	end
 	// }}}
 
+	// Calculate the maximum possible burst length, ignoring 4kB boundaries
+	// {{{
+	initial	r_max_burst = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+	begin
+		r_max_burst <= (1<<LGMAXBURST);
+	end else if (!r_busy)
+	begin
+		if (cmd_length_w > (1<<LGMAXBURST))
+			r_max_burst <= (1<<LGMAXBURST);
+		else
+			r_max_burst <= cmd_length_w[8:0];
+	end else if (phantom_start)
+	begin
+		// Verilator lint_off WIDTH
+		if (aw_requests_remaining - (M_AXI_AWLEN+1) < (1<<LGMAXBURST))
+			r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
+		else
+			r_max_burst <= (1<<LGMAXBURST);
+		// Verilator lint_on WIDTH
+	end
+	// }}}
+
 	// Count the number of bursts outstanding--these are the number of
 	// AWVALIDs that have been accepted, but for which the BVALID has not
 	// (yet) been returned.
 	// {{{
+	initial	aw_last_outstanding   = 0;
 	initial	aw_none_outstanding   = 1;
 	initial	aw_bursts_outstanding = 0;
 	always @(posedge i_clk)
@@ -696,26 +718,34 @@ module	axis2mm #(
 	begin
 		aw_bursts_outstanding <= 0;
 		aw_none_outstanding <= 1;
-	end else case ({M_AXI_AWVALID && M_AXI_AWREADY,
+		aw_last_outstanding <= 0;
+	end else case ({ phantom_start,
 				M_AXI_BVALID && M_AXI_BREADY })
 	2'b01:	begin
 			aw_bursts_outstanding <= aw_bursts_outstanding - 1;
 			aw_none_outstanding <= (aw_bursts_outstanding == 1);
+			aw_last_outstanding <= (aw_bursts_outstanding == 2);
 		end
 	2'b10:	begin
 		aw_bursts_outstanding <= aw_bursts_outstanding + 1;
 		aw_none_outstanding <= 0;
+		aw_last_outstanding <= aw_none_outstanding;
 		end
 	default: begin end
 	endcase
 	// }}}
 
+	// Are we there yet?
+	// {{{
 	always @(*)
 	if (!r_busy)
 		w_complete = 0;
 	else
-		w_complete = !M_AXI_AWVALID && (aw_none_remaining)&&(aw_none_outstanding);
+		w_complete = !M_AXI_AWVALID && (aw_none_remaining)&&(aw_last_outstanding) && (M_AXI_BVALID);
+	// }}}
 
+	// Are we stopping early?  Aborting something ongoing?
+	// {{{
 	initial	axi_abort_pending = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -726,6 +756,7 @@ module	axis2mm #(
 		if (cmd_abort)
 			axi_abort_pending <= 1;
 	end
+	// }}}
 
 	// Count the number of WVALIDs yet to be sent on the write channel
 	// {{{
@@ -736,7 +767,7 @@ module	axis2mm #(
 	begin
 		wr_writes_pending <= 0;
 		wr_none_pending   <= 1;
-	end else case ({M_AXI_AWVALID && M_AXI_AWREADY,
+	end else case ({ phantom_start,
 			M_AXI_WVALID && M_AXI_WREADY })
 	2'b00: begin end
 	2'b01: begin
@@ -749,7 +780,7 @@ module	axis2mm #(
 		end
 	2'b11: begin
 		wr_writes_pending <= wr_writes_pending + (M_AXI_AWLEN);
-		wr_none_pending   <= 0;
+		wr_none_pending   <= (M_AXI_WLAST);
 		end
 	endcase
 	// }}}
@@ -761,17 +792,12 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (!r_busy)
 		axi_addr <= cmd_addr;
-	else if (axi_abort_pending)
+	else if (axi_abort_pending || !r_increment)
 		// Stop incrementing tthe address following an abort
 		axi_addr <= axi_addr;
 	else begin
-		case({M_AXI_AWVALID && M_AXI_AWREADY,
-			M_AXI_WVALID && M_AXI_WREADY })
-		2'b00: begin end
-		2'b01: axi_addr <= axi_addr + (r_increment ? (1<<ADDRLSB):0);
-		2'b10: axi_addr <= M_AXI_AWADDR;
-		2'b11: axi_addr <= M_AXI_AWADDR + (r_increment ? (1<<ADDRLSB):0);
-		endcase
+		if (M_AXI_WVALID && M_AXI_WREADY)
+			axi_addr <= axi_addr + (1<<ADDRLSB);
 		axi_addr[ADDRLSB-1:0] <= 0;
 	end
 	// }}}
@@ -802,21 +828,82 @@ module	axis2mm #(
 	//
 	// }}}
 
+	// Trigger draining the FIFO
+	// {{{
+	// We start our transactions once the FIFO meets its threshold
+	// requirement.  We end once the FIFO has been drained back to zero.
+	// At that point, we wait again for the FIFO to build up to the
+	// threshold.
+	initial	drain_triggered = 0;
+	always @(posedge i_clk)
+	if (i_reset || !r_busy)
+		drain_triggered <= 0;
+	// verilator lint_off WIDTH
+	else if (phantom_start && (M_AXI_AWLEN +1 == fifo_fill))
+		drain_triggered <= 0;
+	else if (fifo_threshold_trigger)
+		drain_triggered <= 1;
+	else if (fifo_fill[LGFIFO:0] >= r_remaining_w[LGLENW-1:0])
+		drain_triggered <= 1;
+	// verilator lint_on WIDTH
+	// }}}
+
+	// Phantom starts
+	// {{{
+	// Since we can't use the xREADY signals in our signaling, we hvae to
+	// be ready to generate both AWVALID and WVALID on the same cycle,
+	// and then hold AWVALID until it has been accepted.  This means we
+	// can't use AWVALID as our burst start signal like we could in the
+	// slave.  Instead, we'll use a "phantom" start signal.  This signal
+	// is local here in our code.  When this signal goes high, AWVALID
+	// and WVALID go high at the same time.  Then, if AWREADY isn't held,
+	// we can still update all of our internal counters as though it were,
+	// based upon the phantom_start signal, and continue as though
+	// AWVALID were accepted on its first clock period.
+
+	always @(*)
+	begin
+		w_phantom_start = !aw_none_remaining;
+		if (phantom_start)
+			// Insist on a minimum of one clock between burst
+			// starts, so we can get our lengths right
+			w_phantom_start = 0;
+		if (M_AXI_WVALID && (!M_AXI_WLAST || !M_AXI_WREADY))
+			w_phantom_start = 0;
+		if (!r_busy || cmd_abort || axi_abort_pending)
+			w_phantom_start = 0;
+		if (!drain_triggered)
+			w_phantom_start = 0;
+		if (w_next_len == 0)
+			w_phantom_start = 0;
+	end
+
+	initial	phantom_start = 0;
+	always @(posedge i_clk)
+	if (i_reset)
+		phantom_start <= 0;
+	else
+		phantom_start <= w_phantom_start;
+	// }}}
+
+
 	//
-	// Determine WLAST
-	//
-	reg	axi_wlast;
+	// WLAST
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 	begin
 		axi_wlast <= (cmd_length_w == 1);
 	end else if (!M_AXI_WVALID || M_AXI_WREADY)
 	begin
-		if (M_AXI_AWVALID && M_AXI_AWREADY)
-			axi_wlast <= (M_AXI_AWLEN == 0);
+		if (w_phantom_start)
+			axi_wlast <= (w_next_len == 1);
+		else if (phantom_start)
+			axi_wlast <= (M_AXI_AWLEN == 1);
 		else
 			axi_wlast <= (wr_writes_pending == 1 + (M_AXI_WVALID ? 1:0));
 	end
+	// }}}
 
 	// Calculate AWLEN and AWADDR for the next AWVALID
 	// {{{
@@ -825,39 +912,63 @@ module	axis2mm #(
 	//
 	always @(*)
 	begin
-		if (fifo_fill < (1<<LGMAXBURST))
-			w_next_len = fifo_fill[8:0];
-		else
-			w_next_len = (1<<(LGMAXBURST));
+		// Try to calculate the next length, one clock earlier
 
+		// 1. We know we cant burst anything more than either the
+		//	maximum AXI burst length or the maximum items remaining
+		w_max_len = r_max_burst;
+
+		// 2. If phantom start is true, then our aw_requests_remaining
+		//	and r_max_burst signal(s) haven't yet been updated with
+		//	the new reality.
 		// Verilator lint_off WIDTH
-		if (w_next_len > aw_requests_remaining)
-			w_next_len = aw_requests_remaining;
-		if ({ w_next_len,{(ADDRLSB){1'b0}} }
-			+ { next_awaddr[11:ADDRLSB], LSBZEROS } > 13'h1_000)
-			w_next_len = (13'h1_000
-				- { next_awaddr[11:ADDRLSB], LSBZEROS })
-				>> ADDRLSB;
-		w_next_len = w_next_len - 1;
+		if (phantom_start && (aw_requests_remaining - (M_AXI_AWLEN+1)
+					< r_max_burst))
+			w_max_len = aw_requests_remaining[8:0]
+					-(M_AXI_AWLEN+1);
+
+		// 3. Finally, we can't request more than what's in the FIFO
+		if (w_max_len > fifo_fill - (M_AXI_WVALID ? 1:0))
+			w_max_len = fifo_fill - (M_AXI_WVALID ? 1:0);
+	end
+
+	initial	r_max_len = 0;
+	always @(posedge i_clk)
+		r_max_len <= w_max_len;
+
+	reg	[11:0]	distance_to_axi_boundary;
+	always @(*)
+		distance_to_axi_boundary= -{ next_awaddr[11:ADDRLSB], LSBZEROS};
+
+	always @(*)
+	begin
+		// 1. Let's start with the number we needed one clock ago
+		w_next_len = r_max_len[8:0];
+		if (phantom_start)
+			w_next_len = 0;
+		else if (M_AXI_WVALID && r_max_len > 0)
+			w_next_len = r_max_len[8:0] - 1;
+
+		// 4. Finally, we can't cross any 4k boundaries.  If this
+		//	request will do that, then we need to trim it again
+		//	to the length of the current 4k boundary
+		if (w_next_len > distance_to_axi_boundary[11:ADDRLSB])
+			w_next_len = distance_to_axi_boundary[11:ADDRLSB];
+		// w_next_len = w_next_len;
 		// Verilator lint_on  WIDTH
 	end
 
-	always @(posedge i_clk)
-	if (!r_busy)
-		next_awaddr <= cmd_addr;
-	else if (M_AXI_AWVALID && M_AXI_AWREADY)
+	always @(*)
 	begin
-		// Verilator lint_off WIDTH
-		next_awaddr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-		<= M_AXI_AWADDR[C_AXI_ADDR_WIDTH-1:ADDRLSB]+M_AXI_AWLEN+1'b1;
-		// Verilator lint_on WIDTH
-		next_awaddr[ADDRLSB-1:0] <= 0;
+		next_awaddr = axi_addr;
+		if (M_AXI_WVALID && M_AXI_WREADY && r_increment)
+			next_awaddr = next_awaddr + (1<<ADDRLSB);
 	end
 
 	always @(posedge i_clk)
 	if (!M_AXI_AWVALID || M_AXI_AWREADY)
 	begin
-		axi_awlen  <= w_next_len[7:0];
+		axi_awlen  <= w_next_len[7:0] - 8'd1;
 		axi_awaddr <= next_awaddr;
 	end
 	// }}}
@@ -869,20 +980,7 @@ module	axis2mm #(
 	if (i_reset)
 		axi_awvalid <= 0;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
-	begin
-		axi_awvalid <= 0;
-		if (fifo_threshold_trigger && !aw_none_remaining)
-			axi_awvalid <= !M_AXI_WVALID
-					|| (M_AXI_WLAST && M_AXI_WREADY);
-		if (!r_busy || cmd_abort || axi_abort_pending)
-			axi_awvalid <= 0;
-		if ((!wr_none_pending)
-			// ||(M_AXI_WVALID && !M_AXI_WLAST)
-					||(M_AXI_AWVALID))
-			axi_awvalid <= 0;
-		if (r_none_remaining || fifo_empty)
-			axi_awvalid <= 0;
-	end
+		axi_awvalid <= w_phantom_start;
 	// }}}
 
 	// WVALID
@@ -893,18 +991,15 @@ module	axis2mm #(
 		axi_wvalid <= 0;
 	else if (!M_AXI_WVALID || M_AXI_WREADY)
 	begin
-		axi_wvalid <= ((M_AXI_AWVALID && M_AXI_AWREADY)
-			||(!wr_none_pending));
-
-		if (fifo_empty || (wr_writes_pending <= (axi_wvalid ? 1:0)))
-			axi_wvalid <= 0;
+		if (M_AXI_WVALID && !M_AXI_WLAST)
+			axi_wvalid <= 1;
+		else
+			axi_wvalid <= w_phantom_start;
 	end
 	// }}}
 
-	always @(posedge i_clk)
-	if (!M_AXI_WVALID || M_AXI_WREADY)
-		axi_wdata <= fifo_data;
-
+	always @(*)
+		axi_wdata = fifo_data;
 
 	always @(posedge i_clk)
 	if (!r_busy)
@@ -945,8 +1040,8 @@ module	axis2mm #(
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
-			M_AXI_BRESP[0], fifo_fill, wskd_strb[2:0],
-			ignore_bzero };
+			M_AXI_BRESP[0], fifo_empty, wskd_strb[2:0],
+			wr_none_pending, distance_to_axi_boundary[ADDRLSB-1:0]};
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
@@ -968,8 +1063,6 @@ module	axis2mm #(
 	//
 	// {{{
 	localparam	F_AXIL_LGDEPTH = 4;
-	wire	[F_AXIL_LGDEPTH-1:0]	faxil_rd_outstanding,
-			faxil_wr_outstanding, faxil_awr_outstanding;
 
 	faxil_slave #(
 		// {{{
@@ -1008,11 +1101,7 @@ module	axis2mm #(
 		.i_axi_rvalid(S_AXIL_RVALID),
 		.i_axi_rready(S_AXIL_RREADY),
 		.i_axi_rdata( S_AXIL_RDATA),
-		.i_axi_rresp( S_AXIL_RRESP),
-		//
-		.f_axi_rd_outstanding(faxil_rd_outstanding),
-		.f_axi_wr_outstanding(faxil_wr_outstanding),
-		.f_axi_awr_outstanding(faxil_awr_outstanding)
+		.i_axi_rresp( S_AXIL_RRESP));
 		// }}}
 		);
 
@@ -1041,11 +1130,8 @@ module	axis2mm #(
 		//
 		.OPT_EXCLUSIVE(1'b0),
 		.OPT_NARROW_BURST(1'b0),
-		.F_LGDEPTH(F_AXI_LGDEPTH),
-		.F_AXI_MAXSTALL(3),
-		.F_AXI_MAXRSTALL(2),
-		.F_AXI_MAXDELAY(3),
-		.F_AXI_MAXDELAY(3)
+		//
+		// ...
 		// }}}
 	) faxi(
 		// {{{
@@ -1100,6 +1186,23 @@ module	axis2mm #(
 	// ...
 	//
 
+	always @(posedge i_clk)
+	if (M_AXI_AWVALID)
+	begin
+		// ...
+		if (phantom_start)
+		begin
+			assert(wr_writes_pending == 0);
+			assert(wr_none_pending);
+		end else if ($past(phantom_start))
+		begin
+			assert(wr_writes_pending <= M_AXI_AWLEN+1);
+		end
+	end else begin
+		// ...
+		assert(wr_none_pending == (wr_writes_pending == 0));
+	end
+
 	always @(*)
 	if (r_busy)
 		assert(M_AXI_AWADDR[ADDRLSB-1:0] == 0);
@@ -1137,21 +1240,32 @@ module	axis2mm #(
 		assert(zero_length == (cmd_length_w == 0));
 
 	always @(*)
-	if (M_AXI_AWVALID)
-		assert(fifo_fill >= wr_writes_pending + (M_AXI_AWLEN+1));
-	else
+	if (phantom_start)
+		assert(wr_writes_pending == 0);
+
+	always @(*)
+	if (phantom_start)
+		assert(fifo_fill >= (M_AXI_AWLEN+1));
+
+	else if (!axi_abort_pending)
 		assert(fifo_fill >= wr_writes_pending);
 
 	always @(*)
 	if (r_busy)
 	begin
-		if (!aw_none_remaining)
+		if (!aw_none_remaining && !phantom_start)
 		begin
 			assert(aw_requests_remaining
 				+ wr_writes_pending == r_remaining_w);
 
 			// Make sure we don't wrap
 			assert(wr_writes_pending <= r_remaining_w);
+		end else if (!aw_none_remaining)
+		begin
+			assert(aw_requests_remaining == r_remaining_w);
+
+			// Make sure we don't wrap
+			assert(wr_writes_pending == 0);
 		end
 	end else
 		assert(!M_AXI_WVALID);
@@ -1161,19 +1275,86 @@ module	axis2mm #(
 	always @(*)
 		assert(aw_none_outstanding == (aw_bursts_outstanding == 0));
 	always @(*)
-		assert(wr_none_pending == (wr_writes_pending == 0));
+		assert(aw_last_outstanding == (aw_bursts_outstanding == 1));
 	always @(*)
 		assert(r_none_remaining == (r_remaining_w == 0));
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
+	// Contract checks
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+
+	// 1. All data values must get sent, and none skipped
+	//	Captured in logic above, since M_AXI_WDATA is registered
+	//	within the FIFO and not our interface
+	//
+	// 2. No addresses skipped. 
+	// ...
+	//
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
 	// Cover checks
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
-	//
+	// {{{
+	reg		cvr_aborted, cvr_buserr;
+	reg	[2:0]	cvr_continued;
 
-	// These still need to be written
+	initial	{ cvr_aborted, cvr_buserr } = 0;
+	always @(posedge i_clk)
+	if (i_reset || !r_busy)
+		{ cvr_aborted, cvr_buserr } <= 0;
+	else if (r_busy && !axi_abort_pending)
+	begin
+		if (cmd_abort && wr_writes_pending > 0)
+			cvr_aborted <= 1;
+		if (M_AXI_BVALID && M_AXI_BRESP[1])
+			cvr_buserr <= 1;
+	end
+
+	initial	cvr_continued = 0;
+	always @(posedge i_clk)
+	if (i_reset || r_err || cmd_abort)
+		cvr_continued <= 0;
+	else begin
+		// Cover a continued transaction across two separate bursts
+		if (r_busy && r_continuous)
+			cvr_continued[0] <= 1;
+		if (!r_busy && cvr_continued[0])
+			cvr_continued[1] <= 1;
+		if (r_busy && cvr_continued[1])
+			cvr_continued[2] <= 1;
+
+		//
+		// Artificially force us to look for two separate runs
+		if((!r_busy)&&($changed(cmd_length_w)
+			||$changed(cmd_threshold_w)))
+			cvr_continued <= 0;
+	end
+
+	always @(posedge i_clk)
+	if (f_past_valid && !$past(i_reset) && !i_reset && $fell(r_busy))
+	begin
+		cover( r_err && cvr_aborted);
+		cover( r_err && cvr_buserr);
+		cover(!r_err);
+		if (!r_err && !axi_abort_pending && !cvr_aborted && !cvr_buserr)
+		begin
+			cover((cmd_length_w > 5) && (cmd_threshold_w > 8));
+			cover((cmd_length_w > 8) && (cmd_threshold_w > 3));
+			cover((cmd_length_w == cmd_threshold_w) && (cmd_threshold_w > 8));
+			cover((cmd_length_w > 5) && (cmd_threshold_w > 5)
+				&& (cmd_addr[11:0] == 12'hff0));
+			cover(&cvr_continued && (cmd_length_w > 5) &&(cmd_threshold_w>5));
+		end
+	end
+	// }}}
 `endif
 endmodule

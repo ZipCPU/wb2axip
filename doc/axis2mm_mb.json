@@ -1,0 +1,19 @@
+{signal: [
+  {name: 'S_AXI_ACLK',    wave: 'P..............'},
+  {},
+  {name: 'cmd_start',     wave: '010............'},
+  {name: 'cmd_length',    wave: '2..............', data: ['9']},
+  {name: 'cmd_threshold', wave: '2..............', data: ['4']},
+  {name: 'fifo_fill',     wave: '2.34......5....', data: ['2','3','4','3']},
+  {name: 'r_busy',        wave: '0.1...........0'},
+  {name: 'done_interrupt',wave: '0.............1'},
+  {},
+  {name: 'M_AXI_AWVALID', wave: '0...10..10.10..'},
+  {name: 'M_AXI_AWLEN',   wave: 'x...2x..2x.2xx.', data: ['3','2','1']},
+    {},
+  {name: 'S_AXI_WVALID',  wave: '0...1........0.'},
+  {name: 'S_AXI_WDATA',   wave: 'x...234523452x.'},
+  {name: 'S_AXI_WLAST',   wave: 'x...0..10.101x.'},
+  {},
+  {name: 'S_AXI_BVALID',  wave: '0.........101.0'}
+]}
