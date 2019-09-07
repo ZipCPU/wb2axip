@@ -17,6 +17,7 @@
 //		Controls the transaction via either starting or aborting an
 //		ongoing transaction, provides feedback regarding the current
 //		status.
+//
 //	[31]	r_busy
 //		True if the core is in the middle of a transaction
 //
@@ -28,7 +29,8 @@
 //		New transfers will not start until this bit is cleared.
 //
 //	[29]	r_complete
-//		True if the transaction has completed normally.
+//		True if the transaction has completed, whether normally or
+//		abnormally (error or abort).
 //
 //		Any write to the CMD_CONTROL register will clear this flag.
 //
@@ -93,18 +95,8 @@
 //		I hope to eventually add support for unaligned bursts.  Such
 //		support is not currently part of this core.
 //
-// 12:	CMD_THRESHOLD
-//	[ADDRLSB +: LGFIFO]
-//		This is the fill level the FIFO must have before the core will
-//		attempt a burst.  Ideally, you'd want to set this high in order
-//		to avoid sending a large number of small bursts across the bus.
-//		That said, if you set it too high there is a possibility that
-//		the bus won't accept the data requests before the incoming FIFO
-//		overflows.
+// 12:	(Unused and reserved)
 //
-//		As with CMD_LENGTH, this is also given in bytes, although the
-//		core only accepts aligned values.  Hence the bottom
-//		[$clog2(C_AXI_DATA_WIDTH)-3:0] bits will always be set to zero.
 // }}}
 //
 // Status:
@@ -160,7 +152,7 @@ module	axis2mm #(
 		parameter [7:0]	ABORT_KEY = 8'h6d,
 		//
 		// The size of the FIFO
-		parameter	LGFIFO = 12,
+		parameter	LGFIFO = 9,
 		//
 		// Maximum number of bytes that can ever be transferred, in
 		// log-base 2
@@ -243,7 +235,7 @@ module	axis2mm #(
 				CMD_ADDR      = 2'b01,
 				CMD_LEN       = 2'b10,
 				CMD_THRESHOLD = 2'b11;
-	localparam	LGMAXBURST=8;
+	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam [ADDRLSB-1:0] LSBZEROS = 0;
@@ -254,7 +246,7 @@ module	axis2mm #(
 	// Signal declarations
 	// {{{
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
-		cmd_abort, zero_length, zero_threshold,
+		cmd_abort, zero_length,
 		w_cmd_start, w_complete, w_cmd_abort;
 	// reg	cmd_start;
 	reg			axi_abort_pending;
@@ -262,23 +254,20 @@ module	axis2mm #(
 	reg	[LGLENW-1:0]	aw_requests_remaining,
 				aw_bursts_outstanding;
 	reg	[LGMAXBURST:0]	wr_writes_pending;
-	reg	[8:0]		w_next_len, r_max_burst;
+	reg	[LGMAXBURST:0]		r_max_burst;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_addr;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	next_awaddr;
 
 	reg	[C_AXI_ADDR_WIDTH-1:0]	cmd_addr;
 	reg	[LGLEN-1:0]		cmd_length_b;
 	reg	[LGLENW-1:0]		cmd_length_w;
-	reg	[LGFIFO-1:0]		cmd_threshold_w;
-	reg	[LGFIFOB-1:0]		cmd_threshold_b;
 
 	// FIFO signals
 	wire				reset_fifo, write_to_fifo,
 					read_from_fifo;
 	wire	[C_AXI_DATA_WIDTH-1:0]	fifo_data;
 	wire	[LGFIFO:0]		fifo_fill;
-	wire				fifo_full, fifo_empty,
-					fifo_threshold_trigger;
+	wire				fifo_full, fifo_empty;
 
 	wire				awskd_valid, axil_write_ready;
 	wire	[C_AXIL_ADDR_WIDTH-1:0]	awskd_addr;
@@ -288,7 +277,7 @@ module	axis2mm #(
 	wire [C_AXIL_DATA_WIDTH/8-1:0]	wskd_strb;
 	reg				axil_bvalid;
 	//
-	wire	arskd_valid, axil_read_ready, rskd_ready;
+	wire				arskd_valid, axil_read_ready;
 	wire	[C_AXIL_ADDR_WIDTH-1:0]	arskd_addr;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	axil_read_data;
 	reg				axil_read_valid;
@@ -296,8 +285,7 @@ module	axis2mm #(
 	reg	[C_AXI_DATA_WIDTH-1:0]	last_tdata;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	w_status_word,
 					w_addr_word,
-					w_len_word,
-					w_threshold_word;
+					w_len_word;
 
 	reg	[LGLEN-1:0]		r_remaining_b;
 	reg	[LGLENW-1:0]		r_remaining_w;
@@ -316,8 +304,11 @@ module	axis2mm #(
 					wr_none_pending, r_none_remaining;
 
 	reg				w_phantom_start, phantom_start;
-	reg				drain_triggered;
-	reg	[8:0]			w_max_len, r_max_len;
+	reg	[LGFIFO:0]	next_fill;
+	reg	[LGMAXBURST:0]	initial_burstlen;
+	reg	[LGMAXBURST-1:0] addralign;
+	reg	w_increment;
+
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////
@@ -382,7 +373,7 @@ module	axis2mm #(
 		.o_data(arskd_addr));
 
 	assign	axil_read_ready = arskd_valid
-				&& (!axil_read_valid || rskd_ready);
+				&& (!axil_read_valid || S_AXIL_RREADY);
 
 	initial	axil_read_valid = 1'b0;
 	always @(posedge i_clk)
@@ -390,17 +381,11 @@ module	axis2mm #(
 		axil_read_valid <= 1'b0;
 	else if (axil_read_ready)
 		axil_read_valid <= 1'b1;
-	else if (rskd_ready)
+	else if (S_AXIL_RREADY)
 		axil_read_valid <= 1'b0;
 
-	skidbuffer #(.OPT_OUTREG(1), .DW(C_AXIL_DATA_WIDTH))
-	axilrskid(//
-		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
-		.i_valid(axil_read_valid), .o_ready(rskd_ready),
-		.i_data(axil_read_data),
-		.o_valid(S_AXIL_RVALID), .i_ready(S_AXIL_RREADY),
-		.o_data(S_AXIL_RDATA));
-
+	assign	S_AXIL_RVALID = axil_read_valid;
+	assign	S_AXIL_RDATA  = axil_read_data;
 	assign	S_AXIL_RRESP = 2'b00;
 	// }}}
 
@@ -462,8 +447,6 @@ module	axis2mm #(
 			w_cmd_start = 0;
 		if (zero_length)
 			w_cmd_start = 0;
-		if (zero_threshold)
-			w_cmd_start = 0;
 	end
 
 	// initial	cmd_start = 0;
@@ -489,8 +472,9 @@ module	axis2mm #(
 	begin
 		if (w_cmd_start)
 			r_busy <= 1'b1;
-		if (!w_cmd_abort
-			&& (!axil_write_ready || awskd_addr != CMD_CONTROL))
+		if (axil_write_ready && awskd_addr == CMD_CONTROL)
+			// Any write to the control register will clear the
+			// completion flag
 			r_complete <= 1'b0;
 	end else if (r_busy)
 	begin
@@ -549,8 +533,6 @@ module	axis2mm #(
 	initial	cmd_addr      = 0;
 	initial	cmd_length_w  = 0;	// Counts in bytes
 	initial	zero_length   = 1;
-	initial	cmd_threshold_w = 0;
-	initial	zero_threshold= 1;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
@@ -558,8 +540,6 @@ module	axis2mm #(
 		cmd_addr      <= 0;
 		cmd_length_w  <= 0;
 		zero_length   <= 1;
-		cmd_threshold_w <= 0;
-		zero_threshold<= 1;
 	end else if (axil_write_ready && !r_busy)
 	begin
 		case(awskd_addr)
@@ -573,20 +553,13 @@ module	axis2mm #(
 			cmd_length_w <= wskd_data[ADDRLSB +: LGLENW];
 			zero_length <= (wskd_data[ADDRLSB +: LGLENW] == 0);
 			end
-		CMD_THRESHOLD: begin
-			cmd_threshold_w <= wskd_data[ADDRLSB +: LGFIFO];
-			zero_threshold <= (wskd_data[ADDRLSB +: LGFIFO]==0);
-			end
 		default: begin end
 		endcase
 	end else if (r_busy && r_continuous)
 		cmd_addr <= axi_addr;
 
 	always @(*)
-	begin
 		cmd_length_b    = { cmd_length_w,    {(ADDRLSB){1'b0}} };
-		cmd_threshold_b = { cmd_threshold_w, {(ADDRLSB){1'b0}} };
-	end
 
 	always @(*)
 	begin
@@ -610,18 +583,16 @@ module	axis2mm #(
 		else
 			w_len_word[LGLEN-1:0] = cmd_length_b;
 
-		w_threshold_word = 0;
-		w_threshold_word[LGFIFOB-1:0] = cmd_threshold_b;
 	end
 
 	always @(posedge i_clk)
-	if (!axil_read_valid || rskd_ready)
+	if (!axil_read_valid || S_AXIL_RREADY)
 	begin
 		case(arskd_addr)
 		CMD_CONTROL:   axil_read_data <= w_status_word;
 		CMD_ADDR:      axil_read_data <= w_addr_word;
 		CMD_LEN:       axil_read_data <= w_len_word;
-		CMD_THRESHOLD: axil_read_data <= w_threshold_word;
+		default		axil_read_data <= 0;
 		endcase
 	end
 
@@ -638,11 +609,11 @@ module	axis2mm #(
 	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY && !axi_abort_pending;
 	assign	S_AXIS_TREADY  = !fifo_full;
 
-	sfifothresh #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-	sfifothreshi(i_clk, reset_fifo,
+	parameter	[LGFIFO:0]	THRESHOLD = (1<<LGMAXBURST);
+	sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
+	sfifo(i_clk, reset_fifo,
 		write_to_fifo, S_AXIS_TDATA, fifo_full, fifo_fill,
-		read_from_fifo, fifo_data, fifo_empty,
-		{ 1'b0, cmd_threshold_w }, fifo_threshold_trigger);
+		read_from_fifo, fifo_data, fifo_empty);
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -668,7 +639,7 @@ module	axis2mm #(
 	begin
 		aw_requests_remaining <= cmd_length_w;
 		aw_none_remaining     <= zero_length;
-	end else if (axi_abort_pending)
+	end else if (cmd_abort || axi_abort_pending)
 	begin
 		aw_requests_remaining <= 0;
 		aw_none_remaining <= 1;
@@ -684,17 +655,36 @@ module	axis2mm #(
 
 	// Calculate the maximum possible burst length, ignoring 4kB boundaries
 	// {{{
+	always @(*)
+		addralign = 1+(~cmd_addr[ADDRLSB +: LGMAXBURST]);
+	always @(*)
+		w_increment = !wskd_data[27];
+
+	always @(*)
+	begin
+		initial_burstlen = (1<<LGMAXBURST);
+		if (cmd_length_w >= (1<<LGMAXBURST))
+		begin
+			// initial_burstlen = (1<<LGMAXBURST);
+			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+				&&(addralign < (1<<LGMAXBURST)))
+				initial_burstlen = { 1'b0, addralign };
+		end else begin
+			initial_burstlen = cmd_length_w[LGMAXBURST:0];
+			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+				&&({{(LGLENW-LGMAXBURST){1'b0}}, addralign } < cmd_length_w))
+				initial_burstlen = { 1'b0, addralign };
+		end
+	end
+
 	initial	r_max_burst = 0;
 	always @(posedge i_clk)
-	if (i_reset)
+	if (!r_busy)
 	begin
-		r_max_burst <= (1<<LGMAXBURST);
-	end else if (!r_busy)
-	begin
-		if (cmd_length_w > (1<<LGMAXBURST))
-			r_max_burst <= (1<<LGMAXBURST);
-		else
-			r_max_burst <= cmd_length_w[8:0];
+		// Force us to align ourself early
+		//   That way we don't need to check for
+		//   alignment (again) later
+		r_max_burst <= initial_burstlen;
 	end else if (phantom_start)
 	begin
 		// Verilator lint_off WIDTH
@@ -828,26 +818,6 @@ module	axis2mm #(
 	//
 	// }}}
 
-	// Trigger draining the FIFO
-	// {{{
-	// We start our transactions once the FIFO meets its threshold
-	// requirement.  We end once the FIFO has been drained back to zero.
-	// At that point, we wait again for the FIFO to build up to the
-	// threshold.
-	initial	drain_triggered = 0;
-	always @(posedge i_clk)
-	if (i_reset || !r_busy)
-		drain_triggered <= 0;
-	// verilator lint_off WIDTH
-	else if (phantom_start && (M_AXI_AWLEN +1 == fifo_fill))
-		drain_triggered <= 0;
-	else if (fifo_threshold_trigger)
-		drain_triggered <= 1;
-	else if (fifo_fill[LGFIFO:0] >= r_remaining_w[LGLENW-1:0])
-		drain_triggered <= 1;
-	// verilator lint_on WIDTH
-	// }}}
-
 	// Phantom starts
 	// {{{
 	// Since we can't use the xREADY signals in our signaling, we hvae to
@@ -864,6 +834,8 @@ module	axis2mm #(
 	always @(*)
 	begin
 		w_phantom_start = !aw_none_remaining;
+		if (next_fill < {{(LGFIFO-LGMAXBURST){1'b0}}, r_max_burst})
+			w_phantom_start = 0;
 		if (phantom_start)
 			// Insist on a minimum of one clock between burst
 			// starts, so we can get our lengths right
@@ -871,10 +843,6 @@ module	axis2mm #(
 		if (M_AXI_WVALID && (!M_AXI_WLAST || !M_AXI_WREADY))
 			w_phantom_start = 0;
 		if (!r_busy || cmd_abort || axi_abort_pending)
-			w_phantom_start = 0;
-		if (!drain_triggered)
-			w_phantom_start = 0;
-		if (w_next_len == 0)
 			w_phantom_start = 0;
 	end
 
@@ -897,7 +865,7 @@ module	axis2mm #(
 	end else if (!M_AXI_WVALID || M_AXI_WREADY)
 	begin
 		if (w_phantom_start)
-			axi_wlast <= (w_next_len == 1);
+			axi_wlast <= (r_max_burst == 1);
 		else if (phantom_start)
 			axi_wlast <= (M_AXI_AWLEN == 1);
 		else
@@ -912,50 +880,29 @@ module	axis2mm #(
 	//
 	always @(*)
 	begin
-		// Try to calculate the next length, one clock earlier
+		next_fill = 2;
+		if (M_AXI_WVALID)
+		begin
+			// If we have already committed to reading
+			// an element from the FIFO, then adjust
+			// the size of the available values to be
+			// read by that amount
+			if (M_AXI_WLAST)
+				next_fill = 2-1;
+			else
+				// if !M_AXI_WLAST, then we've
+				// committed to reading at least
+				// one more value
+				next_fill = 2 - 2;
+		end
 
-		// 1. We know we cant burst anything more than either the
-		//	maximum AXI burst length or the maximum items remaining
-		w_max_len = r_max_burst;
-
-		// 2. If phantom start is true, then our aw_requests_remaining
-		//	and r_max_burst signal(s) haven't yet been updated with
-		//	the new reality.
-		// Verilator lint_off WIDTH
-		if (phantom_start && (aw_requests_remaining - (M_AXI_AWLEN+1)
-					< r_max_burst))
-			w_max_len = aw_requests_remaining[8:0]
-					-(M_AXI_AWLEN+1);
-
-		// 3. Finally, we can't request more than what's in the FIFO
-		if (w_max_len > fifo_fill - (M_AXI_WVALID ? 1:0))
-			w_max_len = fifo_fill - (M_AXI_WVALID ? 1:0);
-	end
-
-	initial	r_max_len = 0;
-	always @(posedge i_clk)
-		r_max_len <= w_max_len;
-
-	reg	[11:0]	distance_to_axi_boundary;
-	always @(*)
-		distance_to_axi_boundary= -{ next_awaddr[11:ADDRLSB], LSBZEROS};
-
-	always @(*)
-	begin
-		// 1. Let's start with the number we needed one clock ago
-		w_next_len = r_max_len[8:0];
-		if (phantom_start)
-			w_next_len = 0;
-		else if (M_AXI_WVALID && r_max_len > 0)
-			w_next_len = r_max_len[8:0] - 1;
-
-		// 4. Finally, we can't cross any 4k boundaries.  If this
-		//	request will do that, then we need to trim it again
-		//	to the length of the current 4k boundary
-		if (w_next_len > distance_to_axi_boundary[11:ADDRLSB])
-			w_next_len = distance_to_axi_boundary[11:ADDRLSB];
-		// w_next_len = w_next_len;
-		// Verilator lint_on  WIDTH
+		// Just to get a touch more performance, if we
+		// are writing to the FIFO on this clock, allow the
+		// FIFO to have just one more element
+		next_fill = next_fill + (write_to_fifo ? 1:0);
+		next_fill[8:2] = 0;
+		
+		next_fill = next_fill + fifo_fill - 2;
 	end
 
 	always @(*)
@@ -968,7 +915,7 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (!M_AXI_AWVALID || M_AXI_AWREADY)
 	begin
-		axi_awlen  <= w_next_len[7:0] - 8'd1;
+		axi_awlen  <= r_max_burst[7:0] - 8'd1;
 		axi_awaddr <= next_awaddr;
 	end
 	// }}}
@@ -1041,7 +988,7 @@ module	axis2mm #(
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
 			M_AXI_BRESP[0], fifo_empty, wskd_strb[2:0],
-			wr_none_pending, distance_to_axi_boundary[ADDRLSB-1:0]};
+			wr_none_pending };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
