@@ -1,6 +1,20 @@
+[tasks]
+cvr
+prfx8		prf
+prfx16		prf
+prfe32		prf
+prfx32		prf
+prfx64		prf
+prfx128		prf
+prfx256		prf
+prfx512		prf
+prfx1024	prf
+
 [options]
-mode prove
-depth 32
+prf: mode prove
+prf: depth 15
+cvr: mode cover
+cvr: depth 48
 
 [engines]
 smtbmc
@@ -8,10 +22,27 @@ smtbmc
 [script]
 read -formal -D WBM2AXISP wbm2axisp.v
 read -formal -D WBM2AXISP faxi_master.v
+read -formal -D WBM2AXISP faxi_addr.v
+read -formal -D WBM2AXISP faxi_wstrb.v
+read -formal -D WBM2AXISP faxi_valaddr.v
 read -formal -D WBM2AXISP fwb_slave.v
+prfx8:    hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH    8 -chparam C_AXI_ADDR_WIDTH 20
+prfx16:   hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   16 -chparam C_AXI_ADDR_WIDTH 20
+prfe32:   hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 20
+prfx32:   hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 22
+prfx64:   hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   64 -chparam C_AXI_ADDR_WIDTH 22
+prfx128:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  128 -chparam C_AXI_ADDR_WIDTH 22
+prfx256:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  256 -chparam C_AXI_ADDR_WIDTH 22
+prfx512:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  512 -chparam C_AXI_ADDR_WIDTH 22
+prfx1024: hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH 1024 -chparam C_AXI_ADDR_WIDTH 22
+cvr:      hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 22
+#
 prep -top wbm2axisp
 
 [files]
 ../../rtl/wbm2axisp.v
 faxi_master.v
+faxi_addr.v
+faxi_valaddr.v
+faxi_wstrb.v
 fwb_slave.v

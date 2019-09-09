@@ -173,6 +173,17 @@ module	fwb_master(i_clk, i_reset,
 	initial	`SLAVE_ASSERT(!i_wb_ack);
 	initial	`SLAVE_ASSERT(!i_wb_err);
 
+`ifdef	VERIFIC
+	always @(*)
+	if (!f_past_valid)
+	begin
+		`SLAVE_ASSUME(!i_wb_cyc);
+		`SLAVE_ASSUME(!i_wb_stb);
+		//
+		`SLAVE_ASSERT(!i_wb_ack);
+		`SLAVE_ASSERT(!i_wb_err);
+	end
+`endif
 	always @(posedge i_clk)
 	if ((!f_past_valid)||($past(i_reset)))
 	begin

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	faxi_master.v (Formal properties of an AXI master)
+// Filename: 	faxi_master.v (Formal properties of an AXI4 (full) master)
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
@@ -285,7 +285,7 @@ module faxi_master #(
 		if ((f_past_valid)&&($past(i_axi_awvalid && !i_axi_awready)))
 		begin
 			`SLAVE_ASSUME(i_axi_awvalid);
-			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
+			`SLAVE_ASSUME($stable(i_axi_awaddr));
 			`SLAVE_ASSUME($stable(i_axi_awid));
 			`SLAVE_ASSUME($stable(i_axi_awlen));
 			`SLAVE_ASSUME($stable(i_axi_awsize));
@@ -676,7 +676,7 @@ module faxi_master #(
 		else
 			f_axi_rd_ack_delay <= f_axi_rd_ack_delay + 1'b1;
 
-		always @(posedge i_clk)
+		always @(*)
 			`SLAVE_ASSERT(f_axi_awr_ack_delay < F_AXI_MAXDELAY);
 
 		always @(*)

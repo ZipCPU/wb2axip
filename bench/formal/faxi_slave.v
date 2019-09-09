@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	faxi_slave.v (Formal properties of an AXI slave)
+// Filename: 	faxi_slave.v (Formal properties of an AXI4 (full) slave)
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
@@ -50,6 +50,7 @@ module faxi_slave #(
 	parameter [7:0] OPT_MAXBURST	= 8'hff,// Maximum burst length, minus 1
 	parameter [0:0] OPT_EXCLUSIVE	= 1,// Exclusive access allowed
 	parameter [0:0] OPT_NARROW_BURST = 1,// Narrow bursts allowed by default
+	parameter [0:0]	OPT_ASYNC_RESET  = 0,
 	// F_OPT_ASSUME_RESET, if set, will cause the design to *assume* the
 	// existence of a correct reset, rather than asserting it.  It is
 	// appropriate anytime the reset logic is outside of the circuit being
@@ -177,8 +178,8 @@ module faxi_slave #(
 	// Similarly, we will always *assert* local values of our own necessary
 	// for checks below.  Those will use the assert() keyword, rather than
 	// either of these two macros.
-`define	SLAVE_ASSUME	assert
-`define	SLAVE_ASSERT	assume
+`define	SLAVE_ASSUME	assume
+`define	SLAVE_ASSERT	assert
 
 	//
 	// Setup
@@ -191,7 +192,7 @@ module faxi_slave #(
 
 	always @(*)
 	if (!f_past_valid)
-		assert(!i_axi_reset_n);
+		assume(!i_axi_reset_n);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -268,6 +269,20 @@ module faxi_slave #(
 		`SLAVE_ASSERT(!i_axi_rvalid);
 	end
 
+	generate if (OPT_ASYNC_RESET)
+	begin
+		always @(*)
+		if (!i_axi_reset_n)
+		begin
+			`SLAVE_ASSUME(!i_axi_arvalid);
+			`SLAVE_ASSUME(!i_axi_awvalid);
+			`SLAVE_ASSUME(!i_axi_wvalid);
+			//
+			`SLAVE_ASSERT(!i_axi_bvalid);
+			`SLAVE_ASSERT(!i_axi_rvalid);
+		end
+	end endgenerate
+
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -279,13 +294,14 @@ module faxi_slave #(
 	// Assume any response from the bus will not change prior to that
 	// response being accepted
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_axi_reset_n)))
+	if ((f_past_valid)&& $past(i_axi_reset_n)
+		&& (!OPT_ASYNC_RESET || i_axi_reset_n))
 	begin
 		// Write address channel
 		if ((f_past_valid)&&($past(i_axi_awvalid && !i_axi_awready)))
 		begin
 			`SLAVE_ASSUME(i_axi_awvalid);
-			`SLAVE_ASSUME(i_axi_awaddr  == $past(i_axi_awaddr));
+			`SLAVE_ASSUME($stable(i_axi_awaddr));
 			`SLAVE_ASSUME($stable(i_axi_awid));
 			`SLAVE_ASSUME($stable(i_axi_awlen));
 			`SLAVE_ASSUME($stable(i_axi_awsize));
@@ -676,7 +692,7 @@ module faxi_slave #(
 		else
 			f_axi_rd_ack_delay <= f_axi_rd_ack_delay + 1'b1;
 
-		always @(posedge i_clk)
+		always @(*)
 			`SLAVE_ASSERT(f_axi_awr_ack_delay < F_AXI_MAXDELAY);
 
 		always @(*)

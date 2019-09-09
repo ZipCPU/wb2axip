@@ -31,15 +31,23 @@ read -formal skidbuffer.v
 read -formal axilxbar.v
 read -formal faxil_slave.v
 read -formal faxil_master.v
-nxm: chparam -set NM 4 -set NS 8 axilxbar
-oxm: chparam -set NM 1 -set NS 8 axilxbar
-oxl: chparam -set NM 1 -set NS 3 axilxbar
-nxl: chparam -set NM 3 -set NS 3 axilxbar
-nxo: chparam -set NM 4 -set NS 1 axilxbar
-opt_lowpower:    chparam -set OPT_LOWPOWER  1 axilxbar
-~opt_lowpower:   chparam -set OPT_LOWPOWER  0 axilxbar
+--pycode-begin--
+cmd = "hierarchy -top axilxbar"
+if ("nxm" in tags):
+	cmd += " -chparam  NM 4 -chparam NS 8"
+if ("oxm" in tags):
+	cmd += " -chparam  NM 1 -chparam NS 8"
+if ("oxl" in tags):
+	cmd += " -chparam  NM 1 -chparam NS 3"
+if ("nxl" in tags):
+	cmd += " -chparam  NM 3 -chparam NS 3"
+if ("nxo" in tags):
+	cmd += " -chparam  NM 4 -chparam NS 1"
+cmd += " -chparam C_AXI_ADDR_WIDTH 16"
+cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+output(cmd)
+--pycode-end--
 prep -top axilxbar
-dump
 
 [files]
 ../../rtl/skidbuffer.v
