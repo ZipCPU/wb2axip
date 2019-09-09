@@ -495,7 +495,260 @@ module demofull #(
 	// Verilator lint_on  UNUSED
 
 `ifdef	FORMAL
-// The formal properties for this core are maintained elsewhere
+	//
+	// The following properties are only some of the properties used
+	// to verify this core
+	//
+	reg	f_past_valid;
+	initial	f_past_valid = 0;
+	always @(posedge S_AXI_ACLK)
+		f_past_valid <= 1;
+
+	always @(*)
+	if (!f_past_valid)
+		assume(!S_AXI_ARESETN);
+
+	faxi_slave	#(
+		// {{{
+		.C_AXI_ID_WIDTH(C_S_AXI_ID_WIDTH),
+		.C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
+		.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH))
+		// ...
+		// }}}
+	f_slave(
+		// {{{
+		.i_clk(S_AXI_ACLK),
+		.i_axi_reset_n(S_AXI_ARESETN),
+		//
+		// Address write channel
+		//
+		.i_axi_awvalid(m_awvalid),
+		.i_axi_awready(m_awready),
+		.i_axi_awid(   m_awid),
+		.i_axi_awaddr( m_awaddr),
+		.i_axi_awlen(  m_awlen),
+		.i_axi_awsize( m_awsize),
+		.i_axi_awburst(m_awburst),
+		.i_axi_awlock( 1'b0),
+		.i_axi_awcache(4'h0),
+		.i_axi_awprot( 3'h0),
+		.i_axi_awqos(  4'h0),
+	//
+	//
+		//
+		// Write Data Channel
+		//
+		// Write Data
+		.i_axi_wdata(S_AXI_WDATA),
+		.i_axi_wstrb(S_AXI_WSTRB),
+		.i_axi_wlast(S_AXI_WLAST),
+		.i_axi_wvalid(S_AXI_WVALID),
+		.i_axi_wready(S_AXI_WREADY),
+	//
+	//
+		// Response ID tag. This signal is the ID tag of the
+		// write response.
+		.i_axi_bvalid(S_AXI_BVALID),
+		.i_axi_bready(S_AXI_BREADY),
+		.i_axi_bid(   S_AXI_BID),
+		.i_axi_bresp( S_AXI_BRESP),
+	//
+	//
+		//
+		// Read address channel
+		//
+		.i_axi_arvalid(S_AXI_ARVALID),
+		.i_axi_arready(S_AXI_ARREADY),
+		.i_axi_arid(   S_AXI_ARID),
+		.i_axi_araddr( S_AXI_ARADDR),
+		.i_axi_arlen(  S_AXI_ARLEN),
+		.i_axi_arsize( S_AXI_ARSIZE),
+		.i_axi_arburst(S_AXI_ARBURST),
+		.i_axi_arlock( S_AXI_ARLOCK),
+		.i_axi_arcache(S_AXI_ARCACHE),
+		.i_axi_arprot( S_AXI_ARPROT),
+		.i_axi_arqos(  S_AXI_ARQOS),
+	//
+	//
+		//
+		// Read data return channel
+		//
+		.i_axi_rvalid(S_AXI_RVALID),
+		.i_axi_rready(S_AXI_RREADY),
+		.i_axi_rid(S_AXI_RID),
+		.i_axi_rdata(S_AXI_RDATA),
+		.i_axi_rresp(S_AXI_RRESP),
+		.i_axi_rlast(S_AXI_RLAST),
+		//
+		// ...
+		// }}}
+	);
+
+	//
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write induction properties
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+
+
+	//
+	// ...
+	//
+
+	always @(*)
+	if (r_bvalid)
+		assert(S_AXI_BVALID);
+
+	always @(*)
+		assert(axi_awready == (!S_AXI_WREADY&& !r_bvalid));
+
+	always @(*)
+	if (axi_awready)
+		assert(!S_AXI_WREADY);
+
+
+	//
+	// ...
+	//
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Read induction properties
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+
+	//
+	// ...
+	//
+
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $rose(S_AXI_RLAST))
+		assert(S_AXI_ARREADY);
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Contract checking
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+
+	//
+	// ...
+	//
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover properties
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+	reg	f_wr_cvr_valid, f_rd_cvr_valid;
+
+	initial	f_wr_cvr_valid = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		f_wr_cvr_valid <= 0;
+	else if (S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN > 4)
+		f_wr_cvr_valid <= 1;
+
+	always @(*)
+		cover(!S_AXI_BVALID && axi_awready && !m_awvalid
+			&& f_wr_cvr_valid /* && ... */));
+
+	initial	f_rd_cvr_valid = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		f_rd_cvr_valid <= 0;
+	else if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLEN > 4)
+		f_rd_cvr_valid <= 1;
+
+	always @(*)
+		cover(S_AXI_ARREADY && f_rd_cvr_valid /* && ... */);
+
+	//
+	// Generate cover statements associated with multiple successive bursts
+	//
+	// These will be useful for demonstrating the throughput of the core.
+	//
+	reg	[4:0]	f_dbl_rd_count, f_dbl_wr_count;
+
+	initial	f_dbl_wr_count = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		f_dbl_wr_count = 0;
+	else if (S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN == 3)
+	begin
+		if (!(&f_dbl_wr_count))
+			f_dbl_wr_count <= f_dbl_wr_count + 1;
+	end
+
+	always @(*)
+		cover(S_AXI_ARESETN && (f_dbl_wr_count > 1));	//!
+
+	always @(*)
+		cover(S_AXI_ARESETN && (f_dbl_wr_count > 3));	//!
+
+	always @(*)
+		cover(S_AXI_ARESETN && (f_dbl_wr_count > 3) && !m_awvalid
+			&&(!S_AXI_AWVALID && !S_AXI_WVALID && !S_AXI_BVALID)
+			&& (f_axi_awr_nbursts == 0)
+			&& (f_axi_wr_pending == 0));	//!!
+
+	initial	f_dbl_rd_count = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		f_dbl_rd_count = 0;
+	else if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLEN == 3)
+	begin
+		if (!(&f_dbl_rd_count))
+			f_dbl_rd_count <= f_dbl_rd_count + 1;
+	end
+
+	always @(*)
+		cover(!S_AXI_ARESETN && (f_dbl_rd_count > 3)
+			/* && ... */
+			&& !S_AXI_ARVALID && !S_AXI_RVALID);
+
+`ifdef	VERIFIC
+	cover property (@(posedge S_AXI_ACLK)
+		disable iff (!S_AXI_ARESETN)
+		// Accept a burst request for 4 beats
+		S_AXI_ARVALID && S_AXI_ARREADY && (S_AXI_ARLEN == 3)
+		// The first three beats
+		##1 S_AXI_RVALID && S_AXI_RREADY [*3]
+		// The last read beat, where we accept the next request
+		##1 S_AXI_ARVALID && S_AXI_ARREADY && (S_AXI_ARLEN == 3)
+			&& S_AXI_RVALID && S_AXI_RDATA && S_AXI_RLAST
+		// The next three beats of data, and
+		##1 S_AXI_RVALID && S_AXI_RREADY [*3]
+		// The final beat of the transaction
+		##1 S_AXI_RVALID && S_AXI_RDATA && S_AXI_RLAST
+		// The return to idle
+		##1 !S_AXI_RVALID && !S_AXI_ARVALID);
+`endif
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Assumptions necessary to pass a formal check
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_RVALID && !$past(o_rd))
+		assume($stable(i_rdata));
+
 `endif
 endmodule
 `ifndef	YOSYS
