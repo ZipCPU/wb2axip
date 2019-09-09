@@ -156,6 +156,8 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   untrusted slave will be "disconnected" from the bus, and a bus error will be
   return for both the errant transaction and any following.
 
+  *This core has been formally verified.*
+
   [AXISAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
   detected, the slave is reset and allowed to return to the bus infrastructure
   until its next fault.
@@ -173,6 +175,15 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   supports writes to a constant address, and continuous writes to concurrent
   addresses.  This core depends upon all stream addresses being aligned.
 
+- [AXIMM2S](rtl/aximm2s.v) reads from a given address, and writes it to
+  a FIFO buffer and then to an eventual AXI stream.  Read requests are not
+  issued unless room already exists in the FIFO, yet for a sufficiently fast
+  stream the read requests may maintain 100% bus utilization--but only if
+  the rest of the bus does as well.  Supports continuous, fixed address or
+  incrementing, and aborted transactions.
+
+  Both this core and the one above it depend upon all stream addresses being
+  aligned.
 
 # Commercial Applications
 
