@@ -143,21 +143,43 @@
 //
 module	axis2mm #(
 		// {{{
+		//
+		// Downstream AXI (MM) address width.  Remember, this is *byte*
+		// oriented, so an address width of 32 means this core can
+		// interact with a full 2^(C_AXI_ADDR_WIDTH) *bytes*.
 		parameter	C_AXI_ADDR_WIDTH = 32,
+		// ... and the downstream AXI (MM) data width.  High speed can
+		// be achieved by increasing this data width.
 		parameter	C_AXI_DATA_WIDTH = 32,
 		parameter	C_AXI_ID_WIDTH = 1,
+		//
+		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
+		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
+		// we only ever have 4 configuration words.
 		localparam	C_AXIL_ADDR_WIDTH = 2,
 		localparam	C_AXIL_DATA_WIDTH = 32,
 		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3,
+		//
+		// If the ABORT_KEY is written to the upper 8-bits of the
+		// control/status word, the current operation will be halted.
+		// Any currently active (AxVALID through xVALID & xREADY)
+		// requests will continue to completion, and the core will then
+		// come to a halt.
 		parameter [7:0]	ABORT_KEY = 8'h6d,
 		//
-		// The size of the FIFO
+		// The size of the FIFO, log-based two.  Hence LGFIFO=9 gives
+		// you a FIFO of size 2^(LGFIFO) or 512 elements.  This is about
+		// as big as the FIFO should ever need to be, since AXI bursts
+		// can be 256 in length.
 		parameter	LGFIFO = 9,
 		//
 		// Maximum number of bytes that can ever be transferred, in
-		// log-base 2
+		// log-base 2.  Hence LGLEN=20 will transfer 1MB of data.
 		parameter	LGLEN  = 20,
-		parameter	AXI_ID = 0
+		//
+		// We only ever use one AXI ID for all of our transactions.
+		// Here it is given as 0.  Feel free to change it as necessary.
+		parameter [C_AXI_ID_WIDTH-1:0]	AXI_ID = 0
 		// }}}
 	) (
 		// {{{
