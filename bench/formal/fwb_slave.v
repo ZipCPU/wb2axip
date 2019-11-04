@@ -273,8 +273,10 @@ module	fwb_slave(i_clk, i_reset,
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))&&($past(i_wb_cyc))&&(!i_wb_cyc))
 	begin
-		if (($past(f_outstanding == 0))
-			&&((!$past(i_wb_stb))||($past(i_wb_ack|i_wb_err))))
+		// Note that, unlike f_outstanding, f_nreqs and f_nacks are both
+		// registered.  Hence, we can check here if a response is still
+		// pending.  If not, no response should be returned.
+		if (f_nreqs == f_nacks)
 		begin
 			`SLAVE_ASSERT(!i_wb_ack);
 			`SLAVE_ASSERT(!i_wb_err);
