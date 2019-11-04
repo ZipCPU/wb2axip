@@ -668,6 +668,7 @@ module xlnxfull_2018_3 #(
 		.OPT_EXCLUSIVE(0),
 		.F_LGDEPTH(F_LGDEPTH))
 		f_slave(
+		// {{{
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
@@ -803,6 +804,7 @@ module xlnxfull_2018_3 #(
 		//
 		// ...
 		//
+		// }}}
 	);
 
 	//
@@ -860,6 +862,63 @@ module xlnxfull_2018_3 #(
 	// ...
 	//
 
+	//
+	// BUG #2: This core using the S_AXI_WLAST signal, without first
+	//	checking that S_AXI_WVALID is also true.  Hence, if there's any
+	//	time between WVALIDs, the core might act on the last one
+	//	without receiving the data
+
+	//
+	// ...
+	//
+
+	//
+	// BUG #3: Like Xilinx's AXI-lite core, this core can't handle back
+	//	pressure.  Should S_AXI_BREADY not be accepted before the next
+	//	S_AXI_AWVALID & S_AXI_AWREADY, a burst would be dropped
+	//
+
+	//
+	// ...
+	//
+
+	//
+	// BAD PRACTICE: This particular core can't handle both reads and
+	//	writes at the same time.  To avoid failing a stall timeout,
+	//	we'll insist that no new transactions start while a
+	//	transaction on the other side is in process
+
+
+//
+// Comments:
+//
+//	- ID's are broken.  The ID should be registered and recorded within the
+//	    core, allowing the interconnect to change them after the transaction
+//	    has been accepted
+//
+//	- This core does not support narrow burst mode, but rather only
+//	    supports an AxSIZE of 2'b10 (32'bit bus).  It cannot handle busses
+//	    of other sizes, or transactions from smaller sources.
+//
+//		This might be considered a "feature"
+//
+//	- This core can only handle read or write transactions, but never both
+//	    at the same time
+//
+//		This might also be considered a "feature"
+//
+//	- The wrap logic depends upon a multiply
+//
+//		A good synthesis tool might simplify this
+//
+//	- Read transactions take place at one word every other clock at best
+//
+//		This is just plain crippled.
+//
+//	- Any back pressure could easily cause the core to lose a transaction,
+//	    as the newer transaction's response will overwrite the waiting
+//	    response from the previous transaction
+//
 `endif
 // User logic ends
 endmodule
