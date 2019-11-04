@@ -456,7 +456,7 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 	always @(*)
 	if (OPT_WRITEONLY)
 	begin
-		assert(f_axi_ard_outstanding == 0);
+		assert(f_axi_rd_outstanding == 0);
 	end
 
 	//

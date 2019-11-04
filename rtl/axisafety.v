@@ -181,6 +181,7 @@ module axisafety #(
 		//
 		// The input side.  This is where slave requests come into
 		// the core.
+		// {{{
 		//
 		//	Write address
 		input	wire [IW-1 : 0]		S_AXI_AWID,
@@ -283,6 +284,8 @@ module axisafety #(
 	localparam	SLAVE_ERROR = 2'b10;
 	//
 	//
+	// Register declarations
+	// {{{
 	reg			faulty_write_return, faulty_read_return;
 	reg			clear_fault;
 	//
@@ -1231,21 +1234,23 @@ module axisafety #(
 	// }}}
 // Add user logic here
 `ifdef	FORMAL
-	//
+	// {{{
 	// Below are just some of the formal properties used to verify
 	// this core.  The full property set is maintained elsewhere.
 	//
 	parameter [0:0]	F_OPT_FAULTLESS = 1;
 
-
 	//
 	// ...
-	//
+	// }}}
+
 	faxi_slave	#(
+		// {{{
 		.C_AXI_ID_WIDTH(C_S_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
 		// ...
+		// }}}
 		)
 		f_slave(
 		.i_clk(S_AXI_ACLK),
