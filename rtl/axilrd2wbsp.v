@@ -101,10 +101,11 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	localparam		FLEN=(1<<LGFIFO);
 
 	reg	[DW-1:0]	dfifo		[0:(FLEN-1)];
-	reg			fifo_full;
+	reg			fifo_full, fifo_empty;
 
-	reg	[LGFIFO:0]	r_first, r_mid, r_last;
-	wire	[LGFIFO:0]	next_first, next_last;
+	reg	[LGFIFO:0]	r_first, r_mid, r_last, r_next;
+	wire	[LGFIFO:0]	w_first_plus_one;
+	wire	[LGFIFO:0]	next_first, next_last, next_mid, fifo_fill;
 	reg			wb_pending;
 	reg	[LGFIFO:0]	wb_outstanding;
 	wire	[DW-1:0]	read_data;
@@ -169,17 +170,27 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 
 	assign	next_first = r_first + 1'b1;
 	assign	next_last  = r_last + 1'b1;
+	assign	next_mid   = r_mid + 1'b1;
+	assign	fifo_fill  = (r_first - r_last);
 
 	initial	fifo_full  = 1'b0;
+	initial	fifo_empty = 1'b1;
 	always @(posedge i_clk)
 	if (w_reset)
 	begin
 		fifo_full  <= 1'b0;
+		fifo_empty <= 1'b1;
 	end else case({ (o_axi_rvalid)&&(i_axi_rready),
 				(i_axi_arvalid)&&(o_axi_arready) })
-	2'b01: fifo_full  <= (next_first[LGFIFO-1:0] == r_last[LGFIFO-1:0])
+	2'b01: begin
+		fifo_full  <= (next_first[LGFIFO-1:0] == r_last[LGFIFO-1:0])
 					&&(next_first[LGFIFO]!=r_last[LGFIFO]);
-	2'b10: fifo_full <= 1'b0;
+		fifo_empty <= 1'b0;
+		end
+	2'b10: begin
+		fifo_full <= 1'b0;
+		fifo_empty <= 1'b0;
+		end
 	default: begin end
 	endcase
 

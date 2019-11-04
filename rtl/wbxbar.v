@@ -373,6 +373,8 @@ module	wbxbar(i_clk, i_reset,
 	// channel
 	generate for(N=0; N<NM; N=N+1)
 	begin : ARBITRATE_REQUESTS
+			reg	[NS:0]		regrant;
+			reg	[LGNS-1:0]	reindex;
 
 		// This is done using a couple of variables.
 		//
@@ -460,8 +462,6 @@ module	wbxbar(i_clk, i_reset,
 
 		end else begin
 
-			reg	[NS:0]		regrant;
-			reg	[LGNS-1:0]	reindex;
 `define	NEW_MINDEX_CODE
 `ifdef	NEW_MINDEX_CODE
 
