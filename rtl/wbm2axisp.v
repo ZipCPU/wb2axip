@@ -60,6 +60,8 @@ module wbm2axisp #(
 	parameter C_AXI_ID_WIDTH	=   1,
 	parameter DW			=  32,	// Wishbone data width
 	parameter AW			=  26,	// Wishbone address width (log wordsize)
+	parameter [C_AXI_ID_WIDTH-1:0] AXI_READ_ID = 1'b1,
+	parameter [C_AXI_ID_WIDTH-1:0] AXI_WRITE_ID = 1'b0,
 	parameter LGFIFO		=   6
 	) (
 	input	wire			i_clk,	// System clock
@@ -141,7 +143,7 @@ module wbm2axisp #(
 
 // Things we're not changing ...
 	localparam	DWSIZE = $clog2(DW)-3;
-	assign o_axi_awid    = 0;
+	assign o_axi_awid    = AXI_WRITE_ID;
 	assign o_axi_awlen   = 8'h0;	// Burst length is one
 	assign o_axi_awsize  = DWSIZE[2:0];
 	assign o_axi_wlast   = 1;
@@ -150,7 +152,7 @@ module wbm2axisp #(
 	assign o_axi_arlock  = 1'b0;	// Normal signaling
 	assign o_axi_awcache = 4'h2;	// Normal: no cache, no buffer
 	//
-	assign o_axi_arid    = 0;
+	assign o_axi_arid    = AXI_READ_ID;
 	assign o_axi_arlen   = 8'h0;	// Burst length is one
 	assign o_axi_arsize  = DWSIZE[2:0];
 	assign o_axi_arburst = 2'b01;	// Incrementing address (ignored)
@@ -167,7 +169,7 @@ module wbm2axisp #(
 	reg			direction, full, empty, flushing, nearfull;
 	reg	[LGFIFO:0]	npending;
 	//
-	reg			r_stb, r_we, m_valid, m_we;
+	reg			r_stb, r_we, m_valid, m_we, m_ready;
 	reg	[AW-1:0]	r_addr, m_addr;
 	reg	[DW-1:0]	r_data, m_data;
 	reg	[DW/8-1:0]	r_sel,  m_sel;
@@ -175,8 +177,8 @@ module wbm2axisp #(
 // Command logic
 	initial	direction = 0;
 	always @(posedge i_clk)
-	if (empty && i_wb_stb)
-		direction <= i_wb_we;
+	if (empty && m_ready)
+		direction <= m_we;
 
 	initial	npending = 0;
 	initial	empty    = 1;
@@ -189,7 +191,7 @@ module wbm2axisp #(
 		empty    <= 1;
 		full     <= 0;
 		nearfull <= 0;
-	end else case ({i_wb_stb && !o_wb_stall, i_axi_bvalid||i_axi_rvalid})
+	end else case ({m_valid && m_ready, i_axi_bvalid||i_axi_rvalid})
 	2'b10: begin
 		npending <= npending + 1;
 		empty <= 0;
@@ -216,17 +218,19 @@ module wbm2axisp #(
 	else if (empty && !i_wb_cyc)
 		flushing <= 1'b0;
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Wishbone input skidbuffer
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	initial	r_stb = 0;
 	always @(posedge i_clk)
-	if (i_reset)
+	if (i_reset || !i_wb_cyc)
 		r_stb <= 0;
-	else if (!m_we && (!direction||empty) && !flushing && !nearfull
-				&& (!o_axi_arvalid || i_axi_arready))
-		r_stb <= 0;
-	else if (m_we && (direction||empty) && !flushing && !nearfull
-				&& (!o_axi_awvalid || i_axi_awready)
-				&& (!o_axi_wvalid || i_axi_wready))
-		r_stb <= 0;
+	else if (m_ready)
+		r_stb <= 1'b0;
 	else if (!o_wb_stall)
 		// Double buffer a transaction
 		r_stb <= i_wb_stb;
@@ -246,12 +250,28 @@ module wbm2axisp #(
 
 	always @(*)
 	begin
-		m_valid = (i_wb_stb || r_stb); // && i_wb_cyc
+		m_valid = (i_wb_stb || r_stb) && i_wb_cyc;
 		m_we    = r_stb ? r_we   : i_wb_we;
 		m_addr  = r_stb ? r_addr : i_wb_addr;
 		m_data  = r_stb ? r_data : i_wb_data;
 		m_sel   = r_stb ? r_sel  : i_wb_sel;
+
+		if (flushing || nearfull || ((m_we != direction)&&(!empty)))
+			m_ready = 1'b0;
+		else if (m_we)
+			m_ready = (!o_axi_awvalid || i_axi_awready)
+				&&(!o_axi_wvalid || i_axi_wready);
+		else
+			m_ready = (!o_axi_arvalid || i_axi_arready);
 	end
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI Signaling
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	// Send write transactions
 	initial	o_axi_awvalid = 0;
@@ -261,10 +281,7 @@ module wbm2axisp #(
 	begin
 		o_axi_awvalid <= 0;
 		o_axi_wvalid  <= 0;
-	end else if (m_valid && m_we && (direction||empty) && !flushing
-				&& !nearfull
-				&& (!o_axi_awvalid || i_axi_awready)
-				&& (!o_axi_wvalid  || i_axi_wready))
+	end else if (m_valid && m_we && m_ready)
 	begin
 		o_axi_awvalid <= 1;
 		o_axi_wvalid  <= 1;
@@ -284,9 +301,7 @@ module wbm2axisp #(
 	always @(posedge i_clk)
 	if (i_reset)
 		o_axi_arvalid <= 0;
-	else if (m_valid && !m_we && (!direction || empty) && !nearfull
-			&& (!o_axi_arvalid || i_axi_arready)
-			&& !flushing)
+	else if (m_valid && !m_we && m_ready)
 		o_axi_arvalid <= 1;
 	else if (i_axi_arready)
 	begin
@@ -312,6 +327,7 @@ module wbm2axisp #(
 		always @(posedge i_clk)
 		if (!o_axi_arvalid || i_axi_arready)
 			o_axi_araddr  <= { m_addr, axi_lsbs };
+
 	end endgenerate
 
 
@@ -323,6 +339,7 @@ module wbm2axisp #(
 			o_axi_wstrb   <= m_sel;
 
 	end else if (DW*2 == C_AXI_DATA_WIDTH)
+	// {{{
 	begin
 
 		always @(posedge i_clk)
@@ -421,7 +438,7 @@ module wbm2axisp #(
 		5'b11110: o_axi_wstrb   <= { {(30*DW/8){1'b0}}, m_sel, {(   DW/8){1'b0}} };
 		5'b11111: o_axi_wstrb   <= { {(31*DW/8){1'b0}}, m_sel };
 		endcase
-
+	// }}}
 	end endgenerate
 
 	generate if (DW == C_AXI_DATA_WIDTH)
@@ -439,6 +456,7 @@ module wbm2axisp #(
 				||(i_axi_bvalid && i_axi_bresp[1]));
 
 	end else begin : READ_FIFO_DATA_SELECT
+	// {{{
 
 		reg	[SUBW-1:0]	addr_fifo	[0:(1<<LGFIFO)-1];
 		reg	[SUBW-1:0]	fifo_value;
@@ -458,8 +476,7 @@ module wbm2axisp #(
 		if (i_reset || !i_wb_cyc)
 			o_wb_err <= 0;
 		else
-			o_wb_err <= !flushing
-				&&((i_axi_rvalid && i_axi_rresp[1])
+			o_wb_err <= (!flushing)&&((i_axi_rvalid && i_axi_rresp[1])
 				||(i_axi_bvalid && i_axi_bresp[1]));
 
 
@@ -467,11 +484,11 @@ module wbm2axisp #(
 		always @(posedge i_clk)
 		if (i_reset)
 			wr_addr <= 0;
-		else if (i_wb_stb && !o_wb_stall)
+		else if (m_valid && m_ready)
 			wr_addr <= wr_addr + 1;
 
 		always @(posedge i_clk)
-		if (i_wb_stb && !o_wb_stall)
+		if (m_valid && m_ready)
 			addr_fifo[wr_addr[LGFIFO-1:0]] <= i_wb_addr[SUBW-1:0];
 
 		initial	rd_addr = 0;
@@ -497,6 +514,7 @@ module wbm2axisp #(
 		// ...
 		//
 `endif
+	// }}}
 	end endgenerate
 
 	// Read data channel / response logic
@@ -505,8 +523,8 @@ module wbm2axisp #(
 
 	// Make verilator's -Wall happy
 	// verilator lint_off UNUSED
-	wire	[6+DW+DW/8-1:0]	unused;
-	assign	unused = { full, i_axi_bid, i_axi_bresp[0], i_axi_rid, i_axi_rresp[0], i_axi_rlast, m_data, m_sel };
+	wire	unused;
+	assign	unused = &{ 1'b0, full, i_axi_bid, i_axi_bresp[0], i_axi_rid, i_axi_rresp[0], i_axi_rlast, m_data, m_sel };
 	generate if (C_AXI_DATA_WIDTH > DW)
 	begin
 		wire	[C_AXI_DATA_WIDTH-1:DW] unused_data;
