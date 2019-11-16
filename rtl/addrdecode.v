@@ -41,6 +41,9 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 			o_valid, i_stall, o_decode, o_addr, o_data);
 	parameter	NS=8;
 	parameter	AW = 32, DW=32+32/8+1+1;
+	//
+	// SLAVE_ADDR contains address assignments for each of the various
+	// slaves we are adjudicating between.
 	parameter	[NS*AW-1:0]	SLAVE_ADDR = {
 				{ 3'b111, {(AW-3){1'b0}}},
 				{ 3'b110, {(AW-3){1'b0}}},
@@ -50,11 +53,39 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 				{ 3'b010, {(AW-3){1'b0}}},
 				{ 4'b0010, {(AW-4){1'b0}}},
 				{ 4'b0000, {(AW-4){1'b0}}} };
+	//
+	// SLAVE_MASK contains a mask of those address bits in SLAVE_ADDR
+	// which are relevant.  It shall be true that if
+	//	!SLAVE_MASK[k] then !SLAVE_ADDR[k], for any bits of k
 	parameter	[NS*AW-1:0]	SLAVE_MASK = (NS <= 1) ? 0
 		: { {(NS-2){ 3'b111, {(AW-3){1'b0}}}},
 			{(2){ 4'b1111, {(AW-4){1'b0}} }} };
+	//
+	// ACCESS_ALLOWED is a bit-wise mask indicating which slaves may get
+	// access to the bus.  If ACCESS_ALLOWED[slave] is true, then a master
+	// can connect to the slave via this method.  This parameter is
+	// primarily here to support AXI (or other similar buses) which may have
+	// separate accesses for both read and write.  By using this, a
+	// read-only slave can be connected, which would also naturally create
+	// an error on any attempt to write to it.
+	parameter	[NS-1:0]	ACCESS_ALLOWED = -1;
+	//
+	// If OPT_REGISTERED is set, address decoding will take an extra clock,
+	// and will register the results of the decoding operation.
 	parameter [0:0]	OPT_REGISTERED = 0;
+	//
+	// If OPT_LOWPOWER is set, then whenever the output is not valid, any
+	// respective data linse will also be forced to zero in an effort
+	// to minimize power.
 	parameter [0:0]	OPT_LOWPOWER = 0;
+	//
+	// OPT_NONESEL controls whether or not the address lines are fully
+	// proscribed, or whether or not a "no-slave identified" slave should
+	// be created.  To avoid a "no-slave selected" output, slave zero must
+	// have no mask bits set (and therefore no address bits set), and it
+	// must also allow access.
+	localparam [0:0] OPT_NONESEL = (!ACCESS_ALLOWED[0])
+					|| (SLAVE_MASK[AW-1:0] != 0);
 	//
 	input	wire			i_clk, i_reset;
 	//
@@ -69,41 +100,70 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 	output	reg	[AW-1:0]	o_addr;
 	output	reg	[DW-1:0]	o_data;
 
-	reg	[NS:0]	request;
-	reg		none_sel;
-	integer		iM;
+	reg	[NS:0]		request;
+	reg	[NS-1:0]	prerequest;
+	reg			none_sel;
+	integer			iM;
 
 	always @(*)
-	begin
-		// Let's assume nothing's been selected, and then check
-		// to prove ourselves wrong.
+	for(iM=0; iM<NS; iM=iM+1)
+		prerequest[iM] = (((i_addr ^ SLAVE_ADDR[iM*AW +: AW])
+				&SLAVE_MASK[iM*AW +: AW])==0)
+			&&(ACCESS_ALLOWED[iM]);
+
+	generate if (OPT_NONESEL)
+	begin : NO_DEFAULT_REQUEST
+
+		// Need to create a slave to describe when nothing is selected
 		//
-		// Note that none_sel will be considered an error condition
-		// in the follow-on processing.  Therefore it's important
-		// to clear it if no request is pending.
-		none_sel = i_valid;
-		for(iM=0; iM<NS; iM=iM+1)
+		always @(*)
 		begin
-			if (((i_addr ^ SLAVE_ADDR[iM*AW +: AW])
-					&SLAVE_MASK[iM*AW +: AW])==0)
-				none_sel = 0;
+			for(iM=0; iM<NS; iM=iM+1)
+				request[iM] = i_valid && prerequest[iM];
+			if (!OPT_NONESEL && (NS > 1 && |prerequest[NS-1:1]))
+				request[0] = 1'b0;
 		end
-	end
 
-	always @(*)
+	end else if (NS == 1)
 	begin
-		for(iM=0; iM<NS; iM=iM+1)
-			request[iM] = i_valid
-				&&(((i_addr ^ SLAVE_ADDR[iM*AW +: AW])
-					&SLAVE_MASK[iM*AW +: AW])==0);
 
-		//
-		// request[NS] indicates a request forr a non-existent
-		// slave.  A request that should (eventually) return a bus
-		// error
-		//
-		request[NS] = none_sel;
-	end
+		always @(*)
+			request = { 1'b0, i_valid };
+
+	end else begin
+
+		always @(*)
+		begin
+			for(iM=0; iM<NS; iM=iM+1)
+				request[iM] = i_valid && prerequest[iM];
+			if (!OPT_NONESEL && (NS > 1 && |prerequest[NS-1:1]))
+				request[0] = 1'b0;
+		end
+
+	end endgenerate
+
+	generate if (OPT_NONESEL)
+	begin
+		always @(*)
+		begin
+			// Let's assume nothing's been selected, and then check
+			// to prove ourselves wrong.
+			//
+			// Note that none_sel will be considered an error
+			// condition in the follow-on processing.  Therefore
+			// it's important to clear it if no request is pending.
+			none_sel = i_valid && (prerequest == 0);
+			//
+			// request[NS] indicates a request for a non-existent
+			// slave.  A request that should (eventually) return a
+			// bus error
+			//
+			request[NS] = none_sel;
+		end
+	end else begin
+		always @(*)
+			{ request[NS], none_sel } = 2'b00;
+	end endgenerate
 
 	generate if (OPT_REGISTERED)
 	begin
@@ -221,12 +281,18 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 	if (o_decode[iM])
 	begin
 		// The address must match
-		assert(((o_addr ^ SLAVE_ADDR[iM*AW +: AW])
-				& SLAVE_MASK[iM*AW +: AW])==0);
+		assert((((o_addr ^ SLAVE_ADDR[iM*AW +: AW])
+				& SLAVE_MASK[iM*AW +: AW])==0)
+			&& ACCESS_ALLOWED[iM]);
 		//
 		// And nothing else must match
 		assert(o_decode == (1<<iM));
 	end
+
+	always @(*)
+	for(iM=0; iM<NS; iM=iM+1)
+	if (!ACCESS_ALLOWED[iM])
+		assert(!o_decode[iM]);
 
 	generate if (OPT_LOWPOWER && OPT_REGISTERED)
 	begin
@@ -238,6 +304,28 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 			assert(o_data   == 0);
 		end
 	end endgenerate
+
+	//
+	// The output decoded value may only ever have one value high,
+	// never more--i.e. $onehot0
+	//
+`ifdef	VERIFIC
+	always @(*)
+		assert($onehot0(request));
+`else
+	reg	onehot_request;
+	always @(*)
+	begin
+		onehot_request = 0;
+		for(iM=0; iM<NS+1; iM=iM+1)
+		if ((request ^ (1<<iM))==0)
+			onehot_request = 1;
+	end
+
+	always @(*)
+	if (request != 0)
+		assert(onehot_request);
+`endif
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -266,14 +354,12 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 	else if (o_valid)
 		f_reached = f_reached | o_decode;
 
-	generate if (SLAVE_MASK == 0 && NS == 1)
+	generate if (!OPT_NONESEL && ACCESS_ALLOWED[0]
+			&& SLAVE_MASK == 0 && NS == 1)
 	begin
 		
 		always @(*)
 			cover(f_reached[0]);
-
-		always @(*)
-			assert(!f_reached[NS]);
 
 		always @(posedge i_clk)
 		if (f_past_valid && $stable(o_valid))

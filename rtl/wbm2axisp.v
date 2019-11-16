@@ -648,7 +648,7 @@ module wbm2axisp #(
 
 	always @(*)
 	if (!flushing && i_wb_cyc)
-		assert(f_wb_outstanding == npending
+		assert(f_wb_outstanding == npending + (r_stb ? 1:0)
 			+ ( ((C_AXI_DATA_WIDTH != DW)
 				&& (o_wb_ack|o_wb_err))? 1:0));
 
@@ -657,8 +657,7 @@ module wbm2axisp #(
 	begin
 		assert(direction);
 		assert(f_axi_rd_nbursts == 0);
-		assert(f_axi_awr_nbursts + (o_axi_awvalid ? 1:0)
-				+ (r_stb ? 1:0) == npending);
+		assert(f_axi_awr_nbursts + (o_axi_awvalid ? 1:0) == npending);
 		assert(f_axi_wr_pending == (o_axi_wvalid&&!o_axi_awvalid ? 1:0));
 
 		//
@@ -674,7 +673,7 @@ module wbm2axisp #(
 	if (f_axi_rd_nbursts > 0)
 	begin
 		assert(!direction);
-		assert(f_axi_rd_nbursts+(r_stb ? 1:0) +(o_axi_arvalid ? 1:0)
+		assert(f_axi_rd_nbursts+(o_axi_arvalid ? 1:0)
 				== npending);
 		assert(f_axi_awr_nbursts == 0);
 
@@ -686,14 +685,12 @@ module wbm2axisp #(
 	always @(*)
 	if (direction)
 	begin
-		assert(npending == (r_stb ? 1:0) + (o_axi_awvalid ? 1:0)
-			+ f_axi_awr_nbursts);
+		assert(npending == (o_axi_awvalid ? 1:0) + f_axi_awr_nbursts);
 		assert(!o_axi_arvalid);
 		assert(f_axi_rd_nbursts == 0);
 		assert(!i_axi_rvalid);
 	end else begin
-		assert(npending == (r_stb ? 1:0) + (o_axi_arvalid ? 1:0)
-			+ f_axi_rd_nbursts);
+		assert(npending == (o_axi_arvalid ? 1:0) + f_axi_rd_nbursts);
 		assert(!o_axi_awvalid);
 		assert(!o_axi_wvalid);
 		assert(f_axi_awr_nbursts == 0);
@@ -817,8 +814,11 @@ module wbm2axisp #(
 
 	always @(*)
 		f_wb_addr = f_const_addr[C_AXI_ADDR_WIDTH-1:DWSIZE];
-	always @(*)
-		assume(f_const_addr[$clog2(DW)-4:0] == 0);
+	generate if (DW > 8)
+	begin
+		always @(*)
+			assume(f_const_addr[$clog2(DW)-4:0] == 0);
+	end endgenerate
 	always @(*)
 		f_axi_data = {(C_AXI_DATA_WIDTH/DW){f_wb_data}};
 
@@ -898,15 +898,16 @@ module wbm2axisp #(
 
 	end endgenerate
 
-	generate if (DW != C_AXI_DATA_WIDTH)
+
+	generate if (DW > 8)
 	begin
 
 		always @(*)
 		if (o_axi_awvalid)
-			assert(o_axi_awaddr[DWSIZE-1:0] == 0);
+			assert(o_axi_awaddr[$clog2(DW)-4:0] == 0);
 		always @(*)
 		if (o_axi_arvalid)
-			assert(o_axi_araddr[DWSIZE-1:0] == 0);
+			assert(o_axi_araddr[$clog2(DW)-4:0] == 0);
 
 	end endgenerate
 

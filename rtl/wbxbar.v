@@ -229,7 +229,12 @@ module	wbxbar(i_clk, i_reset,
 		wire	[NS:0]		decoded;
 		wire			iskd_ready;
 
-		skidbuffer #(// .OPT_LOWPOWER(OPT_LOWPOWER),
+		skidbuffer #(
+			//
+			// Can't run OPT_LOWPOWER here, less we mess up the
+			// consistency in skd_we following
+			//
+			// .OPT_LOWPOWER(OPT_LOWPOWER),
 			.DW(1+AW+DW+DW/8),
 `ifdef	FORMAL
 			.OPT_PASSTHROUGH(1),
@@ -244,7 +249,12 @@ module	wbxbar(i_clk, i_reset,
 		always @(*)
 			o_mstall[N] = !iskd_ready;
 
-		addrdecode #(// .OPT_LOWPOWER(OPT_LOWPOWER),
+		addrdecode #(
+			//
+			// Can't run OPT_LOWPOWER here, less we mess up the
+			// consistency in m_we following
+			//
+			// .OPT_LOWPOWER(OPT_LOWPOWER),
 			.NS(NS), .AW(AW), .DW(DW+DW/8+1),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
@@ -373,8 +383,8 @@ module	wbxbar(i_clk, i_reset,
 	// channel
 	generate for(N=0; N<NM; N=N+1)
 	begin : ARBITRATE_REQUESTS
-			reg	[NS:0]		regrant;
-			reg	[LGNS-1:0]	reindex;
+		reg	[NS:0]		regrant;
+		reg	[LGNS-1:0]	reindex;
 
 		// This is done using a couple of variables.
 		//
@@ -460,8 +470,13 @@ module	wbxbar(i_clk, i_reset,
 			always @(*)
 				mindex[N] = 0;
 
-		end else begin
+			always @(*)
+				regrant = 0;
 
+			always @(*)
+				reindex = 0;
+
+		end else begin
 `define	NEW_MINDEX_CODE
 `ifdef	NEW_MINDEX_CODE
 
@@ -724,6 +739,8 @@ module	wbxbar(i_clk, i_reset,
 	generate if (OPT_DBLBUFFER)
 	begin : DOUBLE_BUFFERRED_STALL
 
+		reg	[NM-1:0]	r_mack, r_merr;
+
 		for(N=0; N<NM; N=N+1)
 		begin
 			// m_stall isn't buffered, since it depends upon
@@ -742,13 +759,13 @@ module	wbxbar(i_clk, i_reset,
 					m_stall[N] = 0;
 			end
 
-			initial	o_mack[N]   = 0;
-			initial	o_merr[N]   = 0;
+			initial	r_mack[N]   = 0;
+			initial	r_merr[N]   = 0;
 			always @(posedge i_clk)
 			begin
 				iM = mindex[N];
-				o_mack[N]   <= mgrant[N] && s_ack[mindex[N]];
-				o_merr[N]   <= mgrant[N] && s_err[mindex[N]];
+				r_mack[N]   <= mgrant[N] && s_ack[mindex[N]];
+				r_merr[N]   <= mgrant[N] && s_err[mindex[N]];
 				if (OPT_LOWPOWER && !mgrant[N])
 					o_mdata[N*DW +: DW] <= 0;
 				else
@@ -756,16 +773,26 @@ module	wbxbar(i_clk, i_reset,
 
 				if (grant[N][NS]||(timed_out[N] && !o_mack[N]))
 				begin
-					o_mack[N]   <= 1'b0;
-					o_merr[N]   <= !o_merr[N];
+					r_mack[N]   <= 1'b0;
+					r_merr[N]   <= !o_merr[N];
 				end
 
-				if (i_reset || !i_mcyc[N])
+				if (i_reset || !i_mcyc[N] || o_merr[N])
 				begin
-					o_mack[N]   <= 1'b0;
-					o_merr[N]   <= 1'b0;
+					r_mack[N]   <= 1'b0;
+					r_merr[N]   <= 1'b0;
 				end
 			end
+
+			always @(*)
+				o_mack[N] = r_mack[N];
+
+			always @(*)
+			if (!OPT_STARVATION_TIMEOUT || i_mcyc[N])
+				o_merr[N] = r_merr[N];
+			else
+				o_merr[N] = 1'b0;
+
 		end
 
 	end else if (NS == 1) // && !OPT_DBLBUFFER
@@ -785,7 +812,7 @@ module	wbxbar(i_clk, i_reset,
 				if (mfull[N])
 					m_stall[N] = 1'b1;
 
-				if (timed_out[N]&&!o_mack[0])
+				if (timed_out[N]&&!o_mack[N])
 				begin
 					m_stall[N] = 1'b0;
 					o_mack[N]   = 1'b0;
@@ -830,7 +857,7 @@ module	wbxbar(i_clk, i_reset,
 				if (mfull[N])
 					m_stall[N] = 1'b1;
 
-				if (grant[N][NS] ||(timed_out[N]&&!o_mack[0]))
+				if (grant[N][NS] ||(timed_out[N]&&!o_mack[N]))
 				begin
 					m_stall[N] = 1'b0;
 					o_mack[N]   = 1'b0;
