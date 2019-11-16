@@ -44,7 +44,7 @@
 ##
 HELPERS   := sfifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
-BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline # wbm2axisp axi2axilite axilite2axi
+BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISLAVES := demoaxi # demofull xlnxfull axisafety
 TESTS := $(HELPERS) $(BRIDGES) $(CROSSBARS) $(AXISLAVES)
 .PHONY: $(TESTS)
@@ -71,6 +71,8 @@ WB2LITE    := wbm2axilite
 RDLITE     := axilrd2wbsp
 WRLITE     := axilwr2wbsp
 AXLITE     := axlite2wbsp
+AXILSINGLE := axilsingle
+AXILDOUBLE := axildouble
 WBP2CLASSIC:= wbp2classic
 WBC2PIPELIN:= wbc2pipeline
 #
@@ -146,8 +148,8 @@ $(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby cvr
 
 .PHONY: $(XILINXDEMO)
-$(XILINXDEMO): $(XILINXDEMO)_prf/PASS $(XILINXDEMO)_cvr/PASS
-$(XILINXDEMO)_prf/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
+$(XILINXDEMO): $(XILINXDEMO)_prf/FAIL $(XILINXDEMO)_cvr/PASS
+$(XILINXDEMO)_prf/FAIL: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	@echo "Expect the Xilinx demo proof to fail."
 	@echo "Xilinx's code didn't work in the first place."
 	sby -f $(XILINXDEMO).sby prf
@@ -380,7 +382,6 @@ wbxbar_cvr4x1_cheap/PASS:    $(WBXBAR).sby $(RTL)/$(WBXBAR).v $(WB) $(XBAR)
 #
 #
 
-
 .PHONY: $(WBP2CLASSIC)
 $(WBP2CLASSIC): $(WBP2CLASSIC)_prf/PASS $(WBP2CLASSIC)_cvr/PASS
 $(WBP2CLASSIC)_prf/PASS: $(RTL)/$(WBP2CLASSIC).v $(WB) $(WBC)
@@ -394,6 +395,20 @@ $(WBC2PIPELIN)_prf/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
 	sby -f $(WBC2PIPELIN).sby prf
 $(WBC2PIPELIN)_cvr/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
 	sby -f $(WBC2PIPELIN).sby cvr
+
+.PHONY: $(AXILSINGLE)
+$(AXILSINGLE): $(AXILSINGLE)_prf/PASS $(AXILSINGLE)_cvr/PASS
+$(AXILSINGLE)_prf/PASS: $(RTL)/$(AXILSINGLE).v $(AXILSINGLE).sby $(AXIL)
+	sby -f $(AXILSINGLE).sby prf
+$(AXILSINGLE)_cvr/PASS: $(RTL)/$(AXILSINGLE).v $(AXILSINGLE).sby $(AXIL)
+	sby -f $(AXILSINGLE).sby cvr
+
+.PHONY: $(AXILDOUBLE)
+$(AXILDOUBLE): $(AXILDOUBLE)_prf/PASS $(AXILDOUBLE)_cvr/PASS
+$(AXILDOUBLE)_prf/PASS: $(RTL)/$(AXILDOUBLE).v $(AXILDOUBLE).sby $(AXIL)
+	sby -f $(AXILDOUBLE).sby prf
+$(AXILDOUBLE)_cvr/PASS: $(RTL)/$(AXILDOUBLE).v $(AXILDOUBLE).sby $(AXIL)
+	sby -f $(AXILDOUBLE).sby cvr
 
 .PHONY: $(SFIFO)
 $(SFIFO): $(SFIFO)_prf/PASS $(SFIFO)_cvr/PASS
@@ -439,15 +454,15 @@ $(SKIDBUFFER)_cvr/PASS:  $(SKIDBUFFER).sby $(RTL)/$(SKIDBUFFER).v
 
 .PHONY: clean
 clean:
-	rm -rf  $(WBARB)_prf/ $(WBARB)_cvr/
-	rm -rf  $(WB2LITE)_cvr/ $(WB2LITE)_prf/
-	rm -rf  $(RDLITE)_cvr/  $(RDLITE)_prf
-	rm -rf  $(WRLITE)_cvr/  $(WRLITE)_prf
-	rm -rf  $(AXLITE)_cvr/  $(AXLITE)_prf
-	rm -rf  $(DEMOAXI)_cvr/ $(DEMOAXI)_prf
+	rm -rf  $(DEMOAXI)_*/
+	rm -rf  $(WBARB)_*/
+	rm -rf  $(WB2LITE)_*/
+	rm -rf  $(RDLITE)_*/
+	rm -rf  $(WRLITE)_*/
+	rm -rf  $(AXLITE)_*/
+	rm -rf  $(AXILSINGLE)_*/ $(AXILDOUBLE)_*/
+	rm -rf  $(WB2AXI)_*/
+	rm -rf  $(AXI2WB)_*/
 	@# The three broken cores, to include Xilinx's
-	rm -rf  $(WB2AXI)/
-	rm -rf  $(AXI2WB)/
-	rm -rf  $(XILINXDEMO)_cvr/ $(XILINXDEMO)_prf
-	rm -rf  $(XLNXSTREAM)_cvr/ $(XLNXSTREAM)_prf
-	# rm -f *.check
+	rm -rf  $(XILINXDEMO)_*/
+	rm -rf  $(XLNXSTREAM)_*/

@@ -1,11 +1,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axilsingle.v
+// Filename: 	axildouble.v
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	Create a special slave which can be used to reduce crossbar
-//		logic for multiple simplified slaves.
+//		logic for multiple simplified slaves.  This is a companion
+//	core to the similar axilsingle core, but allowing the slave to
+//	decode the clock between multiple possible addresses.
 //
 //	To use this, the slave must follow specific (simplified AXI) rules:
 //
@@ -37,27 +39,27 @@
 //	using only the logic below:
 //
 //		always @(posedge S_AXI_ACLK)
-//		if (AWVALID)
-//		begin
-//			if (WSTRB[0])
-//				slvreg[ 7: 0] <= WDATA[ 7: 0];
-//			if (WSTRB[1])
-//				slvreg[15: 8] <= WDATA[15: 8];
-//			if (WSTRB[2])
-//				slvreg[23:16] <= WDATA[23:16];
-//			if (WSTRB[3])
-//				slvreg[31:24] <= WDATA[31:24];
-//		end
+//		if (AWVALID) case(AWADDR)
+//		R1:	slvreg_1 <= WDATA;
+//		R2:	slvreg_2 <= WDATA;
+//		R3:	slvreg_3 <= WDATA;
+//		R4:	slvreg_4 <= WDATA;
+//		endcase
 //
 //		always @(*)
-//			BRESP = 2'b00;	// Or other constant, such as 2'b10
+//			BRESP = 2'b00;
 //
 //		always @(posedge S_AXI_ACLK)
 //		if (ARVALID)
-//			RDATA <= slvreg;
+//		case(ARADDR)
+//			R1: RDATA <= slvreg_1;
+//			R2: RDATA <= slvreg_2;
+//			R3: RDATA <= slvreg_3;
+//			R4: RDATA <= slvreg_4;
+//		endcase
 //
 //		always @(*)
-//			RRESP = 2'b00;	// Or other constant, such as 2'b10
+//			RRESP = 2'b00;
 //
 //	This core will then keep track of the more complex bus logic,
 //	simplifying both slaves and connection logic.  Slaves with the more
@@ -110,13 +112,31 @@
 // `define	FORMAL
 // `endif
 //
-module	axilsingle #(
+module	axildouble #(
+		parameter integer C_AXI_DATA_WIDTH = 32,
+		parameter integer C_AXI_ADDR_WIDTH = 32,
 		//
 		// NS is the number of slave interfaces
-		parameter	NS = 16,
+		parameter	NS = 8,
 		//
-		parameter integer C_AXI_DATA_WIDTH = 32,
-		localparam integer C_AXI_ADDR_WIDTH = $clog2(NS)+$clog2(C_AXI_DATA_WIDTH)-3,
+		//
+		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
+			{ 3'b111, {(AW-3){1'b0}} },
+			{ 3'b110, {(AW-3){1'b0}} },
+			{ 3'b101, {(AW-3){1'b0}} },
+			{ 3'b100, {(AW-3){1'b0}} },
+			{ 3'b011, {(AW-3){1'b0}} },
+			{ 3'b010, {(AW-3){1'b0}} },
+			{ 4'b0001,{(AW-4){1'b0}} },
+			{ 4'b0000,{(AW-4){1'b0}} } },
+		//
+		//
+		parameter	[NS*AW-1:0]	SLAVE_MASK =
+			(NS <= 1) ? 0
+			: {	{(NS-2){ 3'b111, {(AW-3){1'b0}} }},
+				{(2){   4'b1111, {(AW-4){1'b0}} }}
+			},
+		//
 		//
 		// AW, and DW, are short-hand abbreviations used locally.
 		localparam	AW = C_AXI_ADDR_WIDTH,
@@ -164,6 +184,7 @@ module	axilsingle #(
 		//
 		//
 		output	wire	[NS-1:0]		M_AXI_AWVALID,
+		output	wire	[AW-1:0]		M_AXI_AWADDR,
 		output	wire	[3-1:0]			M_AXI_AWPROT,
 		//
 		output	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
@@ -172,6 +193,7 @@ module	axilsingle #(
 		input	wire	[NS*2-1:0]		M_AXI_BRESP,
 		//
 		output	wire	[NS-1:0]		M_AXI_ARVALID,
+		output	wire	[AW-1:0]		M_AXI_ARADDR,
 		output	wire	[3-1:0]			M_AXI_ARPROT,
 		//
 		input	wire [NS*C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
@@ -192,17 +214,19 @@ module	axilsingle #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	wire			awskid_valid, bffull, bempty, write_awskidready;
+	wire			awskid_valid, bffull, bempty, write_awskidready,
+				dcd_awvalid;
 	reg			write_bvalid, write_response;
-	reg			bfull, write_wready;
+	reg			bfull, write_wready, write_no_index;
+	wire	[NS:0]		wdecode;
 	wire	[AW-ADDR_LSBS-1:0]	awskid_addr;
-	reg	[AW-ADDR_LSBS-1:0]	write_windex, write_bindex;
-	wire	[3-1:0]		awskid_prot;
-	reg	[3-1:0]		m_axi_awprot;
+	wire	[AW-1:0]	m_awaddr;
+	reg	[LGNS-1:0]	write_windex, write_bindex;
+	wire	[3-1:0]		awskid_prot, m_axi_awprot;
 	wire	[LGFLEN:0]	bfill;
 	reg	[LGFLEN:0]	write_count;
 	reg	[1:0]		write_resp;
-	reg	[NS-1:0]	m_axi_awvalid;
+	integer			k;
 
 	skidbuffer #(.OPT_LOWPOWER(OPT_LOWPOWER), .OPT_OUTREG(0),
 			.DW((AW-ADDR_LSBS)+3))
@@ -213,39 +237,44 @@ module	axilsingle #(
 			.i_data({ S_AXI_AWPROT, S_AXI_AWADDR[AW-1:ADDR_LSBS] }),
 		.o_valid(awskid_valid), .i_ready(write_awskidready),
 			.o_data({ awskid_prot, awskid_addr }));
+	
+	wire		awskd_stall;
 
-	initial	write_wready = 0;
-	initial	m_axi_awvalid = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		{ write_wready, m_axi_awvalid } <= 0;
-	else if (awskid_valid && write_awskidready)
+	addrdecode #(.AW(AW), .DW(3), .NS(NS),
+		.SLAVE_ADDR(SLAVE_ADDR),
+		.SLAVE_MASK(SLAVE_MASK),
+		.OPT_REGISTERED(1'b1))
+	wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+		.i_valid(awskid_valid && write_awskidready), .o_stall(awskd_stall),
+			.i_addr({awskid_addr,{(ADDR_LSBS){1'b0}}}),
+			.i_data(awskid_prot),
+		.o_valid(dcd_awvalid), .i_stall(!S_AXI_WVALID),
+			.o_decode(wdecode), .o_addr(m_awaddr),
+			.o_data(m_axi_awprot));
+
+	always @(*)
+		write_wready = dcd_awvalid;
+	assign	S_AXI_WREADY  = write_wready;
+	assign	M_AXI_AWVALID = (S_AXI_WVALID) ? wdecode[NS-1:0] : 0;
+	assign	M_AXI_AWADDR  = m_awaddr;
+	assign	M_AXI_AWPROT  = m_axi_awprot;
+	assign	M_AXI_WDATA   = S_AXI_WDATA;
+	assign	M_AXI_WSTRB   = S_AXI_WSTRB;
+	assign	write_awskidready = (S_AXI_WVALID || !S_AXI_WREADY) && !bfull;
+
+	always @(*)
 	begin
-		m_axi_awvalid <= 0;
-		m_axi_awvalid <= (1<<awskid_addr);
-		// if (awskid_addr >= NS)
-		//	m_axi_awvalid[NS] <= 1'b1;
-
-		write_wready <= 1;
-	end else if (S_AXI_WVALID)
-		{ write_wready, m_axi_awvalid } <= 0;
-
-	assign	S_AXI_WREADY = write_wready;
-
-	always @(posedge S_AXI_ACLK)
-	if (awskid_valid && write_awskidready)
-	begin
-		m_axi_awprot <= awskid_prot;
-		write_windex <= awskid_addr;
+		write_windex = 0;
+		for(k=0; k<NS; k=k+1)
+		if (wdecode[k])
+			write_windex = write_windex | k[LGNS-1:0];
 	end
 
-	assign M_AXI_AWVALID = (S_AXI_WVALID) ? m_axi_awvalid : {(NS){1'b0}};
-	assign M_AXI_AWPROT = m_axi_awprot;
-	assign S_AXI_WREADY = write_wready;
-	assign	M_AXI_WDATA = S_AXI_WDATA;
-	assign	M_AXI_WSTRB = S_AXI_WSTRB;
-		
-	assign	write_awskidready = (!write_wready || S_AXI_WVALID) && !bfull;
+	always @(posedge S_AXI_ACLK)
+	begin
+		write_bindex <= write_windex;
+		write_no_index <= wdecode[NS];
+	end
 
 	initial	{ write_response, write_bvalid } = 0;
 	always @(posedge S_AXI_ACLK)
@@ -256,19 +285,10 @@ module	axilsingle #(
 			<= { write_bvalid, (S_AXI_WVALID && S_AXI_WREADY) };
 
 	always @(posedge S_AXI_ACLK)
-		write_bindex <= write_windex;
-
-	generate if (LGNS == $clog2(NS+1))
-	begin
-		always @(posedge S_AXI_ACLK)
-		if (write_bindex >= NS)
-			write_resp <= INTERCONNECT_ERROR;
-		else
-			write_resp <= M_AXI_BRESP[2*write_bindex +: 2];
-	end else begin
-		always @(posedge S_AXI_ACLK)
-			write_resp <= M_AXI_BRESP[2*write_bindex +: 2];
-	end endgenerate
+	if (write_no_index)
+		write_resp <= INTERCONNECT_ERROR;
+	else
+		write_resp <= M_AXI_BRESP[2*write_bindex +: 2];
 
 	initial	write_count = 0;
 	initial	bfull = 0;
@@ -318,6 +338,7 @@ module	axilsingle #(
 	always @(*)
 		assert(!bffull || !write_bvalid);
 `endif
+
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read logic
@@ -327,31 +348,28 @@ module	axilsingle #(
 	//
 	wire				rempty, rdfull;
 	wire	[LGFLEN:0]		rfill;
-	reg	[AW-ADDR_LSBS-1:0]	read_index, last_read_index;
+	reg	[LGNS-1:0]		read_index, last_read_index;
 	reg	[1:0]			read_resp;
 	reg	[DW-1:0]		read_rdata;
-	reg				read_rwait, read_rvalid, read_result;
-	reg	[NS-1:0]		m_axi_arvalid;
-	reg	[3-1:0]			m_axi_arprot;
+	wire				read_rwait, arskd_stall;
+	reg				read_rvalid, read_result, read_no_index;
+	wire	[AW-1:0]		m_araddr;
+	wire	[3-1:0]			m_axi_arprot;
+	wire	[NS:0]			rdecode;
 
-	initial	{ m_axi_arvalid, read_rwait } = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		{ m_axi_arvalid, read_rwait } <= 0;
-	else if (S_AXI_ARVALID && S_AXI_ARREADY)
-	begin
-		m_axi_arvalid <= (1 << S_AXI_ARADDR[AW-1:ADDR_LSBS]);
-		read_rwait    <= 1'b1;
-	end else
-		{ m_axi_arvalid, read_rwait } <= 0;
+	addrdecode #(.AW(AW), .DW(3), .NS(NS),
+		.SLAVE_ADDR(SLAVE_ADDR),
+		.SLAVE_MASK(SLAVE_MASK),
+		.OPT_REGISTERED(1'b1))
+	rdaddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+		.i_valid(S_AXI_ARVALID && S_AXI_ARREADY), .o_stall(arskd_stall),
+			.i_addr(S_AXI_ARADDR), .i_data(S_AXI_ARPROT),
+		.o_valid(read_rwait), .i_stall(1'b0),
+			.o_decode(rdecode), .o_addr(m_araddr),
+			.o_data(m_axi_arprot));
 
-	always @(posedge S_AXI_ACLK)
-	begin
-		m_axi_arprot  <= S_AXI_ARPROT;
-		read_index    <= S_AXI_ARADDR[AW-1:ADDR_LSBS];
-	end
-
-	assign	M_AXI_ARVALID = m_axi_arvalid;
+	assign	M_AXI_ARVALID = rdecode[NS-1:0];
+	assign	M_AXI_ARADDR  = m_araddr;
 	assign	M_AXI_ARPROT  = m_axi_arprot;
 
 	initial	{ read_result, read_rvalid } = 0;
@@ -361,23 +379,29 @@ module	axilsingle #(
 	else
 		{ read_result, read_rvalid } <= { read_rvalid, read_rwait };
 
+	always @(*)
+	begin
+		read_index = 0;
+
+		for(k=0; k<NS; k=k+1)
+		if (rdecode[k])
+			read_index = read_index | k[LGNS-1:0];
+	end
+
 	always @(posedge S_AXI_ACLK)
 		last_read_index <= read_index;
 
 	always @(posedge S_AXI_ACLK)
+		read_no_index <= rdecode[NS];
+
+	always @(posedge S_AXI_ACLK)
 		read_rdata <= M_AXI_RDATA[DW*last_read_index +: DW];
 
-	generate if (LGNS == $clog2(NS+1))
-	begin
-		always @(posedge S_AXI_ACLK)
-		if (last_read_index >= NS)
-			read_resp <= INTERCONNECT_ERROR;
-		else
-			read_resp <= M_AXI_RRESP[2*last_read_index +: 2];
-	end else begin
-		always @(posedge S_AXI_ACLK)
-			read_resp <= M_AXI_RRESP[2*last_read_index +: 2];
-	end endgenerate
+	always @(posedge S_AXI_ACLK)
+	if (read_no_index)
+		read_resp <= INTERCONNECT_ERROR;
+	else
+		read_resp <= M_AXI_RRESP[2*last_read_index +: 2];
 
 	reg			read_full;
 	reg	[LGFLEN:0]	read_count;
@@ -425,7 +449,8 @@ module	axilsingle #(
 	assign	unused = &{ 1'b0,
 			S_AXI_AWADDR[ADDR_LSBS-1:0],
 			S_AXI_ARADDR[ADDR_LSBS-1:0],
-			bffull, rdfull, bfill, rfill };
+			bffull, rdfull, bfill, rfill,
+			awskd_stall, arskd_stall };
 	// verilator lint_on  UNUSED
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = LGFLEN+1;
@@ -493,7 +518,7 @@ module	axilsingle #(
 	begin : CONSTRAIN_SLAVE_INTERACTIONS
 
 		faxil_master #(// .C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
-				.C_AXI_ADDR_WIDTH(1),
+				.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 				.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 				// .F_OPT_NO_READS(1'b0),
 				// .F_OPT_NO_WRITES(1'b0),
@@ -505,7 +530,7 @@ module	axilsingle #(
 			//
 			.i_axi_awvalid(M_AXI_AWVALID[M]),
 			.i_axi_awready(1'b1),
-			.i_axi_awaddr(1'b0),
+			.i_axi_awaddr(M_AXI_AWADDR),
 			.i_axi_awcache(4'h0),
 			.i_axi_awprot(M_AXI_AWPROT),
 			//
@@ -520,7 +545,7 @@ module	axilsingle #(
 			//
 			.i_axi_arvalid(M_AXI_ARVALID[M]),
 			.i_axi_arready(1'b1),
-			.i_axi_araddr(1'b0),
+			.i_axi_araddr(M_AXI_ARADDR),
 			.i_axi_arprot(M_AXI_ARPROT),
 			.i_axi_arcache(4'h0),
 			//
@@ -557,15 +582,12 @@ module	axilsingle #(
 			assert(fm_axi_rd_outstanding[M]== (m_axi_rvalid[M] ? 1:0));
 	end endgenerate
 
-	////////////////////////////////////////////////////////////////////////
+	///////
 	//
 	// Properties necessary to pass induction
 	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
 	always @(*)
-		assert(S_AXI_WREADY == (m_axi_awvalid != 0));
+		assert(S_AXI_WREADY == (wdecode != 0));
 `ifdef	VERIFIC
 	always @(*)
 		assert($onehot0(M_AXI_AWVALID));
@@ -629,6 +651,7 @@ module	axilsingle #(
 	always @(*)
 	if (S_AXI_ARESETN)
 		assert(f_axi_rd_outstanding == count_rd_outstanding);
+
 
 	////////////////////////////////////////////////////////////////////////
 	//

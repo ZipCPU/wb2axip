@@ -114,6 +114,34 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   The key unusual feature?  The ability to maintain one transaction per clock
   over an extended period of time across any channel pair.
 
+- [AXILSINGLE](rtl/axilsingle.v) is designed to be a companion to
+  [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI-lite support.  It's
+  purpose is to simplify connectivity logic when supporting multiple AXI-lite
+  registers.  This core takes a generic AXI-lite interface, and simplifies
+  the interface so that multiple single-register cores can be connected to
+  it.  The single-register cores can either be full AXI-lite cores in their
+  own respect, subject to simplification rules, or even simplified from that.
+  They must never stall the bus, and must always return responses within one
+  clock cycle.  The [AXILSINGLE](rtl/axilsingle.v) handles all backpressure
+  issues.  If done right, the backpressure logic from the slave core will be
+  removed by the synthesis tool, allowing all backpressure logic to be
+  condensed into a few shared wires.
+
+  *This core has been formally verified.*
+
+- [AXILDOUBLE](rtl/axildouble.v) is the second AXI-lite companion to
+  [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI-lite support.  It's
+  purpose is to simplify connectivity logic when supporting multiple AXI-lite
+  slaves.  This core takes a generic AXI-lite interface, and simplifies
+  the interface so that peripherals can be connected to it.  These
+  peripherals cores can either be full AXI-lite cores in their own respect,
+  subject to simplification rules discussed within, or even simplified from
+  that.  They must never stall the bus, and must always return responses
+  within one clock cycle.  The [AXILDOUBLE](rtl/axilsingle.v) core handles all
+  backpressure issues, address selection, and invalid address returns.
+
+  *This core has been formally verified.*
+
 - [AXIXBAR](rtl/axixbar.v) is a fun project to develop a full `NxM`
   configurable cross bar using the full AXI protocol.
 
@@ -175,6 +203,8 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   supports writes to a constant address, and continuous writes to concurrent
   addresses.  This core depends upon all stream addresses being aligned.
 
+  *This core has been formally verified.*
+
 - [AXIMM2S](rtl/aximm2s.v) reads from a given address, and writes it to
   a FIFO buffer and then to an eventual AXI stream.  Read requests are not
   issued unless room already exists in the FIFO, yet for a sufficiently fast
@@ -184,6 +214,9 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
   Both this core and the one above it depend upon all stream addresses being
   aligned.
+
+  *This core has been formally verified.*
+
 
 # Commercial Applications
 
