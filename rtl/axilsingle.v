@@ -126,8 +126,9 @@ module	axilsingle #(
 		// transactions that may need to be held outstanding internally.
 		// If you really want high throughput, and if you expect any
 		// back pressure at all, then increase LGFLEN.  Otherwise the
-		// default value of 2 (FIFO size = 4) should be sufficient
-		parameter	LGFLEN=2,
+		// default value of 3 (FIFO size = 8) should be sufficient
+		// to maintain full loading
+		parameter	LGFLEN=3,
 		//
 		// If set, OPT_LOWPOWER will set all unused registers, both
 		// internal and external, to zero anytime their corresponding
@@ -310,6 +311,23 @@ module	axilsingle #(
 			+ (write_response ? 1:0)
 			+ (write_bvalid ? 1:0)
 			+ (write_wready ? 1:0));
+
+`ifdef	VERIFIC
+	always @(*)
+	if (bfifo.f_first_in_fifo)
+		assert(bfifo.f_first_data != 2'b01);
+	always @(*)
+	if (bfifo.f_second_in_fifo)
+		assert(bfifo.f_second_data != 2'b01);
+	always @(*)
+	if (!bempty && (bfifo.rd_addr != bfifo.f_first_addr)
+			&&(bfifo.rd_addr != bfifo.f_second_addr))
+		assume(S_AXI_BRESP != 2'b01);
+`else
+	always @(*)
+	if (!bempty)
+		assume(S_AXI_BRESP != 2'b01);
+`endif
 `endif
 
 	assign	S_AXI_BVALID = !bempty;
@@ -318,6 +336,7 @@ module	axilsingle #(
 	always @(*)
 		assert(!bffull || !write_bvalid);
 `endif
+
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read logic
@@ -416,6 +435,22 @@ module	axilsingle #(
 `ifdef	FORMAL
 	always @(*)
 		assert(read_count == rfill + read_result + read_rvalid + read_rwait);
+`ifdef	VERIFIC
+	always @(*)
+	if (rfifo.f_first_in_fifo)
+		assert(rfifo.f_first_data[1:0] != 2'b01);
+	always @(*)
+	if (rfifo.f_second_in_fifo)
+		assert(rfifo.f_second_data[1:0] != 2'b01);
+	always @(*)
+	if (!rempty && (rfifo.rd_addr != rfifo.f_first_addr)
+			&&(rfifo.rd_addr != rfifo.f_second_addr))
+		assume(S_AXI_RRESP != 2'b01);
+`else
+	always @(*)
+	if (!rempty)
+		assume(S_AXI_RRESP != 2'b01);
+`endif
 `endif
 
 	assign	S_AXI_RVALID = !rempty;

@@ -4,12 +4,12 @@ cvr
 
 [options]
 prf: mode prove
-prf: depth 16
+prf: depth 14
 cvr: mode cover
 cvr: depth 40
 
 [engines]
-smtbmc
+smtbmc boolector
 
 [script]
 read -formal axilsingle.v

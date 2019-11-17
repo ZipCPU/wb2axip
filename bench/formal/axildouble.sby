@@ -9,7 +9,8 @@ cvr: mode cover
 cvr: depth 40
 
 [engines]
-smtbmc
+smtbmc boolector
+# prf: abc pdr
 
 [script]
 read -formal addrdecode.v

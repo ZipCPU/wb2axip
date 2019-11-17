@@ -9,6 +9,8 @@ aximrd2wbsp_*/
 axilwr2wbsp_*/
 axilrd2wbsp_*/
 axlite2wbsp_*/
+axildouble_*/
+axilsingle_*/
 demoaxi_*/
 wbarbiter_*/
 wbm2axilite_*/
