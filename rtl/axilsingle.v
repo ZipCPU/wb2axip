@@ -4,10 +4,10 @@
 //
 // Project:	Pipelined Wishbone to AXI converter
 //
-// Purpose:	Create a special slave which can be used to reduce crossbar
-//		logic for multiple simplified slaves.
+// Purpose:	Create a special AXI-lite slave which can be used to reduce
+//		crossbar logic for multiple simplified AXI-lite slaves.
 //
-//	To use this, the slave must follow specific (simplified AXI) rules:
+//	To use this, the slave must follow specific (simplified AXI-lite) rules:
 //
 //	Write interface
 //	1. The slave must guarantee that AWREADY == WREADY = 1
@@ -65,16 +65,16 @@
 //	and that follow the rules above, should have no problems with this
 //	additional logic.
 //
-// Performance: (Not measured yet)
+// Performance:
 //
-//	I'm expecting to be able to sustain one read/write per clock as long as
-//	the keeps S_AXI_[BR]READY high.  If S_AXI_[BR]READY ever drops,
-//	there's some flexibility provided by the return FIFO, so the master
-//	might not notice a drop in throughput until the FIFO fills.
+//	This core can sustain one read/write per clock as long as the upstream
+//	AXI-Lite master keeps S_AXI_[BR]READY high.  If S_AXI_[BR]READY ever
+//	drops, there's some flexibility provided by the return FIFO, so the
+//	master might not notice a drop in throughput until the FIFO fills.
 //
 //	The more practical performance measure is the latency of this core.
-//	For that, I'm expecting a latency of three clocks as long as the
-//	master holds the S_AXI_[BR]READY line high.
+//	That is measured at four clocks contingent (again) on the master holding
+//	S_AXI_[BR]READY line high.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC

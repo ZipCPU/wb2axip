@@ -30,10 +30,6 @@
 //	3. The controller will guarantee that RREADY = 1
 //		(This core doesn't have an RREADY output)
 //
-//	In this simplified controller, the AxADDR lines have been dropped.
-//	Slaves may only have one address, and that one will be aligned with the
-//	  bus width
-//
 //
 //	Why?  This simplifies slave logic.  Slaves may interact with the bus
 //	using only the logic below:
@@ -63,20 +59,18 @@
 //
 //	This core will then keep track of the more complex bus logic,
 //	simplifying both slaves and connection logic.  Slaves with the more
-//	complicated (and proper/accurate) logic, but with only one bus address,
-//	and that follow the rules above, should have no problems with this
-//	additional logic.
+//	complicated (and proper/accurate) logic, that follow the rules above,
+//	should have no problems with this additional logic.
 //
-// Performance: (Not measured yet)
+// Performance:
 //
-//	I'm expecting to be able to sustain one read/write per clock as long as
-//	the keeps S_AXI_[BR]READY high.  If S_AXI_[BR]READY ever drops,
+//	This core can sustain one read/write per clock as long as the upstream
+//	AXI master keeps S_AXI_[BR]READY high.  If S_AXI_[BR]READY ever drops,
 //	there's some flexibility provided by the return FIFO, so the master
 //	might not notice a drop in throughput until the FIFO fills.
 //
 //	The more practical performance measure is the latency of this core.
-//	For that, I'm expecting a latency of three clocks as long as the
-//	master holds the S_AXI_[BR]READY line high.
+//	That I've measured at four clocks.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -220,7 +214,7 @@ module	axildouble #(
 	reg			write_bvalid, write_response;
 	reg			bfull, write_wready, write_no_index;
 	wire	[NS:0]		wdecode;
-	wire	[AW-ADDR_LSBS-1:0]	awskid_addr;
+	wire	[AW-1:0]	awskid_addr;
 	wire	[AW-1:0]	m_awaddr;
 	reg	[LGNS-1:0]	write_windex, write_bindex;
 	wire	[3-1:0]		awskid_prot, m_axi_awprot;
@@ -230,12 +224,12 @@ module	axildouble #(
 	integer			k;
 
 	skidbuffer #(.OPT_LOWPOWER(OPT_LOWPOWER), .OPT_OUTREG(0),
-			.DW((AW-ADDR_LSBS)+3))
+			.DW(AW+3))
 	awskid(	.i_clk(S_AXI_ACLK),
 		.i_reset(!S_AXI_ARESETN),
 		.i_valid(S_AXI_AWVALID),
 			.o_ready(S_AXI_AWREADY),
-			.i_data({ S_AXI_AWPROT, S_AXI_AWADDR[AW-1:ADDR_LSBS] }),
+			.i_data({ S_AXI_AWPROT, S_AXI_AWADDR }),
 		.o_valid(awskid_valid), .i_ready(write_awskidready),
 			.o_data({ awskid_prot, awskid_addr }));
 	
@@ -247,7 +241,7 @@ module	axildouble #(
 		.OPT_REGISTERED(1'b1))
 	wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_valid(awskid_valid && write_awskidready), .o_stall(awskd_stall),
-			.i_addr({awskid_addr,{(ADDR_LSBS){1'b0}}}),
+			.i_addr(awskid_addr),
 			.i_data(awskid_prot),
 		.o_valid(dcd_awvalid), .i_stall(!S_AXI_WVALID),
 			.o_decode(wdecode), .o_addr(m_awaddr),
@@ -481,8 +475,6 @@ module	axildouble #(
 	// verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0,
-			S_AXI_AWADDR[ADDR_LSBS-1:0],
-			S_AXI_ARADDR[ADDR_LSBS-1:0],
 			bffull, rdfull, bfill, rfill,
 			awskd_stall, arskd_stall };
 	// verilator lint_on  UNUSED
