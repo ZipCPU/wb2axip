@@ -137,7 +137,7 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
   peripherals cores can either be full AXI-lite cores in their own respect,
   subject to simplification rules discussed within, or even simplified from
   that.  They must never stall the bus, and must always return responses
-  within one clock cycle.  The [AXILDOUBLE](rtl/axilsingle.v) core handles all
+  within one clock cycle.  The [AXILDOUBLE](rtl/axildouble.v) core handles all
   backpressure issues, address selection, and invalid address returns.
 
   *This core has been formally verified.*
@@ -214,6 +214,23 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
   Both this core and the one above it depend upon all stream addresses being
   aligned.
+
+  *This core has been formally verified.*
+
+- [AXIDOUBLE](rtl/axidouble.v) is the second AXI4 (full) companion to
+  [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI4 (full) support.  It's
+  purpose is to simplify connectivity logic when supporting multiple AXI4 (full)
+  slaves.  This core takes a generic AXI4 (full) interface, and simplifies
+  the interface so that peripherals can be connected to it with a minimal amount
+  of logic.  These peripherals cores can either be full AXI4 (full) cores in
+  their own respect, subject to simplification rules discussed within,
+  simplified AXI-lite slave as one might use with
+  [AXILDOUBLE](rtl/axildouble.v), or even simpler than that.  Key to this
+  simplification is the assumption that the simplified slaves must never stall
+  the bus, and that they must always return responses within one clock cycle.
+  The [AXIDOUBLE](rtl/axidouble.v) core handles all backpressure issues, ID
+  logic, burst logic, address selection, invalid address return and exclusive
+  access logic.
 
   *This core has been formally verified.*
 
