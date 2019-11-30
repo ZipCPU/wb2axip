@@ -217,6 +217,14 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
   *This core has been formally verified.*
 
+- AXISINGLE is a (to be written) core that will also be an
+  [AutoFPGA](https://github.com/ZipCPU/autofpga) companion core.  Slave's of
+  type "SINGLE" (one register, one clock to generate a response) can be ganged
+  together using it.  This core will then essentially turn an AXI core into
+  an AXI-lite core, with the same interface as [AXILSINGLE](rtl/axilsingle.v) 
+  above.  When implemented, it will look very similar to the [AXIDOUBLE](rtl/axidouble.v)
+  core mentioned below.
+
 - [AXIDOUBLE](rtl/axidouble.v) is the second AXI4 (full) companion to
   [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI4 (full) support.  It's
   purpose is to simplify connectivity logic when supporting multiple AXI4 (full)

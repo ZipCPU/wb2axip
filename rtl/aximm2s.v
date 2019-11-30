@@ -661,7 +661,7 @@ module	aximm2s #(
 
 		initial	last_data = 0;
 		always @(posedge S_AXI_ACLK)
-		if (reset_fifo)
+		if (reset_fifo || !unaligned_cmd_addr)
 			last_data <= 0;
 		else if (M_AXI_RVALID && M_AXI_RREADY)
 			last_data <= M_AXI_RDATA >> (realignment * 8);
@@ -1264,7 +1264,13 @@ module	aximm2s #(
 		// ...
 		//
 	end else begin
-		assert(rd_uncommitted + fifo_fill == (1<<LGFIFO));
+		//
+		// ...
+		//
+
+		assert(rd_uncommitted
+			+ ((OPT_REALIGN && write_to_fifo) ? 1:0)
+			+ fifo_fill == (1<<LGFIFO));
 		if (!r_continuous)
 			assert(fifo_fill == 0 || reset_fifo);
 	end
@@ -1342,14 +1348,12 @@ module	aximm2s #(
 	always @(*)
 	begin
 		// Metrics defining M_AXI_ARADDR
-		//
-		// ...
-		//
+		f_araddr_is_aligned = (M_AXI_ARADDR[ADDRLSB+LGMAXBURST-1:0]==0);
+		f_araddr_is_initial = (M_AXI_ARADDR == fv_start_addr);
+		f_araddr_is_final   = (M_AXI_ARADDR == f_last_addr);
 
 		//
 		// Metrics to check ARADDR, assuming it had been accepted
-		//
-		// ...
 		//
 
 		//
@@ -1518,6 +1522,15 @@ module	aximm2s #(
 	//
 
 	always @(*)
+	if (!reset_fifo)
+		assert(f_fifo_committed + f_fifo_availability + fifo_fill
+			== (1<<LGFIFO));
+
+	//
+	// ...
+	//
+
+	always @(*)
 	if (r_busy)
 		assert(r_max_burst <= (1<<LGMAXBURST));
 
@@ -1552,9 +1565,8 @@ module	aximm2s #(
 	begin
 		if (r_increment && r_continuous)
 			assert(cmd_addr == axi_raddr);
-		//
-		// ...
-		//
+		else
+			assert(cmd_addr == fv_start_addr);
 	end
 
 	// Check M_AXI_ARADDR
@@ -1564,12 +1576,6 @@ module	aximm2s #(
 
 	//
 	// Check M_AXI_ARLEN
-	//
-	// ...
-	//
-
-	//
-	// Constrain CKADDR and CKARLEN
 	//
 	// ...
 	//
@@ -1599,9 +1605,8 @@ module	aximm2s #(
 	if (phantom_start)
 	begin
 		assert(axi_arlen == $past(r_max_burst[7:0]) - 8'd1);
-		//
-		// ...
-		//
+		if (!r_increment)
+			assert(M_AXI_ARADDR == fv_start_addr);
 	end
 
 	// Constrain rd_reads_remaining
@@ -1633,7 +1638,7 @@ module	aximm2s #(
 	//
 	always @(*)
 	begin
-		if (&ar_bursts_outstanding[LGLENW-1:1])
+		if (&ar_bursts_outstanding[LGLENWA-1:1])
 			assert(!M_AXI_ARVALID);
 		//
 		// ...
@@ -1684,6 +1689,26 @@ module	aximm2s #(
 	// ...
 	//
 
+
+	// 5. Pick an incoming data value.  Choose whether or not to restrict
+	// incoming data not to be that value.  If the incoming data is so restricted
+	// then assert that the stream output will contain that value.
+	(* anyconst *)	reg	f_restrict_data;
+	(* anyconst *)	reg	[C_AXI_DATA_WIDTH-1:0]	f_restricted;
+
+	always @(*)
+	if (f_restrict_data && M_AXI_RVALID
+			&& (!OPT_REALIGN || !unaligned_cmd_addr))
+		assume(M_AXI_RDATA != f_restricted);
+
+	always @(*)
+	if (f_restrict_data && S_AXIS_TVALID
+			&& (!OPT_REALIGN || !unaligned_cmd_addr))
+		assert(S_AXIS_TDATA != f_restricted);
+
+	//
+	// ...
+	//
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
