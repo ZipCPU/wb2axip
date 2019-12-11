@@ -192,7 +192,7 @@ module wbm2axilite (
 	2'b10: begin
 		outstanding <= outstanding + 1'b1;
 		pending <= 1'b1;
-		full_fifo <= (outstanding >= {{(LGFIFOLN-2){1'b1}},2'b01});;
+		full_fifo <= (outstanding >= {{(LGFIFOLN-2){1'b1}},2'b01});
 		end
 	default: begin end
 	endcase
