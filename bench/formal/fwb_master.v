@@ -397,6 +397,10 @@ module	fwb_master(i_clk, i_reset,
 			// created before the request gets through
 			`SLAVE_ASSERT((!i_wb_err)||((i_wb_stb)&&(!i_wb_stall)));
 		end
+	end else if (!i_wb_cyc && f_nacks == f_nreqs)
+	begin
+		`SLAVE_ASSERT(!i_wb_ack);
+		`SLAVE_ASSERT(!i_wb_err);
 	end
 
 	generate if (F_OPT_SOURCE)
