@@ -599,13 +599,6 @@ module	axidouble #(
 	default: begin end
 	endcase
 
-`ifdef	FORMAL
-	always @(*)
-		assert(write_count <= { 1'b1, {(LGFLEN){1'b0}} });
-	always @(*)
-		assert(bfull == (write_count == { 1'b1, {(LGFLEN){1'b0}} }));
-`endif
-
 	//
 	// Backpressure FIFO on write response returns
 	sfifo #(.BW(C_AXI_ID_WIDTH+2), .OPT_ASYNC_READ(0), .LGFLEN(LGFLEN))
@@ -617,17 +610,6 @@ module	axidouble #(
 			.o_empty(bempty));
 
 	assign	S_AXI_BVALID = !bempty;
-
-`ifdef	FORMAL
-	always @(*)
-		assert(write_count == bfill
-			+ (write_response ? 1:0)
-			+ (write_bvalid ? 1:0)
-			+ (write_request ? 1:0));
-
-	always @(*)
-		assert(!bffull || !write_bvalid);
-`endif
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -841,12 +823,6 @@ module	axidouble #(
 	default: begin end
 	endcase
 
-`ifdef	FORMAL
-	always @(*)
-		assert(read_count <= { 1'b1, {(LGFLEN){1'b0}} });
-	always @(*)
-		assert(read_full == (read_count == { 1'b1, {(LGFLEN){1'b0}} }));
-`endif
 	assign	S_AXI_ARREADY = (rlen == 0) && !read_full;
 
 	//
