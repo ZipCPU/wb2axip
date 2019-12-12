@@ -236,7 +236,7 @@ module faxil_slave #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// Constant input assumptions (cache and prot)
+	// Constant input assumptions (AxCACHE and AxPROT)
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -520,6 +520,11 @@ module faxil_slave #(
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	//
+	// Count outstanding write address channel requests
 	initial	f_axi_awr_outstanding = 0;
 	always @(posedge i_clk)
 	if (!i_axi_reset_n)
@@ -530,6 +535,8 @@ module faxil_slave #(
 		default: begin end
 	endcase
 
+	//
+	// Count outstanding write data channel requests
 	initial	f_axi_wr_outstanding = 0;
 	always @(posedge i_clk)
 	if (!i_axi_reset_n)
@@ -539,6 +546,8 @@ module faxil_slave #(
 	2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
 	endcase
 
+	//
+	// Count outstanding read requests
 	initial	f_axi_rd_outstanding = 0;
 	always @(posedge i_clk)
 	if (!i_axi_reset_n)
@@ -589,6 +598,9 @@ module faxil_slave #(
 		reg	[(F_LGDEPTH-1):0]	f_axi_wr_ack_delay,
 						f_axi_rd_ack_delay;
 
+		//
+		// Count the clock cycles a write request (address + data) has
+		// been outstanding and without any response
 		initial	f_axi_wr_ack_delay = 0;
 		always @(posedge i_clk)
 		if ((!i_axi_reset_n)||(i_axi_bvalid)
@@ -598,6 +610,9 @@ module faxil_slave #(
 		else if (f_axi_wr_outstanding > 0)
 			f_axi_wr_ack_delay <= f_axi_wr_ack_delay + 1'b1;
 
+		//
+		// Count the clock cycles that any read request has been
+		// outstanding, but without any response.
 		initial	f_axi_rd_ack_delay = 0;
 		always @(posedge i_clk)
 		if ((!i_axi_reset_n)||(i_axi_rvalid)||(f_axi_rd_outstanding==0))
@@ -605,9 +620,16 @@ module faxil_slave #(
 		else
 			f_axi_rd_ack_delay <= f_axi_rd_ack_delay + 1'b1;
 
+
+		//
+		// Assert that write responses will be returned in a timely
+		// fashion
 		always @(*)
 			`SLAVE_ASSERT(f_axi_wr_ack_delay < F_AXI_MAXDELAY);
 
+		//
+		// Assert that read responses will be returned in a timely
+		// fashion
 		always @(*)
 			`SLAVE_ASSERT(f_axi_rd_ack_delay < F_AXI_MAXDELAY);
 
@@ -633,6 +655,7 @@ module faxil_slave #(
 	always @(posedge i_clk)
 	if (i_axi_bvalid)
 	begin
+		// No BVALID w/o an outstanding request
 		`SLAVE_ASSERT(f_axi_awr_outstanding > 0);
 		`SLAVE_ASSERT(f_axi_wr_outstanding  > 0);
 	end
@@ -642,21 +665,27 @@ module faxil_slave #(
 	//
 	always @(posedge i_clk)
 	if (i_axi_rvalid)
+		// No RVALID w/o an outstanding request
 		`SLAVE_ASSERT(f_axi_rd_outstanding > 0);
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	// F_OPT_WRITE_ONLY or F_OPT_READ_ONLY
+	//
 	// Optionally disable either read or write channels (or both??)
 	//
 	//
 	////////////////////////////////////////////////////////////////////////
-
+	//
+	//
 	initial	assert((!F_OPT_WRITE_ONLY)||(!F_OPT_READ_ONLY));
 
 	generate if (F_OPT_WRITE_ONLY)
 	begin : NO_READS
 
+		// If there are no read requests (assumed), there should be
+		// no read responses
 		always @(*)
 			`SLAVE_ASSUME(i_axi_arvalid == 0);
 		always @(*)
@@ -669,6 +698,8 @@ module faxil_slave #(
 	generate if (F_OPT_READ_ONLY)
 	begin : NO_WRITES
 
+		// If there are no write requests (assumed, address or data),
+		// there should be no read responses
 		always @(*)
 			`SLAVE_ASSUME(i_axi_awvalid == 0);
 		always @(*)
@@ -699,6 +730,7 @@ module faxil_slave #(
 	//
 	always @(posedge i_clk)
 	if (!F_OPT_READ_ONLY)
+		// Make sure we can get a write acknowledgment
 		cover((i_axi_bvalid)&&(i_axi_bready));
 
 	//
@@ -706,6 +738,7 @@ module faxil_slave #(
 	//
 	always @(posedge i_clk)
 	if (!F_OPT_WRITE_ONLY)
+		// Make sure we can get a response from the read channel
 		cover((i_axi_rvalid)&&(i_axi_rready));
 
 `undef	SLAVE_ASSUME
