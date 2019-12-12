@@ -42,7 +42,11 @@
 //
 `default_nettype	none
 //
-module wbm2axilite (
+module wbm2axilite #(
+        parameter C_AXI_DATA_WIDTH	=  32, // Width of the AXI R&W data
+        parameter C_AXI_ADDR_WIDTH	=  28  // AXI Address width
+    ) (
+    
 	i_clk, i_reset,
 	// AXI write address channel signals
 	i_axi_awready, o_axi_awaddr, o_axi_awcache, o_axi_awprot, o_axi_awvalid,
@@ -58,10 +62,8 @@ module wbm2axilite (
 	i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
 		o_wb_ack, o_wb_stall, o_wb_data, o_wb_err);
 
-	localparam C_AXI_DATA_WIDTH	=  32;// Width of the AXI R&W data
-	parameter C_AXI_ADDR_WIDTH	=  28;// AXI Address width
 	localparam DW			=  C_AXI_DATA_WIDTH;// Wishbone data width
-	parameter AW			=  C_AXI_ADDR_WIDTH-2;// WB addr width (log wordsize)
+	localparam AW			=  C_AXI_ADDR_WIDTH-2;// WB addr width (log wordsize)
 	input	wire			i_clk;	// System clock
 	input	wire			i_reset;// Reset signal,drives AXI rst
 
@@ -100,12 +102,12 @@ module wbm2axilite (
 	input	wire			i_wb_cyc;
 	input	wire			i_wb_stb;
 	input	wire			i_wb_we;
-	input	wire	[(AW-1):0]	i_wb_addr;
-	input	wire	[(DW-1):0]	i_wb_data;
-	input	wire	[(DW/8-1):0]	i_wb_sel;
+	input	wire	[(C_AXI_ADDR_WIDTH-3):0]	i_wb_addr;
+	input	wire	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data;
+	input	wire	[(C_AXI_DATA_WIDTH/8-1):0]	i_wb_sel;
 	output	reg			o_wb_ack;
 	output	wire			o_wb_stall;
-	output	reg	[(DW-1):0]	o_wb_data;
+	output	reg	[(C_AXI_DATA_WIDTH-1):0]	o_wb_data;
 	output	reg			o_wb_err;
 
 //*****************************************************************************
