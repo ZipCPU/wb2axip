@@ -215,7 +215,7 @@ module wbm2axisp #(
 		||(i_axi_bvalid && i_axi_bresp[1])
 		||(!i_wb_cyc && !empty))
 		flushing <= 1'b1;
-	else if (empty && !i_wb_cyc)
+	else if (empty)
 		flushing <= 1'b0;
 
 	////////////////////////////////////////////////////////////////////////
@@ -509,6 +509,10 @@ module wbm2axisp #(
 `ifdef	FORMAL
 		always @(*)
 			assert(wr_addr - rd_addr == npending);
+
+		always @(*)
+			assert(empty == (wr_addr == rd_addr));
+
 
 		//
 		// ...
