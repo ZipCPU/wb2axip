@@ -334,8 +334,10 @@ module	axildouble #(
 	if (bfifo.f_second_in_fifo)
 		assert(bfifo.f_second_data != 2'b01);
 	always @(*)
-	if (!bempty && (bfifo.rd_addr != bfifo.f_first_addr)
-			&&(bfifo.rd_addr != bfifo.f_second_addr))
+	if (!bempty && (!bfifo.f_first_in_fifo
+				|| bfifo.rd_addr != bfifo.f_first_addr)
+			&&(!bfifo.f_second_in_fifo
+				|| bfifo.rd_addr != bfifo.f_second_addr))
 		assume(S_AXI_BRESP != 2'b01);
 `else
 	always @(*)
@@ -460,8 +462,10 @@ module	axildouble #(
 	if (rfifo.f_second_in_fifo)
 		assert(rfifo.f_second_data[1:0] != 2'b01);
 	always @(*)
-	if (!rempty && (rfifo.rd_addr != rfifo.f_first_addr)
-			&&(rfifo.rd_addr != rfifo.f_second_addr))
+	if (!rempty && (!rfifo.f_first_in_fifo
+				|| rfifo.rd_addr != rfifo.f_first_addr)
+			&&(!rfifo.f_second_in_fifo
+				|| rfifo.rd_addr != rfifo.f_second_addr))
 		assume(S_AXI_RRESP != 2'b01);
 `else
 	always @(*)
