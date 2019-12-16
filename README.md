@@ -1,51 +1,88 @@
-# WB2AXIP: A Pipelined Wishbone B4 to AXI4 bridge
+# WB2AXIP: Bus interconnects, bridges, and other components
 
-Built out of necessity, [this core](rtl/wbm2axisp.v) is designed to provide
-a conversion from a [wishbone
-bus](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html) to an AXI bus.
-Primarily, the core is designed to connect a
-[wishbone bus](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html),
-either 32- or 128-bits wide, to a 128-bit wide AXI bus, which is the natural
-width of a DDR3 transaction (with 16-bit lanes).  Hence, if the
-Memory Interface Generator DDR3 controller is running at a 4:1 clock rate,
-memory clocks to AXI system clocks, then it should be possible to accomplish
-one transaction per clock at a sustained or pipelined rate.  This
-[bus translator](rtl/wbm2axisp.v) is designed to be able to handle one
-transaction per clock (pipelined), although [(due to Xilinx's MIG design)
-the delay may be up to 27 clocks](http://opencores.org/project,wbddr3).  (Ouch!)
+The bus components and bridges within this repository are unique in that they
+are all designed for 100% throughput with no throughput overhead.  They are also
+unique in that the vast majority of the cores within have all been formally
+verified.
 
-Since the initial build of the core, I've added the
+Where the protocol allows it, such as with AXI4, AXI-lite, and Wishbone B4
+pipelined, multiple transactions may be in flight at a time so that
+protocol handling doesn't stall the bus.
+
+This is uncommon among AXI4 implementations and almost unheard of in the
+AXI-lite implementations I have examined.
+
+Most AXI4 implementations will process a single burst transaction packet at
+a time and require some overhead to make this happen.  Xilinx's AXI-lite
+implementations, both interconnect and slave implementations, only handle one
+request at a time.  Other buses, such as Wishbone Classic, AHB, or APB, will
+only ever process one transaction word at a time.
+
+If you are coming from AXI4, AXI-lite, or any one of these other bus
+implementations to the AXI4 or even AXI-lite components supported here, then
+you should expect to see a throughput increase by using one (or more) of these
+cores--given of course that you have a bus master capable of issuing multiple
+requests at a time.
+
+This performance improvement may be as significant as a [16x speedup when
+toggling an I/O](https://zipcpu.com/zipcpu/2019/02/09/cpu-blinky.html), a 4x
+speedup in when comparing [this slave](rtl/demofull.v) against Xilinx's block
+RAM memory controller (when processing single beat transactions), or as
+insignificant as 2% improvement from using the AXI4 MM to Slave converters
+(according to Xilinx's data sheets---I haven't yet run the test myself).  This
+increased performance extends to the crossbar implementations contained within
+this repository as well, and so you may notice the improvement only increases
+when using these crossbars.
+
+# A Pipelined Wishbone B4 to AXI4 bridge
+
+Built out of necessity, this repository was originally built around [a Wishbone
+(WB) to AXI4 bridge](rtl/wbm2axisp.v), which is designed to provide a
+conversion from a [pipelined wishbone
+bus](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html) to an AXI4 bus for the
+purposes of driving memory transactions through Xilinx SDRAM controllers.  [The
+WB->AXI bridge](rtl/wbm2axisp.v) is designed to connect a [wishbone
+bus](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html) to an AXI bus which
+may be wider--such as from a 32-bit WB bus to a 128-bit AXI bus.  Hence, if
+the Memory Interface Generator DDR3 controller is running at a 4:1 clock rate,
+memory clocks to AXI system clocks, then this [bus translator](rtl/wbm2axisp.v)
+should be able to accomplish one transaction per clock at a sustained or
+pipelined rate.
+
+Since the initial build of [the core](rtl/wbm2axisp.v), I've added the
 [WB to AXI lite](rtl/wbm2axilite.v) bridge.  This is also a pipelined bridge,
 and like the original one it has also been formally verified.
 
 # AXI to Wishbone conversion
 
-As of 20181228, the project now contains an
-[AXI4 lite read channel to wishbone interface](rtl/axilrd2wbsp.v), and also an
-[AXI4 lite write channel to wishbone interface](rtl/axilwr2wbsp.v).
-A third core, the [AXI-lite to WB core](rtl/axlite2wbsp.v) combines these
-two together using a  [Wishbone arbiter](rtl/wbartbiter.v).  All four of these
-designs have been *formally verified*, and should be reliable to use.
+As of 20181228, the project now contains an [AXI4 lite read channel to wishbone
+bridge](rtl/axilrd2wbsp.v), and also an [AXI4 lite write channel to wishbone
+bridge](rtl/axilwr2wbsp.v).  A third core, the [AXI-lite to WB
+core](rtl/axlite2wbsp.v) combines these two together using a  [Wishbone
+arbiter](rtl/wbartbiter.v)--although choosing to use the
+[arbiter](rtl/wbarbiter.v) vs a full [Wishbone crossbar](rtl/wbxbar.v) is a
+design decision.  All four of these designs have been *formally verified*, and
+should be reliable to use.
 
 As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
 FPGA proven.
 
-The full AXI4 protocol, however, is rather complicated--especially when
-[compared to WB](http://zipcpu.com/zipcpu/2017/11/07/wb-formal.html).  As a
-result, while there is a full-fledged
-[AXI4 to Wishbone bridge](rtl/axim2wbsp.v) within this project,
-this bridge is still not ready for prime time.  It is designed to
-synchronize the write channels, turning AXI read/write requests into pipeline
-wishbone requests, maintaining the AXI ID fields, handle burst transactions,
-etc. The only problem is ...
-this full AXI4 to WB converter _doesn't work_ (yet).  I know this because it
-doesn't yet pass formal verification.
+As of 20191216, the conversion from the full AXI4 protocol to Wishbone is now
+partially supported by an [AXI4/READ to Wishbone bridge](rtl/aximrd2wbsp.v),
+which converts AXI4 read transactions to Wishbone requests.  The other half of
+the protocol, converting AXI4 write transactions to Wishbone requests, remains
+unsupported.  Once the write bridge is complete, then either the two channels
+can be used either as independent Wishbone inputs to an
+[interconnect](rtl/wbxbar.v), or [combined using a wishbone
+arbiter](rtl/axim2wbsp.v).
 
-If you need an AXI4 to WB capability, consider using this [AXI2AXILITE](rtl/axi2axilite.v)
-core to bridge from AXI to AXI-lite, and then [this AXI-lite to WB
-bridge](rtl/axlite2wbsp.v) bridge to get to wishbone pipeline.  If you need
-WB classic, you can then use [this pipeline to classic
-bridge](rtl/wbp2classic.v).
+Since the full AXI4 to Wishbone conversion is not yet fully supported, you might
+wish to consider using this
+[AXI2AXILITE](rtl/axi2axilite.v) core to
+bridge from AXI to AXI-lite, and then [this AXI-lite to WB
+bridge](rtl/axlite2wbsp.v) bridge to get the rest of the way to the
+wishbone pipeline protocol that I use.  If you need WB classic, you can then
+use [this pipeline to classic bridge](rtl/wbp2classic.v).
 
 # Wishbone pipeline to WB Classic
 
@@ -84,6 +121,8 @@ reference, for those who wish to repeat or examine my proofs.
 This repository has since become a repository for all kinds of bus-based
 odds and ends in addition to the bus translators mentioned above.  Some of
 these odds and ends include crossbar switches and AXI demonstrator cores.
+As mentioned above, these cores are unique in their 100% throughput
+capabilities.
 
 - [WBXBAR](rtl/wbxbar.v) is a fully function N master to M slave Wishbone
   crossbar.  Unlike my typical WB interconnects, this one guarantees that the
@@ -245,11 +284,20 @@ these odds and ends include crossbar switches and AXI demonstrator cores.
 
 # Commercial Applications
 
-Should you find the [GPLv3 license](doc/gpl-3.0.pdf) insufficient for your
-needs, other licenses can be purchased from Gisselquist Technology, LLC.
-Likewise the AXI4 (full) properties are both shipped with the [Symbiotic
-EDA Suite](https://www.symbioticeda.com/sed-suite), and hosted on gitlab
-where they are available to [sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
+Many of the cores within here are licensed under
+[GPLv3 license](doc/gpl-3.0.pdf).  Others are licensed under
+[LGPLv3 license](doc/lgpl-3.0.pdf).  I am intending to build several of these
+cores into [AutoFPGA](https://github.com/ZipCPU/autofpga)--including the
+crossbar's and the xSINGLE and xDOUBLE cores.  Once this happens, those cores
+used by [AutoFPGA](https://github.com/ZipCPU/autofpga)
+will be re-released under a Solderpad license.
+
+Should you find these licenses insufficient for your needs, other licenses can
+be purchased from Gisselquist Technology, LLC.  Likewise the AXI4 (full)
+properties are both shipped with the [Symbiotic EDA
+Suite](https://www.symbioticeda.com/sed-suite), and hosted on
+[gitlab](https://gitlab.com/ZipCPU/wb2axip/tree/formal) where they are
+available to [sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
 blog](http://zipcpu.com) upon request.
 
 # Thanks
@@ -257,8 +305,9 @@ blog](http://zipcpu.com) upon request.
 I'd like to thank @wallento for his initial work on a
 [Wishbone to AXI converter](https://github.com/wallento/wb2axi), and his
 encouragement to improve upon it.  While this isn't a fork of his work, the
-[pipelined wishbone to AXI bridge](rtl/wbm2axisp.v) took its initial
-motivation from his work.
+initial [pipelined wishbone to AXI bridge](rtl/wbm2axisp.v) which formed
+the core seed for this project took its initial motivation from his work.
 
 Many of the rest of these projects have been motivated by the desire to learn
-and develop my formal verification skills.
+and develop my formal verification skills.  For that, I would thank the staff
+of Symbiotic EDA for their tools and their encouragement.

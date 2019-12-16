@@ -15,6 +15,10 @@
 //	3. No request can be accepted unless there is room in the return
 //		channel for it
 //
+// Status:	Passes a formal bounded model check at 15 steps.  Should be
+//		ready for a hardware check.
+//
+//
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
@@ -49,40 +53,40 @@
 //
 `default_nettype	none
 //
-// module	aximrd2wbsp #(
 module	aximrd2wbsp #(
 	parameter C_AXI_ID_WIDTH	= 6, // The AXI id width used for R&W
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
 	parameter AW			= 26,	// AXI Address width
-	parameter LGFIFO                =  9	// Must be >= 8
+	parameter LGFIFO                =  3,
+	parameter [0:0] OPT_SWAP_ENDIANNESS = 0
 	// parameter	WBMODE		= "B4PIPELINE"
 		// Could also be "BLOCK"
 	) (
-	input	wire			i_axi_clk,	// Bus clock
-	input	wire			i_axi_reset_n,	// Bus reset
+	input	wire			S_AXI_ACLK,	// Bus clock
+	input	wire			S_AXI_ARESETN,	// Bus reset
 
 // AXI read address channel signals
-	output	reg			o_axi_arready,	// Read address ready
-	input wire	[C_AXI_ID_WIDTH-1:0]	i_axi_arid,	// Read ID
-	input	wire	[C_AXI_ADDR_WIDTH-1:0]	i_axi_araddr,	// Read address
-	input	wire	[7:0]		i_axi_arlen,	// Read Burst Length
-	input	wire	[2:0]		i_axi_arsize,	// Read Burst size
-	input	wire	[1:0]		i_axi_arburst,	// Read Burst type
-	input	wire	[0:0]		i_axi_arlock,	// Read lock type
-	input	wire	[3:0]		i_axi_arcache,	// Read Cache type
-	input	wire	[2:0]		i_axi_arprot,	// Read Protection type
-	input	wire	[3:0]		i_axi_arqos,	// Read Protection type
-	input	wire			i_axi_arvalid,	// Read address valid
+	output	reg			S_AXI_ARREADY,	// Read address ready
+	input wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_ARID,	// Read ID
+	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,	// Read address
+	input	wire	[7:0]		S_AXI_ARLEN,	// Read Burst Length
+	input	wire	[2:0]		S_AXI_ARSIZE,	// Read Burst size
+	input	wire	[1:0]		S_AXI_ARBURST,	// Read Burst type
+	input	wire	[0:0]		S_AXI_ARLOCK,	// Read lock type
+	input	wire	[3:0]		S_AXI_ARCACHE,	// Read Cache type
+	input	wire	[2:0]		S_AXI_ARPROT,	// Read Protection type
+	input	wire	[3:0]		S_AXI_ARQOS,	// Read Protection type
+	input	wire			S_AXI_ARVALID,	// Read address valid
   
 // AXI read data channel signals   
-	output	wire [C_AXI_ID_WIDTH-1:0] o_axi_rid,     // Response ID
-	output	wire [1:0]		o_axi_rresp,   // Read response
-	output	reg			o_axi_rvalid,  // Read reponse valid
-	output	wire [C_AXI_DATA_WIDTH-1:0] o_axi_rdata,    // Read data
-	output	wire 			o_axi_rlast,    // Read last
-	input	wire			i_axi_rready,  // Read Response ready
+	output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_RID,     // Response ID
+	output	reg [1:0]		S_AXI_RRESP,   // Read response
+	output	reg			S_AXI_RVALID,  // Read reponse valid
+	output	wire [C_AXI_DATA_WIDTH-1:0] S_AXI_RDATA,    // Read data
+	output	wire 			S_AXI_RLAST,    // Read last
+	input	wire			S_AXI_RREADY,  // Read Response ready
 
 	// We'll share the clock and the reset
 	output	reg				o_wb_cyc,
@@ -92,166 +96,104 @@ module	aximrd2wbsp #(
 	input	wire				i_wb_stall,
 	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
 	input	wire				i_wb_err
-`ifdef	FORMAL
-	// ,
-	// output	wire	[LGFIFO-1:0]		f_fifo_head,
-	// output	wire	[LGFIFO-1:0]		f_fifo_neck,
-	// output	wire	[LGFIFO-1:0]		f_fifo_torso,
-	// output	wire	[LGFIFO-1:0]		f_fifo_tail
-`endif
 	);
 
 	localparam	DW = C_AXI_DATA_WIDTH;
 
 	wire	w_reset;
-	assign	w_reset = (i_axi_reset_n == 1'b0);
+	assign	w_reset = (S_AXI_ARESETN == 1'b0);
 
 
-	wire	[C_AXI_ID_WIDTH+C_AXI_ADDR_WIDTH+25-1:0]	i_rd_request;
-	reg	[C_AXI_ID_WIDTH+C_AXI_ADDR_WIDTH+25-1:0]	r_rd_request;
-	wire	[C_AXI_ID_WIDTH+C_AXI_ADDR_WIDTH+25-1:0]	w_rd_request;
-
-	reg	[LGFIFO:0]	next_ackptr, next_rptr;
-
-	reg	[C_AXI_ID_WIDTH:0]	request_fifo	[0:((1<<LGFIFO)-1)];
-	reg	[C_AXI_ID_WIDTH:0]	rsp_data;
-
-	reg	[C_AXI_DATA_WIDTH:0]	response_fifo	[0:((1<<LGFIFO)-1)];
-	reg	[C_AXI_DATA_WIDTH:0]	ack_data;
-
-	reg				advance_ack;
+	wire	lastid_fifo_full, lastid_fifo_empty,
+		resp_fifo_full, resp_fifo_empty;
+	wire	[LGFIFO:0]	lastid_fifo_fill, resp_fifo_fill;
 
 
-	reg			r_valid, last_stb, last_ack, err_state;
+	reg				last_stb, last_ack, err_state;
 	reg	[C_AXI_ID_WIDTH-1:0]	axi_id;
-	reg	[LGFIFO:0]	fifo_wptr, fifo_ackptr, fifo_rptr;
-	reg		incr;
-	reg	[7:0]	stblen;
+	reg	[7:0]			stblen;
 
-	wire	[C_AXI_ID_WIDTH-1:0]	w_id;//    r_id;
-	wire	[C_AXI_ADDR_WIDTH-1:0]	w_addr;//  r_addr;
-	wire	[7:0]			w_len;//   r_len;
-	wire	[2:0]			w_size;//  r_size;
-	wire	[1:0]			w_burst;// r_burst;
-	wire	[0:0]			w_lock;//  r_lock;
-	wire	[3:0]			w_cache;// r_cache;
-	wire	[2:0]			w_prot;//  r_prot;
-	wire	[3:0]			w_qos;//   r_qos;
-	wire	[LGFIFO:0]		fifo_fill;
-	wire	[LGFIFO:0]		max_fifo_fill;
+	wire				skid_arvalid;
+	wire	[C_AXI_ID_WIDTH-1:0]	skid_arid;//    r_id;
+	wire	[C_AXI_ADDR_WIDTH-1:0]	skid_araddr;//  r_addr;
+	wire	[7:0]			skid_arlen;//   r_len;
+	wire	[2:0]			skid_arsize;//  r_size;
+	wire	[1:0]			skid_arburst;// r_burst;
+	reg				fifo_nearfull;
 	wire				accept_request;
 
+	reg	[1:0]	axi_burst;
+	reg	[2:0]	axi_size;
+	reg	[7:0]	axi_len;
+	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_addr;
+	wire	[C_AXI_ADDR_WIDTH-1:0]	next_addr;
+	wire	response_err;
+	wire	lastid_fifo_wr;
+	reg	midissue, wb_empty;
+	reg	[LGFIFO+7:0]	acks_expected;
 
+	skidbuffer #(
+		.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + 8 + 3 + 2)
+	) axirqbuf(S_AXI_ACLK, !S_AXI_ARESETN,
+		S_AXI_ARVALID, S_AXI_ARREADY,
+			{ S_AXI_ARID, S_AXI_ARADDR, S_AXI_ARLEN,
+			  S_AXI_ARSIZE, S_AXI_ARBURST },
+		skid_arvalid, accept_request,
+			{ skid_arid, skid_araddr, skid_arlen,
+			  skid_arsize, skid_arburst });
 
-	assign	fifo_fill = (fifo_wptr - fifo_rptr);
-	assign	max_fifo_fill = (1<<LGFIFO);
-
-	assign	accept_request = (i_axi_reset_n)&&(!err_state)
+	assign	accept_request = (!err_state)
 			&&((!o_wb_cyc)||(!i_wb_err))
-			&&((!o_wb_stb)||(last_stb && !i_wb_stall))
-			&&(r_valid ||((i_axi_arvalid)&&(o_axi_arready)))
-			// The request must fit into our FIFO before making
-			// it
-			&&(fifo_fill + {{(LGFIFO-8){1'b0}},w_len} +1
-					< max_fifo_fill)
+			// &&(!lastid_fifo_full)
+			&&(!midissue
+				||(o_wb_stb && last_stb && !i_wb_stall))
+			&&(skid_arvalid)
 			// One ID at a time, lest we return a bus error
 			// to the wrong AXI master
-			&&((fifo_fill == 0)||(w_id == axi_id));
+			&&(wb_empty ||(skid_arid == axi_id));
 
-
-	assign	i_rd_request = { i_axi_arid, i_axi_araddr, i_axi_arlen,
-				i_axi_arsize, i_axi_arburst, i_axi_arcache,
-				i_axi_arlock, i_axi_arprot, i_axi_arqos };
-
-	initial	r_rd_request = 0;
-	initial	r_valid      = 0;
-	always @(posedge i_axi_clk)
-	if (!i_axi_reset_n)
-	begin
-		r_rd_request <= 0;
-		r_valid <= 1'b0;
-	end else if ((i_axi_arvalid)&&(o_axi_arready))
-	begin
-		r_rd_request <= i_rd_request;
-		if (!accept_request)
-			r_valid <= 1'b1;
-	end else if (accept_request)
-		r_valid <= 1'b0;
-
-	always @(*)
-		o_axi_arready = !r_valid;
-
-	/*
-	assign	r_id    = r_rd_request[25 + C_AXI_ADDR_WIDTH +: C_AXI_ID_WIDTH];
-	assign	r_addr  = r_rd_request[25 +: C_AXI_ADDR_WIDTH];
-	assign	r_len   = r_rd_request[17 +: 8];
-	assign	r_size  = r_rd_request[14 +: 3];
-	assign	r_burst = r_rd_request[12 +: 2];
-	assign	r_lock  = r_rd_request[11 +: 1];
-	assign	r_cache = r_rd_request[ 7 +: 4];
-	assign	r_prot  = r_rd_request[ 4 +: 3];
-	assign	r_qos   = r_rd_request[ 0 +: 4];
-	*/
-
-	assign	w_rd_request = (r_valid) ? (r_rd_request) : i_rd_request;
-
-	assign	w_id    = w_rd_request[25 + C_AXI_ADDR_WIDTH +: C_AXI_ID_WIDTH];
-	assign	w_addr  = w_rd_request[25 +: C_AXI_ADDR_WIDTH];
-	assign	w_len   = w_rd_request[17 +: 8];
-	assign	w_size  = w_rd_request[14 +: 3];
-	assign	w_burst = w_rd_request[12 +: 2];
-	assign	w_lock  = w_rd_request[11 +: 1];
-	assign	w_cache = w_rd_request[ 7 +: 4];
-	assign	w_prot  = w_rd_request[ 4 +: 3];
-	assign	w_qos   = w_rd_request[ 0 +: 4];
 
 	initial o_wb_cyc        = 0;
 	initial o_wb_stb        = 0;
 	initial stblen          = 0;
-	initial incr            = 0;
 	initial last_stb        = 0;
-	always @(posedge i_axi_clk)
+	always @(posedge S_AXI_ACLK)
 	if (w_reset)
 	begin
 		o_wb_stb <= 1'b0;
 		o_wb_cyc <= 1'b0;
-		incr     <= 1'b0;
-		stblen   <= 0;
-		last_stb <= 0;
+	end else if (err_state || (o_wb_cyc && i_wb_err))
+	begin
+		o_wb_cyc <= 1'b0;
+		o_wb_stb <= 1'b0;
 	end else if ((!o_wb_stb)||(!i_wb_stall))
 	begin
 		if (accept_request)
 		begin
 			// Process the new request
 			o_wb_cyc <= 1'b1;
-			o_wb_stb <= 1'b1;
-			last_stb <= (w_len == 0);
-
-			o_wb_addr <= w_addr[(C_AXI_ADDR_WIDTH-1):(C_AXI_ADDR_WIDTH-AW)];
-			incr <= w_burst[0];
-			stblen <= w_len;
-			axi_id <= w_id;
+			if (lastid_fifo_full && (!S_AXI_RVALID||!S_AXI_RREADY))
+				o_wb_stb <= 1'b0;
+			else if (fifo_nearfull && midissue
+				&& (!S_AXI_RVALID||!S_AXI_RREADY))
+				o_wb_stb <= 1'b0;
+			else
+				o_wb_stb <= 1'b1;
+		end else if (!o_wb_stb && midissue)
+		begin
+			// Restart a transfer once the FIFO clears
+			if (S_AXI_RVALID)
+				o_wb_stb <= S_AXI_RREADY;
 		// end else if ((o_wb_cyc)&&(i_wb_err)||(err_state))
 		end else if (o_wb_stb && !last_stb)
 		begin
-			// Step forward on the burst request
-			last_stb <= (stblen == 1);
-
-			o_wb_addr <= o_wb_addr + ((incr)? 1'b1:1'b0);
-			stblen <= stblen - 1'b1;
-
-			if (i_wb_err)
-			begin
-				stblen <= 0;
+			if (fifo_nearfull
+				&& (!S_AXI_RVALID||!S_AXI_RREADY))
 				o_wb_stb <= 1'b0;
-				o_wb_cyc <= 1'b0;
-			end
 		end else if (!o_wb_stb || last_stb)
 		begin
 			// End the request
 			o_wb_stb <= 1'b0;
-			last_stb <= 1'b0;
-			stblen <= 0;
 
 			// Check for the last acknowledgment
 			if ((i_wb_ack)&&(last_ack))
@@ -259,120 +201,178 @@ module	aximrd2wbsp #(
 			if (i_wb_err)
 				o_wb_cyc <= 1'b0;
 		end
-	end else if ((o_wb_cyc)&&(i_wb_err))
-	begin
-		stblen <= 0;
-		o_wb_stb <= 1'b0;
-		o_wb_cyc <= 1'b0;
-		last_stb <= 1'b0;
 	end
 
+	initial	stblen   = 0;
+	initial	last_stb = 0;
+	initial	midissue = 0;
+	always @(posedge S_AXI_ACLK)
+	if (w_reset)
+	begin
+		stblen   <= 0;
+		last_stb <= 0;
+		midissue <= 0;
+	end else if (accept_request)
+	begin
+		stblen   <= skid_arlen;
+		last_stb <= (skid_arlen == 0);
+		midissue <= 1'b1;
+	end else if (lastid_fifo_wr)
+	begin
+		if (stblen > 0)
+			stblen <= stblen - 1;
+		last_stb <= (stblen == 1);
+		midissue <= (stblen > 0);
+	end
+
+	always @(posedge S_AXI_ACLK)
+	if (accept_request)
+	begin
+		axi_id    <= skid_arid;
+		axi_burst <= skid_arburst;
+		axi_size  <= skid_arsize;
+		axi_len   <= skid_arlen;
+	end
+
+	axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
+	next_read_addr(axi_addr, axi_size, axi_burst, axi_len, next_addr);
+
+	always @(posedge S_AXI_ACLK)
+	if (accept_request)
+		axi_addr <= skid_araddr;
+	else if (!i_wb_stall)
+		axi_addr <= next_addr;
+
 	always @(*)
-		next_ackptr = fifo_ackptr + 1'b1;
+		o_wb_addr = axi_addr[(C_AXI_ADDR_WIDTH-1):C_AXI_ADDR_WIDTH-AW];
+
+	assign	lastid_fifo_wr = (o_wb_stb && (i_wb_err || !i_wb_stall))
+			||(err_state && midissue && !lastid_fifo_full);
+
+	sfifo #(.BW(C_AXI_ID_WIDTH+1), .LGFLEN(LGFIFO))
+	lastid_fifo(S_AXI_ACLK, w_reset,
+		lastid_fifo_wr,
+		{ axi_id, last_stb },
+		lastid_fifo_full, lastid_fifo_fill,
+		S_AXI_RVALID && S_AXI_RREADY,
+		{ S_AXI_RID, S_AXI_RLAST },
+		lastid_fifo_empty);
+
+	reg	[C_AXI_DATA_WIDTH-1:0]	read_data;
+
+	generate if (OPT_SWAP_ENDIANNESS)
+	begin : SWAP_ENDIANNESS
+		integer	ik;
+
+		// AXI is little endian.  WB can be either.  Most of my WB
+		// work is big-endian.
+		//
+		// This will convert byte ordering between the two
+		always @(*)
+		for(ik=0; ik<C_AXI_DATA_WIDTH/8; ik=ik+1)
+			read_data[ik*8 +: 8]
+				= i_wb_data[(C_AXI_DATA_WIDTH-(ik+1)*8) +: 8];
+
+	end else begin : KEEP_ENDIANNESS
+
+		always @(*)
+			read_data = i_wb_data;
+
+	end endgenerate
+
+	sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO))
+	resp_fifo(S_AXI_ACLK, w_reset,
+		o_wb_cyc && (i_wb_ack || i_wb_err), { i_wb_data, i_wb_err },
+		resp_fifo_full, resp_fifo_fill,
+		S_AXI_RVALID && S_AXI_RREADY,
+		{ S_AXI_RDATA, response_err },
+		resp_fifo_empty);
+
+	// Count the number of acknowledgements we are still expecting.  This
+	// is to support the last_ack calculation in the next process
+	initial	acks_expected = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || err_state)
+		acks_expected <= 0;
+	else case({ accept_request, o_wb_cyc && i_wb_ack })
+	2'b01:	acks_expected <= acks_expected -1;
+	2'b10:	acks_expected <= acks_expected + (skid_arlen + 1);
+	2'b11:	acks_expected <= acks_expected + (skid_arlen);
+	default: begin end
+	endcase
+
+	// last_ack should be true if the next acknowledgment will end the bus
+	// cycle
+	initial	last_ack = 1;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || err_state)
+		last_ack <= 1;
+	else case({ accept_request, o_wb_cyc && i_wb_ack })
+	2'b01:	last_ack <= (acks_expected <= 2);
+	2'b10:	last_ack <= ((acks_expected + (skid_arlen + 1)) <= 1);
+	2'b11:	last_ack <= (acks_expected + (skid_arlen) <= 1);
+	default: begin end
+	endcase
+
+	initial	fifo_nearfull = 1'b0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		fifo_nearfull <= 1'b0;
+	else case({ lastid_fifo_wr, S_AXI_RVALID && S_AXI_RREADY })
+	2'b10: fifo_nearfull = (lastid_fifo_fill >= (1<<LGFIFO)-2);
+	2'b01: fifo_nearfull <= lastid_fifo_full;
+	default: begin end
+	endcase
+
+	initial	wb_empty = 1'b1;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || !o_wb_cyc)
+		wb_empty <= 1'b1;
+	else case({ lastid_fifo_wr, (i_wb_ack || i_wb_err) })
+	2'b10: wb_empty = 1'b0;
+	2'b01: wb_empty <= (lastid_fifo_fill == resp_fifo_fill + 1);
+	default: begin end
+	endcase
 
 	always @(*)
 	begin
-		last_ack = 1'b0;
-		if (err_state)
-			last_ack = 1'b1;
-		else if ((o_wb_stb)&&(stblen == 0)&&(fifo_wptr == fifo_ackptr))
-			last_ack = 1'b1;
-		else if ((fifo_wptr == next_ackptr)&&(!o_wb_stb))
-			last_ack = 1'b1;
+		S_AXI_RRESP[0] = 1'b0;
+		S_AXI_RRESP[1] = response_err || (resp_fifo_empty && err_state);
+
+
+		S_AXI_RVALID = !resp_fifo_empty
+			|| (err_state && !lastid_fifo_empty);
 	end
-
-	initial	fifo_wptr = 0;
-	always @(posedge i_axi_clk)
-	if (w_reset)
-		fifo_wptr <= 0;
-	else if (o_wb_cyc && i_wb_err)
-		fifo_wptr <= fifo_wptr + {{(LGFIFO-8){1'b0}},stblen}
-				+ ((o_wb_stb)? 1:0);
-	else if ((o_wb_stb)&&(!i_wb_stall))
-		fifo_wptr <= fifo_wptr + 1'b1;
-
-	initial	fifo_ackptr = 0;
-	always @(posedge i_axi_clk)
-	if (w_reset)
-		fifo_ackptr <= 0;
-	else if ((o_wb_cyc)&&((i_wb_ack)||(i_wb_err)))
-		fifo_ackptr <= fifo_ackptr + 1'b1;
-	else if (err_state && (fifo_ackptr != fifo_wptr))
-		fifo_ackptr <= fifo_ackptr + 1'b1;
-
-	always @(posedge i_axi_clk)
-	if ((o_wb_stb)&&(!i_wb_stall))
-		request_fifo[fifo_wptr[LGFIFO-1:0]] <= { last_stb, axi_id };
-
-	always @(posedge i_axi_clk)
-	if ((o_wb_cyc && ((i_wb_ack)||(i_wb_err)))
-		||(err_state && (fifo_ackptr != fifo_wptr)))
-		response_fifo[fifo_ackptr[LGFIFO-1:0]]
-			<= { (err_state||i_wb_err), i_wb_data };
-
-	initial	fifo_rptr = 0;
-	always @(posedge i_axi_clk)
-	if (w_reset)
-		fifo_rptr <= 0;
-	else if ((o_axi_rvalid)&&(i_axi_rready))
-		fifo_rptr <= fifo_rptr + 1'b1;
-
-	always @(*)
-		next_rptr = fifo_rptr + 1'b1;
-
-	always @(posedge i_axi_clk)
-	if (advance_ack)
-		ack_data <= response_fifo[fifo_rptr[LGFIFO-1:0]];
-
-	always @(posedge i_axi_clk)
-	if (advance_ack)
-		rsp_data <= request_fifo[fifo_rptr[LGFIFO-1:0]];
-
-	always @(*)
-	if ((o_axi_rvalid)&&(i_axi_rready))
-		advance_ack = (fifo_ackptr != next_rptr);
-	else if ((!o_axi_rvalid)&&(fifo_ackptr != fifo_rptr))
-		advance_ack = 1'b1;
-	else
-		advance_ack = 1'b0;
-
-	initial	o_axi_rvalid = 0;
-	always @(posedge i_axi_clk)
-	if (w_reset)
-		o_axi_rvalid <= 1'b0;
-	else if (advance_ack)
-		o_axi_rvalid <= 1'b1;
-	else if (i_axi_rready)
-		o_axi_rvalid <= 1'b0;
 
 	initial	err_state = 0;
-	always @(posedge i_axi_clk)
+	always @(posedge S_AXI_ACLK)
 	if (w_reset)
 		err_state <= 1'b0;
 	else if ((o_wb_cyc)&&(i_wb_err))
 		err_state <= 1'b1;
-	else if ((!o_wb_stb)&&(fifo_wptr == fifo_rptr))
+	else if (lastid_fifo_empty && !midissue)
 		err_state <= 1'b0;
 
-	assign	o_axi_rlast = rsp_data[C_AXI_ID_WIDTH];
-	assign	o_axi_rid   = rsp_data[0 +: C_AXI_ID_WIDTH];
-	assign	o_axi_rresp = {(2){ack_data[C_AXI_DATA_WIDTH]}};
-	assign	o_axi_rdata = ack_data[0 +: C_AXI_DATA_WIDTH];
 
 	// Make Verilator happy
 	// verilator lint_off UNUSED
-	wire	[(C_AXI_ID_WIDTH+1)+(C_AXI_ADDR_WIDTH-AW)
-		+27-1:0]	unused;
-	assign	unused = { i_axi_arsize, i_axi_arburst[1],
-		i_axi_arlock, i_axi_arcache, i_axi_arprot, i_axi_arqos,
-		w_burst[1], w_size, w_lock, w_cache, w_prot, w_qos, w_addr[1:0],
-			i_axi_araddr[(C_AXI_ADDR_WIDTH-AW-1):0] };
+	wire	unused;
+	assign	unused = &{ 1'b0, S_AXI_ARLOCK, S_AXI_ARCACHE,
+			S_AXI_ARPROT, S_AXI_ARQOS, resp_fifo_full };
 	// verilator lint_on  UNUSED
 
 `ifdef	FORMAL
+	////////////////////////////////////////////////////////////////////////
+	//
+	// The following are a subset of the properties used to verify this
+	// core.
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	reg	f_past_valid;
 	initial f_past_valid = 1'b0;
-	always @(posedge i_axi_clk)
+	always @(posedge S_AXI_ACLK)
 		f_past_valid <= 1'b1;
 
 	////////////////////////////////////////////////////////////////////////
@@ -384,100 +384,63 @@ module	aximrd2wbsp #(
 	if (!f_past_valid)
 		assume(w_reset);
 
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Ad-hoc assertions
 	//
 	//
-	always @(*)
-	if (o_wb_stb)
-		assert(last_stb == (stblen == 0));
-	else
-		assert((!last_stb)&&(stblen == 0));
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Error state
 	//
 	//
-	/*
 	always @(*)
-		assume(!i_wb_err);
-	always @(*)
-		assert(!err_state);
-	*/
-	always @(*)
-	if ((!err_state)&&(o_axi_rvalid))
-		assert(o_axi_rresp == 2'b00);
+	if (err_state)
+		assert(!o_wb_stb && !o_wb_cyc);
 
 	////////////////////////////////////////////////////////////////////////
 	//
-	// FIFO pointers
+	// Bus properties
 	//
 	//
-	wire	[LGFIFO:0]	f_fifo_wb_used, f_fifo_ackremain, f_fifo_used;
-	assign	f_fifo_used       = fifo_wptr   - fifo_rptr;
-	assign	f_fifo_wb_used    = fifo_wptr   - fifo_ackptr;
-	assign	f_fifo_ackremain  = fifo_ackptr - fifo_rptr;
 
-	always @(*)
-	if (o_wb_stb)
-		assert(f_fifo_used + stblen + 1 < {(LGFIFO){1'b1}});
-	else
-		assert(f_fifo_used < {(LGFIFO){1'b1}});
-	always @(*)
-		assert(f_fifo_wb_used   <= f_fifo_used);
-	always @(*)
-		assert(f_fifo_ackremain <= f_fifo_used);
-
-	// Reset properties
-	always @(posedge i_axi_clk)
-	if ((!f_past_valid)||($past(w_reset)))
-	begin
-		assert(fifo_wptr   == 0);
-		assert(fifo_ackptr == 0);
-		assert(fifo_rptr   == 0);
-	end
-
-	localparam	F_LGDEPTH = LGFIFO+1, F_LGRDFIFO = 72; // 9*F_LGFIFO;
-	wire	[(9-1):0]		f_axi_rd_count;
-	wire	[(F_LGRDFIFO-1):0]	f_axi_rdfifo;
-	wire	[(F_LGDEPTH-1):0]	f_axi_rd_nbursts, f_axi_rd_outstanding,
-					f_axi_awr_outstanding,
-			f_wb_nreqs, f_wb_nacks, f_wb_outstanding;
+	localparam	F_LGDEPTH = (LGFIFO>8) ? LGFIFO+1 : 10, F_LGRDFIFO = 72; // 9*F_LGFIFO;
+	//
+	// ...
+	//
+	wire	[(F_LGDEPTH-1):0]
+			fwb_nreqs, fwb_nacks, fwb_outstanding;
 
 	fwb_master #(.AW(AW), .DW(C_AXI_DATA_WIDTH), .F_MAX_STALL(2),
 		.F_MAX_ACK_DELAY(3), .F_LGDEPTH(F_LGDEPTH),
 		.F_OPT_DISCONTINUOUS(1))
-		fwb(i_axi_clk, w_reset,
+		fwb(S_AXI_ACLK, w_reset,
 			o_wb_cyc, o_wb_stb, 1'b0, o_wb_addr, {(DW){1'b0}}, 4'hf,
 			i_wb_ack, i_wb_stall, i_wb_data, i_wb_err,
-			f_wb_nreqs, f_wb_nacks, f_wb_outstanding);
+			fwb_nreqs, fwb_nacks, fwb_outstanding);
 
 	always @(*)
 	if (err_state)
-		assert(f_wb_outstanding == 0);
-	else
-		assert(f_wb_outstanding == f_fifo_wb_used);
+		assert(fwb_outstanding == 0);
 
 
 	faxi_slave	#(.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
-			.F_OPT_BURSTS(1'b0),
+			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_AXI_MAXSTALL(0),
 			.F_AXI_MAXDELAY(0))
-		faxi(.i_clk(i_axi_clk), .i_axi_reset_n(!w_reset),
+		faxi(.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
 			.i_axi_awready(1'b0),
 			.i_axi_awaddr(0),
-			.i_axi_awlen(0),
-			.i_axi_awsize(0),
-			.i_axi_awburst(0),
-			.i_axi_awlock(0),
-			.i_axi_awcache(0),
-			.i_axi_awprot(0),
-			.i_axi_awqos(0),
+			.i_axi_awlen(8'h0),
+			.i_axi_awsize(3'h0),
+			.i_axi_awburst(2'h0),
+			.i_axi_awlock(1'b0),
+			.i_axi_awcache(4'h0),
+			.i_axi_awprot(3'h0),
+			.i_axi_awqos(4'h0),
 			.i_axi_awvalid(1'b0),
 			//
 			.i_axi_wready(1'b0),
@@ -486,41 +449,100 @@ module	aximrd2wbsp #(
 			.i_axi_wlast(0),
 			.i_axi_wvalid(1'b0),
 			//
+			.i_axi_bid(0),
 			.i_axi_bresp(0),
 			.i_axi_bvalid(1'b0),
 			.i_axi_bready(1'b0),
 			//
-			.i_axi_arready(o_axi_arready),
-			.i_axi_araddr(i_axi_araddr),
-			.i_axi_arlen(i_axi_arlen),
-			.i_axi_arsize(i_axi_arsize),
-			.i_axi_arburst(i_axi_arburst),
-			.i_axi_arlock(i_axi_arlock),
-			.i_axi_arcache(i_axi_arcache),
-			.i_axi_arprot(i_axi_arprot),
-			.i_axi_arqos(i_axi_arqos),
-			.i_axi_arvalid(i_axi_arvalid),
+			.i_axi_arready(S_AXI_ARREADY),
+			.i_axi_arid(S_AXI_ARID),
+			.i_axi_araddr(S_AXI_ARADDR),
+			.i_axi_arlen(S_AXI_ARLEN),
+			.i_axi_arsize(S_AXI_ARSIZE),
+			.i_axi_arburst(S_AXI_ARBURST),
+			.i_axi_arlock(S_AXI_ARLOCK),
+			.i_axi_arcache(S_AXI_ARCACHE),
+			.i_axi_arprot(S_AXI_ARPROT),
+			.i_axi_arqos(S_AXI_ARQOS),
+			.i_axi_arvalid(S_AXI_ARVALID),
 			//
-			.i_axi_rresp(o_axi_rresp),
-			.i_axi_rvalid(o_axi_rvalid),
-			.i_axi_rdata(o_axi_rdata),
-			.i_axi_rlast(o_axi_rlast),
-			.i_axi_rready(i_axi_rready),
+			.i_axi_rresp(S_AXI_RRESP),
+			.i_axi_rid(S_AXI_RID),
+			.i_axi_rvalid(S_AXI_RVALID),
+			.i_axi_rdata(S_AXI_RDATA),
+			.i_axi_rlast(S_AXI_RLAST),
+			.i_axi_rready(S_AXI_RREADY)
 			//
-			.f_axi_rd_nbursts(f_axi_rd_nbursts),
-			.f_axi_rd_outstanding(f_axi_rd_outstanding),
-			.f_axi_wr_nbursts(),
-			.f_axi_awr_outstanding(f_axi_awr_outstanding),
-			.f_axi_awr_nbursts(),
+			// ...
 			//
-			.f_axi_rd_count(f_axi_rd_count),
-			.f_axi_rdfifo(f_axi_rdfifo));
+			);
+
+	//
+	// ...
+	//
 
 	always @(*)
-		assert(f_axi_awr_outstanding == 0);
+	if (!resp_fifo_empty && response_err)
+		assert(resp_fifo_fill == 1);
+
+	always @(*)
+		assert(midissue == ((stblen > 0)||(last_stb)));
+
+	always @(*)
+	if (last_stb && !err_state)
+		assert(o_wb_stb || lastid_fifo_full);
+
+	always @(*)
+	if (last_stb)
+		assert(stblen == 0);
+
+	always @(*)
+	if (lastid_fifo_full)
+	begin
+		assert(!o_wb_stb);
+		assert(!lastid_fifo_wr);
+	end
+
+	always @(*)
+	if (!err_state)
+	begin
+		if (midissue && !last_stb)
+			assert(!last_ack);
+
+		assert(lastid_fifo_fill - resp_fifo_fill
+			== fwb_outstanding);
+
+		if (fwb_outstanding > 1)
+			assert(!last_ack);
+		else if (fwb_outstanding == 1)
+			assert(midissue || last_ack);
+		else if (o_wb_cyc) // && (fwb_outstanding ==0)
+			assert(last_ack == last_stb);
+
+		if (midissue)
+			assert(o_wb_cyc);
+	end
+
+	always @(*)
+	if (o_wb_cyc)
+		assert(wb_empty == (lastid_fifo_fill == resp_fifo_fill));
+
+	always @(*)
+	if ((fwb_nacks == fwb_nreqs)&&(!midissue))
+		assert(!o_wb_cyc);
+
+	always @(*)
+		assert(fwb_outstanding <= (1<<LGFIFO));
+
+	always @(*)
+		assert(fifo_nearfull == (lastid_fifo_fill >= (1<<LGFIFO)-1));
+
+	always @(*)
+	if (o_wb_stb)
+		assert(last_ack == (last_stb&& wb_empty));//&&(!i_wb_stall);
+	else if (o_wb_cyc && !midissue)
+		assert(last_ack == (resp_fifo_fill + 1 >= lastid_fifo_fill));
+
 
 `endif
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif
