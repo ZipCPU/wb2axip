@@ -237,6 +237,15 @@ module	fwb_slave(i_clk, i_reset,
 		`SLAVE_ASSUME(i_wb_we == $past(i_wb_we));
 
 	// Write requests must also set one (or more) of i_wb_sel
+	//
+	// This test has been removed since down-sizers (taking bus from width
+	// DW to width dw < DW) might actually create empty requests that this
+	// would prevent.  Re-enabling it would also complicate AXI to WB
+	// transfers, since AXI explicitly allows WSTRB == 0.  Finally, this
+	// criteria isn't found in the WB spec--so while it might be a good
+	// idea to check, in hind sight there are too many exceptions to be
+	// dogmatic about it.
+	//
 	// always @(*)
 	// if ((i_wb_stb)&&(i_wb_we))
 	//	`SLAVE_ASSUME(|i_wb_sel);
