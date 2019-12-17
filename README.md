@@ -271,6 +271,10 @@ capabilities.
 
   *This core has been formally verified.*
 
+- [AXIXCLK](rtl/axixclk.v) can be used to cross clock domains in an AXI
+  context.  As implemented, it is little more than a set of asynchronous FIFOs
+  applied to each of the AXI channels.  The asynchronous FIFOs have been
+  formally verified,
 
 # Commercial Applications
 
