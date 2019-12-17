@@ -44,7 +44,8 @@
 //
 module wbm2axilite #(
         parameter C_AXI_DATA_WIDTH	=  32, // Width of the AXI R&W data
-        parameter C_AXI_ADDR_WIDTH	=  28  // AXI Address width
+        parameter C_AXI_ADDR_WIDTH	=  28,  // AXI Address width
+	parameter LGFIFOLN 		=   5
     ) (
     
 	i_clk, i_reset,
@@ -127,7 +128,7 @@ module wbm2axilite #(
 					: ((DW ==  64) ? 6
 					: ((DW == 128) ? 7
 					: 8))));
-	localparam	LGFIFOLN = 5;
+
 	localparam	FIFOLN = (1<<LGFIFOLN);
 
 
