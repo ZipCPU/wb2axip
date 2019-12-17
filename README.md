@@ -55,34 +55,24 @@ and like the original one it has also been formally verified.
 
 # AXI to Wishbone conversion
 
-As of 20181228, the project now contains an [AXI4 lite read channel to wishbone
-bridge](rtl/axilrd2wbsp.v), and also an [AXI4 lite write channel to wishbone
-bridge](rtl/axilwr2wbsp.v).  A third core, the [AXI-lite to WB
-core](rtl/axlite2wbsp.v) combines these two together using a  [Wishbone
-arbiter](rtl/wbartbiter.v)--although choosing to use the
-[arbiter](rtl/wbarbiter.v) vs a full [Wishbone crossbar](rtl/wbxbar.v) is a
-design decision.  All four of these designs have been *formally verified*, and
-should be reliable to use.
+While not the original purpose of the project, it now has both
+[AXI-lite to WB](rtl/axlite2wbsp.v)
+and [AXI to WB](rtl/axim2wbsp.v) bridges.  Each of these bridges comes in
+two parts, a read and write half.  These halves can be used either independently
+, generating separate inputs to a [WB crossbar](rtl/wbxbar.v),
+or combined through a [WB arbiter](rtl/wbarbiter.v).
 
-As of 20190101, [this AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been
-FPGA proven.
+[The AXI-lite to WB bridge](rtl/axlite2wbsp.v) has been both formally
+verified and FPGA proven.  This includes both the [write
+half](rtl/axilwr2wbsp.v) as well as the [read half](rtl/axilrd2wbsp.v).
+Given the reluctance of the major vendors to support high speed AXI-lite
+interfaces, you aren't likely to find this kind of performance elsewhere.
 
-As of 20191216, the conversion from the full AXI4 protocol to Wishbone is now
-partially supported by an [AXI4/READ to Wishbone bridge](rtl/aximrd2wbsp.v),
-which converts AXI4 read transactions to Wishbone requests.  The other half of
-the protocol, converting AXI4 write transactions to Wishbone requests, remains
-unsupported.  Once the write bridge is complete, then either the two channels
-can be used either as independent Wishbone inputs to an
-[interconnect](rtl/wbxbar.v), or [combined using a wishbone
-arbiter](rtl/axim2wbsp.v).
-
-Since the full AXI4 to Wishbone conversion is not yet fully supported, you might
-wish to consider using this
-[AXI2AXILITE](rtl/axi2axilite.v) core to
-bridge from AXI to AXI-lite, and then [this AXI-lite to WB
-bridge](rtl/axlite2wbsp.v) bridge to get the rest of the way to the
-wishbone pipeline protocol that I use.  If you need WB classic, you can then
-use [this pipeline to classic bridge](rtl/wbp2classic.v).
+[The AXI to WB bridge](rtl/axim2wbsp.v) [write](rtl/aximwr2wbsp.v) and
+[read](aximrd2wbsp.v) components have only been formally verified through
+about a dozen steps or so.  This proof is deep enough to
+verify most of the bus interactions, but not nearly deep enough to verify
+any issues associated with internal FIFO overflows.
 
 # Wishbone pipeline to WB Classic
 

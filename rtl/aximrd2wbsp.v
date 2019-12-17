@@ -133,6 +133,7 @@ module	aximrd2wbsp #(
 	reg	[LGFIFO+7:0]	acks_expected;
 
 	skidbuffer #(
+		.OPT_OUTREG(0),
 		.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + 8 + 3 + 2)
 	) axirqbuf(S_AXI_ACLK, !S_AXI_ARESETN,
 		S_AXI_ARVALID, S_AXI_ARREADY,
@@ -282,7 +283,7 @@ module	aximrd2wbsp #(
 
 	sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO))
 	resp_fifo(S_AXI_ACLK, w_reset,
-		o_wb_cyc && (i_wb_ack || i_wb_err), { i_wb_data, i_wb_err },
+		o_wb_cyc && (i_wb_ack || i_wb_err), { read_data, i_wb_err },
 		resp_fifo_full, resp_fifo_fill,
 		S_AXI_RVALID && S_AXI_RREADY,
 		{ S_AXI_RDATA, response_err },
@@ -296,8 +297,8 @@ module	aximrd2wbsp #(
 		acks_expected <= 0;
 	else case({ accept_request, o_wb_cyc && i_wb_ack })
 	2'b01:	acks_expected <= acks_expected -1;
-	2'b10:	acks_expected <= acks_expected + (skid_arlen + 1);
-	2'b11:	acks_expected <= acks_expected + (skid_arlen);
+	2'b10:	acks_expected <= acks_expected+({{(LGFIFO){1'b0}},skid_arlen} + 1);
+	2'b11:	acks_expected <= acks_expected+{{(LGFIFO){1'b0}},skid_arlen};
 	default: begin end
 	endcase
 
@@ -307,10 +308,11 @@ module	aximrd2wbsp #(
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || err_state)
 		last_ack <= 1;
-	else case({ accept_request, o_wb_cyc && i_wb_ack })
+	else case({ accept_request, i_wb_ack })
 	2'b01:	last_ack <= (acks_expected <= 2);
-	2'b10:	last_ack <= ((acks_expected + (skid_arlen + 1)) <= 1);
-	2'b11:	last_ack <= (acks_expected + (skid_arlen) <= 1);
+	2'b10:	last_ack <= (acks_expected == 0)&&(skid_arlen == 0);
+	2'b11:	last_ack <= (acks_expected < 2)&&(skid_arlen < 2)
+				&&(!acks_expected[0]||!skid_arlen[0]);
 	default: begin end
 	endcase
 
@@ -319,7 +321,7 @@ module	aximrd2wbsp #(
 	if (!S_AXI_ARESETN)
 		fifo_nearfull <= 1'b0;
 	else case({ lastid_fifo_wr, S_AXI_RVALID && S_AXI_RREADY })
-	2'b10: fifo_nearfull = (lastid_fifo_fill >= (1<<LGFIFO)-2);
+	2'b10: fifo_nearfull <= (lastid_fifo_fill >= (1<<LGFIFO)-2);
 	2'b01: fifo_nearfull <= lastid_fifo_full;
 	default: begin end
 	endcase
@@ -329,7 +331,7 @@ module	aximrd2wbsp #(
 	if (!S_AXI_ARESETN || !o_wb_cyc)
 		wb_empty <= 1'b1;
 	else case({ lastid_fifo_wr, (i_wb_ack || i_wb_err) })
-	2'b10: wb_empty = 1'b0;
+	2'b10: wb_empty <= 1'b0;
 	2'b01: wb_empty <= (lastid_fifo_fill == resp_fifo_fill + 1);
 	default: begin end
 	endcase
@@ -543,6 +545,66 @@ module	aximrd2wbsp #(
 	else if (o_wb_cyc && !midissue)
 		assert(last_ack == (resp_fifo_fill + 1 >= lastid_fifo_fill));
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover checks
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	reg [3:0]	cvr_reads, cvr_read_bursts, cvr_rdid_bursts;
+	reg [C_AXI_ID_WIDTH-1:0]	cvr_read_id;
+
+	initial	cvr_reads = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		cvr_reads <= 1;
+	else if (i_wb_err)
+		cvr_reads <= 0;
+	else if (S_AXI_RVALID && S_AXI_RREADY && !cvr_reads[3]
+			&& cvr_reads > 0)
+		cvr_reads <= cvr_reads + 1;
+
+	initial	cvr_read_bursts = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		cvr_read_bursts <= 1;
+	else if (S_AXI_ARVALID && S_AXI_ARLEN < 1)
+		cvr_read_bursts <= 0;
+	else if (i_wb_err)
+		cvr_read_bursts <= 0;
+	else if (S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST
+			&& !cvr_read_bursts[3] && cvr_read_bursts > 0)
+		cvr_read_bursts <= cvr_read_bursts + 1;
+
+	initial	cvr_read_id = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		cvr_read_id <= 1;
+	else if (S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
+		cvr_read_id <= cvr_read_id + 1;
+
+	initial	cvr_rdid_bursts = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		cvr_rdid_bursts <= 1;
+	else if (S_AXI_ARVALID && S_AXI_ARLEN < 1)
+		cvr_rdid_bursts <= 0;
+	else if (i_wb_err)
+		cvr_rdid_bursts <= 0;
+	else if (S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST
+			&& S_AXI_RID == cvr_read_id
+			&& !cvr_rdid_bursts[3] && cvr_rdid_bursts > 0)
+		cvr_rdid_bursts <= cvr_rdid_bursts + 1;
+
+	always @(*)
+		cover(cvr_reads == 4);
+
+	always @(*)
+		cover(cvr_read_bursts == 4);
+
+	always @(*)
+		cover(cvr_rdid_bursts == 4);
 
 `endif
 endmodule
