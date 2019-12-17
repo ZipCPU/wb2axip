@@ -1,0 +1,126 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Thu Dec 12 18:40:05 2019
+[*]
+[dumpfile_mtime] "Thu Dec 12 18:30:15 2019"
+[dumpfile_size] 197418
+[timestart] 0
+[size] 1920 1029
+[pos] -1 -429
+*-5.474993 38 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 182
+[sst_expanded] 1
+[sst_vpaned_height] 306
+@28
+axilxbar.S_AXI_ACLK
+axilxbar.S_AXI_ARESETN
+@200
+-
+@800200
+-Slave interface
+@22
+[color] 3
+axilxbar.S_AXI_AWVALID[3:0]
+@23
+[color] 2
+axilxbar.S_AXI_AWREADY[3:0]
+@22
+[color] 3
+axilxbar.S_AXI_AWADDR[63:0]
+[color] 3
+axilxbar.S_AXI_AWPROT[11:0]
+@200
+-
+@22
+[color] 3
+axilxbar.S_AXI_WVALID[3:0]
+@23
+[color] 2
+axilxbar.S_AXI_WREADY[3:0]
+@22
+[color] 3
+axilxbar.S_AXI_WDATA[127:0]
+[color] 3
+axilxbar.S_AXI_WSTRB[15:0]
+@200
+-
+@22
+[color] 2
+axilxbar.S_AXI_BVALID[3:0]
+[color] 3
+axilxbar.S_AXI_BREADY[3:0]
+[color] 2
+axilxbar.S_AXI_BRESP[7:0]
+@200
+-
+@22
+[color] 3
+axilxbar.S_AXI_ARVALID[3:0]
+[color] 2
+axilxbar.S_AXI_ARREADY[3:0]
+[color] 3
+axilxbar.S_AXI_ARADDR[63:0]
+[color] 3
+axilxbar.S_AXI_ARPROT[11:0]
+@200
+-
+@22
+[color] 2
+axilxbar.S_AXI_RVALID[3:0]
+[color] 3
+axilxbar.S_AXI_RREADY[3:0]
+[color] 2
+axilxbar.S_AXI_RDATA[127:0]
+[color] 2
+axilxbar.S_AXI_RRESP[7:0]
+@1000200
+-Slave interface
+@c00200
+-Master interface
+@28
+axilxbar.M_AXI_AWVALID
+axilxbar.M_AXI_AWREADY
+@22
+axilxbar.M_AXI_AWADDR[15:0]
+@28
+axilxbar.M_AXI_AWPROT[2:0]
+@200
+-
+@28
+axilxbar.M_AXI_WVALID
+axilxbar.M_AXI_WREADY
+@22
+axilxbar.M_AXI_WDATA[31:0]
+axilxbar.M_AXI_WSTRB[3:0]
+@200
+-
+@28
+axilxbar.M_AXI_BVALID
+axilxbar.M_AXI_BREADY
+axilxbar.M_AXI_BRESP[1:0]
+@200
+-
+@28
+axilxbar.M_AXI_ARVALID
+axilxbar.M_AXI_ARREADY
+@22
+axilxbar.M_AXI_ARADDR[15:0]
+@28
+axilxbar.M_AXI_ARPROT[2:0]
+@200
+-
+@28
+axilxbar.M_AXI_RVALID
+axilxbar.M_AXI_RREADY
+@22
+axilxbar.M_AXI_RDATA[31:0]
+@28
+axilxbar.M_AXI_RRESP[1:0]
+@1401200
+-Master interface
+@200
+-
+-
+[pattern_trace] 1
+[pattern_trace] 0

@@ -278,21 +278,7 @@ capabilities.
 
 # Commercial Applications
 
-Many of the cores within here are licensed under
-[GPLv3 license](doc/gpl-3.0.pdf).  Others are licensed under
-[LGPLv3 license](doc/lgpl-3.0.pdf).  I am intending to build several of these
-cores into [AutoFPGA](https://github.com/ZipCPU/autofpga)--including the
-crossbar's and the xSINGLE and xDOUBLE cores.  Once this happens, those cores
-used by [AutoFPGA](https://github.com/ZipCPU/autofpga)
-will be re-released under a Solderpad license.
-
-Should you find these licenses insufficient for your needs, other licenses can
-be purchased from Gisselquist Technology, LLC.  Likewise the AXI4 (full)
-properties are both shipped with the [Symbiotic EDA
-Suite](https://www.symbioticeda.com/sed-suite), and hosted on
-[gitlab](https://gitlab.com/ZipCPU/wb2axip/tree/formal) where they are
-available to [sponsors](https://www.patreon.com/ZipCPU) of the [ZipCPU
-blog](http://zipcpu.com) upon request.
+This repository is licensed under the [Apache 2 license](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 # Thanks
 

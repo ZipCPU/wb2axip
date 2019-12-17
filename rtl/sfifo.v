@@ -2,7 +2,7 @@
 //
 // Filename: 	sfifo.v
 //
-// Project:	Pipelined Wishbone to AXI converter
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A synchronous data FIFO.
 //
