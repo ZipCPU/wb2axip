@@ -51,7 +51,7 @@ WBARB      := wbarbiter
 DECODER    := addrdecode
 SFIFO      := sfifo
 SKIDBUFFER := skidbuffer
-XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SFIFO).v $(RTL)/$(SKIDBUFFER).v
+XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SKIDBUFFER).v
 #
 # Slaves
 DEMOAXI    := demoaxi
@@ -391,16 +391,16 @@ $(WBC2PIPELIN)_cvr/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
 
 .PHONY: $(AXILSINGLE)
 $(AXILSINGLE): $(AXILSINGLE)_prf/PASS $(AXILSINGLE)_cvr/PASS
-$(AXILSINGLE)_prf/PASS: $(RTL)/$(AXILSINGLE).v $(AXILSINGLE).sby $(AXIL)
+$(AXILSINGLE)_prf/PASS: $(RTL)/$(AXILSINGLE).v $(RTL)/$(SFIFO).v $(AXILSINGLE).sby $(AXIL)
 	sby -f $(AXILSINGLE).sby prf
-$(AXILSINGLE)_cvr/PASS: $(RTL)/$(AXILSINGLE).v $(AXILSINGLE).sby $(AXIL)
+$(AXILSINGLE)_cvr/PASS: $(RTL)/$(AXILSINGLE).v $(RTL)/$(SFIFO).v $(AXILSINGLE).sby $(AXIL)
 	sby -f $(AXILSINGLE).sby cvr
 
 .PHONY: $(AXILDOUBLE)
 $(AXILDOUBLE): $(AXILDOUBLE)_prf/PASS $(AXILDOUBLE)_cvr/PASS
-$(AXILDOUBLE)_prf/PASS: $(RTL)/$(AXILDOUBLE).v $(AXILDOUBLE).sby $(AXIL)
+$(AXILDOUBLE)_prf/PASS: $(RTL)/$(AXILDOUBLE).v $(RTL)/$(SFIFO).v $(AXILDOUBLE).sby $(AXIL)
 	sby -f $(AXILDOUBLE).sby prf
-$(AXILDOUBLE)_cvr/PASS: $(RTL)/$(AXILDOUBLE).v $(AXILDOUBLE).sby $(AXIL)
+$(AXILDOUBLE)_cvr/PASS: $(RTL)/$(AXILDOUBLE).v $(RTL)/$(SFIFO).v $(AXILDOUBLE).sby $(AXIL)
 	sby -f $(AXILDOUBLE).sby cvr
 
 .PHONY: $(SFIFO)
@@ -451,11 +451,12 @@ clean:
 	rm -rf  $(WBARB)_*/
 	rm -rf  $(WB2LITE)_*/
 	rm -rf  $(RDLITE)_*/
-	rm -rf  $(WRLITE)_*/
-	rm -rf  $(AXLITE)_*/
+	rm -rf  $(WRLITE)_*/     $(WBC2PIPELIN)_*/ $(WBP2CLASSIC)_*/
+	rm -rf  $(AXLITE)_*/     $(SFIFO)_*/
+	rm -rf  $(SKIDBUFFER)_*/ $(DECODER)_*/
+	rm -rf  $(WBXBAR)_*/     $(AXILXBAR)_*/
 	rm -rf  $(AXILSINGLE)_*/ $(AXILDOUBLE)_*/
 	rm -rf  $(WB2AXI)_*/
-	rm -rf  $(AXI2WB)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/
