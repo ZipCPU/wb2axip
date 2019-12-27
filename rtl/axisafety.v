@@ -277,6 +277,7 @@ module axisafety #(
 
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
 	localparam	LSB = $clog2(DW)-3;
+	localparam	EXOKAY = 2'b01;
 	localparam	SLAVE_ERROR = 2'b10;
 	//
 	//
@@ -339,10 +340,12 @@ module axisafety #(
 	//
 	// Write FIFO data
 	reg	[IW-1:0]	wfifo_id;
+	reg			wfifo_lock;
 
 	//
 	// Read FIFO data
 	reg	[IW-1:0]	rfifo_id;
+	reg			rfifo_lock;
 	reg	[8:0]		rfifo_counter;
 	reg			rfifo_empty, rfifo_last, rfifo_penultimate;
 
@@ -500,7 +503,10 @@ module axisafety #(
 	//
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_AWREADY && S_AXI_AWVALID)
-		wfifo_id <= S_AXI_AWID;
+	begin
+		wfifo_id   <= S_AXI_AWID;
+		wfifo_lock <= S_AXI_AWLOCK;
+	end
 
 	//
 	// m_wpending counts the number of (remaining) write data values that
@@ -724,6 +730,9 @@ module axisafety #(
 				// every AWVALID & AWREADY is a fault.
 				faulty_write_return = 1;
 			if (M_AXI_BID != wfifo_id)
+				// An attempt to return the wrong ID
+				faulty_write_return = 1;
+			if (M_AXI_BRESP == EXOKAY && !wfifo_lock)
 				// An attempt to return the wrong ID
 				faulty_write_return = 1;
 		end
@@ -978,6 +987,9 @@ module axisafety #(
 				faulty_read_return = 1;
 			if (rfifo_penultimate && S_AXI_RVALID && (r_rvalid || !M_AXI_RLAST))
 				faulty_read_return = 1;
+			if (M_AXI_RRESP == EXOKAY && !rfifo_lock)
+				// An attempt to return the wrong ID
+				faulty_read_return = 1;
 		end
 	end
 
@@ -1049,7 +1061,10 @@ module axisafety #(
 	// Copy the ID for later comparisons on the return
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARVALID && S_AXI_ARREADY)
-		rfifo_id <= S_AXI_ARID;
+	begin
+		rfifo_id   <= S_AXI_ARID;
+		rfifo_lock <= S_AXI_ARLOCK;
+	end
 
 	//
 	// Count the number of outstanding read elements.  This is the number
