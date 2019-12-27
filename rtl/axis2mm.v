@@ -253,6 +253,8 @@ module	axis2mm #(
 				CMD_LEN       = 2'b10;
 				// CMD_RESERVED = 2'b11;
 	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
+	localparam	LGMAX_FIXED_BURST = 4;	// By AXI spec
+	localparam	MAX_FIXED_BURST = (1<<LGMAX_FIXED_BURST);
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam [ADDRLSB-1:0] LSBZEROS = 0;
@@ -679,15 +681,23 @@ module	axis2mm #(
 	always @(*)
 	begin
 		initial_burstlen = (1<<LGMAXBURST);
-		if (cmd_length_w >= (1<<LGMAXBURST))
+		if (!w_increment)
+		begin
+			if (LGMAXBURST < LGMAX_FIXED_BURST)
+				initial_burstlen = (1<<LGMAXBURST);
+			else
+				initial_burstlen = MAX_FIXED_BURST;
+			if (cmd_length_w < initial_burstlen)
+				initial_burstlen = cmd_length_w[LGMAXBURST:0];
+		end else if (cmd_length_w >= (1<<LGMAXBURST))
 		begin
 			// initial_burstlen = (1<<LGMAXBURST);
-			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
 				&&(addralign < (1<<LGMAXBURST)))
 				initial_burstlen = { 1'b0, addralign };
 		end else begin
 			initial_burstlen = cmd_length_w[LGMAXBURST:0];
-			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
 				&&({{(LGLENW-LGMAXBURST){1'b0}}, addralign } < cmd_length_w))
 				initial_burstlen = { 1'b0, addralign };
 		end
@@ -704,10 +714,18 @@ module	axis2mm #(
 	end else if (phantom_start)
 	begin
 		// Verilator lint_off WIDTH
-		if (aw_requests_remaining - (M_AXI_AWLEN+1) < (1<<LGMAXBURST))
-			r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
-		else
-			r_max_burst <= (1<<LGMAXBURST);
+		if (r_increment || LGMAXBURST <= LGMAX_FIXED_BURST)
+		begin
+			if (aw_requests_remaining - (M_AXI_AWLEN+1) < (1<<LGMAXBURST))
+				r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
+			else
+				r_max_burst <= (1<<LGMAXBURST);
+		end else begin
+			if (aw_requests_remaining - (M_AXI_AWLEN+1) < MAX_FIXED_BURST)
+				r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
+			else
+				r_max_burst <= MAX_FIXED_BURST;
+		end
 		// Verilator lint_on WIDTH
 	end
 	// }}}

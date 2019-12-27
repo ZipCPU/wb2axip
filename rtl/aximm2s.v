@@ -262,6 +262,8 @@ module	aximm2s #(
 				CBIT_CONTINUOUS	= 28,
 				CBIT_INCREMENT	= 27;
 	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
+	localparam	LGMAX_FIXED_BURST = 4,
+			MAX_FIXED_BURST = 16;
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3),
 			LGLENWA = LGLENW + (OPT_REALIGN ? 1:0);
 	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
@@ -817,15 +819,22 @@ module	aximm2s #(
 	always @(*)
 	begin
 		initial_burstlen = (1<<LGMAXBURST);
-		if (cmd_length_aligned_w >= (1<<LGMAXBURST))
+		if (!w_increment)
 		begin
-			// initial_burstlen = (1<<LGMAXBURST);
-			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+			if (LGMAXBURST <= LGMAX_FIXED_BURST)
+				initial_burstlen = (1<<LGMAXBURST);
+			else
+				initial_burstlen = MAX_FIXED_BURST;
+			if (cmd_length_aligned_w < initial_burstlen)
+				initial_burstlen = cmd_length_aligned_w[LGMAXBURST:0];
+		end else if (cmd_length_aligned_w >= (1<<LGMAXBURST))
+		begin
+			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
 				&&(addralign < (1<<LGMAXBURST)))
 				initial_burstlen = { 1'b0, addralign };
 		end else begin
 			initial_burstlen = cmd_length_aligned_w[LGMAXBURST:0];
-			if (w_increment && (|cmd_addr[ADDRLSB +: LGMAXBURST])
+			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
 				&&({{(LGLENW-LGMAXBURST){1'b0}}, addralign } < cmd_length_aligned_w))
 				initial_burstlen = { 1'b0, addralign };
 		end
@@ -842,10 +851,18 @@ module	aximm2s #(
 	end else if (phantom_start)
 	begin
 		// Verilator lint_off WIDTH
-		if (ar_requests_remaining < (1<<LGMAXBURST) + (M_AXI_ARLEN+1))
-			r_max_burst <= ar_requests_remaining[8:0] - (M_AXI_ARLEN+1);
-		else
-			r_max_burst <= (1<<LGMAXBURST);
+		if (r_increment || LGMAXBURST <= LGMAX_FIXED_BURST)
+		begin : LIMIT_BY_LGMAXBURST
+			if (ar_requests_remaining < (1<<LGMAXBURST) + (M_AXI_ARLEN+1))
+				r_max_burst <= ar_requests_remaining[8:0] - (M_AXI_ARLEN+1);
+			else
+				r_max_burst <= (1<<LGMAXBURST);
+		end else begin : LIMIT_BY_SIXTEEN
+			if (ar_requests_remaining < MAX_FIXED_BURST + (M_AXI_ARLEN+1))
+				r_max_burst <= ar_requests_remaining[8:0] - (M_AXI_ARLEN+1);
+			else
+				r_max_burst <= MAX_FIXED_BURST;
+		end
 		// Verilator lint_on WIDTH
 	end
 	// }}}
