@@ -98,14 +98,14 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 		rd_next = rd_addr[LGFLEN-1:0] + 1;
 
 	generate if (OPT_ASYNC_READ)
-	begin
+	begin : ASYNCHRONOUS_READ
 		always @(*)
 			o_empty = (o_fill  == 0);
 
 		always @(*)
 			o_data = mem[rd_addr[LGFLEN-1:0]];
 
-	end else begin
+	end else begin : REGISTERED_READ
 		reg		bypass_valid;
 		reg [BW-1:0]	bypass_data, rd_data;
 
@@ -222,7 +222,7 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 	//
 	(* anyconst *)	reg	[LGFLEN:0]	f_first_addr;
 			reg	[LGFLEN:0]	f_second_addr;
-	(* anyconst *)	reg	[BW-1:0]	f_first_data, f_second_data;
+			reg	[BW-1:0]	f_first_data, f_second_data;
 
 	always @(*)
 		f_second_addr = f_first_addr + 1;
@@ -247,8 +247,23 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 			f_second_addr_in_fifo = 1;
 	end
 
+	always @(posedge i_clk)
+	if (w_wr && wr_addr == f_first_addr)
+		f_first_data <= i_data;
+
+	always @(posedge i_clk)
+	if (w_wr && wr_addr == f_second_addr)
+		f_second_data <= i_data;
+
+	always @(*)
+	if (f_first_addr_in_fifo)
+		assert(mem[f_first_addr] == f_first_data);
 	always @(*)
 		f_first_in_fifo = (f_first_addr_in_fifo && (mem[f_first_addr] == f_first_data));
+
+	always @(*)
+	if (f_second_addr_in_fifo)
+		assert(mem[f_second_addr] == f_second_data);
 
 	always @(*)
 		f_second_in_fifo = (f_second_addr_in_fifo && (mem[f_second_addr] == f_second_data));
@@ -259,9 +274,15 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 		case({$past(f_first_in_fifo), $past(f_second_in_fifo)})
 		2'b00: begin
 				if ($past(w_wr)
-					&&($past(wr_addr == f_first_addr))
-					&&($past(i_data == f_first_data)))
+					&&($past(wr_addr == f_first_addr)))
 					assert(f_first_in_fifo);
+				else
+					assert(!f_first_in_fifo);
+				//
+				// The second could be in the FIFO, since
+				// one might write other data than f_first_data
+				//
+				// assert(!f_second_in_fifo);
 			end
 		2'b01: begin
 				assert(!f_first_in_fifo);
@@ -272,9 +293,10 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 			end
 		2'b10: begin
 				if ($past(w_wr)
-					&&($past(wr_addr == f_second_addr))
-					&&($past(i_data == f_second_data)))
+					&&($past(wr_addr == f_second_addr)))
 					assert(f_second_in_fifo);
+				else
+					assert(!f_second_in_fifo);
 				if ($past(!w_rd ||(rd_addr != f_first_addr)))
 					assert(f_first_in_fifo);
 			end
