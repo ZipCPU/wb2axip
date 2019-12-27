@@ -538,7 +538,7 @@ module wbm2axisp #(
 //
 // Formal methods section
 //
-// Below ar a scattering of the formal properties used.  They are not the
+// Below are a scattering of the formal properties used.  They are not the
 // complete set of properties.  Those are maintained elsewhere.
 //
 /////////////////////////////////////////////////////////////////////////
