@@ -39,7 +39,7 @@ module wbm2axilite #(
 	parameter C_AXI_ADDR_WIDTH	=  28,// AXI Address width
 	localparam C_AXI_DATA_WIDTH	=  32,// Width of the AXI R&W data
 	localparam DW			=  C_AXI_DATA_WIDTH,// Wishbone data width
-	localparam AW			=  C_AXI_ADDR_WIDTH-2,// WB addr width (log wordsize)
+	localparam AW			=  C_AXI_ADDR_WIDTH-2// WB addr width (log wordsize)
 	) (
 	input	wire			i_clk,
 	input	wire			i_reset,
