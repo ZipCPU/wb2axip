@@ -1,0 +1,10 @@
+{signal: [
+  {name: 'S_AXI_ACLK',    wave: 'P......'},
+  {name: 'S_AXI_ARESETN', wave: '01.....'},
+  {},
+  {name: 'S_AXI_ARVALID', wave: '0.1x...'},
+  {name: 'S_AXI_ARREADY', wave: '1..0..1'},
+  {},
+  {name: 'S_AXI_RVALID',  wave: 'x0...10'},
+  {name: 'S_AXI_RREADY',  wave: '1....01'},
+]}

@@ -1,0 +1,14 @@
+{signal: [
+  {name: 'S_AXI_ACLK',    wave: 'p...............'},
+  {},
+  {name: 'S_AXI_ARVALID', wave: '01.0............'},
+  {name: 'S_AXI_ARREADY', wave: '0.10............'},
+  {name: 'S_AXI_ARLEN',   wave: 'x2.x............', data: ['5']},
+  {},
+  {name: 'S_AXI_RVALID',  wave: '0..101010101010.'},
+  {name: 'S_AXI_RREADY',  wave: '0..1..........0.'},
+  {name: 'S_AXI_RDATA',   wave: '0..2x3x4x5x2x3x.'},
+  {name: 'S_AXI_RLAST',   wave: 'x.0..........1x.'},
+  {},
+  {name: 'axi_arv_arr_flag',  wave: '0.1...........0.'},
+]}

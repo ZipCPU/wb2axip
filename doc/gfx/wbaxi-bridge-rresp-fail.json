@@ -1,0 +1,15 @@
+{signal: [
+  {name: 'S_AXI_ACLK',    wave: 'P...........'},
+  {name: 'S_AXI_ARESETN', wave: '01..........'},
+  {},
+  {name: 'WB_CYC',        wave: '0.1.........'},
+  {name: 'WB_STB',        wave: '0.10.10.10..'},
+  {name: 'WB_WE',         wave: 'x.0x.0x.0x..'},
+  {name: 'WB_STALL',      wave: 'x.0xx0xx0xx.'},
+  {name: 'WB_ACK',        wave: '0...........'},
+  {name: 'WB_ERR',        wave: '0...........'},
+  {},
+  {name: 'S_AXI_ARVALID', wave: '0..10.10.10.'},
+  {name: 'S_AXI_RVALID',  wave: 'x0..10.10.10'},
+  {name: 'S_AXI_RRESP',   wave: 'x...2.......', data: ['2b11']},
+]}

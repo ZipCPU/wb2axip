@@ -1,0 +1,16 @@
+{signal: [
+  {name: 'clk',     wave: 'P...'},
+  {name: 'rst',     wave: '01..'},
+  {},
+  {name: 'wb_cyc',   wave: '0.1.'},
+  {name: 'wb_stb',   wave: '0.10'},
+  {name: 'wb_we',    wave: 'x.1x'},
+  {name: 'wb_adr[31:0]',   wave: 'x.3x', data: ['h..3']},
+  {name: 'wb_sel[3:0]',   wave: 'x.3x', data: ['1']},
+  {name: 'wb_stall', wave: 'x.0x'},
+  {},
+  {name: 'axi_avalid', wave: '0..1'},
+  {name: 'axi_awaddr[31:0]', wave: 'x..3', data: ['h..3']},
+  {name: 'axi_wvalid', wave: '0..1'},
+  {name: 'axi_wstrb[3:0]',  wave: 'x..3', data: ['1']}
+]}

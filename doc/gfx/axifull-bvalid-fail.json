@@ -1,0 +1,16 @@
+{signal: [
+  {name: 'S_AXI_ACLK',    wave: 'p.........'},
+  {name: 'S_AXI_ARESETN', wave: '01........'},
+  {},
+  {name: 'S_AXI_AWVALID', wave: '0.1.01.0..'},
+  {name: 'S_AXI_AWREADY', wave: '0..10.10..'},
+  {name: 'S_AXI_AWLEN',   wave: 'x.2.x3.x..', data: ['0','0']},
+  {},
+  {name: 'S_AXI_WVALID',  wave: '0.1..01.0.'},
+  {name: 'S_AXI_WREADY',  wave: '0...10.10.'},
+  {name: 'S_AXI_WDATA',   wave: 'x...2x.3x.'},
+  {name: 'S_AXI_WLAST',   wave: 'x...1x.1x.'},
+  {},
+  {name: 'S_AXI_BVALID',  wave: '0....1...0'},
+  {name: 'S_AXI_BREADY',  wave: '0.......10'},
+]}
