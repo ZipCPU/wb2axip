@@ -1,0 +1,203 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Mon Aug 19 20:26:38 2019
+[*]
+[dumpfile_mtime] "Mon Aug 19 20:23:51 2019"
+[dumpfile_size] 31391
+[timestart] 0
+[size] 1920 1029
+[pos] -1 -1
+*-3.628906 40 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 238
+[sst_expanded] 1
+[sst_vpaned_height] 306
+@28
+axilsingle.S_AXI_ACLK
+axilsingle.S_AXI_ARESETN
+@200
+-
+@c00200
+-S_WRITE
+@28
+[color] 3
+axilsingle.S_AXI_AWVALID
+axilsingle.S_AXI_AWREADY
+@22
+[color] 3
+axilsingle.S_AXI_AWADDR[31:0]
+@28
+[color] 3
+axilsingle.S_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilsingle.S_AXI_WVALID
+axilsingle.S_AXI_WREADY
+@22
+[color] 3
+axilsingle.S_AXI_WDATA[31:0]
+[color] 3
+axilsingle.S_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 3
+axilsingle.S_AXI_BVALID
+axilsingle.S_AXI_BREADY
+[color] 3
+axilsingle.S_AXI_BRESP[1:0]
+@1401200
+-S_WRITE
+@800200
+-S_READ
+@28
+[color] 3
+axilsingle.S_AXI_ARVALID
+axilsingle.S_AXI_ARREADY
+@22
+[color] 3
+axilsingle.S_AXI_ARADDR[31:0]
+@28
+[color] 3
+axilsingle.S_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilsingle.S_AXI_RVALID
+axilsingle.S_AXI_RREADY
+@22
+[color] 3
+axilsingle.S_AXI_RDATA[31:0]
+@28
+[color] 3
+axilsingle.S_AXI_RRESP[1:0]
+@1000200
+-S_READ
+@200
+-
+@c00201
+-M_WRITE
+@22
+[color] 2
+axilsingle.M_AXI_AWVALID[7:0]
+@28
+[color] 2
+axilsingle.M_AXI_AWPROT[2:0]
+@200
+-
+@22
+axilsingle.M_AXI_WDATA[31:0]
+axilsingle.M_AXI_WSTRB[3:0]
+@200
+-
+@22
+axilsingle.M_AXI_BRESP[15:0]
+@1401201
+-M_WRITE
+@200
+-
+@800200
+-M_READ
+@22
+[color] 2
+axilsingle.M_AXI_ARVALID[7:0]
+@28
+[color] 2
+axilsingle.M_AXI_ARPROT[2:0]
+@200
+-
+@22
+axilsingle.M_AXI_RDATA[255:0]
+axilsingle.M_AXI_RRESP[15:0]
+@1000200
+-M_READ
+@200
+-
+-
+@28
+axilsingle.awskid_valid
+@22
+axilsingle.awskid_addr[29:0]
+@28
+axilsingle.awskid_prot[2:0]
+@22
+axilsingle.awskid_sel[8:0]
+@200
+-
+@28
+axilsingle.arskid_valid
+@22
+axilsingle.arskid_addr[31:0]
+@28
+axilsingle.arskid_prot[2:0]
+@22
+axilsingle.arskid_sel[8:0]
+@200
+-
+@28
+axilsingle.wskid_valid
+axilsingle.write_resp[1:0]
+@22
+axilsingle.wskid_data[35:0]
+@200
+-
+@28
+axilsingle.write_ready
+@22
+axilsingle.wout_valids[8:0]
+axilsingle.wout_addr[29:0]
+@200
+-
+@28
+axilsingle.woskid_ready
+axilsingle.woskid_valid
+@22
+axilsingle.write_index[29:0]
+@200
+-
+@28
+axilsingle.write_bvalid
+axilsingle.bempty
+axilsingle.bffull
+axilsingle.bfill[2:0]
+axilsingle.bfull
+@200
+-
+@28
+axilsingle.read_rvalid
+axilsingle.rdfull
+@22
+axilsingle.read_index[29:0]
+axilsingle.read_rdata[31:0]
+@28
+axilsingle.read_ready
+axilsingle.read_resp[1:0]
+axilsingle.rempty
+axilsingle.rfill[2:0]
+axilsingle.rfull
+axilsingle.roskid_ready
+axilsingle.roskid_valid
+@22
+axilsingle.rout_addr[29:0]
+axilsingle.rout_valids[8:0]
+@200
+-
+@22
+[color] 1
+axilsingle.count_awr_outstanding[3:0]
+[color] 1
+axilsingle.count_rd_outstanding[3:0]
+@200
+-
+@22
+axilsingle.f_axi_awr_outstanding[3:0]
+axilsingle.f_axi_rd_outstanding[3:0]
+axilsingle.f_axi_wr_outstanding[3:0]
+@28
+axilsingle.f_past_valid
+axilsingle.unused
+[pattern_trace] 1
+[pattern_trace] 0

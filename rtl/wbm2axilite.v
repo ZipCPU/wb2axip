@@ -13,7 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2018-2019, Gisselquist Technology, LLC
+// Copyright (C) 2018-2020, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
 //
@@ -112,8 +112,6 @@ module wbm2axilite #(
 //*****************************************************************************
 
 // Things we're not changing ...
-	// assign o_axi_awcache = 4'h3;	// Normal: no cache, no buffer
-	// assign o_axi_arcache = 4'h3;	// Normal: no cache, no buffer
 	assign o_axi_awprot  = 3'b000;	// Unpriviledged, unsecure, data access
 	assign o_axi_arprot  = 3'b000;	// Unpriviledged, unsecure, data access
 
