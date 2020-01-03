@@ -188,7 +188,9 @@ module	wbxbar(i_clk, i_reset,
 	reg	[NM-1:0]		mgrant;
 	reg	[NS-1:0]		sgrant;
 
+	// Verilator lint_off UNUSED
 	wire	[LGMAXBURST-1:0]	w_mpending [0:NM-1];
+	// Verilator lint_on  UNUSED
 	reg	[NM-1:0]		mfull, mnearfull, mempty, timed_out;
 
 	localparam	NMFULL = (NM > 1) ? (1<<LGNM) : 1;
@@ -962,11 +964,6 @@ module	wbxbar(i_clk, i_reset,
 			$stop;
 		end
 	end
-
-	// Verilator lint_off UNUSED
-	wire	unused;
-	assign	unused = &{ 1'b0, w_mpending };
-	// Verilator lint_on  UNUSED
 
 `ifdef	FORMAL
 	localparam	F_MAX_DELAY = 4;
