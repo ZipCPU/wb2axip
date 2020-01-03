@@ -759,7 +759,9 @@ module	wbxbar(i_clk, i_reset,
 			initial	r_merr[N]   = 0;
 			always @(posedge i_clk)
 			begin
+				// Verilator lint_off WIDTH
 				iM = mindex[N];
+				// Verilator lint_on  WIDTH
 				r_mack[N]   <= mgrant[N] && s_ack[mindex[N]];
 				r_merr[N]   <= mgrant[N] && s_err[mindex[N]];
 				if (OPT_LOWPOWER && !mgrant[N])
@@ -960,6 +962,11 @@ module	wbxbar(i_clk, i_reset,
 			$stop;
 		end
 	end
+
+	// Verilator lint_off UNUSED
+	wire	unused;
+	assign	unused = &{ 1'b0, w_mpending };
+	// Verilator lint_on  UNUSED
 
 `ifdef	FORMAL
 	localparam	F_MAX_DELAY = 4;
