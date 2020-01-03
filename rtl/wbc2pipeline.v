@@ -40,7 +40,7 @@
 module	wbc2pipeline(i_clk, i_reset,
 		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
 			o_mack, o_mdata, o_merr,
-			i_mcti, i_mbti,
+			i_mcti, i_mbte,
 		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
 			i_sstall, i_sack, i_sdata, i_serr);
 	parameter	AW = 12,
@@ -57,7 +57,7 @@ module	wbc2pipeline(i_clk, i_reset,
 	output	reg	[DW-1:0]	o_mdata;
 	output	reg			o_merr;
 	input	wire	[3-1:0]		i_mcti;
-	input	wire	[2-1:0]		i_mbti;
+	input	wire	[2-1:0]		i_mbte;
 	//
 	// Outgoing WB pipelined port
 	output	reg			o_scyc, o_sstb, o_swe;
@@ -109,7 +109,7 @@ module	wbc2pipeline(i_clk, i_reset,
 
 	// Verilator lint_off UNUSED
 	wire	[4:0]	unused;
-	assign	unused = { i_mcti, i_mbti };
+	assign	unused = { i_mcti, i_mbte };
 	// Verilator lint_on  UNUSED
 `ifdef	FORMAL
 	////////////////////////////////////////////////////////////////////////
@@ -133,7 +133,7 @@ module	wbc2pipeline(i_clk, i_reset,
 
 	fwbc_slave #(.AW(AW), .DW(DW)) incoming (i_clk, i_reset,
 		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			i_mcti, i_mbti,
+			i_mcti, i_mbte,
 			o_mack, o_mdata, o_merr, 1'b0);
 
 	fwb_master #(.AW(AW), .DW(DW),

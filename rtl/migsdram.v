@@ -221,6 +221,8 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 				.i_clk(o_sys_clk),
 				// .i_reset(i_rst), // internally unused
 				// Write address channel signals
+				.o_axi_awvalid(	s_axi_awvalid), 
+				.i_axi_awready(	s_axi_awready), 
 				.o_axi_awid(	s_axi_awid), 
 				.o_axi_awaddr(	s_axi_awaddr), 
 				.o_axi_awlen(	s_axi_awlen), 
@@ -230,20 +232,19 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 				.o_axi_awcache(	s_axi_awcache), 
 				.o_axi_awprot(	s_axi_awprot),  // s_axi_awqos
 				.o_axi_awqos(	s_axi_awqos),  // s_axi_awqos
-				.o_axi_awvalid(	s_axi_awvalid), 
-				.i_axi_awready(	s_axi_awready), 
 			//
+				.o_axi_wvalid(	s_axi_wvalid),
 				.i_axi_wready(	s_axi_wready),
 				.o_axi_wdata(	s_axi_wdata),
 				.o_axi_wstrb(	s_axi_wstrb),
 				.o_axi_wlast(	s_axi_wlast),
-				.o_axi_wvalid(	s_axi_wvalid),
 			//
+				.i_axi_bvalid(	s_axi_bvalid),
 				.o_axi_bready(	s_axi_bready),
 				.i_axi_bid(	s_axi_bid),
 				.i_axi_bresp(	s_axi_bresp),
-				.i_axi_bvalid(	s_axi_bvalid),
 			//
+				.o_axi_arvalid(	s_axi_arvalid),
 				.i_axi_arready(	s_axi_arready),
 				.o_axi_arid(	s_axi_arid),
 				.o_axi_araddr(	s_axi_araddr),
@@ -254,14 +255,13 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 				.o_axi_arcache(	s_axi_arcache),
 				.o_axi_arprot(	s_axi_arprot),
 				.o_axi_arqos(	s_axi_arqos),
-				.o_axi_arvalid(	s_axi_arvalid),
 			//
+				.i_axi_rvalid(	s_axi_rvalid),
 				.o_axi_rready(	s_axi_rready),
 				.i_axi_rid(	s_axi_rid),
 				.i_axi_rdata(	s_axi_rdata),
 				.i_axi_rresp(	s_axi_rresp),
 				.i_axi_rlast(	s_axi_rlast),
-				.i_axi_rvalid(	s_axi_rvalid),
 			//
 				.i_wb_cyc(	i_wb_cyc),
 				.i_wb_stb(	i_wb_stb),
@@ -270,8 +270,8 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 				.i_wb_data(	i_wb_data),
 				.i_wb_sel(	i_wb_sel),
 			//
-				.o_wb_ack(	o_wb_ack),
 				.o_wb_stall(	o_wb_stall),
+				.o_wb_ack(	o_wb_ack),
 				.o_wb_data(	o_wb_data),
 				.o_wb_err(	o_wb_err)
 		);

@@ -45,35 +45,33 @@ module wbm2axilite #(
 	input	wire			i_reset,
 	//
 	// AXI write address channel signals
+	output	reg			o_axi_awvalid,
 	input	wire			i_axi_awready,
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,
-	output	wire	[3:0]		o_axi_awcache,
 	output	wire	[2:0]		o_axi_awprot,
-	output	reg			o_axi_awvalid,
 	//
 	// AXI write data channel signals
+	output	reg			o_axi_wvalid,
 	input	wire			i_axi_wready,
 	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,
 	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,
-	output	reg			o_axi_wvalid,
 	//
 	// AXI write response channel signals
-	input	wire [1:0]		i_axi_bresp,
 	input	wire			i_axi_bvalid,
 	output	wire			o_axi_bready,
+	input	wire [1:0]		i_axi_bresp,
 	//
 	// AXI read address channel signals
+	output	reg			o_axi_arvalid,
 	input	wire			i_axi_arready,
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,
-	output	wire	[3:0]		o_axi_arcache,
 	output	wire	[2:0]		o_axi_arprot,
-	output	reg			o_axi_arvalid,
 	//
 	// AXI read data channel signals   
-	input	wire	[1:0]		i_axi_rresp,
 	input	wire			i_axi_rvalid,
-	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,
 	output	wire			o_axi_rready,
+	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,
+	input	wire	[1:0]		i_axi_rresp,
 	//
 	// We'll share the clock and the reset
 	input	wire			i_wb_cyc,
@@ -82,8 +80,8 @@ module wbm2axilite #(
 	input	wire	[(AW-1):0]	i_wb_addr,
 	input	wire	[(DW-1):0]	i_wb_data,
 	input	wire	[(DW/8-1):0]	i_wb_sel,
-	output	reg			o_wb_ack,
 	output	wire			o_wb_stall,
+	output	reg			o_wb_ack,
 	output	reg	[(DW-1):0]	o_wb_data,
 	output	reg			o_wb_err
 	);
@@ -114,8 +112,8 @@ module wbm2axilite #(
 //*****************************************************************************
 
 // Things we're not changing ...
-	assign o_axi_awcache = 4'h3;	// Normal: no cache, no buffer
-	assign o_axi_arcache = 4'h3;	// Normal: no cache, no buffer
+	// assign o_axi_awcache = 4'h3;	// Normal: no cache, no buffer
+	// assign o_axi_arcache = 4'h3;	// Normal: no cache, no buffer
 	assign o_axi_awprot  = 3'b000;	// Unpriviledged, unsecure, data access
 	assign o_axi_arprot  = 3'b000;	// Unpriviledged, unsecure, data access
 
@@ -362,7 +360,7 @@ module wbm2axilite #(
 			// Write address channel
 			.i_axi_awready(i_axi_awready), 
 			.i_axi_awaddr( o_axi_awaddr), 
-			.i_axi_awcache(o_axi_awcache), 
+			.i_axi_awcache(4'h0), 
 			.i_axi_awprot( o_axi_awprot), 
 			.i_axi_awvalid(o_axi_awvalid), 
 			// Write data channel
@@ -377,7 +375,7 @@ module wbm2axilite #(
 			// Read address channel
 			.i_axi_arready(i_axi_arready),
 			.i_axi_araddr( o_axi_araddr),
-			.i_axi_arcache(o_axi_arcache),
+			.i_axi_arcache(4'h0),
 			.i_axi_arprot( o_axi_arprot),
 			.i_axi_arvalid(o_axi_arvalid),
 			// Read data channel

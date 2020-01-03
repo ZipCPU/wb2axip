@@ -63,7 +63,8 @@ module wbm2axisp #(
 	input	wire			i_clk,	// System clock
 	input	wire			i_reset,// Reset signal,drives AXI rst
 
-// AXI write address channel signals
+	// AXI write address channel signals
+	output	reg			o_axi_awvalid,	// Write address valid
 	input	wire			i_axi_awready, // Slave is ready to accept
 	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,	// Write address
@@ -74,22 +75,22 @@ module wbm2axisp #(
 	output	wire	[3:0]		o_axi_awcache,	// Write Cache type
 	output	wire	[2:0]		o_axi_awprot,	// Write Protection type
 	output	wire	[3:0]		o_axi_awqos,	// Write Quality of Svc
-	output	reg			o_axi_awvalid,	// Write address valid
 
 // AXI write data channel signals
+	output	reg			o_axi_wvalid,	// Write valid
 	input	wire			i_axi_wready,  // Write data ready
 	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,	// Write data
 	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,	// Write strobes
 	output	wire			o_axi_wlast,	// Last write transaction
-	output	reg			o_axi_wvalid,	// Write valid
 
 // AXI write response channel signals
-	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
-	input	wire [1:0]		i_axi_bresp,	// Write response
 	input	wire			i_axi_bvalid,  // Write reponse valid
 	output	wire			o_axi_bready,  // Response ready
+	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
+	input	wire [1:0]		i_axi_bresp,	// Write response
 
 // AXI read address channel signals
+	output	reg			o_axi_arvalid,	// Read address valid
 	input	wire			i_axi_arready,	// Read address ready
 	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_arid,	// Read ID
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
@@ -100,15 +101,14 @@ module wbm2axisp #(
 	output	wire	[3:0]		o_axi_arcache,	// Read Cache type
 	output	wire	[2:0]		o_axi_arprot,	// Read Protection type
 	output	wire	[3:0]		o_axi_arqos,	// Read Protection type
-	output	reg			o_axi_arvalid,	// Read address valid
 
 // AXI read data channel signals
-	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
-	input	wire	[1:0]		i_axi_rresp,   // Read response
 	input	wire			i_axi_rvalid,  // Read reponse valid
-	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,    // Read data
-	input	wire			i_axi_rlast,    // Read last
 	output	wire			o_axi_rready,  // Read Response ready
+	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
+	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,    // Read data
+	input	wire	[1:0]		i_axi_rresp,   // Read response
+	input	wire			i_axi_rlast,    // Read last
 
 	// We'll share the clock and the reset
 	input	wire			i_wb_cyc,
@@ -117,8 +117,8 @@ module wbm2axisp #(
 	input	wire	[(AW-1):0]	i_wb_addr,
 	input	wire	[(DW-1):0]	i_wb_data,
 	input	wire	[(DW/8-1):0]	i_wb_sel,
-	output	reg			o_wb_ack,
 	output	reg			o_wb_stall,
+	output	reg			o_wb_ack,
 	output	reg	[(DW-1):0]	o_wb_data,
 	output	reg			o_wb_err
 );
