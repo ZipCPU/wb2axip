@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2018-2019, Gisselquist Technology, LLC
+// Copyright (C) 2018-2020, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
 //
@@ -60,6 +60,14 @@ module faxil_master #(
 	// examined
 	parameter [0:0]			F_OPT_ASSUME_RESET = 1'b0,
 	parameter [0:0]			F_OPT_NO_RESET = F_OPT_ASSUME_RESET,
+	//
+	// F_OPT_ASYNC_RESET is for those designs that will reset the channels
+	// using an asynchronous reset.  In these cases, the stability
+	// properties only apply when the async reset is not asserted.
+	// Likewise, when F_OPT_ASYNC_RESET is set, the reset assertions are
+	// applied *on the same clock cycle*, in addition to one cycle later.
+	parameter [0:0]			F_OPT_ASYNC_RESET = 1'b0,
+	parameter 			F_OPT_COVER_BURST = 0,
 	// F_LGDEPTH is the number of bits necessary to count the maximum
 	// number of items in flight.
 	parameter				F_LGDEPTH	= 4,
@@ -226,6 +234,20 @@ module faxil_master #(
 		`SLAVE_ASSERT(!i_axi_rvalid);
 	end
 
+	generate if (F_OPT_ASYNC_RESET)
+	begin
+		always @(*)
+		if (!i_axi_reset_n)
+		begin
+			`SLAVE_ASSUME(!i_axi_arvalid);
+			`SLAVE_ASSUME(!i_axi_awvalid);
+			`SLAVE_ASSUME(!i_axi_wvalid);
+			//
+			`SLAVE_ASSERT(!i_axi_bvalid);
+			`SLAVE_ASSERT(!i_axi_rvalid);
+		end
+	end endgenerate
+
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -283,7 +305,8 @@ module faxil_master #(
 	// Assume any response from the bus will not change prior to that
 	// response being accepted
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_axi_reset_n)))
+	if ((f_past_valid)&&($past(i_axi_reset_n))
+			&&(!F_OPT_ASYNC_RESET || i_axi_reset_n))
 	begin
 		// Write address channel
 		if ((f_past_valid)&&($past(i_axi_awvalid && !i_axi_awready)))
@@ -733,6 +756,42 @@ module faxil_master #(
 	if (!F_OPT_WRITE_ONLY)
 		// Make sure we can get a response from the read channel
 		cover((i_axi_rvalid)&&(i_axi_rready));
+
+	generate if (!F_OPT_WRITE_ONLY && F_OPT_COVER_BURST > 0)
+	begin : COVER_WRITE_BURSTS
+
+		reg	[31:0]	cvr_writes;
+
+		initial	cvr_writes = 0;
+		always @(posedge i_clk)
+		if (!i_axi_reset_n)
+			cvr_writes <= 0;
+		else if (i_axi_bvalid && i_axi_bready && i_axi_bresp == 2'b00
+				&& !(&cvr_writes))
+			cvr_writes <= cvr_writes + 1;
+
+		always @(*)
+			cover(cvr_writes == F_OPT_COVER_BURST);
+
+	end endgenerate
+
+	generate if (!F_OPT_READ_ONLY && F_OPT_COVER_BURST > 0)
+	begin : COVER_READ_BURSTS
+
+		reg	[31:0]	cvr_reads;
+
+		initial	cvr_reads = 0;
+		always @(posedge i_clk)
+		if (!i_axi_reset_n)
+			cvr_reads <= 0;
+		else if (i_axi_rvalid && i_axi_rready && i_axi_rresp == 2'b00
+				&& !(&cvr_reads))
+			cvr_reads <= cvr_reads + 1;
+
+		always @(*)
+			cover(cvr_reads == F_OPT_COVER_BURST);
+
+	end endgenerate
 
 `undef	SLAVE_ASSUME
 `undef	SLAVE_ASSERT
