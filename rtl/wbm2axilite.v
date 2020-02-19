@@ -351,7 +351,7 @@ module wbm2axilite #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(LGFIFOLN),
 		.F_AXI_MAXWAIT(3),
-		.F_OPT_HAS_CACHE(1'b1),
+		.F_OPT_HAS_CACHE(1'b0),
 		.F_AXI_MAXDELAY(3))
 		f_axil(.i_clk(i_clk),
 			.i_axi_reset_n((!i_reset)&&(!axi_reset_state)),
