@@ -3,11 +3,15 @@
 *.check
 *.ys.v
 axi_addr_miter_*/
-axis2mm_*/
+axidma_*/
 axilite2axi_*/
-aximrd2wbsp_*/
 axilwr2wbsp_*/
 axilrd2wbsp_*/
+aximrd2wbsp_*/
+aximwr2wbsp_*/
+aximm2s_*/
+axis2mm_*/
+axixclk_*/
 axlite2wbsp_*/
 axildouble_*/
 axilsingle_*/
@@ -24,6 +28,7 @@ wbxbar_*/
 axixbar_*/
 axilxbar_*/
 axilsingle_*/
+axildouble_*/
 demofull_*/
 wbm2axisp_*/
 axisafety_*/

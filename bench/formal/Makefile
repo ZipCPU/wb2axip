@@ -134,6 +134,7 @@ $(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v $(WB) $(AXIL)
 $(WB2LITE)_cvr/PASS: $(WB2LITE).sby
 	sby -f $(WB2LITE).sby cvr
 
+.PHONY: $(DEMOAXI)
 $(DEMOAXI): $(DEMOAXI)_prf/PASS $(DEMOAXI)_cvr/PASS
 $(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby prf
@@ -450,13 +451,12 @@ clean:
 	rm -rf  $(DEMOAXI)_*/
 	rm -rf  $(WBARB)_*/
 	rm -rf  $(WB2LITE)_*/
-	rm -rf  $(RDLITE)_*/
-	rm -rf  $(WRLITE)_*/     $(WBC2PIPELIN)_*/ $(WBP2CLASSIC)_*/
+	rm -rf  $(RDLITE)_*/     $(WRLITE)_*/
+	rm -rf  $(WBC2PIPELIN)_*/ $(WBP2CLASSIC)_*/
 	rm -rf  $(AXLITE)_*/     $(SFIFO)_*/
 	rm -rf  $(SKIDBUFFER)_*/ $(DECODER)_*/
 	rm -rf  $(WBXBAR)_*/     $(AXILXBAR)_*/
 	rm -rf  $(AXILSINGLE)_*/ $(AXILDOUBLE)_*/
-	rm -rf  $(WB2AXI)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/
