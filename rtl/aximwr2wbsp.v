@@ -52,6 +52,7 @@ module aximwr2wbsp #(
 	input	wire			S_AXI_ARESETN,
 
 // AXI write address channel signals
+	input	wire			S_AXI_AWVALID,	// Write address valid
 	output	wire			S_AXI_AWREADY, // Slave is ready to accept
 	input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,	// Write ID
 	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,	// Write address
@@ -62,20 +63,19 @@ module aximwr2wbsp #(
 	input	wire	[3:0]		S_AXI_AWCACHE,	// Write Cache type
 	input	wire	[2:0]		S_AXI_AWPROT,	// Write Protection type
 	input	wire	[3:0]		S_AXI_AWQOS,	// Write Quality of Svc
-	input	wire			S_AXI_AWVALID,	// Write address valid
   
 // AXI write data channel signals
+	input	wire			S_AXI_WVALID,	// Write valid
 	output	wire			S_AXI_WREADY,  // Write data ready
 	input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,	// Write data
 	input	wire	[C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,	// Write strobes
 	input	wire			S_AXI_WLAST,	// Last write transaction   
-	input	wire			S_AXI_WVALID,	// Write valid
   
 // AXI write response channel signals
-	output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,	// Response ID
-	output	wire [1:0]		S_AXI_BRESP,	// Write response
 	output	wire			S_AXI_BVALID,  // Write reponse valid
 	input	wire			S_AXI_BREADY,  // Response ready
+	output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,	// Response ID
+	output	wire [1:0]		S_AXI_BRESP,	// Write response
   
 	// We'll share the clock and the reset
 	output	reg			o_wb_cyc,
@@ -83,8 +83,8 @@ module aximwr2wbsp #(
 	output	reg [(AW-1):0]		o_wb_addr,
 	output	reg [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
 	output	reg [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	input	wire			i_wb_ack,
 	input	wire			i_wb_stall,
+	input	wire			i_wb_ack,
 	// input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
 	input	wire			i_wb_err
 );

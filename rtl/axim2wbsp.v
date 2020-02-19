@@ -112,8 +112,8 @@ module axim2wbsp #(
 	output	wire [(AW-1):0]			o_wb_addr,
 	output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
 	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	input	wire				i_wb_ack,
 	input	wire				i_wb_stall,
+	input	wire				i_wb_ack,
 	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
 	input	wire				i_wb_err
 	);

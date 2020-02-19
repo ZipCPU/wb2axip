@@ -167,7 +167,8 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 `define	ASSUME	assert
 `endif
 
-	reg	f_past_valid;
+	reg			f_past_valid;
+	wire	[LGFLEN:0]	f_fill, f_next, f_empty;
 
 	//
 	// Assertions about our outputs
@@ -178,7 +179,6 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
 
-	wire	[LGFLEN:0]	f_fill, f_next, f_empty;
 	assign	f_fill = wr_addr - rd_addr;
 	assign	f_empty = (wr_addr == rd_addr);
 	assign	f_next = rd_addr + 1'b1;
@@ -224,12 +224,12 @@ module sfifo(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd, o_data, o_empty
 			reg	[LGFLEN:0]	f_second_addr;
 			reg	[BW-1:0]	f_first_data, f_second_data;
 
-	always @(*)
-		f_second_addr = f_first_addr + 1;
-
 	reg	f_first_addr_in_fifo,  f_first_in_fifo;
 	reg	f_second_addr_in_fifo, f_second_in_fifo;
 	reg	[LGFLEN:0]	f_distance_to_first, f_distance_to_second;
+
+	always @(*)
+		f_second_addr = f_first_addr + 1;
 
 	always @(*)
 	begin

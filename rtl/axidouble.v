@@ -677,7 +677,7 @@ module	axidouble #(
 
 	// Get the next AXI address
 	axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
-	get_next_read_address(araddr ,
+	get_next_read_address(araddr,
 			arsize, arburst, arlen, next_araddr);
 
 	//
