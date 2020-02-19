@@ -142,13 +142,14 @@ module	aximm2s #(
 		parameter	C_AXI_DATA_WIDTH = 32,
 		parameter	C_AXI_ID_WIDTH = 1,
 		//
-		// We support three 32-bit AXI-lite registers, requiring 2-bits
+		// We support three 32-bit AXI-lite registers, requiring 4-bits
 		// of AXI-lite addressing
-		localparam	C_AXIL_ADDR_WIDTH = 2,
+		localparam	C_AXIL_ADDR_WIDTH = 4,
 		localparam	C_AXIL_DATA_WIDTH = 32,
 		//
 		// The bottom ADDRLSB bits of any AXI address are subword bits
 		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3,
+		localparam	AXILLSB = $clog2(C_AXIL_DATA_WIDTH)-3,
 		//
 		// OPT_REALIGN: Allow unaligned accesses, address requests
 		// and sizes which may or may not match the underlying data
@@ -300,7 +301,7 @@ module	aximm2s #(
 	wire				fifo_full, fifo_empty;
 
 	wire				awskd_valid, axil_write_ready;
-	wire	[C_AXIL_ADDR_WIDTH-1:0]	awskd_addr;
+	wire	[C_AXIL_ADDR_WIDTH-AXILLSB-1:0]	awskd_addr;
 	//
 	wire				wskd_valid;
 	wire	[C_AXIL_DATA_WIDTH-1:0]	wskd_data;
@@ -308,7 +309,7 @@ module	aximm2s #(
 	reg				axil_bvalid;
 	//
 	wire				arskd_valid, axil_read_ready;
-	wire	[C_AXIL_ADDR_WIDTH-1:0]	arskd_addr;
+	wire	[C_AXIL_ADDR_WIDTH-AXILLSB-1:0]	arskd_addr;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	axil_read_data;
 	reg				axil_read_valid;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	w_status_word,
@@ -360,11 +361,11 @@ module	aximm2s #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH))
+	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilawskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_AWVALID), .o_ready(S_AXIL_AWREADY),
-		.i_data(S_AXIL_AWADDR),
+		.i_data(S_AXIL_AWADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
 		.o_data(awskd_addr));
 
@@ -397,11 +398,11 @@ module	aximm2s #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH))
+	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilarskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_ARVALID), .o_ready(S_AXIL_ARREADY),
-		.i_data(S_AXIL_ARADDR),
+		.i_data(S_AXIL_ARADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(arskd_valid), .i_ready(axil_read_ready),
 		.o_data(arskd_addr));
 
@@ -825,12 +826,12 @@ module	aximm2s #(
 				initial_burstlen = (1<<LGMAXBURST);
 			else
 				initial_burstlen = MAX_FIXED_BURST;
-			if (cmd_length_aligned_w < initial_burstlen)
+			if (cmd_length_aligned_w < { {(LGLENWA-LGMAXBURST-1){1'b0}},
+						initial_burstlen })
 				initial_burstlen = cmd_length_aligned_w[LGMAXBURST:0];
 		end else if (cmd_length_aligned_w >= (1<<LGMAXBURST))
 		begin
-			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
-				&&(addralign < (1<<LGMAXBURST)))
+			if (|cmd_addr[ADDRLSB +: LGMAXBURST])
 				initial_burstlen = { 1'b0, addralign };
 		end else begin
 			initial_burstlen = cmd_length_aligned_w[LGMAXBURST:0];
@@ -1041,7 +1042,11 @@ module	aximm2s #(
 			axi_araddr <= cmd_addr;
 		else if (M_AXI_ARVALID && r_increment)
 		begin
-			axi_araddr <= axi_araddr+((M_AXI_ARLEN + 1)<<(ADDRLSB));
+			// Verilator lint_off WIDTH
+			axi_araddr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+				<= axi_araddr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+					+ (M_AXI_ARLEN + 1);
+			// Verilator lint_on  WIDTH
 			axi_araddr[ADDRLSB-1:0] <= 0;
 		end
 		axi_arlen  <= r_max_burst[7:0] - 8'd1;
@@ -1086,7 +1091,8 @@ module	aximm2s #(
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_RID,
 			M_AXI_RRESP[0], fifo_full, wskd_strb[2:0], fifo_fill,
-			ar_none_outstanding };
+			ar_none_outstanding, S_AXIL_AWADDR[AXILLSB-1:0],
+			S_AXIL_ARADDR[AXILLSB-1:0] };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
