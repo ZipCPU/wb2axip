@@ -92,8 +92,8 @@ Currently, the project contains formal specifications for
 (pipelined)](bench/formal/fwb_slave.v), and
 [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
-the one in the master branch is known to have issues.  (I actually have a
-good set of formal properties for verifying full AXI transactions.)
+the one in the master branch is incomplete.  The complete set of AXI
+properties are maintained elsewhere.
 
 # Xilinx Cores
 
@@ -243,6 +243,17 @@ capabilities.
 
   Both this core and the one above it depend upon all stream addresses being
   aligned.
+
+  *This core has been formally verified.*
+
+- [AXIDMA](rtl/axidma.v) is a hardware assisted memory copy.  Given a source
+  address, read address, and length, this core reads from the source address
+  into a FIFO, and then writes the data from the FIFO to memory.  As an
+  optimization, memory address requests are not made unless the core is able
+  to transfer at a 100% throughput rate.
+
+  This particular version can only handle bus aligned transfers.  A separate
+  version that can handle unaligned transfers is available for purchase.
 
   *This core has been formally verified.*
 
