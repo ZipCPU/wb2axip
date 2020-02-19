@@ -2,7 +2,7 @@
 //
 // Filename:	fwb_master.v
 //
-// Project:	Zip CPU -- a small, lightweight, RISC CPU soft core
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This file describes the rules of a wishbone interaction from the
 //		perspective of a wishbone master.  These formal rules may be used
@@ -37,7 +37,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2017-2019, Gisselquist Technology, LLC
+// Copyright (C) 2017-2020, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
 //
@@ -236,6 +236,15 @@ module	fwb_master(i_clk, i_reset,
 		`SLAVE_ASSUME(i_wb_we == $past(i_wb_we));
 
 	// Write requests must also set one (or more) of i_wb_sel
+	//
+	// This test has been removed since down-sizers (taking bus from width
+	// DW to width dw < DW) might actually create empty requests that this
+	// would prevent.  Re-enabling it would also complicate AXI to WB
+	// transfers, since AXI explicitly allows WSTRB == 0.  Finally, this
+	// criteria isn't found in the WB spec--so while it might be a good
+	// idea to check, in hind sight there are too many exceptions to be
+	// dogmatic about it.
+	//
 	// always @(*)
 	// if ((i_wb_stb)&&(i_wb_we))
 	//	`SLAVE_ASSUME(|i_wb_sel);
