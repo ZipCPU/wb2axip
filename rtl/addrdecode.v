@@ -212,6 +212,11 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 
 			o_decode = request;
 		end
+
+		// verilator lint_off UNUSED
+		wire	unused;
+		assign	unused = &{ 1'b0, i_clk, i_reset };
+		// verilator lint_on UNUSED
 	end endgenerate
 
 `ifdef	FORMAL
