@@ -54,11 +54,40 @@
 //		Writes to CMD_CONTROL while the core is idle will adjust this
 //		bit.
 //
+//	[26]	!r_tlast_syncd
+//
+//		Read only status indicator.  Reads 0 if OPT_TLAST_SYNC isn't
+//		set.  If set, this bit indicates whether or not the memory
+//		transfer is currently aligned with any stream packets, or
+//		whether it is out of synchronization and waiting to sync with
+//		the incoming stream.  If it is out of alignment, the core
+//		will synchronize itself automatically.
+//
+//	[25]	Error code, decode error
+//
+//		Read only bit.  True following any AXI decode error.  Cleared
+//		whenever the error bit is cleared.
+//
+//	[24]	Error code, slave error
+//
+//		Read only bit.  True following any AXI slave error.  Cleared
+//		whenever the error bit is cleared.
+//
+//	[23]	Error code, overflow error
+//
+//		Read only bit.  True following any AXI stream overflow.
+//		Cleared whenever the error bit is cleared.
+//
+//	[22]	Abort in progress
+//
+//		Read only bit.  This bit will be true following any abort until
+//		the bus transactions complete.  Self-clearing.
+//
 //	[20:16]	LGFIFO
 //		These are read-only bits, returning the size of the FIFO.
 //
 //	ABORT
-//		If the core is busy, and ABORT_KEY (currently set to 8'h6d
+//		If the core is busy, and ABORT_KEY (currently set to 8'h26
 //		below) is written to the top 8-bits of this register,
 //		the current transfer will be aborted.  Any pending writes
 //		will be completed, but nothing more will be written.
@@ -147,20 +176,26 @@ module	axis2mm #(
 		// be achieved by increasing this data width.
 		parameter	C_AXI_DATA_WIDTH = 32,
 		parameter	C_AXI_ID_WIDTH = 1,
+		parameter	C_AXIS_TUSER_WIDTH = 0,
 		//
-		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
-		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
-		// we only ever have 4 configuration words.
-		localparam	C_AXIL_ADDR_WIDTH = 2,
-		localparam	C_AXIL_DATA_WIDTH = 32,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3,
+		// OPT_TLAST_SYNC will synchronize the write with any incoming
+		// packets.  Packets are assumed to be synchronized initially
+		// after any reset, or on the TVALID following any TLAST
+		parameter [0:0]	OPT_TLAST_SYNC = 1,
+		//
+		// OPT_TREADY_WHILE_IDLE controls how the stream idle is set
+		// when the memory copy isn't running.  If 1, then TREADY will
+		// be 1 and the core will ignore/throw out data when the core
+		// isn't busy.  Otherwise, if this is set to 0, the core will
+		// force the stream to stall if ever no data is being copied.
+		parameter [0:0]	OPT_TREADY_WHILE_IDLE = 1,
 		//
 		// If the ABORT_KEY is written to the upper 8-bits of the
 		// control/status word, the current operation will be halted.
 		// Any currently active (AxVALID through xVALID & xREADY)
 		// requests will continue to completion, and the core will then
 		// come to a halt.
-		parameter [7:0]	ABORT_KEY = 8'h6d,
+		parameter [7:0]	ABORT_KEY = 8'h26,
 		//
 		// The size of the FIFO, log-based two.  Hence LGFIFO=9 gives
 		// you a FIFO of size 2^(LGFIFO) or 512 elements.  This is about
@@ -174,7 +209,15 @@ module	axis2mm #(
 		//
 		// We only ever use one AXI ID for all of our transactions.
 		// Here it is given as 0.  Feel free to change it as necessary.
-		parameter [C_AXI_ID_WIDTH-1:0]	AXI_ID = 0
+		parameter [C_AXI_ID_WIDTH-1:0]	AXI_ID = 0,
+		//
+		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
+		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
+		// we only ever have 4 configuration words.
+		localparam	C_AXIL_ADDR_WIDTH = 4,
+		localparam	C_AXIL_DATA_WIDTH = 32,
+		localparam	AXILLSB = $clog2(C_AXIL_DATA_WIDTH)-3,
+		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
 		// }}}
 	) (
 		// {{{
@@ -186,6 +229,9 @@ module	axis2mm #(
 		input	wire					S_AXIS_TVALID,
 		output	wire					S_AXIS_TREADY,
 		input	wire	[C_AXI_DATA_WIDTH-1:0]		S_AXIS_TDATA,
+		input	wire					S_AXIS_TLAST,
+		input wire [((C_AXIS_TUSER_WIDTH>0) ? C_AXIS_TUSER_WIDTH-1:0):0]
+								S_AXIS_TUSER,
 		// }}}
 		//
 		// The control interface
@@ -236,6 +282,8 @@ module	axis2mm #(
 		output	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
 		output	wire	[C_AXI_DATA_WIDTH/8-1:0] M_AXI_WSTRB,
 		output	wire				M_AXI_WLAST,
+		output wire [(C_AXIS_TUSER_WIDTH>0 ? C_AXIS_TUSER_WIDTH-1:0):0]
+							M_AXI_WUSER,
 		//
 		input	wire				M_AXI_BVALID,
 		output	wire				M_AXI_BREADY,
@@ -258,6 +306,11 @@ module	axis2mm #(
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam [ADDRLSB-1:0] LSBZEROS = 0;
+	localparam	ERRCODE_NOERR    = 0,
+			ERRCODE_OVERFLOW = 0,
+			ERRCODE_SLVERR   = 1,
+			ERRCODE_DECERR   = 2;
+
 
 	wire	i_clk   =  S_AXI_ACLK;
 	wire	i_reset = !S_AXI_ARESETN;
@@ -267,6 +320,7 @@ module	axis2mm #(
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
 		cmd_abort, zero_length,
 		w_cmd_start, w_complete, w_cmd_abort;
+	reg	[2:0]		r_errcode;
 	// reg	cmd_start;
 	reg			axi_abort_pending;
 
@@ -284,12 +338,12 @@ module	axis2mm #(
 	// FIFO signals
 	wire				reset_fifo, write_to_fifo,
 					read_from_fifo;
-	wire	[C_AXI_DATA_WIDTH-1:0]	fifo_data;
+	wire [C_AXIS_TUSER_WIDTH+C_AXI_DATA_WIDTH-1:0]	fifo_data;
 	wire	[LGFIFO:0]		fifo_fill;
 	wire				fifo_full, fifo_empty;
 
 	wire				awskd_valid, axil_write_ready;
-	wire	[C_AXIL_ADDR_WIDTH-1:0]	awskd_addr;
+	wire	[C_AXIL_ADDR_WIDTH-AXILLSB-1:0]	awskd_addr;
 	//
 	wire				wskd_valid;
 	wire	[C_AXIL_DATA_WIDTH-1:0]	wskd_data;
@@ -297,10 +351,10 @@ module	axis2mm #(
 	reg				axil_bvalid;
 	//
 	wire				arskd_valid, axil_read_ready;
-	wire	[C_AXIL_ADDR_WIDTH-1:0]	arskd_addr;
+	wire	[C_AXIL_ADDR_WIDTH-AXILLSB-1:0]	arskd_addr;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	axil_read_data;
 	reg				axil_read_valid;
-	reg				last_stalled, overflow;
+	reg				last_stalled, overflow, last_tlast;
 	reg	[C_AXI_DATA_WIDTH-1:0]	last_tdata;
 	reg	[C_AXIL_DATA_WIDTH-1:0]	w_status_word,
 					w_addr_word,
@@ -313,20 +367,23 @@ module	axis2mm #(
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_awaddr;
 	reg	[7:0]			axi_awlen;
 	reg				axi_wvalid, axi_wlast;
-	reg	[C_AXI_DATA_WIDTH-1:0]	axi_wdata;
 	reg [C_AXI_DATA_WIDTH/8-1:0]	axi_wstrb;
 	reg	[1:0]			awburst;
 
 	// Speed up checking for zeros
 	reg				aw_none_remaining, aw_none_outstanding,
 					aw_last_outstanding,
-					wr_none_pending, r_none_remaining;
+					wr_none_pending; // r_none_remaining;
 
 	reg				w_phantom_start, phantom_start;
 	reg	[LGFIFO:0]	next_fill;
 	reg	[LGMAXBURST:0]	initial_burstlen;
 	reg	[LGMAXBURST-1:0] addralign;
-	reg	w_increment;
+	reg			w_increment;
+
+	//
+	// Option processing
+	reg			r_tlast_syncd;
 
 	// }}}
 
@@ -346,11 +403,11 @@ module	axis2mm #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH))
+	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilawskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_AWVALID), .o_ready(S_AXIL_AWREADY),
-		.i_data(S_AXIL_AWADDR),
+		.i_data(S_AXIL_AWADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
 		.o_data(awskd_addr));
 
@@ -383,11 +440,11 @@ module	axis2mm #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH))
+	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilarskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_ARVALID), .o_ready(S_AXIL_ARREADY),
-		.i_data(S_AXIL_ARADDR),
+		.i_data(S_AXIL_ARADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(arskd_valid), .i_ready(axil_read_ready),
 		.o_data(arskd_addr));
 
@@ -420,6 +477,13 @@ module	axis2mm #(
 	initial	last_stalled = 1'b0;
 	always @(posedge i_clk)
 		last_stalled <= (!i_reset) && (S_AXIS_TVALID && !S_AXIS_TREADY);
+
+	always @(posedge i_clk)
+	if (!OPT_TLAST_SYNC)
+		last_tlast <= 0;
+	else
+		last_tlast <= S_AXIS_TLAST;
+
 	always @(posedge i_clk)
 		last_tdata <= S_AXIS_TDATA;
 
@@ -428,9 +492,19 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (i_reset)
 		overflow <= 0;
-	else
-		overflow <= (S_AXIS_TVALID && !S_AXIS_TREADY
-				&& last_stalled && S_AXIS_TDATA != last_tdata);
+	else if (last_stalled)
+	begin
+		// The overflow pulse is only one clock period long
+		overflow <= 0;
+		if (!S_AXIS_TVALID)
+			overflow <= 1;
+		if (S_AXIS_TDATA != last_tdata)
+			overflow <= 1;
+		if (OPT_TLAST_SYNC && S_AXIS_TLAST != last_tlast)
+			overflow <= 1;
+
+		// This will be caught by r_err and r_continuous
+	end
 
 	//
 	// Abort transaction
@@ -448,8 +522,10 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (i_reset)
 		cmd_abort <= 0;
+	else if (!r_busy)
+		cmd_abort <= 0;
 	else
-		cmd_abort <= (r_busy && cmd_abort)||w_cmd_abort;
+		cmd_abort <= cmd_abort || w_cmd_abort;
 
 	//
 	// Start command
@@ -518,22 +594,43 @@ module	axis2mm #(
 	//
 	// Error conditions
 	//
+	initial	r_err = 0;
+	initial	r_errcode = ERRCODE_NOERR;
 	always @(posedge i_clk)
 	if (i_reset)
+	begin
 		r_err <= 0;
-	else if (!r_busy)
+		r_errcode <= ERRCODE_NOERR;
+	end else if (!r_busy)
 	begin
 		if (r_continuous && overflow)
+		begin
 			r_err <= 1;
+			r_errcode[ERRCODE_OVERFLOW] <= 1'b1;
+		end
+
 		if (axil_write_ready && awskd_addr == CMD_CONTROL
-			&& !w_cmd_abort)
-			r_err <= r_err & (!wskd_strb[3] || !wskd_data[30]);
+			&& wskd_strb[3] && wskd_data[30])
+		begin
+			r_err     <= 0;
+			r_errcode <= ERRCODE_NOERR;
+		end
 	end else if (r_busy)
 	begin
 		if (M_AXI_BVALID && M_AXI_BREADY && M_AXI_BRESP[1])
+		begin
 			r_err <= 1'b1;
-		else if (overflow)
+			if (M_AXI_BRESP[0])
+				r_errcode[ERRCODE_DECERR] <= 1'b1;
+			else
+				r_errcode[ERRCODE_SLVERR] <= 1'b1;
+		end
+
+		if (overflow)
+		begin
 			r_err <= 1'b1;
+			r_errcode[ERRCODE_OVERFLOW] <= 1'b1;
+		end
 	end
 
 	initial	r_continuous = 0;
@@ -543,8 +640,7 @@ module	axis2mm #(
 	else begin
 		if (r_continuous && overflow)
 			r_continuous <= 1'b0;
-		if (!r_busy && axil_write_ready && awskd_addr == CMD_CONTROL
-			&& !w_cmd_abort)
+		if (!r_busy && axil_write_ready && awskd_addr == CMD_CONTROL)
 			r_continuous <= wskd_strb[3] && wskd_data[28];
 	end
 
@@ -583,11 +679,18 @@ module	axis2mm #(
 	always @(*)
 	begin
 		w_status_word = 0;
+
+		// The ABORT_KEY needs to be chosen so as not to look
+		// like these bits, lest someone read from the register
+		// and write back to it accidentally aborting any transaction
 		w_status_word[31] = r_busy;
 		w_status_word[30] = r_err;
 		w_status_word[29] = r_complete;
 		w_status_word[28] = r_continuous;
 		w_status_word[27] = !r_increment;
+		w_status_word[26] = !r_tlast_syncd;
+		w_status_word[25:23] = r_errcode;
+		w_status_word[22] = cmd_abort;
 		w_status_word[20:16] = LGFIFO;
 
 		w_addr_word = 0;
@@ -624,14 +727,81 @@ module	axis2mm #(
 	//
 	// {{{
 	assign	reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
-	assign	write_to_fifo  = S_AXIS_TVALID && S_AXIS_TREADY;
-	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY && !axi_abort_pending;
-	assign	S_AXIS_TREADY  = !fifo_full;
+	assign	write_to_fifo  = S_AXIS_TVALID && S_AXIS_TREADY&& r_tlast_syncd;
+	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY
+					&& !axi_abort_pending;
 
-	sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-	sfifo(i_clk, reset_fifo,
-		write_to_fifo, S_AXIS_TDATA, fifo_full, fifo_fill,
-		read_from_fifo, fifo_data, fifo_empty);
+	// We are ready if the FIFO isn't full and ...
+	//	if OPT_TREADY_WHILE_IDLE is true
+	//		at which point we ignore incoming data when we aren't
+	//		busy, or
+	//	if we aren't resetting the FIFO--that is, if data is actually
+	//		going into the FIFO, or
+	// 	if we are ever out of synchronization--then we can ignore data
+	//		until the next TLAST comes, where we must realign
+	//		ourselves
+	assign	S_AXIS_TREADY  = !fifo_full && (OPT_TREADY_WHILE_IDLE
+					|| !reset_fifo || !r_tlast_syncd);
+
+	generate if (OPT_TLAST_SYNC)
+	begin
+		// If the user has set OPT_TLAST_SYNC, then he wants to make
+		// certain that we don't start writing until the first stream
+		// value after the TLAST packet indicating an end of packet.
+		// For this cause, we'll maintain an r_tlast_syncd value
+		// indicating that the last value was a TLAST.  If, at any
+		// time afterwards, a value is accepted into the stream but not
+		// into the FIFO, then the stream is now out of sync and
+		// r_tlast_syncd will drop.
+		//
+		// Note, this doesn't catch the case where the FIFO can't keep
+		// up.  Lost data (might be) caught by overflow below.
+		initial	r_tlast_syncd = 1;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_tlast_syncd <= 1;
+		else if (S_AXIS_TVALID && S_AXIS_TREADY && S_AXIS_TLAST)
+			r_tlast_syncd <= 1;
+		else if (S_AXIS_TVALID && S_AXIS_TREADY && !write_to_fifo)
+			r_tlast_syncd <= 0;
+
+	end else begin
+
+		//
+		// If the option isn't set, then we are always synchronized.
+		//
+		always @(*)
+			r_tlast_syncd = 1;
+	end endgenerate
+
+	generate if (C_AXIS_TUSER_WIDTH > 0)
+	begin : FIFO_WITH_USER_DATA
+
+		sfifo #(.BW(C_AXIS_TUSER_WIDTH + C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
+		sfifo(i_clk, reset_fifo,
+			write_to_fifo, { S_AXIS_TUSER, S_AXIS_TDATA },
+						fifo_full, fifo_fill,
+			read_from_fifo, fifo_data, fifo_empty);
+
+		assign	{ M_AXI_WUSER, M_AXI_WDATA }  = fifo_data;
+
+	end else begin : NO_USER_DATA
+
+		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
+		sfifo(i_clk, reset_fifo,
+			write_to_fifo, S_AXIS_TDATA, fifo_full, fifo_fill,
+			read_from_fifo, fifo_data, fifo_empty);
+
+		assign	M_AXI_WDATA = fifo_data;
+		assign	M_AXI_WUSER = 0;
+
+		// Verilator lint_off UNUSED
+		wire	unused_tuser;
+		assign	unused_tuser = &{ 1'b0, S_AXIS_TUSER };
+		// Verilator lint_on UNUSED
+	end endgenerate
+
+
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -687,13 +857,12 @@ module	axis2mm #(
 				initial_burstlen = (1<<LGMAXBURST);
 			else
 				initial_burstlen = MAX_FIXED_BURST;
-			if (cmd_length_w < initial_burstlen)
+			if (cmd_length_w < { {(LGLENW-LGMAXBURST-1){1'b0}},
+							initial_burstlen })
 				initial_burstlen = cmd_length_w[LGMAXBURST:0];
 		end else if (cmd_length_w >= (1<<LGMAXBURST))
 		begin
-			// initial_burstlen = (1<<LGMAXBURST);
-			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
-				&&(addralign < (1<<LGMAXBURST)))
+			if (|cmd_addr[ADDRLSB +: LGMAXBURST])
 				initial_burstlen = { 1'b0, addralign };
 		end else begin
 			initial_burstlen = cmd_length_w[LGMAXBURST:0];
@@ -828,21 +997,21 @@ module	axis2mm #(
 
 	// Count the number of words remaining to be written on the W channel
 	// {{{
-	initial	r_none_remaining = 1;
+	// initial	r_none_remaining = 1;
 	initial	r_remaining_w = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
 		r_remaining_w <= 0;
-		r_none_remaining <= 1;
+		// r_none_remaining <= 1;
 	end else if (!r_busy)
 	begin
 		r_remaining_w<= cmd_length_w;
-		r_none_remaining <= zero_length;
+		// r_none_remaining <= zero_length;
 	end else if (M_AXI_WVALID && M_AXI_WREADY)
 	begin
 		r_remaining_w <= r_remaining_w - 1;
-		r_none_remaining <= (r_remaining_w == 1);
+		// r_none_remaining <= (r_remaining_w == 1);
 	end
 
 	always @(*)
@@ -979,9 +1148,6 @@ module	axis2mm #(
 	end
 	// }}}
 
-	always @(*)
-		axi_wdata = fifo_data;
-
 	always @(posedge i_clk)
 	if (!r_busy)
 		axi_wstrb <= -1;
@@ -1011,7 +1177,6 @@ module	axis2mm #(
 	assign	M_AXI_AWQOS  = 0;
 
 	assign	M_AXI_WVALID = axi_wvalid;
-	assign	M_AXI_WDATA  = axi_wdata;
 	assign	M_AXI_WSTRB  = axi_wstrb;
 	assign	M_AXI_WLAST  = axi_wlast;
 	// M_AXI_WLAST = ??
@@ -1022,18 +1187,29 @@ module	axis2mm #(
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
 			M_AXI_BRESP[0], fifo_empty, wskd_strb[2:0],
-			wr_none_pending };
+			wr_none_pending, S_AXIL_ARADDR[AXILLSB-1:0],
+			S_AXIL_AWADDR[AXILLSB-1:0] };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
+	//
+	// The formal properties for this unit are maintained elsewhere.
+	// This core does, however, pass a full prove (w/ induction) for all
+	// bus properties.
+	//
+	// ...
+	//
+
 	////////////////////////////////////////////////////////////////////////
 	//
-	// The AXI-stream data interface
+	// Properties of the AXI-stream data interface
 	// {{{
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	// (These are captured by the FIFO within)
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
