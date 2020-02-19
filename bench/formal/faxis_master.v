@@ -12,7 +12,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2019, Gisselquist Technology, LLC
+// Copyright (C) 2019-2020, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
 //
@@ -100,7 +100,7 @@ module	faxis_master(i_aclk, i_aresetn,
 	// During and following a reset, TVALID should be deasserted
 	always @(posedge i_aclk)
 	if ((!f_past_valid)||(!i_aresetn)||($past(!i_aresetn)))
-		`SLAVE_ASSERT(!i_tvalid);
+		`SLAVE_ASSUME(!i_tvalid);
 
 	//
 	// If TVALID but not TREADY, then the master isn't allowed to change
@@ -182,7 +182,7 @@ module	faxis_master(i_aclk, i_aresetn,
 	always @(posedge i_aclk)
 	if (!i_aresetn || !i_tvalid || i_tready)
 		f_stall_count <= 0;
-	else
+	else if (!(&f_stall_count))
 		f_stall_count <= f_stall_count + 1;
 
 	//
