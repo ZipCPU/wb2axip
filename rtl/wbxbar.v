@@ -238,7 +238,7 @@ module	wbxbar(i_clk, i_reset,
 			.OPT_PASSTHROUGH(1),
 `endif
 			.OPT_OUTREG(0))
-		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N] && i_mcyc[N], iskd_ready,
+		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N], iskd_ready,
 			{ i_mwe[N], i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
 					i_msel[N*DW/8 +: DW/8] },
 			skd_stb, !skd_stall,
