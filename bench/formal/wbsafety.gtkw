@@ -1,0 +1,93 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Thu Feb 20 19:41:28 2020
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1920 1054
+[pos] -1 -1
+*-4.567505 40 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] wbsafety.
+[treeopen] wbsafety.wbs.
+[sst_width] 196
+[signals_width] 198
+[sst_expanded] 1
+[sst_vpaned_height] 315
+@28
+wbsafety.i_clk
+wbsafety.i_reset
+@200
+-
+@28
+[color] 3
+wbsafety.i_wb_cyc
+[color] 3
+wbsafety.i_wb_stb
+[color] 3
+wbsafety.i_wb_we
+@22
+[color] 3
+wbsafety.i_wb_addr[27:0]
+[color] 3
+wbsafety.i_wb_data[31:0]
+[color] 3
+wbsafety.i_wb_sel[3:0]
+@28
+wbsafety.o_wb_stall
+wbsafety.o_wb_ack
+@22
+wbsafety.o_wb_idata[31:0]
+@28
+wbsafety.o_wb_err
+@201
+-
+@22
+wbsafety.fwbs_nacks[3:0]
+wbsafety.fwbs_nreqs[3:0]
+wbsafety.fwbs_outstanding[3:0]
+@200
+-
+@28
+wbsafety.o_wb_cyc
+wbsafety.o_wb_stb
+wbsafety.o_wb_we
+@22
+wbsafety.o_wb_addr[27:0]
+wbsafety.o_wb_data[31:0]
+wbsafety.o_wb_sel[3:0]
+@28
+[color] 2
+wbsafety.i_wb_stall
+[color] 2
+wbsafety.i_wb_ack
+@22
+[color] 2
+wbsafety.i_wb_idata[31:0]
+@28
+[color] 2
+wbsafety.i_wb_err
+@200
+-
+@28
+[color] 1
+wbsafety.o_fault
+[color] 1
+wbsafety.o_reset
+@200
+-
+@22
+wbsafety.stall_timer[3:0]
+wbsafety.wait_timer[3:0]
+@200
+-
+@28
+wbsafety.timeout
+@200
+-
+@22
+wbsafety.expected_returns[3:0]
+@28
+wbsafety.none_expected
+wbsafety.faulty_return
+[pattern_trace] 1
+[pattern_trace] 0
