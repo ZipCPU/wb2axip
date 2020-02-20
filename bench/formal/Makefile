@@ -39,7 +39,8 @@ HELPERS   := sfifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISLAVES := demoaxi # demofull xlnxfull axisafety
-TESTS := $(HELPERS) $(BRIDGES) $(CROSSBARS) $(AXISLAVES)
+FIREWALLS := wbsafety
+TESTS := $(HELPERS) $(BRIDGES) $(CROSSBARS) $(AXISLAVES) $(FIREWALLS)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -76,6 +77,9 @@ WBXBAR4x8  := wbxbar4x8
 WBXBAR1x8  := wbxbar1x8
 WBXBAR4x1  := wbxbar4x1
 # AXIXBAR    := axixbar
+#
+# Firewalls
+WBSAFETY   := wbsafety
 #
 # Bus property sets
 AXIL       := faxil_master.v faxil_slave.v
@@ -443,6 +447,21 @@ $(SKIDBUFFER)_lpo/PASS:  $(SKIDBUFFER).sby $(RTL)/$(SKIDBUFFER).v
 $(SKIDBUFFER)_cvr/PASS:  $(SKIDBUFFER).sby $(RTL)/$(SKIDBUFFER).v
 	sby -f $(SKIDBUFFER).sby cvr
 
+.PHONY: $(WBSAFETY)
+$(WBSAFETY): $(WBSAFETY)_prf/PASS   $(WBSAFETY)_prfr/PASS
+$(WBSAFETY): $(WBSAFETY)_fault/PASS $(WBSAFETY)_faultr/PASS
+$(WBSAFETY): $(WBSAFETY)_cvr/PASS   $(SKIDBUFFER)
+WBSAFETYDEP := $(WBSAFETY).sby $(RTL)/$(WBSAFETY).v $(RTL)/$(SKIDBUFFER).v $(WB)
+$(WBSAFETY)_prf/PASS: $(WBSAFETYDEP)
+	sby -f $(WBSAFETY).sby prf
+$(WBSAFETY)_prfr/PASS: $(WBSAFETYDEP)
+	sby -f $(WBSAFETY).sby prfr
+$(WBSAFETY)_fault/PASS: $(WBSAFETYDEP)
+	sby -f $(WBSAFETY).sby fault
+$(WBSAFETY)_faultr/PASS: $(WBSAFETYDEP)
+	sby -f $(WBSAFETY).sby faultr
+$(WBSAFETY)_cvr/PASS: $(WBSAFETYDEP)
+	sby -f $(WBSAFETY).sby cvr
 
 
 

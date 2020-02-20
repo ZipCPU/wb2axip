@@ -94,7 +94,7 @@ downstream core upon any error, so that it might be reintegrated later into
 the rest of the design for additional testing.
 
 - [AXI4](axisafety.v)
-- The Wishbone firewall is an (unfunded) work in progress.
+- [Wishbone](wbsafety.v)
 
 ## Clock domain crossers
 

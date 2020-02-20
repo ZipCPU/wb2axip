@@ -287,9 +287,15 @@ capabilities.
   applied to each of the AXI channels.  The asynchronous FIFOs have been
   formally verified,
 
-# Commercial Applications
+- [WBSAFETY](rtl/wbsafety.v) is a firewall, very similar to the
+  [AXISAFETY](rtl/axisafety.v) firewall above, only for the Wishbone bus.
+  Unlike many other firewall implementations, this one is able to reset
+  the downstream core following any error.
 
-This repository is licensed under the [Apache 2 license](https://www.apache.org/licenses/LICENSE-2.0.html)
+# Licensing
+
+This repository is licensed under the [Apache 2
+license](https://www.apache.org/licenses/LICENSE-2.0.html).
 
 # Thanks
 

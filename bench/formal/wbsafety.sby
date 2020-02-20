@@ -1,0 +1,35 @@
+[tasks]
+prf
+cvr    fault     opt_reset
+fault        prf
+prfr         prf opt_reset
+faultr fault prf opt_reset
+
+[options]
+prf: mode prove
+prf: depth 6
+cvr: mode cover
+cvr: depth 32
+
+[engines]
+smtbmc
+
+[script]
+read -formal wbsafety.v
+read -formal skidbuffer.v
+read -formal fwb_slave.v
+read -formal fwb_master.v
+--pycode-begin--
+cmd = "hierarchy -top wbsafety"
+cmd += " -chparam F_OPT_FAULTLESS %d" % (0 if "fault"     in tags else 1)
+cmd += " -chparam OPT_SELF_RESET  %d" % (1 if "opt_reset" in tags else 0)
+cmd += " -chparam OPT_TIMEOUT 10"
+output(cmd)
+--pycode-end--
+prep -top wbsafety
+
+[files]
+../../rtl/skidbuffer.v
+../../rtl/wbsafety.v
+fwb_slave.v
+fwb_master.v
