@@ -4,7 +4,33 @@
 //
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
-// Purpose:	
+// Purpose:	A WB bus fault isolator.  This core will isolate any downstream
+//		WB slave faults from the upstream channel.  It sits as a bump
+//	in the wire between upstream and downstream channels, and so it will
+//	consume two clocks--slowing down the slave, but potentially allowing
+//	the developer to recover in case of a fault.
+//
+//	This core is configured by a couple parameters, which are key to its
+//	functionality.
+//
+//	OPT_TIMEOUT	Set this to a number to be roughly the longest time
+//		period you expect the slave to stall the bus, or likewise
+//		the longest time period you expect it to wait for a response.
+//		If the slave takes longer for either task, a fault will be
+//		detected and reported.
+//
+//	OPT_SELF_RESET	If set, this will send a reset signal to the downstream
+//		core so that you can attempt to restart it without reloading
+//		the FPGA.  If set, the o_reset signal will be used to reset
+//		the downstream core.
+//
+//	A second key feature of this core is the outgoing fault detector,
+//	o_fault.  If this signal is ever raised, the slave has (somehow)
+//	violated protocol.  Such a violation may (or may not) return an
+//	error upstream.  For example, if the slave returns a response
+//	following no requests from the master, then no error will be returned
+//	up stream (doing so would be a protocol violation), but a fault will
+//	be detected.  Use this line to trigger any internal logic analyzers.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -34,11 +60,20 @@
 `default_nettype	none
 //
 module wbsafety(i_clk, i_reset,
+		//
+		// The incoming WB interface from the (trusted) master
+		// This interface is guaranteed to follow the protocol.
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
 			o_wb_stall, o_wb_ack, o_wb_idata, o_wb_err,
+		//
+		// The outgoing interface to the untrusted slave
+		// This interface may or may not follow the WB protocol
 		o_reset, o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data,
 			o_wb_sel,
 		i_wb_stall, i_wb_ack, i_wb_idata, i_wb_err,
+		//
+		// The fault signal, indicating the downstream slave was
+		// misbehaving
 		o_fault);
 	parameter	AW = 28, DW = 32;
 	parameter	OPT_TIMEOUT = 12;
@@ -110,9 +145,13 @@ module wbsafety(i_clk, i_reset,
 
 	////////////////////////////////////////////////////////////////////////
 	//
+	// Timeout checking
 	//
 
 
+	//
+	// Insist on a maximum number of downstream stalls
+	//
 	initial	stall_timer = 0;
 	always @(posedge i_clk)
 	if (!i_reset && o_wb_stb && i_wb_stall)
@@ -122,6 +161,9 @@ module wbsafety(i_clk, i_reset,
 	end else 
 		stall_timer <= 0;
 
+	//
+	// Insist on a maximum number cyles waiting for an acknowledgment
+	//
 	initial	wait_timer = 0;
 	always @(posedge i_clk)
 	if (!i_reset && o_wb_cyc && !o_wb_stb && !i_wb_ack && !i_wb_err
@@ -132,6 +174,9 @@ module wbsafety(i_clk, i_reset,
 	end else
 		wait_timer <= 0;
 
+	//
+	// Generate a timeout signal on any error
+	//
 	initial	timeout = 0;
 	always @(posedge i_clk)
 	if (timeout && o_wb_err)
@@ -139,6 +184,11 @@ module wbsafety(i_clk, i_reset,
 	else
 		timeout <= (i_wb_stall)&&(stall_timer >= OPT_TIMEOUT)
 			|| ((!i_wb_ack && !i_wb_err)&&(wait_timer >= OPT_TIMEOUT));
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Return counting
+	//
 
 	initial	none_expected = 1;
 	initial	expected_returns = 0;
@@ -159,6 +209,10 @@ module wbsafety(i_clk, i_reset,
 	default: begin end
 	endcase
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Downstream reset generation
+	//
 	generate if (OPT_SELF_RESET)
 	begin
 
@@ -181,6 +235,15 @@ module wbsafety(i_clk, i_reset,
 
 	end endgenerate
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Fault detection
+	//
+
+	//
+	// A faulty return is a response from the slave at a time, or in
+	// a fashion that it unexpected and violates protocol
+	//
 	always @(*)
 	begin
 		faulty_return = 0;
@@ -203,6 +266,11 @@ module wbsafety(i_clk, i_reset,
 		if (i_wb_cyc && timeout)
 			o_fault <= 1;
 	end
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Downstream bus signal generation
+	//
 
 	initial	o_wb_cyc = 1'b0;
 	always @(posedge i_clk)
@@ -231,6 +299,11 @@ module wbsafety(i_clk, i_reset,
 
 	always @(posedge i_clk)
 		o_wb_idata <= i_wb_idata;
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Return signal generation
+	//
 
 	always @(*)
 	begin
@@ -265,8 +338,30 @@ module wbsafety(i_clk, i_reset,
 		o_wb_err   <= (i_wb_stb && !skd_stall);
 	end
 
-
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal property section
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	//
+	// The following proof comes in several parts.
+	//
+	// 1. PROVE that the upstream properties will hold independent of
+	//	what the downstream slave ever does.
+	//
+	// 2. PROVE that if the downstream slave follows protocol, then
+	//	o_fault will never get raised.
+	//
+	// We then repeat these proofs again with both OPT_SELF_RESET set and
+	// clear.  Which of the four proofs is accomplished is dependent upon
+	// parameters set by the formal engine. 
+	//
+	//
 	localparam	DOWNSTREAM_ACK_DELAY = OPT_TIMEOUT/2-1;
 	localparam	UPSTREAM_ACK_DELAY = OPT_TIMEOUT + 3;
 	wire	[LGDEPTH-1:0]	fwbs_nreqs, fwbs_nacks, fwbs_outstanding;
@@ -278,6 +373,7 @@ module wbsafety(i_clk, i_reset,
 
 	////////////////////////////////////////////////////////////////////////
 	//
+	// Upstream master Bus properties
 	//
 	always @(*)
 	if (!f_past_valid)
@@ -306,32 +402,18 @@ module wbsafety(i_clk, i_reset,
 	if (i_wb_cyc && !o_wb_err && !o_fault)
 		assert(expected_returns == fwbs_outstanding);
 
-	always @(*)
-		cover(!i_reset && skd_stb);
-
-	always @(*)
-		cover(!i_reset && skd_stb && !o_reset);
-
-	always @(*)
-		cover(!i_reset && skd_stb && !skd_stall);
-
-	always @(*)
-		cover(!i_reset && skd_stb && o_wb_stb);
-
-	always @(*)
-		cover(!i_reset && skd_stb && o_wb_stb && i_wb_ack);
-
-	always @(*)
-		cover(!i_reset && fwbs_nacks > 4);
-
 	generate if (F_OPT_FAULTLESS)
 	begin
+		////////////////////////////////////////////////////////////////
+		//
+		// Assume the downstream core is protocol compliant, and
+		// prove that o_fault stays low.
+		//
 		wire	[LGDEPTH-1:0]	fwbm_nreqs, fwbm_nacks,fwbm_outstanding;
 		reg	[LGDEPTH-1:0]	mreqs, sacks;
 
 
 		fwb_master #(.AW(AW), .DW(DW),
-			.F_MAX_ACK_DELAY(DOWNSTREAM_ACK_DELAY),
 			.F_MAX_ACK_DELAY(DOWNSTREAM_ACK_DELAY),
 			.F_MAX_STALL(DOWNSTREAM_ACK_DELAY),
 			.F_LGDEPTH(LGDEPTH),
@@ -343,9 +425,15 @@ module wbsafety(i_clk, i_reset,
 			i_wb_ack, i_wb_stall, i_wb_idata, i_wb_err,
 			fwbm_nreqs, fwbm_nacks, fwbm_outstanding);
 
+		//
+		// Here's the big proof
 		always @(*)
 			assert(!o_fault);
 
+		////////////////////////////////////////////////////////////////
+		//
+		// The following properties are necessary for passing induction
+		//
 		always @(*)
 		if (!i_reset && i_wb_cyc && o_wb_cyc)
 			assert(expected_returns == fwbm_outstanding
@@ -386,6 +474,11 @@ module wbsafety(i_clk, i_reset,
 			assert(o_wb_cyc || o_wb_err);
 
 	end else begin
+		////////////////////////////////////////////////////////////////
+		//
+		// cover() checks, checks that only make sense if faults are
+		// possible
+		//
 
 		always @(posedge i_clk)
 			cover(o_fault);
@@ -400,7 +493,11 @@ module wbsafety(i_clk, i_reset,
 
 		if (OPT_SELF_RESET)
 		begin
-
+			////////////////////////////////////////////////////////
+			//
+			// Prove that we can actually reset the downstream
+			// bus/core as desired
+			//
 			reg	faulted;
 
 			initial	faulted = 0;
@@ -414,8 +511,15 @@ module wbsafety(i_clk, i_reset,
 			always @(posedge i_clk)
 				cover(faulted && $fell(o_reset));
 
+			always @(posedge i_clk)
+				cover(faulted && !o_reset && o_wb_ack);
+
 		end
 
 	end endgenerate
+
+	always @(*)
+		cover(!i_reset && fwbs_nacks > 4);
+
 `endif
 endmodule
