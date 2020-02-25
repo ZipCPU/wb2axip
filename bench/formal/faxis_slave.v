@@ -46,6 +46,7 @@ module	faxis_slave(i_aclk, i_aresetn,
 	parameter	C_S_AXI_ID_WIDTH = 1;
 	parameter	C_S_AXI_ADDR_WIDTH = 1;
 	parameter	C_S_AXI_USER_WIDTH = 1;
+	parameter [0:0]	OPT_ASYNC_RESET = 1'b0;
 	//
 	// F_LGDEPTH is the number of bits necessary to represent a packets
 	// length
@@ -99,14 +100,14 @@ module	faxis_slave(i_aclk, i_aresetn,
 	//
 	// During and following a reset, TVALID should be deasserted
 	always @(posedge i_aclk)
-	if ((!f_past_valid)||(!i_aresetn)||($past(!i_aresetn)))
+	if ((!f_past_valid)||(!i_aresetn && OPT_ASYNC_RESET)||($past(!i_aresetn)))
 		`SLAVE_ASSUME(!i_tvalid);
 
 	//
 	// If TVALID but not TREADY, then the master isn't allowed to change
 	// anything until the slave asserts TREADY.
 	always @(posedge i_aclk)
-	if ((f_past_valid)&&($past(i_aresetn))
+	if ((f_past_valid)&&($past(i_aresetn))&&(!OPT_ASYNC_RESET || i_aresetn)
 		&&($past(i_tvalid))&&(!$past(i_tready)))
 	begin
 		`SLAVE_ASSUME(i_tvalid);
@@ -126,6 +127,7 @@ module	faxis_slave(i_aclk, i_aresetn,
 		// becomes true.
 		always @(posedge i_aclk)
 		if ((f_past_valid)&&($past(i_aresetn))
+			&&(!OPT_ASYNC_RESET || i_aresetn)
 			&&($past(i_tvalid))&&(!$past(i_tready)))
 		begin
 			if (i_tkeep[k])
@@ -194,7 +196,7 @@ module	faxis_slave(i_aclk, i_aresetn,
 	begin : MAX_PACKET
 
 		always @(*)
-			`SLAVE_ASSUME(f_bytecount + f_vbytes < F_MAX_PACKET);
+			`SLAVE_ASSUME(f_bytecount + f_vbytes <= F_MAX_PACKET);
 
 	end endgenerate
 
@@ -206,7 +208,7 @@ module	faxis_slave(i_aclk, i_aresetn,
 	begin : MIN_PACKET
 
 		always @(*)
-		if (f_tvalid && f_tlast)
+		if (i_tvalid && i_tlast)
 			`SLAVE_ASSUME(f_bytecount + f_vbytes >= F_MIN_PACKET);
 
 	end endgenerate
@@ -221,7 +223,7 @@ module	faxis_slave(i_aclk, i_aresetn,
 	begin : MAX_STALL_CHECK
 
 		always @(*)
-			`SLAVE_ASSERT(stall_count < F_MAX_STALL);
+			`SLAVE_ASSERT(f_stall_count < F_MAX_STALL);
 
 	end endgenerate
 endmodule
