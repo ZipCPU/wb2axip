@@ -159,6 +159,10 @@ module	addrdecode(i_clk, i_reset, i_valid, o_stall, i_addr, i_data,
 	end else begin
 		always @(*)
 			{ request[NS], none_sel } = 2'b00;
+
+		// Verilator lint_off UNUSED
+		wire	all_assigned_unused = none_sel;
+		// Verilator lint_on  UNUSED
 	end endgenerate
 
 	generate if (OPT_REGISTERED)
