@@ -44,6 +44,18 @@ module wbm2axilite #(
 	input	wire			i_clk,
 	input	wire			i_reset,
 	//
+	// We'll share the clock and the reset
+	input	wire			i_wb_cyc,
+	input	wire			i_wb_stb,
+	input	wire			i_wb_we,
+	input	wire	[(AW-1):0]	i_wb_addr,
+	input	wire	[(DW-1):0]	i_wb_data,
+	input	wire	[(DW/8-1):0]	i_wb_sel,
+	output	wire			o_wb_stall,
+	output	reg			o_wb_ack,
+	output	reg	[(DW-1):0]	o_wb_data,
+	output	reg			o_wb_err,
+	//
 	// AXI write address channel signals
 	output	reg			o_axi_awvalid,
 	input	wire			i_axi_awready,
@@ -71,19 +83,7 @@ module wbm2axilite #(
 	input	wire			i_axi_rvalid,
 	output	wire			o_axi_rready,
 	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,
-	input	wire	[1:0]		i_axi_rresp,
-	//
-	// We'll share the clock and the reset
-	input	wire			i_wb_cyc,
-	input	wire			i_wb_stb,
-	input	wire			i_wb_we,
-	input	wire	[(AW-1):0]	i_wb_addr,
-	input	wire	[(DW-1):0]	i_wb_data,
-	input	wire	[(DW/8-1):0]	i_wb_sel,
-	output	wire			o_wb_stall,
-	output	reg			o_wb_ack,
-	output	reg	[(DW-1):0]	o_wb_data,
-	output	reg			o_wb_err
+	input	wire	[1:0]		i_axi_rresp
 	);
 
 //*****************************************************************************
