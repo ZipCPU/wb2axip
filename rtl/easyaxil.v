@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	easyaxil
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Demonstrates a simple AXI-Lite interface.
@@ -19,7 +19,7 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2020, Gisselquist Technology, LLC
 // {{{
 //
@@ -45,7 +45,7 @@
 // Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 //
 `default_nettype none
 //
@@ -66,8 +66,6 @@ module	easyaxil #(
 		input	wire					S_AXI_ACLK,
 		input	wire					S_AXI_ARESETN,
 		//
-		// The control interface
-		// {{{
 		input	wire					S_AXI_AWVALID,
 		output	wire					S_AXI_AWREADY,
 		input	wire	[C_AXI_ADDR_WIDTH-1:0]		S_AXI_AWADDR,
@@ -92,9 +90,15 @@ module	easyaxil #(
 		output	wire	[C_AXI_DATA_WIDTH-1:0]		S_AXI_RDATA,
 		output	wire	[1:0]				S_AXI_RRESP
 		// }}}
-		//
 	);
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Register/wire signal declarations
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	wire	i_clk   =  S_AXI_ACLK;
 	wire	i_reset = !S_AXI_ARESETN;
 
@@ -120,9 +124,6 @@ module	easyaxil #(
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
-	// This is mostly the skidbuffer logic, and handling of the VALID
-	// and READY signals for the AXI-lite control logic in the next
-	// section.
 	// {{{
 
 	//
@@ -248,7 +249,7 @@ module	easyaxil #(
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	// AXI-lite controlled logic
+	// AXI-lite register logic
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -298,8 +299,6 @@ module	easyaxil #(
 			axil_read_data <= 0;
 	end
 
-	// }}}
-
 	function [31:0]	apply_wstrb;
 		input	[31:0]	prior_data;
 		input	[31:0]	new_data;
@@ -312,6 +311,7 @@ module	easyaxil #(
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
 		end
 	endfunction
+	// }}}
 
 	// Verilator lint_off UNUSED
 	wire	unused;
@@ -321,6 +321,13 @@ module	easyaxil #(
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Formal properties used in verfiying this core
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge i_clk)
@@ -414,6 +421,10 @@ module	easyaxil #(
 		endcase
 	end
 
+	//
+	// Check that our low-power only logic works by verifying that anytime
+	// S_AXI_RVALID is inactive, then the outgoing data is also zero.
+	//
 	always @(*)
 	if (OPT_LOWPOWER && !S_AXI_RVALID)
 		assert(S_AXI_RDATA == 0);
@@ -427,8 +438,11 @@ module	easyaxil #(
 	//
 	// {{{
 
-	// You'll want to cover something here
+	// While there are already cover properties in the formal property
+	// set above, you'll probably still want to cover something
+	// application specific here
 
+	// }}}
 	// }}}
 `endif
 endmodule
