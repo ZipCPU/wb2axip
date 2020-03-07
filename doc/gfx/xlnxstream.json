@@ -1,0 +1,9 @@
+{signal: [
+  {name: 'M_AXIS_ACLK',    wave: 'P.|..........'},
+  {name: 'M_AXIS_ARESETN', wave: '01|..........'},
+  {},
+  {name: 'M_AXIS_TVALID', wave: '0.|.1.......0',   data: ['S1','S2']},
+  {name: 'M_AXIS_TREADY', wave: 'x.|x1.....010',  data: ['S1','S2']},
+  {name: 'M_AXIS_TDATA',  wave: 'x.|x3456723.x',  data: ['D1','D2','D3','D4','D5','D6','D7']},
+  {name: 'M_AXIS_TLAST',  wave: '0.|........10'},
+]}

@@ -1,8 +1,27 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// Filename: 	xlnxstream_2018_3
+//
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
+//
+// Purpose:	To test the formal tools on an AXI stream master core that is
+//		"known" to work.  This core was generated via the IP packager
+//	in Vivado 2018.3.  Sadly, it's broken in a couple of ways, one which
+//	is prominently the TLAST signal which may be set even through the
+//	channel is stalled.  Feel free to try it out.
+//
+//	This core will fail a verification check.
+//
+// Creator:	Vivado, 2018.3
+//
+////////////////////////////////////////////////////////////////////////////////
+//
+//
 `default_nettype none
 //
 `timescale 1 ns / 1 ps
 
-	module xlnxstream_2018_3 #
+module xlnxstream_2018_3 #
 	(
 		// Users to add parameters here
 
@@ -229,6 +248,7 @@
 		.F_LGDEPTH(F_LGDEPTH),
 		.F_MAX_PACKET({NUMBER_OF_OUTPUT_WORDS, 2'b00}+4),
 		.C_S_AXI_DATA_WIDTH(C_M_AXIS_TDATA_WIDTH),
+		.OPT_ASYNC_RESET(1'b0),
 		.C_S_AXI_ADDR_WIDTH(AW),
 		.C_S_AXI_ID_WIDTH(IDW),
 		.C_S_AXI_USER_WIDTH(1))
@@ -272,12 +292,12 @@
 	if (tx_done)
 		assert(!M_AXIS_TVALID);
 
-	always @(*)
-	if (M_AXIS_TVALID)
-		assert({ 1'b0, read_pointer, 2'b00 } -4 == f_bytecount);
-	else if (!tx_done)
-		assert({ 1'b0, read_pointer, 2'b00 } == f_bytecount);
-
+//	always @(*)
+//	if (M_AXIS_TVALID)
+//		assert({ 1'b0, read_pointer, 2'b00 } -4 == f_bytecount);
+//	else if (!tx_done)
+//		assert({ 1'b0, read_pointer, 2'b00 } == f_bytecount);
+//
 	always @(*)
 	if ((read_pointer > 0)&&(!tx_done))
 		assert(M_AXIS_TVALID);
@@ -317,5 +337,8 @@
 
 	always @(*)
 		cover(&final_counter);
+
+	always @(*)
+		assume(f_past_valid == M_AXIS_ARESETN);
 `endif
 endmodule
