@@ -136,6 +136,7 @@ module	easyaxil #(
 		wire	awskd_valid, wskd_valid;
 
 		skidbuffer #(.OPT_OUTREG(0),
+				.OPT_LOWPOWER(OPT_LOWPOWER),
 				.DW(C_AXI_ADDR_WIDTH-ADDRLSB))
 		axilawskid(//
 			.i_clk(S_AXI_ACLK), .i_reset(i_reset),
@@ -145,6 +146,7 @@ module	easyaxil #(
 			.o_data(awskd_addr));
 
 		skidbuffer #(.OPT_OUTREG(0),
+				.OPT_LOWPOWER(OPT_LOWPOWER),
 				.DW(C_AXI_DATA_WIDTH+C_AXI_DATA_WIDTH/8))
 		axilwskid(//
 			.i_clk(S_AXI_ACLK), .i_reset(i_reset),
@@ -203,7 +205,9 @@ module	easyaxil #(
 
 		wire	arskd_valid;
 
-		skidbuffer #(.OPT_OUTREG(0), .DW(C_AXI_ADDR_WIDTH-ADDRLSB))
+		skidbuffer #(.OPT_OUTREG(0),
+				.OPT_LOWPOWER(OPT_LOWPOWER),
+				.DW(C_AXI_ADDR_WIDTH-ADDRLSB))
 		axilarskid(//
 			.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 			.i_valid(S_AXI_ARVALID), .o_ready(S_AXI_ARREADY),
@@ -250,10 +254,7 @@ module	easyaxil #(
 	//
 	// {{{
 
-	// Your logic here
-
-	// }}}
-
+	// apply_wstrb(old_data, new_data, write_strobes)
 	assign	wskd_r0 = apply_wstrb(r0, wskd_data, wskd_strb);
 	assign	wskd_r1 = apply_wstrb(r1, wskd_data, wskd_strb);
 	assign	wskd_r2 = apply_wstrb(r2, wskd_data, wskd_strb);
