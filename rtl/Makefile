@@ -42,27 +42,47 @@ YYMMDD=`date +%Y%m%d`
 CXX   := g++
 FBDIR := .
 VDIRFB:= $(FBDIR)/obj_dir
-
+.DELETE_ON_ERROR:
 .PHONY: test
-test: testwb
+test: testwb testaxil
 
-.PHONY: testwb
-.PHONY: testaxi
+.PHONY: testwb testaxi testaxil
 
-.PHONY: wbm2axisp
-wbm2axisp: testwb
+.PHONY: axim2wbsp axim2wbsp wbm2axilite axilrd2wbsp axilwr2wbsp axlite2wbsp
+.PHONY: axixbar axilxbar wbxbar axis2mm aximm2s axidma axim2wbsp aximrd2wbsp
+.PHONY: aximwr2wbsp axixclk demoaxi demofull easyaxil sfifo skidbuffer
+.PHONY: axisafety wbsafety
 
-.PHONY: axim2wbsp
-axim2wbsp: testaxi
+axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a
+axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
+wbm2axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
+axilrd2wbsp: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
+axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
+axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a
+axixbar:     $(VDIRFB)/Vaxixbar__ALL.a
+axilxbar:    $(VDIRFB)/Vaxilxbar__ALL.a
+wbxbar:      $(VDIRFB)/Vwbxbar__ALL.a
+axis2mm:     $(VDIRFB)/Vaxis2mm__ALL.a
+aximm2s:     $(VDIRFB)/Vaximm2s__ALL.a
+axidma:      $(VDIRFB)/Vaxidma__ALL.a
+axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
+aximrd2wbsp: $(VDIRFB)/Vaximrd2wbsp__ALL.a
+aximwr2wbsp: $(VDIRFB)/Vaximwr2wbsp__ALL.a
+axixclk:     $(VDIRFB)/Vaxixclk__ALL.a
+demoaxi:     $(VDIRFB)/Vdemoaxi__ALL.a
+demofull:    $(VDIRFB)/Vdemofull__ALL.a
+easyaxil:    $(VDIRFB)/Veasyaxil__ALL.a
+sfifo:       $(VDIRFB)/Vsfifo__ALL.a
+skidbuffer:  $(VDIRFB)/Vskidbuffer__ALL.a
+axisafety:   $(VDIRFB)/Vaxisafety__ALL.a
+wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a
 
-.PHONY: axilite
-
-testwb:  $(VDIRFB)/Vwbm2axisp__ALL.a
-testaxi: $(VDIRFB)/Vaxim2wbsp__ALL.a
-axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
-axilite: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
-axilite: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
-axilite: $(VDIRFB)/Vaxlite2wbsp__ALL.a
+testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
+testaxi: axim2wbsp axixbar axixclk demofull
+testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
+testaxi: axis2mm aximm2s axidma
+testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
+testaxil: skidbuffer
 
 .PHONY: wbm2axisp
 wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a

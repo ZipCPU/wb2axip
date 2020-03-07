@@ -1,0 +1,82 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Thu Mar  5 18:47:26 2020
+[*]
+[dumpfile_mtime] "Thu Mar  5 18:41:39 2020"
+[dumpfile_size] 18650
+[timestart] 0
+[size] 1920 1021
+[pos] -919 -1
+*-5.333901 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 270
+[signals_width] 200
+[sst_expanded] 1
+[sst_vpaned_height] 287
+@28
+easyaxil.S_AXI_ACLK
+easyaxil.S_AXI_ARESETN
+@200
+-
+@28
+[color] 3
+easyaxil.S_AXI_AWVALID
+[color] 2
+easyaxil.S_AXI_AWREADY
+@22
+[color] 3
+easyaxil.S_AXI_AWADDR[3:0]
+[color] 3
+easyaxil.S_AXI_AWPROT[3:0]
+@200
+-
+@28
+[color] 3
+easyaxil.S_AXI_WVALID
+[color] 2
+easyaxil.S_AXI_WREADY
+@22
+[color] 3
+easyaxil.S_AXI_WDATA[31:0]
+[color] 3
+easyaxil.S_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+easyaxil.S_AXI_BVALID
+[color] 3
+easyaxil.S_AXI_BREADY
+[color] 2
+easyaxil.S_AXI_BRESP[1:0]
+@200
+-
+@28
+[color] 3
+easyaxil.S_AXI_ARVALID
+[color] 2
+easyaxil.S_AXI_ARREADY
+@22
+[color] 3
+easyaxil.S_AXI_ARADDR[3:0]
+[color] 3
+easyaxil.S_AXI_ARPROT[3:0]
+@200
+-
+@28
+[color] 2
+easyaxil.S_AXI_RVALID
+[color] 3
+easyaxil.S_AXI_RREADY
+@22
+[color] 2
+easyaxil.S_AXI_RDATA[31:0]
+@28
+[color] 2
+easyaxil.S_AXI_RRESP[1:0]
+@201
+-
+@28
+easyaxil.axil_read_ready
+easyaxil.axil_write_ready
+[pattern_trace] 1
+[pattern_trace] 0

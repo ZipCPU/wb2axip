@@ -1,0 +1,33 @@
+[tasks]
+prfreg prf
+cvrreg cvr
+prfskd prf opt_skidbuffer
+cvrskd cvr opt_skidbuffer
+prfreglp prf                opt_lowpower
+prfskdlp prf opt_skidbuffer opt_lowpower
+
+[options]
+prf: mode prove
+prf: depth 3
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal easyaxil.v
+opt_skidbuffer: read -formal skidbuffer.v
+read -formal faxil_slave.v
+--pycode-begin--
+cmd = "hierarchy -top easyaxil"
+cmd += " -chparam OPT_SKIDBUFFER %d" % (1 if "opt_skidbuffer" in tags else 0)
+cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+output(cmd);
+--pycode-end--
+prep -top easyaxil
+
+[files]
+../../rtl/easyaxil.v
+opt_skidbuffer: ../../rtl/skidbuffer.v
+faxil_slave.v

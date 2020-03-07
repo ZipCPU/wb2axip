@@ -495,7 +495,7 @@ module wbm2axisp #(
 			rd_addr <= rd_addr + 1;
 
 		always @(*)
-			fifo_value = addr_fifo[rd_addr];
+			fifo_value = addr_fifo[rd_addr[LGFIFO-1:0]];
 
 		wire	[C_AXI_DATA_WIDTH-1:0]	return_data;
 		assign	return_data = i_axi_rdata >> (rd_addr * DW);

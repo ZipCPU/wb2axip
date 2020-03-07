@@ -192,6 +192,17 @@ capabilities.
 
   *This core has been formally verified.*
 
+- [EASYAXIL](rtl/easyaxil.v) is a second demonstration AXI-lite slave core,
+  only this time re-engineered to look and feel simpler than the
+  [DEMOAXI](rtl/demoaxi.v) core above.  It's also designed to use internal
+  registers, vice a memory, so that it can be more easily extended.  The
+  core can either use skidbuffers, in which case its performance matches the
+  [DEMOAXI](rtl/demoaxi.v) core above, or not, in which case it has only half
+  the throughput.  The real key difference is that the skid buffers have been
+  removed into an external module.
+
+  *This core has been formally verified.*
+
 - [DEMOFULL](rtl/demofull.v) is a fully capable AXI4 demonstration slave core,
   rather than just the AXI-lite protocol.  Well, okay, it doesn't do anything
   with the PROT, QOS, CACHE, and LOCK flags, so perhaps it isn't truly the
