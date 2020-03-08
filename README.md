@@ -266,7 +266,8 @@ capabilities.
   This particular version can only handle bus aligned transfers.  A separate
   version that can handle unaligned transfers is available for purchase.
 
-  *This core has been formally verified.*
+  *This core still has problems, particularly with misaligned addresses and
+  lengths.*
 
 - AXISINGLE is a (to be written) core that will also be an
   [AutoFPGA](https://github.com/ZipCPU/autofpga) companion core.  Slave's of
