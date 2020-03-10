@@ -299,13 +299,13 @@ module	easyaxil #(
 			axil_read_data <= 0;
 	end
 
-	function [31:0]	apply_wstrb;
-		input	[31:0]	prior_data;
-		input	[31:0]	new_data;
-		input	[3:0]	wstrb;
+	function [C_AXI_DATA_WIDTH-1:0]	apply_wstrb;
+		input	[C_AXI_DATA_WIDTH-1:0]		prior_data;
+		input	[C_AXI_DATA_WIDTH-1:0]		new_data;
+		input	[C_AXI_DATA_WIDTH/8-1:0]	wstrb;
 
 		integer	k;
-		for(k=0; k<32/4; k=k+1)
+		for(k=0; k<C_AXI_DATA_WIDTH/8; k=k+1)
 		begin
 			apply_wstrb[k*8 +: 8]
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
