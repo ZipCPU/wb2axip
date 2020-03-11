@@ -63,7 +63,7 @@ module	easyaxil #(
 		input	wire					S_AXI_AWVALID,
 		output	wire					S_AXI_AWREADY,
 		input	wire	[C_AXI_ADDR_WIDTH-1:0]		S_AXI_AWADDR,
-		input	wire	[3:0]				S_AXI_AWPROT,
+		input	wire	[2:0]				S_AXI_AWPROT,
 		//
 		input	wire					S_AXI_WVALID,
 		output	wire					S_AXI_WREADY,
@@ -77,7 +77,7 @@ module	easyaxil #(
 		input	wire					S_AXI_ARVALID,
 		output	wire					S_AXI_ARREADY,
 		input	wire	[C_AXI_ADDR_WIDTH-1:0]		S_AXI_ARADDR,
-		input	wire	[3:0]				S_AXI_ARPROT,
+		input	wire	[2:0]				S_AXI_ARPROT,
 		//
 		output	wire					S_AXI_RVALID,
 		input	wire					S_AXI_RREADY,
