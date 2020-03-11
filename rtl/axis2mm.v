@@ -239,7 +239,7 @@ module	axis2mm #(
 		input	wire					S_AXIL_AWVALID,
 		output	wire					S_AXIL_AWREADY,
 		input	wire	[C_AXIL_ADDR_WIDTH-1:0]		S_AXIL_AWADDR,
-		input	wire	[3:0]				S_AXIL_AWPROT,
+		input	wire	[2:0]				S_AXIL_AWPROT,
 		//
 		input	wire					S_AXIL_WVALID,
 		output	wire					S_AXIL_WREADY,
@@ -253,7 +253,7 @@ module	axis2mm #(
 		input	wire					S_AXIL_ARVALID,
 		output	wire					S_AXIL_ARREADY,
 		input	wire	[C_AXIL_ADDR_WIDTH-1:0]		S_AXIL_ARADDR,
-		input	wire	[3:0]				S_AXIL_ARPROT,
+		input	wire	[2:0]				S_AXIL_ARPROT,
 		//
 		output	wire					S_AXIL_RVALID,
 		input	wire					S_AXIL_RREADY,
@@ -644,6 +644,17 @@ module	axis2mm #(
 			r_continuous <= wskd_strb[3] && wskd_data[28];
 	end
 
+	wire	[C_AXIL_DATA_WIDTH-1:0]	new_cmdaddr, new_length;
+
+	assign	new_cmdaddr  = apply_wstrb(
+			{ {(C_AXIL_DATA_WIDTH-C_AXI_ADDR_WIDTH){1'b0}},
+				cmd_addr },
+			wskd_data, wskd_strb);
+	assign	new_length= apply_wstrb({
+			{(C_AXIL_DATA_WIDTH-LGLENW-ADDRLSB){1'b0}},
+			cmd_length_w, {(ADDRLSB){1'b0}} },
+			wskd_data, wskd_strb);
+
 	initial	r_increment   = 1'b1;
 	initial	cmd_addr      = 0;
 	initial	cmd_length_w  = 0;	// Counts in bytes
@@ -661,12 +672,12 @@ module	axis2mm #(
 		CMD_CONTROL:
 			r_increment <= !wskd_data[27];
 		CMD_ADDR: begin
-			cmd_addr <= wskd_data;
+			cmd_addr <= new_cmdaddr[C_AXI_ADDR_WIDTH-1:0];
 			cmd_addr[ADDRLSB-1:0] <= 0;
 			end
 		CMD_LEN: begin
-			cmd_length_w <= wskd_data[ADDRLSB +: LGLENW];
-			zero_length <= (wskd_data[ADDRLSB +: LGLENW] == 0);
+			cmd_length_w <= new_length[ADDRLSB +: LGLENW];
+			zero_length <= (new_length[ADDRLSB +: LGLENW] == 0);
 			end
 		default: begin end
 		endcase
@@ -695,9 +706,9 @@ module	axis2mm #(
 
 		w_addr_word = 0;
 		if (r_busy)
-			w_addr_word = axi_addr;
+			w_addr_word[C_AXI_ADDR_WIDTH-1:0] = axi_addr;
 		else
-			w_addr_word = cmd_addr;
+			w_addr_word[C_AXI_ADDR_WIDTH-1:0] = cmd_addr;
 
 		w_len_word = 0;
 		if (r_busy)
@@ -717,6 +728,19 @@ module	axis2mm #(
 		default		axil_read_data <= 0;
 		endcase
 	end
+
+	function [C_AXIL_DATA_WIDTH-1:0] apply_wstrb;
+		input   [C_AXIL_DATA_WIDTH-1:0]  prior_data;
+		input   [C_AXIL_DATA_WIDTH-1:0]  new_data;
+		input   [C_AXIL_DATA_WIDTH/8-1:0]   wstrb;
+
+		integer k;
+		for(k=0; k<C_AXIL_DATA_WIDTH/8; k=k+1)
+		begin
+			apply_wstrb[k*8 +: 8]
+				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
+		end
+	endfunction
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1186,9 +1210,9 @@ module	axis2mm #(
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
-			M_AXI_BRESP[0], fifo_empty, wskd_strb[2:0],
+			M_AXI_BRESP[0], fifo_empty,
 			wr_none_pending, S_AXIL_ARADDR[AXILLSB-1:0],
-			S_AXIL_AWADDR[AXILLSB-1:0] };
+			S_AXIL_AWADDR[AXILLSB-1:0], new_cmdaddr, new_length };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
