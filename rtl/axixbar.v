@@ -300,7 +300,6 @@ module	axixbar #(
 	wire	[2:0]				m_awprot	[0:NMFULL-1];
 	wire	[3:0]				m_awqos		[0:NMFULL-1];
 	//
-	reg	[C_AXI_ID_WIDTH-1:0]		r_wid		[0:NMFULL-1];
 	wire	[C_AXI_DATA_WIDTH-1:0]		m_wdata		[0:NMFULL-1];
 	wire	[C_AXI_DATA_WIDTH/8-1:0]	m_wstrb		[0:NMFULL-1];
 	wire	[NMFULL-1:0]			m_wlast;
@@ -348,10 +347,6 @@ module	axixbar #(
 
 	reg	[NSFULL-1:0]	m_axi_awvalid;
 	reg	[NSFULL-1:0]	m_axi_awready;
-	reg	[AW-1:0]	m_axi_awaddr			[0:NSFULL-1];
-	reg	[2-1:0]		m_axi_awburst			[0:NSFULL-1];
-	reg	[3-1:0]		m_axi_awsize			[0:NSFULL-1];
-	reg	[NSFULL-1:0]	m_axi_awlock;
 	// Verilator lint_off UNUSED
 	reg	[IW-1:0]	m_axi_awid	[0:NSFULL-1];
 	reg	[7:0]		m_axi_awlen	[0:NSFULL-1];
@@ -359,7 +354,6 @@ module	axixbar #(
 
 	reg	[NSFULL-1:0]	m_axi_wvalid;
 	reg	[NSFULL-1:0]	m_axi_wready;
-	reg	[NSFULL-1:0]	m_axi_wlast;
 	reg	[NSFULL-1:0]	m_axi_bvalid;
 	// Verilator lint_off UNUSED
 	reg	[NSFULL-1:0]	m_axi_bready;
@@ -397,29 +391,22 @@ module	axixbar #(
 	begin
 		m_axi_awvalid = -1;
 		m_axi_awready = -1;
-		m_axi_awlock  =  0;
 		m_axi_wvalid = -1;
 		m_axi_wready = -1;
-		m_axi_wlast  = -1;
 		m_axi_bvalid = 0;
 		m_axi_bready = -1;
 
 		m_axi_awvalid[NS-1:0] = M_AXI_AWVALID;
 		m_axi_awready[NS-1:0] = M_AXI_AWREADY;
-		m_axi_awlock[NS-1:0]  = M_AXI_AWLOCK;
 		m_axi_wvalid[NS-1:0]  = M_AXI_WVALID;
 		m_axi_wready[NS-1:0]  = M_AXI_WREADY;
-		m_axi_wlast[NS-1:0]   = M_AXI_WLAST;
 		m_axi_bvalid[NS-1:0]  = M_AXI_BVALID;
 		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
 			m_axi_awid[iM]   = M_AXI_AWID[   iM*IW +: IW];
-			m_axi_awaddr[iM] = M_AXI_AWADDR[ iM*AW +: AW];
 			m_axi_awlen[iM]  = M_AXI_AWLEN[  iM* 8 +:  8];
-			m_axi_awburst[iM]= M_AXI_AWBURST[iM* 2 +:  2];
-			m_axi_awsize[iM] = M_AXI_AWSIZE[ iM* 3 +:  3];
 
 			m_axi_bid[iM]   = M_AXI_BID[iM* IW +:  IW];
 			m_axi_bresp[iM] = M_AXI_BRESP[iM* 2 +:  2];
@@ -432,10 +419,7 @@ module	axixbar #(
 		for(iM=NS; iM<NSFULL; iM=iM+1)
 		begin
 			m_axi_awid[iM]   = 0;
-			m_axi_awaddr[iM] = 0;
 			m_axi_awlen[iM]  = 0;
-			m_axi_awburst[iM]= 0;
-			m_axi_awsize[iM] = 0;
 
 			m_axi_bresp[iM] = INTERCONNECT_ERROR;
 			m_axi_bid[iM]   = 0;
@@ -555,6 +539,8 @@ module	axixbar #(
 
 		always @(*)
 			m_awvalid[N] = 0;
+		always @(*)
+			m_wvalid[N]  = 0;
 		//
 		assign	m_wdata[N] = 0;
 		assign	m_wstrb[N] = 0;
@@ -1061,15 +1047,14 @@ module	axixbar #(
 		//
 		reg			axi_bready;
 
-		reg	sawstall, swstall, mbstall;
+		reg			sawstall, swstall;
+		reg			awaccepts;
+
 		always @(*)
 			sawstall= (M_AXI_AWVALID[M]&& !M_AXI_AWREADY[M]);
 		always @(*)
 			swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
-		always @(*)
-			mbstall = (bskd_valid[swindex[M]] && !bskd_ready[swindex[M]]);
 
-		reg	awaccepts;
 		always @(*)
 		begin
 			if (!swgrant[M])
@@ -1185,9 +1170,9 @@ module	axixbar #(
 		//
 		always @(*)
 		if (!swgrant[M])
-			axi_bready <= 1;
+			axi_bready = 1;
 		else
-			axi_bready <= bskd_ready[swindex[M]];
+			axi_bready = bskd_ready[swindex[M]];
 
 		//
 		assign	M_AXI_AWVALID[M]          = axi_awvalid;
@@ -1228,13 +1213,10 @@ module	axixbar #(
 		reg	[3:0]			axi_arqos;
 		//
 		reg				axi_rready;
+		reg				arstall;
 
-		reg	arstall, mrstall;
 		always @(*)
 			arstall= axi_arvalid && !M_AXI_ARREADY[M];
-		always @(*)
-			mrstall = (rskd_valid[srindex[M]]
-						&& !rskd_ready[srindex[M]]);
 
 		initial	axi_arvalid = 0;
 		always @(posedge  S_AXI_ACLK)
@@ -1296,9 +1278,9 @@ module	axixbar #(
 		initial	axi_rready = 1;
 		always @(*)
 		if (!srgrant[M])
-			axi_rready <= 1;
+			axi_rready = 1;
 		else
-			axi_rready <= rskd_ready[srindex[M]];
+			axi_rready = rskd_ready[srindex[M]];
 
 		//
 		assign	M_AXI_ARVALID[M]          = axi_arvalid;
