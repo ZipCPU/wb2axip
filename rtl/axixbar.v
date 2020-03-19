@@ -721,6 +721,7 @@ module	axixbar #(
 		reg			requested_channel_is_available;
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
+		reg			linger;
 
 		always @(*)
 		begin
@@ -744,7 +745,6 @@ module	axixbar #(
 				requested_channel_is_available = m_awvalid[N];
 		end
 
-		reg	linger;
 		if (OPT_LINGER == 0)
 		begin
 			always @(*)
@@ -838,6 +838,7 @@ module	axixbar #(
 		reg			requested_channel_is_available;
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
+		reg			linger;
 
 
 		always @(*)
@@ -862,7 +863,6 @@ module	axixbar #(
 				requested_channel_is_available = m_arvalid[N];
 		end
 
-		reg	linger;
 		if (OPT_LINGER == 0)
 		begin
 			always @(*)
@@ -1275,7 +1275,6 @@ module	axixbar #(
 			end
 		end
 
-		initial	axi_rready = 1;
 		always @(*)
 		if (!srgrant[M])
 			axi_rready = 1;
