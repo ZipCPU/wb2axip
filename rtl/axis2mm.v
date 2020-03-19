@@ -371,7 +371,7 @@ module	axis2mm #(
 	reg	[1:0]			awburst;
 
 	// Speed up checking for zeros
-	reg				aw_none_remaining, aw_none_outstanding,
+	reg				aw_none_remaining,
 					aw_last_outstanding,
 					wr_none_pending; // r_none_remaining;
 
@@ -552,7 +552,7 @@ module	axis2mm #(
 	// Recognize the last ack
 	//
 	// assign	w_complete = something
-					
+
 	//
 	// Calculate busy or complete flags
 	//
@@ -565,20 +565,21 @@ module	axis2mm #(
 		r_complete <= 0;
 	end else if (!r_busy)
 	begin
+		// Core is idle, waiting for a command to start
 		if (w_cmd_start)
 			r_busy <= 1'b1;
+
+		// Any write to the control register will clear the
+		// completion flag
 		if (axil_write_ready && awskd_addr == CMD_CONTROL)
-			// Any write to the control register will clear the
-			// completion flag
 			r_complete <= 1'b0;
-	end else if (r_busy)
+	end else if (w_complete)
 	begin
-		if (w_complete)
-		begin
-			r_complete <= 1;
-			r_busy <= 1'b0;
-		end
-	end	
+		// Clear busy once the transaction is complete
+		//  This includes clearing busy on any error
+		r_complete <= 1;
+		r_busy <= 1'b0;
+	end
 
 	//
 	// Interrupts
@@ -928,25 +929,20 @@ module	axis2mm #(
 	// (yet) been returned.
 	// {{{
 	initial	aw_last_outstanding   = 0;
-	initial	aw_none_outstanding   = 1;
 	initial	aw_bursts_outstanding = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
 		aw_bursts_outstanding <= 0;
-		aw_none_outstanding <= 1;
 		aw_last_outstanding <= 0;
-	end else case ({ phantom_start,
-				M_AXI_BVALID && M_AXI_BREADY })
+	end else case ({ phantom_start, M_AXI_BVALID && M_AXI_BREADY })
 	2'b01:	begin
-			aw_bursts_outstanding <= aw_bursts_outstanding - 1;
-			aw_none_outstanding <= (aw_bursts_outstanding == 1);
-			aw_last_outstanding <= (aw_bursts_outstanding == 2);
+		aw_bursts_outstanding <= aw_bursts_outstanding - 1;
+		aw_last_outstanding <= (aw_bursts_outstanding == 2);
 		end
 	2'b10:	begin
 		aw_bursts_outstanding <= aw_bursts_outstanding + 1;
-		aw_none_outstanding <= 0;
-		aw_last_outstanding <= aw_none_outstanding;
+		aw_last_outstanding   <= (aw_bursts_outstanding == 0);
 		end
 	default: begin end
 	endcase
@@ -958,7 +954,10 @@ module	axis2mm #(
 	if (!r_busy)
 		w_complete = 0;
 	else
-		w_complete = !M_AXI_AWVALID && (aw_none_remaining)&&(aw_last_outstanding) && (M_AXI_BVALID);
+		// We are complete if nothing more is to be requested,
+		w_complete = !M_AXI_AWVALID && (aw_none_remaining)
+			// *and* the last burst response has now been returned
+			&&(aw_last_outstanding) && (M_AXI_BVALID);
 	// }}}
 
 	// Are we stopping early?  Aborting something ongoing?
@@ -1060,15 +1059,27 @@ module	axis2mm #(
 
 	always @(*)
 	begin
+		// We start again if there's more information to transfer
 		w_phantom_start = !aw_none_remaining;
+
+		// But not if the amount of information we need isn't (yet)
+		// in the FIFO.
 		if (next_fill < {{(LGFIFO-LGMAXBURST){1'b0}}, r_max_burst})
 			w_phantom_start = 0;
+
+		// Insist on a minimum of one clock between burst starts,
+		// since our burst length calculation takes a clock to do
 		if (phantom_start)
-			// Insist on a minimum of one clock between burst
-			// starts, so we can get our lengths right
 			w_phantom_start = 0;
+
+		// If we're still writing the last burst, then don't start
+		// any new ones
 		if (M_AXI_WVALID && (!M_AXI_WLAST || !M_AXI_WREADY))
 			w_phantom_start = 0;
+
+		// Finally, don't start any new bursts if we aren't already
+		// busy transmitting, or if we are in the process of aborting
+		// our transfer
 		if (!r_busy || cmd_abort || axi_abort_pending)
 			w_phantom_start = 0;
 	end
@@ -1128,7 +1139,7 @@ module	axis2mm #(
 		// FIFO to have just one more element
 		next_fill = next_fill + (write_to_fifo ? 1:0);
 		next_fill[8:2] = 0;
-		
+
 		next_fill = next_fill + fifo_fill - 2;
 	end
 
@@ -1173,9 +1184,7 @@ module	axis2mm #(
 	// }}}
 
 	always @(posedge i_clk)
-	if (!r_busy)
-		axi_wstrb <= -1;
-	else if (!M_AXI_WVALID || M_AXI_WREADY)
+	if (!M_AXI_WVALID || M_AXI_WREADY)
 		axi_wstrb <= (axi_abort_pending) ? 0:-1;
 
 	always @(posedge i_clk)
@@ -1452,8 +1461,6 @@ module	axis2mm #(
 	always @(*)
 		assert(aw_none_remaining == (aw_requests_remaining == 0));
 	always @(*)
-		assert(aw_none_outstanding == (aw_bursts_outstanding == 0));
-	always @(*)
 		assert(aw_last_outstanding == (aw_bursts_outstanding == 1));
 	always @(*)
 		assert(r_none_remaining == (r_remaining_w == 0));
@@ -1471,7 +1478,7 @@ module	axis2mm #(
 	//	Captured in logic above, since M_AXI_WDATA is registered
 	//	within the FIFO and not our interface
 	//
-	// 2. No addresses skipped. 
+	// 2. No addresses skipped.
 	// ...
 	//
 
