@@ -901,7 +901,7 @@ module	axilxbar #(
 			mbstall = (S_AXI_BVALID[mwindex[M]] && !S_AXI_BREADY[mwindex[M]]);
 
 		initial	axi_awvalid = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !mwgrant[M])
 			axi_awvalid <= 0;
 		else if (!sawstall)
@@ -912,7 +912,7 @@ module	axilxbar #(
 
 		initial	axi_awaddr  = 0;
 		initial	axi_awprot  = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		begin
 			axi_awaddr  <= 0;
@@ -1027,7 +1027,7 @@ module	axilxbar #(
 						&& !S_AXI_RREADY[mrindex[M]]);
 
 		initial	axi_arvalid = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !mrgrant[M])
 			axi_arvalid <= 0;
 		else if (!arstall)
@@ -1037,7 +1037,7 @@ module	axilxbar #(
 
 		initial	axi_araddr  = 0;
 		initial	axi_arprot  = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		begin
 			axi_araddr  <= 0;
