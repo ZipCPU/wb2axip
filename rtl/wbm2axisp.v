@@ -19,10 +19,6 @@
 //	transiting from the Wishbone (as master) to the AXI bus (as slave) and
 //	back again.
 //
-//	Since the AXI bus allows transactions to be reordered, whereas the
-//	wishbone does not, this core can be configured to reorder return
-//	transactions as well.
-//
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
@@ -56,8 +52,8 @@ module wbm2axisp #(
 	parameter C_AXI_ID_WIDTH	=   1,
 	parameter DW			=  32,	// Wishbone data width
 	parameter AW			=  26,	// Wishbone address width (log wordsize)
-	parameter [C_AXI_ID_WIDTH-1:0] AXI_READ_ID = 1'b1,
 	parameter [C_AXI_ID_WIDTH-1:0] AXI_WRITE_ID = 1'b0,
+	parameter [C_AXI_ID_WIDTH-1:0] AXI_READ_ID  = 1'b1,
 	parameter LGFIFO		=   6
 	) (
 	input	wire			i_clk,	// System clock
@@ -132,6 +128,21 @@ module wbm2axisp #(
 	localparam	FIFOLN = (1<<LGFIFO);
 	localparam	SUBW = LG_AXI_DW-LG_WB_DW;
 
+	// The various address widths must be properly related.  We'll insist
+	// upon that relationship here.
+	initial begin
+		if (C_AXI_DATA_WIDTH < DW)
+			$stop;
+		if (C_AXI_ADDR_WIDTH != AW + $clog2(DW)-3)
+			$stop;
+		if (	  (C_AXI_DATA_WIDTH / DW !=32)
+			&&(C_AXI_DATA_WIDTH / DW !=16)
+			&&(C_AXI_DATA_WIDTH / DW != 8)
+			&&(C_AXI_DATA_WIDTH / DW != 4)
+			&&(C_AXI_DATA_WIDTH / DW != 2)
+			&&(C_AXI_DATA_WIDTH      != DW))
+			$stop;
+	end
 
 //*****************************************************************************
 // Internal register and wire declarations
@@ -158,22 +169,22 @@ module wbm2axisp #(
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
 	assign o_axi_arqos   = 4'h0;	// Lowest quality of service (unused)
 
-	// wire	[(C_AXI_DATA_WIDTH>DW ? $clog2(C_AXI_DATA_WIDTH/DW):0)+$clog2(DW)-4:0]	axi_lsbs;
 	wire	[$clog2(DW)-4:0]	axi_lsbs;
 	assign	axi_lsbs = 0;
 
 	reg			direction, full, empty, flushing, nearfull;
 	reg	[LGFIFO:0]	npending;
 	//
-	reg			r_stb, r_we, m_valid, m_we, m_ready;
-	reg	[AW-1:0]	r_addr, m_addr;
-	reg	[DW-1:0]	r_data, m_data;
-	reg	[DW/8-1:0]	r_sel,  m_sel;
+	wire			skid_ready, m_valid, m_we;
+	reg			m_ready;
+	wire	[AW-1:0]	m_addr;
+	wire	[DW-1:0]	m_data;
+	wire	[DW/8-1:0]	m_sel;
 
 // Command logic
 	initial	direction = 0;
 	always @(posedge i_clk)
-	if (empty && m_ready)
+	if (empty)
 		direction <= m_we;
 
 	initial	npending = 0;
@@ -221,44 +232,28 @@ module wbm2axisp #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	initial	r_stb = 0;
-	always @(posedge i_clk)
-	if (i_reset || !i_wb_cyc)
-		r_stb <= 0;
-	else if (m_ready)
-		r_stb <= 1'b0;
-	else if (!o_wb_stall)
-		// Double buffer a transaction
-		r_stb <= i_wb_stb;
+	skidbuffer #(.DW(1+AW+DW+(DW/8)),
+		.OPT_OUTREG(1'b0))
+	skid (i_clk, i_reset || !i_wb_cyc,
+		i_wb_stb, skid_ready,
+			{ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel },
+		m_valid, m_ready,
+			{ m_we, m_addr, m_data, m_sel });
 
-	always @(posedge i_clk)
-	if (!o_wb_stall)
-	begin
-		// Double buffer a transaction
-		r_we  <= i_wb_we;
-		r_addr<= i_wb_addr;
-		r_data<= i_wb_data;
-		r_sel <= i_wb_sel;
-	end
-
-	always @(*)
-		o_wb_stall = r_stb;
+	assign	o_wb_stall = !skid_ready;
 
 	always @(*)
 	begin
-		m_valid = (i_wb_stb || r_stb) && i_wb_cyc;
-		m_we    = r_stb ? r_we   : i_wb_we;
-		m_addr  = r_stb ? r_addr : i_wb_addr;
-		m_data  = r_stb ? r_data : i_wb_data;
-		m_sel   = r_stb ? r_sel  : i_wb_sel;
+		m_ready = 1;
 
 		if (flushing || nearfull || ((m_we != direction)&&(!empty)))
 			m_ready = 1'b0;
-		else if (m_we)
-			m_ready = (!o_axi_awvalid || i_axi_awready)
-				&&(!o_axi_wvalid || i_axi_wready);
-		else
-			m_ready = (!o_axi_arvalid || i_axi_arready);
+		if (o_axi_awvalid && !i_axi_awready)
+			m_ready = 1'b0;
+		if (o_axi_wvalid && !i_axi_wready)
+			m_ready = 1'b0;
+		if (o_axi_arvalid && !i_axi_arready)
+			m_ready = 1'b0;
 	end
 
 	////////////////////////////////////////////////////////////////////////
@@ -457,22 +452,22 @@ module wbm2axisp #(
 		reg	[SUBW-1:0]	addr_fifo	[0:(1<<LGFIFO)-1];
 		reg	[SUBW-1:0]	fifo_value;
 		reg	[LGFIFO:0]	wr_addr, rd_addr;
+		wire	[C_AXI_DATA_WIDTH-1:0]	return_data;
 
 		initial	o_wb_ack = 0;
 		always @(posedge i_clk)
-		if (i_reset || !i_wb_cyc)
+		if (i_reset || !i_wb_cyc || flushing)
 			o_wb_ack <= 0;
 		else
-			o_wb_ack <= !flushing
-				&&((i_axi_rvalid && !i_axi_rresp[1])
+			o_wb_ack <= ((i_axi_rvalid && !i_axi_rresp[1])
 				||(i_axi_bvalid && !i_axi_bresp[1]));
 
 		initial	o_wb_err = 0;
 		always @(posedge i_clk)
-		if (i_reset || !i_wb_cyc)
+		if (i_reset || !i_wb_cyc || flushing)
 			o_wb_err <= 0;
 		else
-			o_wb_err <= (!flushing)&&((i_axi_rvalid && i_axi_rresp[1])
+			o_wb_err <= ((i_axi_rvalid && i_axi_rresp[1])
 				||(i_axi_bvalid && i_axi_bresp[1]));
 
 
@@ -497,11 +492,20 @@ module wbm2axisp #(
 		always @(*)
 			fifo_value = addr_fifo[rd_addr[LGFIFO-1:0]];
 
-		wire	[C_AXI_DATA_WIDTH-1:0]	return_data;
-		assign	return_data = i_axi_rdata >> (rd_addr * DW);
-		always @(*)
-			o_wb_data = return_data[DW-1:0];
+		assign	return_data = i_axi_rdata >> (fifo_value * DW);
 
+		always @(posedge i_clk)
+			o_wb_data <= return_data[DW-1:0];
+
+		// Make Verilator happy here
+		if (C_AXI_DATA_WIDTH > DW)
+		begin : UNUSED_DATA
+			// verilator lint_off UNUSED
+			wire	unused_data;
+			assign	unused_data = &{ 1'b0,
+					return_data[C_AXI_DATA_WIDTH-1:DW] };
+		end
+		// verilator lint_on  UNUSED
 `ifdef	FORMAL
 		always @(*)
 			assert(wr_addr - rd_addr == npending);
@@ -645,6 +649,9 @@ module wbm2axisp #(
 			//
 			// }}}
 		);
+
+	always @(*)
+		r_stb = !o_wb_stall;
 
 	always @(*)
 	if (!flushing && i_wb_cyc)
