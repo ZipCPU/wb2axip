@@ -21,11 +21,12 @@
 //		1b	Interrupt Enable
 //		1b	Interrupt Set
 //		1b	Start
-//	1. Source address
+//	1. Unused
+//	2-3. Source address, low and then high 64-bit words
 //		(Last value read address)
-//	2. Destination address
+//	4-5. Destination address, low and then high 64-bit words
 //		(Next value to write address)
-//	3. Length
+//	6-7. Length, low and then high words
 //		(Total number minus successful writes)
 //
 // Performance goals:
@@ -69,7 +70,7 @@ module	axidma #(
 		//
 		// These two "parameters" really aren't things that can be
 		// changed externally.
-		localparam	C_AXIL_ADDR_WIDTH = 4,
+		localparam	C_AXIL_ADDR_WIDTH = 5,
 		localparam	C_AXIL_DATA_WIDTH = 32,
 		//
 		// OPT_UNALIGNED turns on support for unaligned addresses,
@@ -181,10 +182,14 @@ module	axidma #(
 		//
 		output	reg				o_int);
 
-	localparam	[1:0]	CTRL_ADDR = 2'b00,
-				SRC_ADDR = 2'b01,
-				DST_ADDR = 2'b10,
-				LEN_ADDR = 2'b11;
+	localparam	[2:0]	CTRL_ADDR   = 3'b000,
+				UNUSED_ADDR = 3'b001,
+				SRCLO_ADDR  = 3'b010,
+				SRCHI_ADDR  = 3'b011,
+				DSTLO_ADDR  = 3'b100,
+				DSTHI_ADDR  = 3'b101,
+				LENLO_ADDR  = 3'b110,
+				LENHI_ADDR  = 3'b111;
 	localparam		CTRL_START_BIT = 0,
 				CTRL_BUSY_BIT  = 0,
 				CTRL_INT_BIT   = 1,
@@ -197,6 +202,8 @@ module	axidma #(
 	wire	i_reset = !S_AXI_ARESETN;
 
 	reg	axil_write_ready, axil_read_ready;
+	reg	[2*C_AXIL_DATA_WIDTH-1:0] wide_src, wide_dst, wide_len;
+	reg	[2*C_AXIL_DATA_WIDTH-1:0] new_widesrc, new_widedst, new_widelen;
 
 	reg	r_busy, r_err, r_abort, w_start, r_int, r_int_enable,
 				r_done, last_write_ack, zero_len;
@@ -252,6 +259,7 @@ module	axidma #(
 	reg	[2*ADDRLSB+2:0]		write_realignment;
 	reg	[ADDRLSB:0]		read_realignment;
 	reg				last_read_beat;
+	reg				clear_read_pipeline;
 
 
 
@@ -375,14 +383,77 @@ module	axidma #(
 		r_abort <= (axil_write_ready && awskd_addr == CTRL_ADDR)
 			&&(wskd_strb[3] && wskd_data[31:24] == ABORT_KEY);
 
-	wire	[C_AXI_DATA_WIDTH-1:0]	newsrc, newdst, newlen;
+	wire	[C_AXI_DATA_WIDTH-1:0]	newsrclo, newsrchi,
+					newdstlo, newdsthi, newlenlo, newlenhi;
 
-	assign	newsrc = apply_wstrb({{(C_AXIL_DATA_WIDTH-C_AXI_ADDR_WIDTH){1'b0}},
-			r_src_addr }, wskd_data, wskd_strb);
-	assign	newdst = apply_wstrb({{(C_AXIL_DATA_WIDTH-C_AXI_ADDR_WIDTH){1'b0}},
-			r_dst_addr }, wskd_data, wskd_strb);
-	assign	newlen = apply_wstrb({{(C_AXIL_DATA_WIDTH-LGLEN){1'b0}},
-			r_len }, wskd_data, wskd_strb);
+	always @(*)
+	begin
+		wide_src = 0;
+		wide_dst = 0;
+		wide_len = 0;
+
+		wide_src[C_AXI_ADDR_WIDTH-1:0] = r_src_addr;
+		wide_dst[C_AXI_ADDR_WIDTH-1:0] = r_dst_addr;
+		wide_len[LGLEN-1:0] = r_len;
+
+		if (!OPT_UNALIGNED)
+		begin
+			wide_src[ADDRLSB-1:0] <= 0;
+			wide_dst[ADDRLSB-1:0] <= 0;
+			wide_len[ADDRLSB-1:0] <= 0;
+		end
+	end
+
+	assign	newsrclo = apply_wstrb(
+			wide_src[C_AXIL_DATA_WIDTH-1:0],
+			wskd_data, wskd_strb);
+	assign	newsrchi = apply_wstrb(
+			wide_src[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
+			wskd_data, wskd_strb);
+	assign	newdstlo = apply_wstrb(
+			wide_dst[C_AXIL_DATA_WIDTH-1:0],
+			wskd_data, wskd_strb);
+	assign	newdsthi = apply_wstrb(
+			wide_dst[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
+			wskd_data, wskd_strb);
+	assign	newlenlo = apply_wstrb(
+			wide_len[C_AXIL_DATA_WIDTH-1:0],
+			wskd_data, wskd_strb);
+	assign	newlenhi = apply_wstrb(
+			wide_len[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
+			wskd_data, wskd_strb);
+
+	always @(*)
+	begin
+		new_widesrc = wide_src;
+		new_widedst = wide_dst;
+		new_widelen = wide_len;
+
+		if (!awskd_addr[0])
+		begin
+			new_widesrc[C_AXIL_DATA_WIDTH-1:0] = newsrclo;
+			new_widedst[C_AXIL_DATA_WIDTH-1:0] = newdstlo;
+			new_widelen[C_AXIL_DATA_WIDTH-1:0] = newlenlo;
+		end else begin
+			new_widesrc[2*C_AXIL_DATA_WIDTH-1
+					:C_AXIL_DATA_WIDTH] = newsrchi;
+			new_widedst[2*C_AXIL_DATA_WIDTH-1
+					:C_AXIL_DATA_WIDTH] = newdsthi;
+			new_widelen[2*C_AXIL_DATA_WIDTH-1
+					:C_AXIL_DATA_WIDTH] = newlenhi;
+		end
+
+		new_widesrc[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] = 0;
+		new_widedst[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] = 0;
+		new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN] = 0;
+
+		if (!OPT_UNALIGNED)
+		begin
+			new_widesrc[ADDRLSB-1:0] <= 0;
+			new_widedst[ADDRLSB-1:0] <= 0;
+			new_widelen[ADDRLSB-1:0] <= 0;
+		end
+	end
 
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
@@ -406,25 +477,27 @@ module	axidma #(
 			if (wskd_strb[0])
 				r_int_enable <= wskd_data[CTRL_INTEN_BIT];
 			end
-		SRC_ADDR: begin
-			r_src_addr <= newsrc[C_AXI_ADDR_WIDTH-1:0];
-			if (!OPT_UNALIGNED)
-				r_src_addr[ADDRLSB-1:0] <= 0;
+		SRCLO_ADDR: begin
+			r_src_addr <= new_widesrc[C_AXI_ADDR_WIDTH-1:0];
 			end
-		DST_ADDR: begin
-			r_dst_addr <= newdst[C_AXI_ADDR_WIDTH-1:0];
-			if (!OPT_UNALIGNED)
-				r_dst_addr[ADDRLSB-1:0] <= 0;
+		SRCHI_ADDR: if (C_AXI_ADDR_WIDTH > C_AXIL_DATA_WIDTH) begin
+			r_src_addr <= new_widesrc[C_AXI_ADDR_WIDTH-1:0];
 			end
-		LEN_ADDR: begin
-			r_len <= newlen[LGLEN-1:0];
-			if (OPT_UNALIGNED)
-				zero_len <= (newlen[LGLEN-1:0] == 0);
-			else begin
-				zero_len <= (newlen[LGLEN-1:ADDRLSB] == 0);
-				r_len[ADDRLSB-1:0] <= 0;
-			end end
-		// default:
+		DSTLO_ADDR: begin
+			r_dst_addr <= new_widedst[C_AXI_ADDR_WIDTH-1:0];
+			end
+		DSTHI_ADDR: if (C_AXI_ADDR_WIDTH > C_AXIL_DATA_WIDTH) begin
+			r_dst_addr <= new_widedst[C_AXI_ADDR_WIDTH-1:0];
+			end
+		LENLO_ADDR: begin
+			r_len    <= new_widelen[LGLEN-1:0];
+			zero_len <= (new_widelen == 0);
+			end
+		LENHI_ADDR: if (LGLEN > C_AXIL_DATA_WIDTH) begin
+			r_len    <= new_widelen[LGLEN-1:0];
+			zero_len <= (new_widelen == 0);
+			end
+		default: begin end
 		endcase
 	end else if (r_busy)
 	begin
@@ -503,12 +576,19 @@ module	axidma #(
 			S_AXIL_RDATA[CTRL_INTEN_BIT] <= r_int_enable;
 			S_AXIL_RDATA[CTRL_INT_BIT]   <= r_int;
 			end
-		SRC_ADDR:
-			S_AXIL_RDATA[C_AXI_ADDR_WIDTH-1:0] <= r_src_addr;
-		DST_ADDR:
-			S_AXIL_RDATA[C_AXI_ADDR_WIDTH-1:0] <= r_dst_addr;
-		LEN_ADDR:
-			S_AXIL_RDATA[LGLEN-1:0] <= r_len;
+		SRCLO_ADDR:
+			S_AXIL_RDATA <= wide_src[C_AXIL_DATA_WIDTH-1:0];
+		SRCHI_ADDR:
+			S_AXIL_RDATA <= wide_src[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+		DSTLO_ADDR:
+			S_AXIL_RDATA <= wide_dst[C_AXIL_DATA_WIDTH-1:0];
+		DSTHI_ADDR:
+			S_AXIL_RDATA <= wide_dst[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+		LENLO_ADDR:
+			S_AXIL_RDATA <= wide_len[C_AXIL_DATA_WIDTH-1:0];
+		LENHI_ADDR:
+			S_AXIL_RDATA <= wide_len[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+		default: begin end
 		endcase
 
 		if (!axil_read_ready)
@@ -695,7 +775,6 @@ module	axidma #(
 						r_outword, r_partial_outword,
 						r_realigned_incoming;
 		wire	[C_AXI_DATA_WIDTH-1:0]	fifo_data;
-		reg				clear_read_pipeline;
 
 
 		///////////////////
@@ -936,22 +1015,17 @@ module	axidma #(
 	end else begin : ALIGNED_FIFO
 
 		always @(*)
+		begin
 			r_first_wstrb = -1;
-
-		always @(*)
 			r_last_wstrb = -1;
-
-		always @(*)
 			r_partial_in_valid = 1;
-
-		always @(*)
 			r_partial_outvalid = !fifo_empty;
 
-		always @(*)
 			r_write_fifo = M_AXI_RVALID;
-
-		always @(*)
 			r_read_fifo = M_AXI_WVALID && M_AXI_WREADY;
+
+			clear_read_pipeline = 1'b0;
+		end
 
 		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO), .OPT_ASYNC_READ(1'b1))
 		middata(i_clk, fifo_reset,
@@ -1281,14 +1355,13 @@ module	axidma #(
 `endif
 			writelen_b[ADDRLSB-1:0], readlen_b[ADDRLSB-1:0]
 			};
-	generate if (C_AXI_ADDR_WIDTH < C_AXIL_DATA_WIDTH)
+	generate if (C_AXI_ADDR_WIDTH < 2*C_AXIL_DATA_WIDTH)
 	begin : NEW_UNUSED
 		wire	genunused;
 
 		assign genunused = &{ 1'b0,
-			newsrc[C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
-			newdst[C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
-			newlen[C_AXIL_DATA_WIDTH-1:LGLEN] };
+			new_widesrc[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
+			new_widedst[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
 	end endgenerate
 
 	// Verilator lint_on UNUSED
@@ -2041,7 +2114,15 @@ module	axidma #(
 		end
 	end
 
+	//
+	// ...
+	//
+
 	////////////////////////////////////////
+
+	//
+	// ...
+	//
 
 	always @(*)
 	if (r_busy)
@@ -2107,8 +2188,9 @@ module	axidma #(
 		assert(writes_remaining_w + write_bursts_outstanding
 			<= f_wrlength[LGLEN:ADDRLSB]);
 
-		assert(reads_remaining_w <= writes_remaining_w);
-
+		//
+		// ...
+		//
 		if (write_count > 0)
 			assert(M_AXI_WVALID);
 		//
@@ -2261,17 +2343,6 @@ module	axidma #(
 
 				cover(cvr_opt_checks == ik[2:0]
 					&& !r_busy && !r_err && !r_abort
-					&& last_write_burst
-					&& f_cvr_rd_bursts[0]);
-
-				cover(cvr_opt_checks == ik[2:0]
-					&& !r_err && !r_abort
-					&& last_write_burst
-					&&(fifo_data_available > 0)
-					&& f_cvr_rd_bursts != 0);
-
-				cover(cvr_opt_checks == ik[2:0]
-					&& !r_busy && !r_err && !r_abort
 					&& f_cvr_wr_bursts[0]
 					&& f_cvr_rd_bursts[0]);
 
@@ -2331,7 +2402,7 @@ module	axidma #(
 				&& f_extra_realignment_preread
 				&& f_extra_realignment_read
 				&& f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 
 			// !preread && read will never happen
 
@@ -2339,19 +2410,19 @@ module	axidma #(
 				&& f_extra_realignment_preread
 				&& !f_extra_realignment_read
 				&& f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 
 			cover(!r_busy && !r_err && !r_abort
 				&& !f_extra_realignment_preread
 				&& !f_extra_realignment_read
 				&& f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 
 			cover(!r_busy && !r_err && !r_abort
 				&& f_extra_realignment_preread
 				&& f_extra_realignment_read
 				&& !f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 
 
 			// !preread && read will never happen
@@ -2366,7 +2437,7 @@ module	axidma #(
 				&& !f_extra_realignment_preread
 				&& !f_extra_realignment_read
 				&& !f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 		end
 
 	end endgenerate
