@@ -40,7 +40,7 @@ CROSSBARS := axilxbar wbxbar # axixbar
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISLAVES := demoaxi easyaxil # demofull xlnxfull axisafety
 FIREWALLS := wbsafety # axisafety
-TESTS := $(HELPERS) $(BRIDGES) $(CROSSBARS) $(AXISLAVES) $(FIREWALLS)
+TESTS := $(HELPERS) $(AXISLAVES) $(FIREWALLS) $(BRIDGES) $(CROSSBARS)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -176,12 +176,12 @@ $(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 .PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr $(AXILXBAR)_prf
 $(AXILXBAR): $(AXILXBAR)prf $(AXILXBAR)cvr
 $(AXILXBAR)_prf: $(AXILXBAR)prf
-$(AXILXBAR)prf: $(AXILXBAR)_prf4x8_lp/PASS
 $(AXILXBAR)prf: $(AXILXBAR)_prf1x8_lp/PASS
 $(AXILXBAR)prf: $(AXILXBAR)_prf4x1_lp/PASS
-$(AXILXBAR)prf: $(AXILXBAR)_prf4x8/PASS
 $(AXILXBAR)prf: $(AXILXBAR)_prf1x8/PASS
 $(AXILXBAR)prf: $(AXILXBAR)_prf4x1/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x8/PASS
+$(AXILXBAR)prf: $(AXILXBAR)_prf4x8_lp/PASS
 $(AXILXBAR)_prf4x8/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL) $(XBAR)
 	sby -f $(AXILXBAR).sby prf4x8
 $(AXILXBAR)_prf1x8/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL) $(XBAR)
@@ -219,9 +219,14 @@ $(AXILXBAR)_cvr4x1_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL) $(XBAR)
 .PHONY: $(WBXBAR4x8)_prf $(WBXBAR4x8)_cvr
 .PHONY: $(WBXBAR1x8)_prf $(WBXBAR1x8)_cvr
 .PHONY: $(WBXBAR4x1)_prf $(WBXBAR4x1)_cvr
-$(WBXBAR): $(WBXBAR4x8) $(WBXBAR1x8) $(WBXBAR4x1)
-$(WBXBAR)_prf: $(WBXBAR4x8)_prf $(WBXBAR1x8)_prf $(WBXBAR4x1)_prf
-$(WBXBAR)_cvr: $(WBXBAR4x8)_cvr $(WBXBAR1x8)_cvr $(WBXBAR4x1)_cvr
+$(WBXBAR): $(WBXBAR4x1)_prf
+$(WBXBAR): $(WBXBAR1x8)_prf
+$(WBXBAR): $(WBXBAR4x8)_prf
+$(WBXBAR): $(WBXBAR4x1)_cvr
+$(WBXBAR): $(WBXBAR1x8)_cvr
+$(WBXBAR): $(WBXBAR4x8)_cvr
+$(WBXBAR)_prf: $(WBXBAR4x1)_prf $(WBXBAR1x8)_prf $(WBXBAR4x8)_prf
+$(WBXBAR)_cvr: $(WBXBAR4x1)_cvr $(WBXBAR1x8)_cvr $(WBXBAR4x8)_cvr
 
 $(WBXBAR4x8): $(WBXBAR4x8)_prf $(WBXBAR4x8)_cvr
 $(WBXBAR1x8): $(WBXBAR1x8)_prf $(WBXBAR1x8)_cvr
