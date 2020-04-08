@@ -68,7 +68,7 @@ module demofull #(
 		//	    for(k=0; k<C_S_AXI_DATA_WIDTH/8; k=k+1)
 		//	    begin
 		//		if (o_wstrb[k])
-		//		mem[o_waddr[AW-1:LSB][k*8+:8] <= o_wdata[k*8+:8]
+		//		mem[o_waddr[AW-1:LSB]][k*8+:8] <= o_wdata[k*8+:8]
 		//	    end
 		//	end
 		//
@@ -254,7 +254,7 @@ module demofull #(
 	wire	[7:0]		m_awlen;
 	wire	[IW-1:0]	m_awid;
 	//
-	skidbuffer #(.DW(AW+2+3+8+IW))
+	skidbuffer #(.DW(AW+2+3+8+IW), .OPT_OUTREG(1'b0))
 		awbuf(S_AXI_ACLK, !S_AXI_ARESETN,
 		S_AXI_AWVALID, S_AXI_AWREADY,
 			{ S_AXI_AWADDR, S_AXI_AWBURST, S_AXI_AWSIZE,
