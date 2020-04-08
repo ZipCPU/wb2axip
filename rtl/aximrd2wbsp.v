@@ -62,7 +62,7 @@ module	aximrd2wbsp #(
 
 // AXI read address channel signals
 	input	wire			S_AXI_ARVALID,	// Read address valid
-	output	reg			S_AXI_ARREADY,	// Read address ready
+	output	wire			S_AXI_ARREADY,	// Read address ready
 	input wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_ARID,	// Read ID
 	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,	// Read address
 	input	wire	[7:0]		S_AXI_ARLEN,	// Read Burst Length

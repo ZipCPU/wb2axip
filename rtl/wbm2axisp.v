@@ -240,7 +240,8 @@ module wbm2axisp #(
 		m_valid, m_ready,
 			{ m_we, m_addr, m_data, m_sel });
 
-	assign	o_wb_stall = !skid_ready;
+	always @(*)
+		o_wb_stall = !skid_ready;
 
 	always @(*)
 	begin
