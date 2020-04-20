@@ -1,0 +1,109 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Sun Apr 19 18:19:02 2020
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1920 1021
+[pos] -1 -1
+*-4.124164 5 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axil2axis.
+[sst_width] 270
+[signals_width] 190
+[sst_expanded] 1
+[sst_vpaned_height] 290
+@28
+axil2axis.S_AXI_ACLK
+axil2axis.S_AXI_ARESETN
+@c00200
+-AXIL Writes
+@28
+[color] 3
+axil2axis.S_AXI_AWVALID
+[color] 2
+axil2axis.S_AXI_AWREADY
+@22
+[color] 3
+axil2axis.S_AXI_AWADDR[3:0]
+@28
+[color] 3
+axil2axis.S_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 3
+axil2axis.S_AXI_WVALID
+[color] 2
+axil2axis.S_AXI_WREADY
+@22
+[color] 3
+axil2axis.S_AXI_WDATA[31:0]
+[color] 3
+axil2axis.S_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+axil2axis.S_AXI_BVALID
+[color] 3
+axil2axis.S_AXI_BREADY
+[color] 2
+axil2axis.S_AXI_BRESP[1:0]
+@1401200
+-AXIL Writes
+@c00200
+-Stream Master
+@28
+[color] 2
+axil2axis.M_AXIS_TVALID
+[color] 3
+axil2axis.M_AXIS_TREADY
+[color] 2
+axil2axis.M_AXIS_TLAST
+@22
+axil2axis.wfifo_fill[9:0]
+@1401200
+-Stream Master
+@c00200
+-AXIL Reads
+@28
+[color] 3
+axil2axis.S_AXI_ARVALID
+[color] 2
+axil2axis.S_AXI_ARREADY
+@22
+[color] 3
+axil2axis.S_AXI_ARADDR[3:0]
+@28
+[color] 3
+axil2axis.S_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+axil2axis.S_AXI_RVALID
+[color] 3
+axil2axis.S_AXI_RREADY
+@22
+[color] 2
+axil2axis.S_AXI_RDATA[31:0]
+@28
+[color] 2
+axil2axis.S_AXI_RRESP[1:0]
+@1401200
+-AXIL Reads
+@c00200
+-Stream Slave
+@28
+[color] 3
+axil2axis.S_AXIS_TVALID
+[color] 2
+axil2axis.S_AXIS_TREADY
+[color] 3
+axil2axis.S_AXIS_TLAST
+@22
+axil2axis.rfifo_fill[9:0]
+@1401200
+-Stream Slave
+[pattern_trace] 1
+[pattern_trace] 0

@@ -38,9 +38,10 @@
 HELPERS   := sfifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
-AXISLAVES := demoaxi easyaxil # demofull xlnxfull axisafety
+AXISTREAM := xlnxstream_2018_3
+AXISLAVES := demoaxi easyaxil axil2axis # demofull xlnxfull axisafety
 FIREWALLS := wbsafety # axisafety
-TESTS := $(HELPERS) $(AXISLAVES) $(FIREWALLS) $(BRIDGES) $(CROSSBARS)
+TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSBARS)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -55,6 +56,7 @@ SKIDBUFFER := skidbuffer
 XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SKIDBUFFER).v
 #
 # Slaves
+AXIL2AXIS  := axil2axis
 DEMOAXI    := demoaxi
 EASYAXIL   := easyaxil
 XILINXDEMO := xlnxdemo
@@ -171,6 +173,16 @@ $(XILINXDEMO)_prf/FAIL: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	sby -f $(XILINXDEMO).sby prf
 $(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	sby -f $(XILINXDEMO).sby cvr
+
+
+.PHONY: $(XLNXSTREAM)
+$(XLNXSTREAM): $(XLNXSTREAM)_prf/FAIL $(XLNXSTREAM)_cvr/PASS
+$(XLNXSTREAM)_prf/FAIL: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
+	@echo "Expect the Xilinx stream master demo proof to fail."
+	@echo "Xilinx's code didn't work in the first place."
+	sby -f $(XLNXSTREAM).sby prf
+$(XLNXSTREAM)_cvr/PASS: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
+	sby -f $(XLNXSTREAM).sby cvr
 
 
 .PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr $(AXILXBAR)_prf
@@ -487,6 +499,24 @@ $(WBSAFETY)_faultr/PASS: $(WBSAFETYDEP)
 $(WBSAFETY)_cvr/PASS: $(WBSAFETYDEP)
 	sby -f $(WBSAFETY).sby cvr
 
+.PHONY: $(AXIL2AXIS)
+$(AXIL2AXIS): $(AXIL2AXIS)_prf/PASS       $(AXIL2AXIS)_prflps/PASS
+$(AXIL2AXIS): $(AXIL2AXIS)_prflpu/PASS    $(AXIL2AXIS)_prfsink/PASS
+$(AXIL2AXIS): $(AXIL2AXIS)_prfsource/PASS $(AXIL2AXIS)_cvr/PASS
+AXIL2AXISDEPS := $(AXIL2AXIS).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
+		$(RTL)/$(AXIL2AXIS).v $(AXIL)
+$(AXIL2AXIS)_prf/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prf
+$(AXIL2AXIS)_prflpu/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prflpu
+$(AXIL2AXIS)_prflps/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prflps
+$(AXIL2AXIS)_prfsink/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prfsink
+$(AXIL2AXIS)_prfsource/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prfsource
+$(AXIL2AXIS)_cvr/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby cvr
 
 
 .PHONY: clean

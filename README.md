@@ -143,6 +143,20 @@ capabilities.
   The key unusual feature?  The ability to maintain one transaction per clock
   over an extended period of time across any channel pair.
 
+- [AXIL2AXIS](rtl/axil2axis.v) converts from AXI-lite to AXI stream and back
+  again.  It's primary purpose is for testing AXI stream components at low
+  speed, to make certain that they work before increasing the speed of the
+  stream to the system clock rate.  As such, writes to the core will generate
+  writes to the AXI stream on the master side, and reads from the core will
+  accept AXI stream reads on the slave side.
+
+  While this isn't really intended to be a high performance core, it can still
+  handle 100% throughput like most of my IP here.  Therefore, anything less
+  than 100% throughput through this core will be a test of and reflection
+  of how the rest of your system works.
+
+  *This core has been formally verified.*
+
 - [AXILSINGLE](rtl/axilsingle.v) is designed to be a companion to
   [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI-lite support.  It's
   purpose is to simplify connectivity logic when supporting multiple AXI-lite
