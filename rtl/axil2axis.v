@@ -13,12 +13,8 @@
 //   2'b00, ADDR_SINK
 //		Writes to this register will send data to the stream master,
 //		with TLAST clear.  Data goes first through a FIFO.  If the
-//		FIFO is full, the write will stall.  THERE IS (CURRENTLY) NO
-//		RESCUE FROM THIS STALL.  If your downstream is broken, writing
-//		to the core may break it here.
-//
-//		TODO: Make writes fail with a bus error on a timeout rather
-//		than stalling the entire design.
+//		FIFO is full, the write will stall.  If it stalls OPT_TIMEOUT
+//		cycles, the write will fail and return a bus error.
 //
 //		Reads from this register will return data from the stream slave,
 //		but without consuming it.  Values read here may still be read
@@ -150,7 +146,8 @@ module	axil2axis #(
 		// {{{
 		input	wire					S_AXI_ACLK,
 		input	wire					S_AXI_ARESETN,
-		//
+		// AXI-lite signals
+		// {{{
 		input	wire					S_AXI_AWVALID,
 		output	wire					S_AXI_AWREADY,
 		input	wire	[C_AXI_ADDR_WIDTH-1:0]		S_AXI_AWADDR,
@@ -174,23 +171,26 @@ module	axil2axis #(
 		input	wire					S_AXI_RREADY,
 		output	wire	[C_AXI_DATA_WIDTH-1:0]		S_AXI_RDATA,
 		output	wire	[1:0]				S_AXI_RRESP,
-		//
-		//
+		// }}}
+		// AXI stream slave (sink) signals
+		// {{{
 		input	wire				S_AXIS_TVALID,
 		output	reg				S_AXIS_TREADY,
 		input	wire	[C_AXIS_DATA_WIDTH-1:0]	S_AXIS_TDATA,
 		input	wire				S_AXIS_TLAST,
-		//
-		//
+		// }}}
+		// AXI stream master (source) signals
+		// {{{
 		output	reg				M_AXIS_TVALID,
 		input	wire				M_AXIS_TREADY,
 		output	reg	[C_AXIS_DATA_WIDTH-1:0]	M_AXIS_TDATA,
 		output	reg				M_AXIS_TLAST
 		// }}}
+		// }}}
 	);
 
-	localparam	[1:0]	ADDR_SINK = 2'b00,
-				ADDR_SOURCE = 2'b01,
+	localparam	[1:0]	ADDR_SINK = 2'b00,	// Read from stream
+				ADDR_SOURCE = 2'b01, // Write, also sets TLAST
 				ADDR_STATS  = 2'b10,
 				ADDR_FIFO   = 2'b11;
 	localparam	SW = C_AXIS_DATA_WIDTH;
@@ -230,6 +230,7 @@ module	axil2axis #(
 	reg	[11:0]	writes_completed;
 
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
@@ -242,8 +243,6 @@ module	axil2axis #(
 	// Write signaling
 	//
 	// {{{
-
-
 	skidbuffer #(.OPT_OUTREG(0),
 			.OPT_LOWPOWER(OPT_LOWPOWER),
 			.DW(C_AXI_ADDR_WIDTH-ADDRLSB))
@@ -266,24 +265,30 @@ module	axil2axis #(
 
 	assign	axil_write_ready = awskd_valid && wskd_valid
 			&& (!S_AXI_BVALID || S_AXI_BREADY)
-			&& (!wfifo_full || write_timeout);
+			&& ((awskd_addr[1] != ADDR_SOURCE[1])
+				|| (!wfifo_full || write_timeout));
 
-	generate if ((OPT_TIMEOUT > 0) && OPT_SOURCE)
+	//
+	// Write timeout generation
+	//
+	// {{{
+	generate if ((OPT_TIMEOUT > 1) && OPT_SOURCE)
 	begin
 
-		reg [$clog2(OPT_TIMEOUT+1)-1:0] write_timer;
+		reg [$clog2(OPT_TIMEOUT)-1:0] write_timer;
 
-		initial	write_timer = OPT_TIMEOUT;
+		initial	write_timer = OPT_TIMEOUT-1;
 		initial	write_timeout = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
-			write_timer <= OPT_TIMEOUT;
+			write_timer <= OPT_TIMEOUT-1;
 			write_timeout<= 1'b0;
-		end else if (!awskd_valid || !wskd_valid
+		end else if (!awskd_valid || !wfifo_full || !wskd_valid
+				|| (awskd_addr[1] != ADDR_SOURCE[1])
 				|| (S_AXI_BVALID && !S_AXI_BREADY))
 		begin
-			write_timer <= OPT_TIMEOUT;
+			write_timer <= OPT_TIMEOUT-1;
 			write_timeout<= 1'b0;
 		end else begin
 			if (write_timer > 0)
@@ -293,6 +298,8 @@ module	axil2axis #(
 
 `ifdef	FORMAL
 		always @(*)
+			assert(write_timer <= OPT_TIMEOUT-1);
+		always @(*)
 			assert(write_timeout == (write_timer == 0));
 `endif
 	end else begin
@@ -301,6 +308,7 @@ module	axil2axis #(
 			write_timeout<= 1'b1;
 
 	end endgenerate
+	// }}}
 	
 
 	initial	axil_bvalid = 0;
@@ -312,33 +320,35 @@ module	axil2axis #(
 	else if (S_AXI_BREADY)
 		axil_bvalid <= 0;
 
+	assign	S_AXI_BVALID = axil_bvalid;
+
 	initial	axil_berr = 0;
 	always @(posedge S_AXI_ACLK)
-	if (i_reset)
+	if (OPT_LOWPOWER && i_reset)
 		axil_berr <= 0;
 	else if (axil_write_ready)
-		axil_berr <= (!wfifo_write)&&(awskd_addr[1]==ADDR_SOURCE[1]);
+		axil_berr <= (wfifo_full)&&(awskd_addr[1]==ADDR_SOURCE[1]);
+	else if (OPT_LOWPOWER && S_AXI_BREADY)
+		axil_berr <= 1'b0;
 
-	assign	S_AXI_BVALID = axil_bvalid;
 	assign	S_AXI_BRESP = { axil_berr, 1'b0 };
 	// }}}
 
 	//
-	// Write FIFO
+	// AXI-stream source (Write) FIFO
 	//
 	// {{{
-
 	assign	wfifo_write = axil_write_ready && awskd_addr[1]==ADDR_SOURCE[1]
 			&& wskd_strb != 0 && !wfifo_full;
 
 	generate if (OPT_SOURCE)
 	begin
 
-		sfifo #(.BW(C_AXIS_DATA_WIDTH+1), .LGFLEN(LGFIFO))
+		sfifo #(.BW(SW+1), .LGFLEN(LGFIFO))
 		source(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_wr(wfifo_write),
-			.i_data({awskd_addr[0],
-					wskd_data[C_AXIS_DATA_WIDTH-1:0]}),
+			.i_data({awskd_addr[0]==ADDR_SOURCE[0],
+					wskd_data[SW-1:0]}),
 			.o_full(wfifo_full), .o_fill(wfifo_fill),
 			.i_rd(M_AXIS_TREADY),
 				.o_data({ M_AXIS_TLAST, M_AXIS_TDATA }),
@@ -363,7 +373,7 @@ module	axil2axis #(
 	// }}}
 
 	//
-	// Read FIFO
+	// AXI-stream consumer/sink (Read) FIFO
 	//
 	// {{{
 	wire			rfifo_empty, rfifo_full, rfifo_last, read_rfifo;
@@ -373,7 +383,7 @@ module	axil2axis #(
 	generate if (OPT_SINK)
 	begin
 
-		sfifo #(.BW(C_AXIS_DATA_WIDTH+1), .LGFLEN(LGFIFO))
+		sfifo #(.BW(SW+1), .LGFLEN(LGFIFO))
 		sink(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_wr(S_AXIS_TVALID && S_AXIS_TREADY),
 			.i_data({S_AXIS_TLAST, S_AXIS_TDATA}),
@@ -393,28 +403,33 @@ module	axil2axis #(
 			S_AXIS_TREADY = 1'b1;
 
 		assign rfifo_empty = 1'b1;
-		assign rfifo_data  = 1'b1;
+		assign rfifo_data  = 0;
 		assign rfifo_last  = 1'b1;
-		assign rfifo_fill  = 1'b1;
+		assign rfifo_fill  = 0;
 
 	end endgenerate
-
 	// }}}
-	generate if (OPT_SINK && OPT_TIMEOUT > 0)
-	begin
-		reg [$clog2(OPT_TIMEOUT+1)-1:0] read_timer;
 
-		initial	read_timer = OPT_TIMEOUT;
+	//
+	// Read timeout generation
+	//
+	// {{{
+	generate if (OPT_SINK && OPT_TIMEOUT > 1)
+	begin
+		reg [$clog2(OPT_TIMEOUT)-1:0] read_timer;
+
+		initial	read_timer = OPT_TIMEOUT-1;
 		initial	read_timeout = 1'b0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
-			read_timer <= OPT_TIMEOUT;
+			read_timer <= OPT_TIMEOUT-1;
 			read_timeout<= 1'b0;
 		end else if (!arskd_valid || (S_AXI_RVALID && !S_AXI_RREADY)
-				||(arskd_addr != ADDR_SINK))
+				||!rfifo_empty
+				||(arskd_addr[1] != ADDR_SINK[1]))
 		begin
-			read_timer <= OPT_TIMEOUT;
+			read_timer <= OPT_TIMEOUT-1;
 			read_timeout<= 1'b0;
 		end else begin
 			if (read_timer > 0)
@@ -424,6 +439,8 @@ module	axil2axis #(
 
 `ifdef	FORMAL
 		always @(*)
+			assert(read_timer <= OPT_TIMEOUT-1);
+		always @(*)
 			assert(read_timeout == (read_timer == 0));
 `endif
 	end else begin
@@ -432,12 +449,12 @@ module	axil2axis #(
 			read_timeout = 1'b1;
 
 	end endgenerate
+	// }}}
 
 	//
 	// Read signaling
 	//
 	// {{{
-
 	wire	arskd_valid;
 
 	skidbuffer #(.OPT_OUTREG(0),
@@ -451,8 +468,8 @@ module	axil2axis #(
 		.o_data(arskd_addr));
 
 	assign	axil_read_ready = arskd_valid
-			&& (!axil_read_valid || S_AXI_RREADY)
-			&& ((arskd_addr != ADDR_SINK)
+			&& (!S_AXI_RVALID || S_AXI_RREADY)
+			&& ((arskd_addr[1] != ADDR_SINK[1])
 				|| (!rfifo_empty || read_timeout));
 
 	initial	axil_read_valid = 1'b0;
@@ -465,18 +482,16 @@ module	axil2axis #(
 		axil_read_valid <= 1'b0;
 
 	assign	S_AXI_RVALID = axil_read_valid;
-	assign	S_AXI_RDATA  = axil_read_data;
 
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		axil_rerr <= 1'b0;
 	else if (axil_read_ready)
-		axil_rerr <= rfifo_empty && (arskd_addr == ADDR_SINK);
+		axil_rerr <= rfifo_empty && (arskd_addr[1] == ADDR_SINK[1]);
 	else if (OPT_LOWPOWER && S_AXI_RREADY)
 		axil_rerr <= 1'b0;
 
 	assign	S_AXI_RRESP = { axil_rerr, 1'b0 };
-
 	// }}}
 
 	// }}}
@@ -489,6 +504,9 @@ module	axil2axis #(
 	// {{{
 
 
+	//
+	// Read data counting
+	// {{{
 	initial	reads_completed = 0;
 	initial	read_bursts_completed = 0;
 	always @(posedge S_AXI_ACLK)
@@ -506,8 +524,11 @@ module	axil2axis #(
 		reads_completed <= reads_completed + 1;
 		read_bursts_completed <= read_bursts_completed + (rfifo_last ? 1:0);
 	end
+	// }}}
 
-
+	//
+	// Write data counting
+	// {{{
 	generate if (OPT_SOURCE)
 	begin
 
@@ -534,7 +555,11 @@ module	axil2axis #(
 		end
 
 	end endgenerate
+	// }}}
 
+	//
+	// Read data register
+	// {{{
 	initial	axil_read_data = 0;
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && !S_AXI_ARESETN)
@@ -565,6 +590,8 @@ module	axil2axis #(
 		if (OPT_LOWPOWER && !axil_read_ready)
 			axil_read_data <= 0;
 	end
+
+	assign	S_AXI_RDATA  = axil_read_data;
 	// }}}
 
 	// Verilator lint_off UNUSED
@@ -583,6 +610,7 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
+	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -591,7 +619,7 @@ module	axil2axis #(
 	always @(*)
 	if (!f_past_valid)
 		assume(!S_AXI_ARESETN);
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-lite control interface
@@ -661,7 +689,15 @@ module	axil2axis #(
 		assert(faxil_rd_outstanding == (S_AXI_RVALID ? 1:0)
 			+(S_AXI_ARREADY ? 0:1));
 	end
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Verifying the packet counters
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	reg	[11:0]	f_reads, f_writes;
 	reg	[3:0]	f_read_pkts, f_write_pkts;
 
@@ -724,10 +760,15 @@ module	axil2axis #(
 		assert(f_writes == writes_completed);
 		assert(f_write_pkts == write_bursts_completed);
 	end
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Verify the read result
 	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (f_past_valid && $past(S_AXI_ARESETN && axil_read_ready))
 	begin
@@ -763,7 +804,7 @@ module	axil2axis #(
 				assert(S_AXI_RDATA[14:LGFIFO+1] == 0);
 			assert(S_AXI_RDATA[ 0+: LGFIFO+1]==$past(rfifo_fill));
 			end
-		default: assert(S_AXI_RRESP == 2'b00);
+		default: begin end
 		endcase
 	end
 
@@ -784,8 +825,8 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
-	reg	[3:0]	f_stream_stalled;
 
+	// Slave/consumer properties
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || !$past(S_AXI_ARESETN))
 	begin
@@ -797,6 +838,7 @@ module	axil2axis #(
 		assume($stable(S_AXIS_TLAST));
 	end
 
+	// Master/producer/source properties
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || !$past(S_AXI_ARESETN))
 	begin
@@ -807,16 +849,6 @@ module	axil2axis #(
 		assert($stable(M_AXIS_TDATA));
 		assert($stable(M_AXIS_TLAST));
 	end
-
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || M_AXIS_TREADY)
-		f_stream_stalled <= 0;
-	else if (M_AXIS_TVALID)
-		f_stream_stalled <= f_stream_stalled + 1;
-
-	always @(*)
-		assume(f_stream_stalled < 5);
-
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -827,10 +859,10 @@ module	axil2axis #(
 	// {{{
 
 	always @(*)
-		cover(S_AXI_ARESETN && reads_completed == 16);
+		cover(S_AXI_ARESETN && writes_completed == 16);
 
 	always @(*)
-		cover(S_AXI_ARESETN && writes_completed == 16);
+		cover(S_AXI_ARESETN && reads_completed == 16);
 
 	always @(*)
 		cover(S_AXI_ARESETN && writes_completed == 16
