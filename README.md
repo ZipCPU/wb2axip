@@ -231,12 +231,23 @@ capabilities.
 
   *This core has been formally verified.*
 
-- [AXISAFETY](rtl/axisafety.v) is a bus fault isolator AXI translator,
-  designed to support a connection to a trusted AXI master, and an untrusted
-  AXI slave.  Should the slave attempt to return an illegal response, or
-  perhaps a response beyond the internal timeouts within the core, then the
-  untrusted slave will be "disconnected" from the bus, and a bus error will be
-  return for both the errant transaction and any following.
+- [AXILSAFETY](rtl/axilsafety.v) is a bus fault isolator AXI-lite translator,
+  sometimes called a firewall,
+  designed to support a connection to a trusted AXI-lite master, and an
+  untrusted AXI-lite slave.  Should the slave attempt to return an illegal
+  response, or perhaps a response beyond the user parameterized timeouts, then
+  the untrusted slave will be "disconnected" from the bus, and a bus error will
+  be returned for both the errant transaction and any following.
+
+  [AXILSAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
+  detected, the slave is reset and allowed to return to the bus infrastructure
+  until its next fault.
+
+  *This core has been formally verified.*
+
+- [AXISAFETY](rtl/axisafety.v) is a bus fault isolator/firewall very similar
+  to the [AXILSAFETY](rtl/axilsafety.v) bus fault isolator above with many of
+  the same options.
 
   *This core has been formally verified.*
 
@@ -313,10 +324,11 @@ capabilities.
   applied to each of the AXI channels.  The asynchronous FIFOs have been
   formally verified,
 
-- [WBSAFETY](rtl/wbsafety.v) is a firewall, very similar to the
-  [AXISAFETY](rtl/axisafety.v) firewall above, only for the Wishbone bus.
-  Unlike many other firewall implementations, this one is able to reset
-  the downstream core following any error.
+- [WBSAFETY](rtl/wbsafety.v) is a bus fault isolator/firewall, very similar
+  to the [AXILSAFETY](rtl/axilsafety.v) firewall above, only for the Wishbone
+  bus.  Unlike many vendor firewall implementations, this one is able to reset
+  the downstream core following any error without impacting it's ability to
+  respond to the bus in a protocol compliant fashion.
 
 # Licensing
 

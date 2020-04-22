@@ -1,0 +1,199 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Apr 22 14:55:50 2020
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1920 1021
+[pos] -1 -1
+*-6.333802 496 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axilsafety.
+[sst_width] 270
+[signals_width] 246
+[sst_expanded] 1
+[sst_vpaned_height] 290
+@28
+axilsafety.S_AXI_ACLK
+axilsafety.S_AXI_ARESETN
+@c00200
+-Slave Write
+@28
+[color] 3
+axilsafety.S_AXI_AWVALID
+[color] 2
+axilsafety.S_AXI_AWREADY
+@22
+[color] 3
+axilsafety.S_AXI_AWADDR[27:0]
+@28
+[color] 3
+axilsafety.S_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilsafety.S_AXI_WVALID
+[color] 2
+axilsafety.S_AXI_WREADY
+@22
+[color] 3
+axilsafety.S_AXI_WDATA[31:0]
+[color] 3
+axilsafety.S_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+axilsafety.S_AXI_BVALID
+[color] 3
+axilsafety.S_AXI_BREADY
+[color] 2
+axilsafety.S_AXI_BRESP[1:0]
+@1401200
+-Slave Write
+@28
+[color] 1
+axilsafety.o_write_fault
+@c00201
+-Slave Read
+@28
+[color] 3
+axilsafety.S_AXI_ARVALID
+[color] 2
+axilsafety.S_AXI_ARREADY
+@22
+[color] 3
+axilsafety.S_AXI_ARADDR[27:0]
+@28
+[color] 3
+axilsafety.S_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilsafety.S_AXI_RVALID
+[color] 3
+axilsafety.S_AXI_RREADY
+@22
+[color] 2
+axilsafety.S_AXI_RDATA[31:0]
+@28
+[color] 2
+axilsafety.S_AXI_RRESP[1:0]
+@1401201
+-Slave Read
+@28
+[color] 1
+axilsafety.o_read_fault
+[color] 2
+axilsafety.M_AXI_ARESETN
+@c00200
+-Downstream Write
+@28
+[color] 2
+axilsafety.M_AXI_AWVALID
+[color] 3
+axilsafety.M_AXI_AWREADY
+@22
+[color] 2
+axilsafety.M_AXI_AWADDR[27:0]
+@28
+[color] 2
+axilsafety.M_AXI_AWPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilsafety.M_AXI_WVALID
+[color] 3
+axilsafety.M_AXI_WREADY
+@22
+[color] 2
+axilsafety.M_AXI_WDATA[31:0]
+[color] 2
+axilsafety.M_AXI_WSTRB[3:0]
+@200
+-
+@28
+[color] 3
+axilsafety.M_AXI_BVALID
+[color] 2
+axilsafety.M_AXI_BREADY
+[color] 3
+axilsafety.M_AXI_BRESP[1:0]
+@1401200
+-Downstream Write
+@c00200
+-Downstream Read
+@28
+[color] 2
+axilsafety.M_AXI_ARVALID
+[color] 3
+axilsafety.M_AXI_ARREADY
+@22
+[color] 2
+axilsafety.M_AXI_ARADDR[27:0]
+@28
+[color] 2
+axilsafety.M_AXI_ARPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilsafety.M_AXI_RVALID
+[color] 2
+axilsafety.M_AXI_RREADY
+@22
+[color] 3
+axilsafety.M_AXI_RDATA[31:0]
+@28
+[color] 3
+axilsafety.M_AXI_RRESP[1:0]
+@1401200
+-Downstream Read
+@22
+axilsafety.aw_stall_counter[3:0]
+@28
+axilsafety.aw_stall_limit
+@22
+axilsafety.w_stall_counter[3:0]
+@28
+axilsafety.w_stall_limit
+@200
+-
+@c00200
+-Read Fault
+@22
+axilsafety.r_stall_counter[3:0]
+axilsafety.r_ack_timer[3:0]
+axilsafety.downstream_r_count[3:0]
+@200
+-
+@28
+axilsafety.downstream_r_zero
+axilsafety.r_stall_limit
+axilsafety.r_ack_limit
+axilsafety.last_rvalid
+axilsafety.last_rchanged
+@22
+axilsafety.r_count[3:0]
+axilsafety.faxils_rd_outstanding[3:0]
+axilsafety.ASSUME_FAULTLESS.faxilm_rd_outstanding[3:0]
+@1401200
+-Read Fault
+@200
+-
+@22
+axilsafety.faxils_awr_outstanding[3:0]
+axilsafety.faxils_rd_outstanding[3:0]
+axilsafety.faxils_wr_outstanding[3:0]
+axilsafety.aw_count[3:0]
+axilsafety.aw_stall_counter[3:0]
+axilsafety.downstream_aw_count[3:0]
+axilsafety.downstream_w_count[3:0]
+axilsafety.r_count[3:0]
+axilsafety.r_stall_counter[3:0]
+axilsafety.w_count[3:0]
+axilsafety.w_stall_counter[3:0]
+[pattern_trace] 1
+[pattern_trace] 0

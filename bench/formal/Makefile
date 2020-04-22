@@ -40,7 +40,7 @@ CROSSBARS := axilxbar wbxbar # axixbar
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISTREAM := xlnxstream_2018_3
 AXISLAVES := demoaxi easyaxil axil2axis # demofull xlnxfull axisafety
-FIREWALLS := wbsafety # axisafety
+FIREWALLS := wbsafety axilsafety # axisafety
 TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSBARS)
 .PHONY: $(TESTS)
 all: $(TESTS)
@@ -83,6 +83,7 @@ WBXBAR4x1  := wbxbar4x1
 #
 # Firewalls
 WBSAFETY   := wbsafety
+AXILSAFETY := axilsafety
 #
 # Bus property sets
 AXIL       := faxil_master.v faxil_slave.v
@@ -498,6 +499,27 @@ $(WBSAFETY)_faultr/PASS: $(WBSAFETYDEP)
 	sby -f $(WBSAFETY).sby faultr
 $(WBSAFETY)_cvr/PASS: $(WBSAFETYDEP)
 	sby -f $(WBSAFETY).sby cvr
+
+.PHONY: $(AXILSAFETY)
+$(AXILSAFETY): $(AXILSAFETY)_prf/PASS    $(AXILSAFETY)_prfr/PASS
+$(AXILSAFETY): $(AXILSAFETY)_fault/PASS  $(AXILSAFETY)_faultr/PASS
+$(AXILSAFETY): $(AXILSAFETY)_prlong/PASS $(AXILSAFETY)_longr/PASS
+$(AXILSAFETY): $(AXILSAFETY)_cvr/PASS   $(SKIDBUFFER)
+AXILSAFETYDEP := $(AXILSAFETY).sby $(RTL)/$(AXILSAFETY).v $(RTL)/$(SKIDBUFFER).v $(WB)
+$(AXILSAFETY)_prf/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby prf
+$(AXILSAFETY)_prfr/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby prfr
+$(AXILSAFETY)_fault/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby fault
+$(AXILSAFETY)_faultr/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby faultr
+$(AXILSAFETY)_longr/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby longr
+$(AXILSAFETY)_prlong/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby prlong
+$(AXILSAFETY)_cvr/PASS: $(AXILSAFETYDEP)
+	sby -f $(AXILSAFETY).sby cvr
 
 .PHONY: $(AXIL2AXIS)
 $(AXIL2AXIS): $(AXIL2AXIS)_prf/PASS       $(AXIL2AXIS)_prflps/PASS
