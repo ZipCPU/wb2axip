@@ -305,7 +305,8 @@ module faxil_slave #(
 	// Assume any response from the bus will not change prior to that
 	// response being accepted
 	always @(posedge i_clk)
-	if ((f_past_valid)&&($past(i_axi_reset_n)))
+	if ((f_past_valid)&&($past(i_axi_reset_n))
+			&&(!F_OPT_ASYNC_RESET || i_axi_reset_n))
 	begin
 		// Write address channel
 		if ((f_past_valid)&&($past(i_axi_awvalid && !i_axi_awready)))
@@ -385,7 +386,7 @@ module faxil_slave #(
 			// If we are waiting for the write channel to be valid
 			// then don't count stalls
 			f_axi_awstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else // if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_awstall <= f_axi_awstall + 1'b1;
 
 		always @(*)
@@ -408,7 +409,7 @@ module faxil_slave #(
 			// If we are waiting for the write address channel
 			// to be valid, then don't count stalls
 			f_axi_wstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else // if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_wstall <= f_axi_wstall + 1'b1;
 
 		always @(*)
@@ -428,7 +429,7 @@ module faxil_slave #(
 		if ((!i_axi_reset_n)||(!i_axi_arvalid)||(i_axi_arready)
 				||(i_axi_rvalid))
 			f_axi_arstall <= 0;
-		else if (i_axi_rready)
+		else // if (i_axi_rready)
 			f_axi_arstall <= f_axi_arstall + 1'b1;
 
 		always @(*)
@@ -585,13 +586,13 @@ module faxil_slave #(
 	// That means that requests need to stop when we're almost full
 	always @(posedge i_clk)
 	if (f_axi_awr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assert(!i_axi_awvalid);
+		assert(!i_axi_awready);
 	always @(posedge i_clk)
 	if (f_axi_wr_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assert(!i_axi_wvalid);
+		assert(!i_axi_wready);
 	always @(posedge i_clk)
 	if (f_axi_rd_outstanding == { {(F_LGDEPTH-1){1'b1}}, 1'b0} )
-		assert(!i_axi_arvalid);
+		assert(!i_axi_arready);
 
 	////////////////////////////////////////////////////////////////////////
 	//

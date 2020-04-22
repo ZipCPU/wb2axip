@@ -386,7 +386,7 @@ module faxil_master #(
 			// If we are waiting for the write channel to be valid
 			// then don't count stalls
 			f_axi_awstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else // if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_awstall <= f_axi_awstall + 1'b1;
 
 		always @(*)
@@ -409,7 +409,7 @@ module faxil_master #(
 			// If we are waiting for the write address channel
 			// to be valid, then don't count stalls
 			f_axi_wstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else // if ((!i_axi_bvalid)||(i_axi_bready))
 			f_axi_wstall <= f_axi_wstall + 1'b1;
 
 		always @(*)
@@ -429,7 +429,7 @@ module faxil_master #(
 		if ((!i_axi_reset_n)||(!i_axi_arvalid)||(i_axi_arready)
 				||(i_axi_rvalid))
 			f_axi_arstall <= 0;
-		else if (i_axi_rready)
+		else // if (i_axi_rready)
 			f_axi_arstall <= f_axi_arstall + 1'b1;
 
 		always @(*)
