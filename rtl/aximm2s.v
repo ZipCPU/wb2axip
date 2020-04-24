@@ -686,7 +686,7 @@ module	aximm2s #(
 		input	[C_AXIL_DATA_WIDTH/8-1:0]	wstrb;
 
 		integer	k;
-		for(k=0; k<C_AXI_DATA_WIDTH/8; k=k+1)
+		for(k=0; k<C_AXIL_DATA_WIDTH/8; k=k+1)
 		begin
 			apply_wstrb[k*8 +: 8]
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
