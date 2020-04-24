@@ -137,6 +137,9 @@ module axilsafety #(
 	);
 	//
 	localparam	OPT_LOWPOWER = 1'b0;
+	localparam	OKAY = 2'b00,
+			EXOKAY = 2'b01,
+			SLVERR = 2'b10;
 
 	reg	[LGDEPTH-1:0]	aw_count, w_count, r_count;
 	reg			aw_zero, w_zero, r_zero,
@@ -146,17 +149,55 @@ module axilsafety #(
 	reg			downstream_aw_zero, downstream_w_zero, downstream_r_zero;
 				// downstream_aw_w_greater, downstream_w_aw_greater;
 
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Start with a skid buffer on all incoming signals
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
 	wire			awskd_valid;
 	wire	[2:0]		awskd_prot;
 	wire	[AW-1:0]	awskd_addr;
 	reg			awskd_ready;
+
+	wire			wskd_valid;
+	wire	[DW-1:0]	wskd_data;
+	wire	[DW/8-1:0]	wskd_strb;
+	reg			wskd_ready;
+
+	wire			bskd_valid;
+	wire	[1:0]		bskd_resp;
+	reg			bskd_ready;
+
+	reg			last_bvalid;
+	reg	[1:0]		last_bdata;
+	reg			last_bchanged;
+
+	wire			arskd_valid;
+	wire	[2:0]		arskd_prot;
+	wire	[AW-1:0]	arskd_addr;
+	reg			arskd_ready;
+
+	reg			last_rvalid;
+	reg [DW+1:0]		last_rdata;
+	reg			last_rchanged;
+
+	wire			rskd_valid;
+	wire	[1:0]		rskd_resp;
+	wire	[DW-1:0]	rskd_data;
+	reg			rskd_ready;
+
+	reg [LGTIMEOUT-1:0]	aw_stall_counter, w_stall_counter,
+				r_stall_counter, w_ack_timer, r_ack_timer;
+	reg 			aw_stall_limit, w_stall_limit, r_stall_limit,
+				w_ack_limit, r_ack_limit;
+
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write signaling
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	//
+	// Write address channel
+	//
 
 	skidbuffer #(.DW(AW+3)
 `ifdef	FORMAL
@@ -166,12 +207,22 @@ module axilsafety #(
 		S_AXI_AWVALID, S_AXI_AWREADY, { S_AXI_AWPROT, S_AXI_AWADDR },
 		awskd_valid, awskd_ready, { awskd_prot, awskd_addr});
 
+	//
+	// awskd_ready is the critical piece here, since it determines when
+	// we accept a packet from the skid buffer.
+	//
 	always @(*)
 	if (!M_AXI_ARESETN || o_write_fault)
+		// On any fault, we'll always accept a request (and return an
+		// error).  We always accept a value if there are already
+		// more writes than write addresses accepted.
 		awskd_ready = (w_aw_greater)
-			||((aw_count == 0)&&(!S_AXI_BVALID || S_AXI_BREADY));
+			||((aw_zero)&&(!S_AXI_BVALID || S_AXI_BREADY));
 	else
+		// Otherwise, we accept if ever our counters aren't about to
+		// overflow, and there's a place downstream to accept it
 		awskd_ready = (!M_AXI_AWVALID || M_AXI_AWREADY)&& (!aw_full);
+
 
 	initial	M_AXI_AWVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -179,6 +230,7 @@ module axilsafety #(
 		M_AXI_AWVALID <= 1'b0;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
 		M_AXI_AWVALID <= awskd_valid && awskd_ready && !o_write_fault;
+
 
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && (!M_AXI_ARESETN || o_write_fault))
@@ -191,10 +243,10 @@ module axilsafety #(
 		M_AXI_AWPROT <= awskd_prot;
 	end
 
-	wire			wskd_valid;
-	wire	[DW-1:0]	wskd_data;
-	wire	[DW/8-1:0]	wskd_strb;
-	reg			wskd_ready;
+	//
+	// Write data channel
+	//
+
 	skidbuffer #(.DW(DW+DW/8)
 `ifdef	FORMAL
 		, .OPT_PASSTHROUGH(1'b1)
@@ -203,13 +255,15 @@ module axilsafety #(
 		S_AXI_WVALID, S_AXI_WREADY, { S_AXI_WDATA, S_AXI_WSTRB },
 		wskd_valid, wskd_ready, { wskd_data, wskd_strb});
 
+	//
+	// As with awskd_ready, this logic is the critical key.
+	//
 	always @(*)
 	if (!M_AXI_ARESETN || o_write_fault)
 		wskd_ready = (aw_w_greater)
 			|| ((w_zero)&&(!S_AXI_BVALID || S_AXI_BREADY));
 	else
-		wskd_ready = M_AXI_ARESETN && (!M_AXI_WVALID || M_AXI_WREADY)
-			&& (!w_full);
+		wskd_ready = (!M_AXI_WVALID || M_AXI_WREADY) && (!w_full);
 
 	initial	M_AXI_WVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -229,9 +283,9 @@ module axilsafety #(
 		M_AXI_WSTRB <= (o_write_fault) ? 0 : wskd_strb;
 	end
 
-	wire		bskd_valid;
-	wire	[1:0]	bskd_resp;
-	reg		bskd_ready;
+	//
+	// Write return channel
+	//
 
 `ifdef	FORMAL
 	assign	bskd_valid = M_AXI_BVALID;
@@ -263,10 +317,6 @@ module axilsafety #(
 				&&(!downstream_w_zero)&&(bskd_valid);
 	end
 
-	reg		last_bvalid;
-	reg	[1:0]	last_bdata;
-	reg		last_bchanged;
-
 	initial	last_bvalid = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!M_AXI_ARESETN || o_write_fault)
@@ -284,24 +334,31 @@ module axilsafety #(
 	else
 		last_bchanged <= (last_bvalid && (!M_AXI_BVALID
 					|| last_bdata != M_AXI_BRESP));
-		
 
-	initial	S_AXI_BRESP = 2'b00;
+
+	initial	S_AXI_BRESP = OKAY;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_BVALID || S_AXI_BREADY)
 	begin
 		if (o_write_fault)
-			S_AXI_BRESP <= 2'b10;
-		else if (bskd_resp == 2'b01)
-			S_AXI_BRESP <= 2'b10;
+			S_AXI_BRESP <= SLVERR;
+		else if (bskd_resp == EXOKAY)
+			S_AXI_BRESP <= SLVERR;
 		else
 			S_AXI_BRESP <= bskd_resp;
 	end
 
-	wire	arskd_valid;
-	wire	[2:0]	arskd_prot;
-	wire	[AW-1:0]	arskd_addr;
-	reg			arskd_ready;
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Read signaling
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	//
+	// Read address channel
+	//
 
 	skidbuffer #(.DW(AW+3)
 `ifdef	FORMAL
@@ -313,7 +370,7 @@ module axilsafety #(
 
 	always @(*)
 	if (!M_AXI_ARESETN || o_read_fault)
-		arskd_ready =((r_count == 0)&&(!S_AXI_RVALID || S_AXI_RREADY));
+		arskd_ready =((r_zero)&&(!S_AXI_RVALID || S_AXI_RREADY));
 	else
 		arskd_ready = (!M_AXI_ARVALID || M_AXI_ARREADY) && (!r_full);
 
@@ -335,33 +392,9 @@ module axilsafety #(
 		M_AXI_ARPROT <= arskd_prot;
 	end
 
-	reg		last_rvalid;
-	reg [DW+1:0]	last_rdata;
-	reg		last_rchanged;
-
-	initial	last_rvalid = 1'b0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
-		last_rvalid <= 1'b0;
-	else
-		last_rvalid <= (M_AXI_RVALID && !M_AXI_RREADY);
-
-	always @(posedge S_AXI_ACLK)
-	if (M_AXI_RVALID)
-		last_rdata <= { M_AXI_RRESP, M_AXI_RDATA };
-
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
-		last_rchanged <= 1'b0;
-	else
-		last_rchanged <= (last_rvalid && (!M_AXI_RVALID
-			|| last_rdata != { M_AXI_RRESP, M_AXI_RDATA }));
-		
-
-	wire	rskd_valid;
-	wire	[1:0]	rskd_resp;
-	wire	[DW-1:0]	rskd_data;
-	reg			rskd_ready;
+	//
+	// Read data channel
+	//
 
 `ifdef	FORMAL
 	assign	rskd_valid = M_AXI_RVALID;
@@ -401,107 +434,211 @@ module axilsafety #(
 		else
 			S_AXI_RDATA <= rskd_data;
 
-		S_AXI_RRESP <= 2'b00;
-		if (o_read_fault || rskd_resp == 2'b01)
-			S_AXI_RRESP <= 2'b10;
-		else if (downstream_r_count > 0)
+		S_AXI_RRESP <= OKAY;
+		if (o_read_fault || rskd_resp == EXOKAY)
+			S_AXI_RRESP <= SLVERR;
+		else if (!downstream_r_zero)
 			S_AXI_RRESP <= rskd_resp;
 		else if (rskd_valid)
-			S_AXI_RRESP <= 2'b10;
+			S_AXI_RRESP <= SLVERR;
 	end
 
+	initial	last_rvalid = 1'b0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
+		last_rvalid <= 1'b0;
+	else
+		last_rvalid <= (M_AXI_RVALID && !M_AXI_RREADY);
+
+	always @(posedge S_AXI_ACLK)
+	if (M_AXI_RVALID)
+		last_rdata <= { M_AXI_RRESP, M_AXI_RDATA };
+
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
+		last_rchanged <= 1'b0;
+	else
+		last_rchanged <= (last_rvalid && (!M_AXI_RVALID
+			|| last_rdata != { M_AXI_RRESP, M_AXI_RDATA }));
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Usage counters
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+
+	//
+	// Write address channel
+	//
+
 	initial	aw_count = 0;
+	initial	aw_zero  = 1;
+	initial	aw_full  = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
+	begin
 		aw_count <= 0;
-	else case({(awskd_valid && awskd_ready), S_AXI_BVALID && S_AXI_BREADY})
-	2'b10: aw_count <= aw_count + 1;
-	2'b01: aw_count <= aw_count - 1;
+		aw_zero  <= 1;
+		aw_full  <= 0;
+	end else case({(awskd_valid && awskd_ready),S_AXI_BVALID&&S_AXI_BREADY})
+	2'b10: begin
+		aw_count <= aw_count + 1;
+		aw_zero <= 0;
+		aw_full <= (aw_count == { {(LGDEPTH-1){1'b1}}, 1'b0 });
+		end
+	2'b01: begin
+		aw_count <= aw_count - 1;
+		aw_zero <= (aw_count <= 1);
+		aw_full <= 0;
+		end
 	default: begin end
 	endcase
 
-	always @(*)
-		aw_zero = (aw_count == 0);
-
-	always @(*)
-		aw_full = (&aw_count);
+	//
+	// Write data channel
+	//
 
 	initial	w_count = 0;
+	initial	w_zero  = 1;
+	initial	w_full  = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
+	begin
 		w_count <= 0;
-	else case({(wskd_valid && wskd_ready), S_AXI_BVALID && S_AXI_BREADY})
-	2'b10: w_count <= w_count + 1;
-	2'b01: w_count <= w_count - 1;
+		w_zero  <= 1;
+		w_full  <= 0;
+	end else case({(wskd_valid && wskd_ready), S_AXI_BVALID&& S_AXI_BREADY})
+	2'b10: begin
+		w_count <= w_count + 1;
+		w_zero <= 0;
+		w_full <= (w_count == { {(LGDEPTH-1){1'b1}}, 1'b0 });
+		end
+	2'b01: begin
+		w_count <= w_count - 1;
+		w_zero <= (w_count <= 1);
+		w_full <= 1'b0;
+		end
 	default: begin end
 	endcase
 
-	always @(*)
-		w_zero = (w_count == 0);
+	initial	aw_w_greater = 0;
+	initial	w_aw_greater = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+	begin
+		aw_w_greater <= 0;
+		w_aw_greater <= 0;
+	end else case({(awskd_valid && awskd_ready),
+			(wskd_valid && wskd_ready)})
+	2'b10: begin
+		aw_w_greater <= (aw_count + 1 >  w_count);
+		w_aw_greater <= ( w_count     > aw_count + 1);
+		end
+	2'b01: begin
+		aw_w_greater <= (aw_count     >  w_count + 1);
+		w_aw_greater <= ( w_count + 1 > aw_count);
+		end
+	default: begin end
+	endcase
 
-	always @(*)
-		w_full = (&w_count);
-
-	always @(*)
-		aw_w_greater = (aw_count > w_count);
-
-	always @(*)
-		w_aw_greater = (aw_count < w_count);
+	//
+	// Read channel
+	//
 
 	initial	r_count = 0;
+	initial	r_zero  = 1;
+	initial	r_full  = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
+	begin
 		r_count <= 0;
-	else case({(arskd_valid && arskd_ready), S_AXI_RVALID && S_AXI_RREADY})
-	2'b10: r_count <= r_count + 1;
-	2'b01: r_count <= r_count - 1;
+		r_zero  <= 1;
+		r_full  <= 0;
+	end else case({(arskd_valid&&arskd_ready), S_AXI_RVALID&&S_AXI_RREADY})
+	2'b10: begin
+		r_count <= r_count + 1;
+		r_zero <= 0;
+		r_full <= (r_count == { {(LGDEPTH-1){1'b1}}, 1'b0 });
+		end
+	2'b01: begin
+		r_count <= r_count - 1;
+		r_zero <= (r_count <= 1);
+		r_full <= 0;
+		end
 	default: begin end
 	endcase
 
-	always @(*)
-		r_zero = (r_count == 0);
-
-	always @(*)
-		r_full = (&r_count);
+	//
+	// Downstream write address channel
+	//
 
 	initial	downstream_aw_count = 0;
+	initial	downstream_aw_zero = 1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_write_fault)
+	begin
 		downstream_aw_count <= 0;
-	else case({(M_AXI_AWVALID && M_AXI_AWREADY), M_AXI_BVALID && M_AXI_BREADY})
-	2'b10: downstream_aw_count <= downstream_aw_count + 1;
-	2'b01: downstream_aw_count <= downstream_aw_count - 1;
+		downstream_aw_zero <= 1;
+	end else case({(M_AXI_AWVALID && M_AXI_AWREADY), M_AXI_BVALID && M_AXI_BREADY})
+	2'b10: begin
+		downstream_aw_count <= downstream_aw_count + 1;
+		downstream_aw_zero <= 0;
+		end
+	2'b01: begin
+		downstream_aw_count <= downstream_aw_count - 1;
+		downstream_aw_zero <= (downstream_aw_count <= 1);
+		end
 	default: begin end
 	endcase
 
-	always @(*)
-		downstream_aw_zero = (downstream_aw_count == 0);
+	//
+	// Downstream write data channel
+	//
 
 	initial	downstream_w_count = 0;
+	initial	downstream_w_zero  = 1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_write_fault)
+	begin
 		downstream_w_count <= 0;
-	else case({(M_AXI_WVALID && M_AXI_WREADY), M_AXI_BVALID && M_AXI_BREADY})
-	2'b10: downstream_w_count <= downstream_w_count + 1;
-	2'b01: downstream_w_count <= downstream_w_count - 1;
+		downstream_w_zero  <= 1;
+	end else case({(M_AXI_WVALID && M_AXI_WREADY), M_AXI_BVALID && M_AXI_BREADY})
+	2'b10: begin
+		downstream_w_count <= downstream_w_count + 1;
+		downstream_w_zero <= 0;
+		end
+	2'b01: begin
+		downstream_w_count <= downstream_w_count - 1;
+		downstream_w_zero <= (downstream_w_count <= 1);
+		end
 	default: begin end
 	endcase
 
-	always @(*)
-		downstream_w_zero = (downstream_w_count == 0);
+	//
+	// Downstream read channel
+	//
 
 	initial	downstream_r_count = 0;
+	initial	downstream_r_zero  = 1;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || o_read_fault || !M_AXI_ARESETN)
+	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
+	begin
 		downstream_r_count <= 0;
-	else case({M_AXI_ARVALID && M_AXI_ARREADY, M_AXI_RVALID && M_AXI_RREADY})
-	2'b10: downstream_r_count <= downstream_r_count + 1;
-	2'b01: downstream_r_count <= downstream_r_count - 1;
+		downstream_r_zero  <= 1;
+	end else case({M_AXI_ARVALID && M_AXI_ARREADY, M_AXI_RVALID && M_AXI_RREADY})
+	2'b10: begin
+		downstream_r_count <= downstream_r_count + 1;
+		downstream_r_zero  <= 0;
+		end
+	2'b01: begin
+		downstream_r_count <= downstream_r_count - 1;
+		downstream_r_zero  <= (downstream_r_count <= 1);
+		end
 	default: begin end
 	endcase
-
-	always @(*)
-		downstream_r_zero = (downstream_r_count == 0);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -510,11 +647,14 @@ module axilsafety #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	reg [LGTIMEOUT-1:0]	aw_stall_counter, w_stall_counter,
-				r_stall_counter, w_ack_timer, r_ack_timer;
-	reg 	aw_stall_limit, w_stall_limit, r_stall_limit, w_ack_limit,
-				r_ack_limit;
 
+	// The key piece here is that we define the timeout depending upon
+	// what happens (or doesn't happen) *DOWNSTREAM*.  These timeouts
+	// will need to propagate upstream before taking place.
+
+	//
+	// Write address stall counter
+	//
 	initial	aw_stall_counter = 0;
 	initial	aw_stall_limit   = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -535,6 +675,10 @@ module axilsafety #(
 		aw_stall_counter <= aw_stall_counter + 1;
 		aw_stall_limit   <= (aw_stall_counter+1 >= OPT_TIMEOUT);
 	end
+
+	//
+	// Write data stall counter
+	//
 
 	initial	w_stall_counter = 0;
 	initial	w_stall_limit   = 1'b0;
@@ -557,6 +701,10 @@ module axilsafety #(
 		w_stall_limit   <= (w_stall_counter + 1 >= OPT_TIMEOUT);
 	end
 
+	//
+	// Write acknowledgment delay counter
+	//
+
 	initial w_ack_timer = 0;
 	initial	w_ack_limit = 0;
 	always @(posedge S_AXI_ACLK)
@@ -574,6 +722,10 @@ module axilsafety #(
 		w_ack_limit <= (w_ack_timer + 1 >= OPT_TIMEOUT);
 	end
 
+	//
+	// Read request stall counter
+	//
+
 	initial r_stall_counter = 0;
 	initial	r_stall_limit   = 0;
 	always @(posedge S_AXI_ACLK)
@@ -589,6 +741,10 @@ module axilsafety #(
 		r_stall_counter <= r_stall_counter + 1;
 		r_stall_limit   <= (r_stall_counter + 1 >= OPT_TIMEOUT);
 	end
+
+	//
+	// Read acknowledgement delay counter
+	//
 
 	initial r_ack_timer = 0;
 	initial	r_ack_limit = 0;
@@ -613,21 +769,41 @@ module axilsafety #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	//
+	// Determine if a write fault has taken place
+	//
 	initial	o_write_fault =1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		o_write_fault <= 1'b0;
-	else if (o_write_fault && OPT_SELF_RESET)
+	else if (OPT_SELF_RESET && o_write_fault)
 	begin
-		if (!M_AXI_ARESETN && aw_zero && w_zero)
+		//
+		// Clear any fault on reset
+		if (!M_AXI_ARESETN)
 			o_write_fault <= 1'b0;
 	end else begin
+		//
+		// A write fault takes place if you respond without a prior
+		// bus request on both write address and write data channels.
 		if ((downstream_aw_zero || downstream_w_zero)&&(bskd_valid))
 			o_write_fault <= 1'b1;
-		if (bskd_valid && bskd_resp == 2'b01)
+
+		// AXI-lite slaves are not allowed to return EXOKAY responses
+		// from the bus
+		if (bskd_valid && bskd_resp == EXOKAY)
 			o_write_fault <= 1'b1;
+
+		// If the downstream core refuses to accept either a
+		// write address request, or a write data request, or for that
+		// matter if it doesn't return an acknowledgment in a timely
+		// fashion, then a fault has been detected.
 		if (aw_stall_limit || w_stall_limit || w_ack_limit)
 			o_write_fault <= 1'b1;
+
+		// If the downstream core changes BRESP while VALID && !READY,
+		// then it isn't stalling the channel properly--that's a fault.
 		if (last_bchanged)
 			o_write_fault <= 1'b1;
 	end
@@ -636,17 +812,30 @@ module axilsafety #(
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		o_read_fault <= 1'b0;
-	else if (o_read_fault && OPT_SELF_RESET)
+	else if (OPT_SELF_RESET && o_read_fault)
 	begin
-		if (!M_AXI_ARESETN && r_zero)
+		//
+		// Clear any fault on reset
+		if (!M_AXI_ARESETN)
 			o_read_fault <= 1'b0;
 	end else begin
+		// Responding without a prior request is a fault.  Can only
+		// respond after a request has been made.
 		if (downstream_r_zero && rskd_valid)
 			o_read_fault <= 1'b1;
-		if (rskd_valid && rskd_resp == 2'b01)
+
+		// AXI-lite slaves are not allowed to return EXOKAY.  This is
+		// an error.
+		if (rskd_valid && rskd_resp == EXOKAY)
 			o_read_fault <= 1'b1;
+
+		// The slave cannot stall the bus forever, nor should the
+		// master wait forever for a response from the slave.
 		if (r_stall_limit || r_ack_limit)
 			o_read_fault <= 1'b1;
+
+		// If the slave changes the data, or the RRESP on the wire,
+		// while the incoming bus is stalled, then that's also a fault.
 		if (last_rchanged)
 			o_read_fault <= 1'b1;
 	end
@@ -657,8 +846,14 @@ module axilsafety #(
 
 		if (OPT_MIN_RESET > 1)
 		begin : MIN_RESET
-
 			reg	[$clog2(OPT_MIN_RESET+1):0]	reset_counter;
+
+			//
+			// Optionally insist that any downstream reset have a
+			// minimum duration.  Many Xilinx components require
+			// a 16-clock reset.  This ensures such reset
+			// requirements are achieved.
+			//
 
 			initial reset_counter = OPT_MIN_RESET-1;
 			initial	min_reset = 1'b0;
@@ -671,7 +866,7 @@ module axilsafety #(
 			begin
 				if (reset_counter > 0)
 					reset_counter <= reset_counter-1;
-				min_reset <= (reset_counter <= 1);	
+				min_reset <= (reset_counter <= 1);
 			end
 
 `ifdef	FORMAL
@@ -686,8 +881,12 @@ module axilsafety #(
 				min_reset = 1'b1;
 
 		end
-				
-		
+
+		//
+		// Reset the downstream bus on either a write or a read fault.
+		// Once the bus returns to idle, and any minimum reset durations
+		// have been achieved, then release the downstream from reset.
+		//
 		initial	M_AXI_ARESETN = 1'b0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -700,6 +899,9 @@ module axilsafety #(
 
 	end else begin : SAME_RESET
 
+		//
+		// The downstream reset equals the upstream reset
+		//
 		always @(*)
 			M_AXI_ARESETN = S_AXI_ARESETN;
 
@@ -726,11 +928,9 @@ module axilsafety #(
 	//
 	// We then repeat these proofs again with both OPT_SELF_RESET set and
 	// clear.  Which of the four proofs is accomplished is dependent upon
-	// parameters set by the formal engine. 
+	// parameters set by the formal engine.
 	//
 	//
-	localparam	DOWNSTREAM_ACK_DELAY = OPT_TIMEOUT/2-1;
-	localparam	UPSTREAM_ACK_DELAY = OPT_TIMEOUT + 3;
 	wire	[LGDEPTH:0]	faxils_awr_outstanding, faxils_wr_outstanding,
 				faxils_rd_outstanding;
 
@@ -755,11 +955,13 @@ module axilsafety #(
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_OPT_ASSUME_RESET(1'b1),
 		.F_OPT_NO_RESET((OPT_MIN_RESET == 0) ? 1:0),
-		// .F_MAX_ACK_DELAY(UPSTREAM_ACK_DELAY),
-		.F_AXI_MAXWAIT((F_OPT_FAULTLESS) ? (2*OPT_TIMEOUT+2) : 0),
+//		.F_AXI_MAXWAIT((F_OPT_FAULTLESS) ? (2*OPT_TIMEOUT+2) : 0),
 		.F_AXI_MAXRSTALL(3),
-		.F_AXI_MAXDELAY(OPT_TIMEOUT+OPT_TIMEOUT+5),
-		.F_LGDEPTH(LGDEPTH+1)
+//		.F_AXI_MAXDELAY(OPT_TIMEOUT+OPT_TIMEOUT+5),
+		.F_LGDEPTH(LGDEPTH+1),
+		//
+		.F_AXI_MAXWAIT((F_OPT_FAULTLESS) ? (2*OPT_TIMEOUT+2) : 0),
+		.F_AXI_MAXDELAY(2*OPT_TIMEOUT+3)
 	) axils (
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
@@ -800,6 +1002,7 @@ module axilsafety #(
 		assert(aw_zero == (aw_count  == 0));
 		assert(w_zero  == (w_count   == 0));
 		assert(r_zero  == (r_count   == 0));
+
 		//
 		assert(aw_full == (&aw_count));
 		assert(w_full  == (&w_count));
@@ -807,6 +1010,8 @@ module axilsafety #(
 		//
 		if (M_AXI_ARESETN && !o_write_fault)
 		begin
+			assert(downstream_aw_zero  == (downstream_aw_count == 0));
+			assert(downstream_w_zero   == (downstream_w_count  == 0));
 			assert(downstream_aw_count + (M_AXI_AWVALID ? 1:0)
 					+ (S_AXI_BVALID ? 1:0) == aw_count);
 			assert(downstream_w_count + (M_AXI_WVALID ? 1:0)
@@ -814,12 +1019,18 @@ module axilsafety #(
 		end
 
 		if (M_AXI_ARESETN && !o_read_fault)
+		begin
+			assert(downstream_r_zero   == (downstream_r_count  == 0));
 			assert(downstream_r_count + (M_AXI_ARVALID ? 1:0)
 					+ (S_AXI_RVALID ? 1:0) ==  r_count);
+		end
 		//
 		assert(aw_count == faxils_awr_outstanding);
 		assert(w_count  == faxils_wr_outstanding);
 		assert(r_count  == faxils_rd_outstanding);
+
+		assert(aw_w_greater == (aw_count > w_count));
+		assert(w_aw_greater == (w_count > aw_count));
 	end
 
 	always @(*)
@@ -857,7 +1068,6 @@ module axilsafety #(
 			.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 			.F_OPT_NO_RESET((OPT_MIN_RESET == 0) ? 1:0),
-			// .F_MAX_ACK_DELAY(UPSTREAM_ACK_DELAY),
 			.F_AXI_MAXWAIT(OPT_TIMEOUT),
 			.F_AXI_MAXRSTALL(4),
 			.F_AXI_MAXDELAY(OPT_TIMEOUT),
@@ -927,7 +1137,7 @@ module axilsafety #(
 
 		if (OPT_SELF_RESET)
 		begin
-			always @(posedge S_AXI_ARESETN)
+			always @(posedge S_AXI_ACLK)
 			if (f_past_valid)
 				assert(M_AXI_ARESETN == $past(S_AXI_ARESETN));
 		end
@@ -984,7 +1194,8 @@ module axilsafety #(
 			// Prove that we can actually reset the downstream
 			// bus/core as desired
 			//
-			reg	write_faulted, read_faulted, faulted;
+			reg		write_faulted, read_faulted, faulted;
+			reg	[3:0]	cvr_writes, cvr_reads;
 
 			initial	write_faulted = 0;
 			always @(posedge S_AXI_ACLK)
@@ -1016,6 +1227,30 @@ module axilsafety #(
 			always @(posedge S_AXI_ACLK)
 				cover(faulted && M_AXI_ARESETN && S_AXI_RVALID);
 
+
+			initial	cvr_writes = 0;
+			always @(posedge S_AXI_ACLK)
+			if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_write_fault)
+				cvr_writes <= 0;
+			else if (write_faulted && S_AXI_BVALID && S_AXI_BREADY
+				&& S_AXI_BRESP == OKAY
+				&&(!(&cvr_writes)))
+				cvr_writes <= cvr_writes + 1;
+
+			always @(*)
+				cover(cvr_writes > 5);
+
+			initial	cvr_reads = 0;
+			always @(posedge S_AXI_ACLK)
+			if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
+				cvr_reads <= 0;
+			else if (read_faulted && S_AXI_RVALID && S_AXI_RREADY
+				&& S_AXI_RRESP == OKAY
+				&&(!(&cvr_reads)))
+				cvr_reads <= cvr_reads + 1;
+
+			always @(*)
+				cover(cvr_reads > 5);
 		end
 
 	end endgenerate

@@ -9,9 +9,7 @@ prlong       prf opt_reset opt_long_reset
 
 [options]
 prf: mode prove
-prf: depth 6
-# prf: depth 22
-prf: depth 45
+prf: depth 23
 cvr: mode cover
 cvr: depth 32
 
