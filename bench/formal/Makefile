@@ -39,9 +39,10 @@ HELPERS   := sfifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISTREAM := xlnxstream_2018_3
-AXISLAVES := demoaxi easyaxil axil2axis # demofull xlnxfull axisafety
+AXISLAVES := demoaxi easyaxil axil2axis # demofull xlnxfull
+AXIMASTERS :=
 FIREWALLS := wbsafety axilsafety # axisafety
-TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSBARS)
+TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSBARS) $(AXIMASTERS)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -540,7 +541,6 @@ $(AXIL2AXIS)_prfsource/PASS: $(AXIL2AXISDEPS)
 $(AXIL2AXIS)_cvr/PASS: $(AXIL2AXISDEPS)
 	sby -f $(AXIL2AXIS).sby cvr
 
-
 .PHONY: clean
 clean:
 	rm -rf  $(DEMOAXI)_*/
@@ -553,6 +553,7 @@ clean:
 	rm -rf  $(WBXBAR)_*/     $(AXILXBAR)_*/
 	rm -rf  $(AXILSINGLE)_*/ $(AXILDOUBLE)_*/
 	rm -rf  $(WBSAFETY)_*/   $(EASYAXIL)_*/
+	rm -rf  $(AXIL2AXIS)_*/  $(AXILSAFETY)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/

@@ -222,11 +222,21 @@ module xlnxstream_2018_3 #
 	else if (tx_en)// && M_AXIS_TSTRB[byte_index]
 		stream_data_out <= read_pointer + 32'b1;
 
+	////////////////////////////////////////////////////////////////////////
+	//
 	// Add user logic here
-	// User logic ends
+	//
+	// The below initial lines, and FORMAL section following, were not in
+	// Xilinx's original demo example.
+	//
+	// This initial logic is used to keep the formal proof consistent
+	// below.  It's not strictly needed, neither was it part of Xilinx's
+	// original example demo.
+	initial count = 0;
 	initial mst_exec_state = IDLE;
 	initial	read_pointer = 0;
 	initial tx_done = 0;
+	// User logic ends
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = $clog2(NUMBER_OF_OUTPUT_WORDS+1)+2;
 	localparam	AW  = 1;
@@ -240,9 +250,25 @@ module xlnxstream_2018_3 #
 	always @(posedge M_AXIS_ACLK)
 		f_past_valid <= 1;
 
+	//
+	// Insist that the proof starts in reset
+	//
 	always @(*)
 	if (!f_past_valid)
 		assume(!M_AXIS_ARESETN);
+
+	//
+	// Insist on reset values
+	//
+	always @(posedge M_AXIS_ACLK)
+	if (!f_past_valid || $past(!M_AXIS_ARESETN))
+	begin
+		assert(mst_exec_state == IDLE);
+		assert(read_pointer == 0);
+		assert(count == 0);
+		assert(!tx_done);
+	end
+
 	//
 	faxis_master #(
 		.F_LGDEPTH(F_LGDEPTH),
@@ -266,6 +292,8 @@ module xlnxstream_2018_3 #
 		.f_bytecount(f_bytecount),
 		.f_routecheck(f_routecheck));
 
+// `define	INDUCTION_PROOF
+`ifdef	INDUCTION_PROOF
 	always @(*)
 		assert(count <= C_M_START_COUNT-1);
 
@@ -287,17 +315,9 @@ module xlnxstream_2018_3 #
 		assert(read_pointer <= NUMBER_OF_OUTPUT_WORDS);
 
 	always @(*)
-		assume(f_routecheck == 0);
-	always @(*)
 	if (tx_done)
 		assert(!M_AXIS_TVALID);
 
-//	always @(*)
-//	if (M_AXIS_TVALID)
-//		assert({ 1'b0, read_pointer, 2'b00 } -4 == f_bytecount);
-//	else if (!tx_done)
-//		assert({ 1'b0, read_pointer, 2'b00 } == f_bytecount);
-//
 	always @(*)
 	if ((read_pointer > 0)&&(!tx_done))
 		assert(M_AXIS_TVALID);
@@ -316,16 +336,19 @@ module xlnxstream_2018_3 #
 			||(mst_exec_state == INIT_COUNTER)
 			||(mst_exec_state == SEND_STREAM));
 
-/*
-	always @(*)
-	if (tx_done)
-	begin
-		assert((mst_exec_state == IDLE)
-			//||(mst_exec_state == INIT_COUNTER)
-			||(mst_exec_state == SEND_STREAM));
-	end
-*/
+	// If you actually want to get induction to pass, you'll also need
+	// to assume TREADY
+	// always @(*)
+	//	assume(M_AXIS_TREADY);
+`endif
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover checks
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	reg	[3:0]	final_counter = 0;
 
 	initial	final_counter = 0;
@@ -336,9 +359,9 @@ module xlnxstream_2018_3 #
 		final_counter <= final_counter + 1;
 
 	always @(*)
-		cover(&final_counter);
+		cover(tx_done);
 
 	always @(*)
-		assume(f_past_valid == M_AXIS_ARESETN);
+		cover(&final_counter);
 `endif
 endmodule
