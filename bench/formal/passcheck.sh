@@ -18,6 +18,8 @@
 ################################################################################
 ##
 ##
-find . -name FAIL
-find . -name UNKNOWN
-find . -name ERROR
+## Sort these results to give them a consistent order
+##
+find . -name FAIL    | sort
+find . -name UNKNOWN | sort
+find . -name ERROR   | sort
