@@ -3,6 +3,7 @@
 - [Demonstration AXI4-lite slave](demoaxi.v)
 - [Demonstration AXI4(Full) slave](demofull.v)
   -- [AXI Addr](axi_addr.v) is a helper core used for calculating the "next" address in a burst sequence.  It's based upon [the algorithm discussed here](https://zipcpu.com/blog/2019/04/27/axi-addr.html).
+- [A simplified AXI-lite slave](easyaxil.v)
 
 - [Skidbuffer](skidbuffer.v)
 
@@ -22,7 +23,7 @@ them.
 All three cores are supported by the (dev branch of)
 [AutoFPGA](https://github.com/ZipCPU/autofpga).
 
-## Data movers/DMA enginse
+## Data movers/DMA engines
 
 - [AXIMM2S](aximm2s.v).  Supports unaligned transfers, but only fully aligned
   stream words.
@@ -39,19 +40,28 @@ All three cores are supported by the (dev branch of)
 
 - [AXI to AXI-lite](axi2axilite.v).  Supports 100% throughput even across burst
   boundaries, unlike other (similar) bridges of this type you might come across.
+
 - [AXI-lite to AXI](axilite2axi.v).  A "no-cost" bridge.
 
+- [AXI-lite to AXI stream](axil2axis.v)
+
 - [AXI-Lite to Wishbone](axlite2wbsp.v)
+
   -- [Read side](axilrd2wbsp.v)
+
   -- [Write side](axilwr2wbsp.v)
+
   -- A following (optional) [arbiter](wbarbiter.v) will connect read and write sides together into the same WB bus.  Alternatively, each of the two sides can be submitted separately into a [WB Crossbar](wbxbar.v).
 
 
 - [AXI4 Master to Wishbone](axim2wbsp.v)
+
   -- [Read side](aximrd2wbsp.v)
+
   -- [AXI4 Master to Wishbone](aximwr2wbsp.v)
 
 - [Wishbone classic to pipelined](wbc2pipeline.v)
+
 - [Wishbone pipelined to classic](wbp2classic.v)
 
 - [Wishbone master to AXI4-Litejk slave](wbm2axilite.v)
@@ -77,8 +87,11 @@ they support.
   been written.  The design for it should be nearly identical.  The big
   difference between single and double AXI slaves is that single slaves can have
   only one address, and that address must always be available for reading.
+
 - [AXI Double](axidouble.v).
+
 - [AXI-Lite Single](axilsingle.v)
+
 - [AXI-Lite Double](axildouble.v)
 
 ## Firewalls
@@ -93,7 +106,10 @@ As a bonus, the firewall may also have the capability of resetting the
 downstream core upon any error, so that it might be reintegrated later into
 the rest of the design for additional testing.
 
+- [AXI-lite](axilsafety.v)
+
 - [AXI4](axisafety.v)
+
 - [Wishbone](wbsafety.v)
 
 ## Clock domain crossers
