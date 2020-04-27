@@ -260,6 +260,8 @@ module	axidma #(
 	reg	[ADDRLSB:0]		read_realignment;
 	reg				last_read_beat;
 	reg				clear_read_pipeline;
+	reg				last_write_burst;
+
 
 
 
@@ -295,6 +297,7 @@ module	axidma #(
 			axil_write_ready = 0;
 	end
 
+	initial	S_AXIL_BVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		S_AXIL_BVALID <= 1'b0;
@@ -324,6 +327,7 @@ module	axidma #(
 		r_err <= (r_err || (M_AXI_RVALID && M_AXI_RRESP[1])
 				|| (M_AXI_BVALID && M_AXI_BRESP[1]));
 
+	initial	r_busy = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		r_busy <= 1'b0;
@@ -367,8 +371,6 @@ module	axidma #(
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		r_abort <= 1'b0;
-	// else if (!r_busy || (last_write_ack && M_AXI_BVALID && M_AXI_BREADY))
-	//	r_abort <= 1'b0;
 	else if (!r_busy)
 	begin
 		if (axil_write_ready && awskd_addr == CTRL_ADDR
@@ -379,7 +381,7 @@ module	axidma #(
 				||wskd_data[CTRL_ERR_BIT])
 			r_abort <= 0;
 		end
-	end else if (!r_abort) // && r_busy
+	end else if (!r_abort)
 		r_abort <= (axil_write_ready && awskd_addr == CTRL_ADDR)
 			&&(wskd_strb[3] && wskd_data[31:24] == ABORT_KEY);
 
@@ -455,6 +457,10 @@ module	axidma #(
 		end
 	end
 
+	initial	r_len    = 0;
+	initial	zero_len = 1;
+	initial	r_src_addr = 0;
+	initial	r_dst_addr = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 	begin
@@ -501,7 +507,6 @@ module	axidma #(
 		endcase
 	end else if (r_busy)
 	begin
-		// r_src_addr <= 0;
 		r_dst_addr <= write_address;
 		if (writes_remaining_w[LGLENW])
 			r_len <= -1;
@@ -556,6 +561,7 @@ module	axidma #(
 			axil_read_ready = 1'b0;
 	end
 
+	initial	S_AXIL_RVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		S_AXIL_RVALID <= 1'b0;
@@ -570,11 +576,11 @@ module	axidma #(
 		S_AXIL_RDATA <= 0;
 		case(arskd_addr)
 		CTRL_ADDR: begin
-			S_AXIL_RDATA[CTRL_ABORT_BIT] <= r_abort;
 			S_AXIL_RDATA[CTRL_ERR_BIT]   <= r_err;
-			S_AXIL_RDATA[CTRL_BUSY_BIT]  <= r_busy;
+			S_AXIL_RDATA[CTRL_ABORT_BIT] <= r_abort;
 			S_AXIL_RDATA[CTRL_INTEN_BIT] <= r_int_enable;
 			S_AXIL_RDATA[CTRL_INT_BIT]   <= r_int;
+			S_AXIL_RDATA[CTRL_BUSY_BIT]  <= r_busy;
 			end
 		SRCLO_ADDR:
 			S_AXIL_RDATA <= wide_src[C_AXIL_DATA_WIDTH-1:0];
@@ -635,6 +641,7 @@ module	axidma #(
 	else if (M_AXI_RVALID && M_AXI_RREADY)
 		read_beats_remaining_w <= read_beats_remaining_w - 1;
 
+	initial	read_bursts_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 	begin
@@ -645,6 +652,7 @@ module	axidma #(
 	default: begin end
 	endcase
 
+	initial	no_read_bursts_outstanding = 1;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 	begin
@@ -681,7 +689,6 @@ module	axidma #(
 
 	always @(*)
 	begin
-		// initial_readlen_w = (1<<LGMAXBURST);
 		initial_readlen_w = 0;
 		initial_readlen_w[LGMAXBURST] = 1;
 
@@ -720,6 +727,8 @@ module	axidma #(
 			w_start_read = 0;
 	end
 
+	initial	M_AXI_ARVALID = 1'b0;
+	initial	phantom_read  = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 	begin
@@ -775,6 +784,9 @@ module	axidma #(
 						r_outword, r_partial_outword,
 						r_realigned_incoming;
 		wire	[C_AXI_DATA_WIDTH-1:0]	fifo_data;
+		reg	[ADDRLSB-1:0]	r_last_write_addr;
+		reg			r_oneword;
+		reg	r_firstword;
 
 
 		///////////////////
@@ -812,8 +824,6 @@ module	axidma #(
 		begin
 			extra_realignment_read <= (remaining_read_realignment
 				>= r_len[ADDRLSB-1:0]) ? 1:0;
-			if (r_len[LGLEN-1:ADDRLSB] == 0)
-				extra_realignment_read <= 1'b0;
 			if (r_len[ADDRLSB-1:0] == 0)
 				extra_realignment_read <= 1'b0;
 			if (r_src_addr[ADDRLSB-1:0] == 0)
@@ -840,15 +850,17 @@ module	axidma #(
 				assert(!clear_read_pipeline);
 		end
 `endif
-			
+
 		always @(posedge S_AXI_ACLK)
 		if (fifo_reset)
-			r_partial_in_valid <= (r_src_addr[ADDRLSB-1:0] == 0)
-				||((r_len[LGLEN-1:ADDRLSB]==0)
-					&&(read_realignment[ADDRLSB:0] <= (1<<ADDRLSB)));
+			r_partial_in_valid <= (r_src_addr[ADDRLSB-1:0] == 0);
 		else if (M_AXI_RVALID)
 			r_partial_in_valid <= 1;
 		else if ((!r_write_fifo || !fifo_full) && clear_read_pipeline)
+			// If we have to flush the final partial valid signal,
+			// the do it when writing to the FIFO with clear_read
+			// pipelin set.  Actually, this is one clock before
+			// that ...
 			r_partial_in_valid <= 0;
 
 		always @(posedge S_AXI_ACLK)
@@ -857,6 +869,7 @@ module	axidma #(
 		else if (M_AXI_RVALID)
 			r_partial_inword <= M_AXI_RDATA >> inshift_down;
 
+		initial	r_write_fifo = 0;
 		always @(posedge S_AXI_ACLK)
 		if (fifo_reset)
 			r_write_fifo <= 0;
@@ -871,6 +884,8 @@ module	axidma #(
 		else if (M_AXI_RVALID)
 			r_realigned_incoming <= r_partial_inword
 					| (M_AXI_RDATA << inshift_up);
+		else if (!r_write_fifo || !fifo_full)
+			r_realigned_incoming <= r_partial_inword;
 
 		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO),
 						.OPT_ASYNC_READ(1'b1))
@@ -883,7 +898,7 @@ module	axidma #(
 		if (!r_busy)
 		begin
 			outbyte_shift <= r_dst_addr[ADDRLSB-1:0];
-			outshift_down <= 0; // { ~outbyte_shift, 3'b000 };
+			outshift_down <= 0;
 			outshift_down[3 +: ADDRLSB] <= -r_dst_addr[ADDRLSB-1:0];
 		end
 
@@ -894,7 +909,7 @@ module	axidma #(
 		always @(posedge S_AXI_ACLK)
 		if (fifo_reset)
 			r_partial_outword <= 0;
-		else if (r_read_fifo)
+		else if (r_read_fifo && outshift_up != 0)
 			r_partial_outword
 				<= (fifo_data >> outshift_down);
 		else if (M_AXI_WVALID && M_AXI_WREADY)
@@ -943,13 +958,9 @@ module	axidma #(
 		//
 		//
 
-		reg	[ADDRLSB-1:0]	r_last_write_addr;
-		reg			r_oneword;
-
 		always @(posedge S_AXI_ACLK)
 		if (!r_busy)
 		begin
-			// r_oneword <= (r_dst_addr[ADDRLSB-1:0]+r_len <= (1<<ADDRLSB));
 			if (r_len[(LGLEN-1):(ADDRLSB+1)] != 0)
 				r_oneword <= 0;
 			else
@@ -980,7 +991,6 @@ module	axidma #(
 				r_last_wstrb <= (1<<r_last_write_addr)-1;
 		end
 
-		reg	r_firstword;
 		always @(posedge S_AXI_ACLK)
 		if (!r_busy)
 			r_firstword <= 1;
@@ -994,17 +1004,10 @@ module	axidma #(
 				M_AXI_WSTRB <= r_first_wstrb & r_last_wstrb;
 			else if (M_AXI_WVALID && M_AXI_WREADY)
 			begin
-				// if ((reads_remaining_w > 0)
-				//		||(!no_read_bursts_oustanding)
-				//		||(!fifo_empty))
-				//	M_AXI_WSTRB <= -1;
-				// else
 				if (write_beats_remaining > 2)
 					M_AXI_WSTRB <= -1;
 				else
 					M_AXI_WSTRB <= r_last_wstrb;
-				// no_read_bursts_outstanding <= 0;
-			   // reads_remaining_w <= readlen_b[LGLEN:ADDRLSB];
 			end else if (r_firstword)
 				M_AXI_WSTRB <= r_first_wstrb;
 
@@ -1154,6 +1157,7 @@ module	axidma #(
 	end else if (M_AXI_WVALID && M_AXI_WREADY)
 		write_beats_remaining <= write_beats_remaining - 1;
 
+	initial	write_requests_remaining = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		write_requests_remaining <= 1'b0;
@@ -1163,6 +1167,7 @@ module	axidma #(
 		write_requests_remaining <= (writes_remaining_w != (M_AXI_AWLEN+1));
 	// Verilator lint_on WIDTH
 
+	initial	write_bursts_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 	begin
@@ -1228,6 +1233,7 @@ module	axidma #(
 	end
 	// Verilator lint_on WIDTH
 
+	initial	write_count = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 		write_count <= 0;
@@ -1236,6 +1242,7 @@ module	axidma #(
 	else if (M_AXI_WVALID && M_AXI_WREADY)
 		write_count <= write_count - 1;
 
+	initial	M_AXI_WLAST = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 	begin
@@ -1252,8 +1259,6 @@ module	axidma #(
 			M_AXI_WLAST <= (write_burst_length[7:0] == 1);
 `endif
 	end
-
-	reg	last_write_burst;
 
 	always @(*)
 		last_write_burst = (write_burst_length == writes_remaining_w);
@@ -1279,6 +1284,8 @@ module	axidma #(
 			w_write_start = 0;
 	end
 
+	initial	M_AXI_AWVALID = 0;
+	initial	phantom_write = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 	begin
@@ -1291,6 +1298,7 @@ module	axidma #(
 	end else
 		phantom_write <= 0;
 
+	initial	M_AXI_WVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		M_AXI_WVALID <= 0;
@@ -1303,6 +1311,7 @@ module	axidma #(
 			M_AXI_WVALID <= 1;
 	end
 
+	initial	M_AXI_AWLEN = 0;
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
 		M_AXI_AWLEN <= 0;
@@ -1355,6 +1364,7 @@ module	axidma #(
 `endif
 			writelen_b[ADDRLSB-1:0], readlen_b[ADDRLSB-1:0]
 			};
+
 	generate if (C_AXI_ADDR_WIDTH < 2*C_AXIL_DATA_WIDTH)
 	begin : NEW_UNUSED
 		wire	genunused;
@@ -1363,13 +1373,13 @@ module	axidma #(
 			new_widesrc[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
 			new_widedst[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
 	end endgenerate
-
 	// Verilator lint_on UNUSED
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal property section
+//
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
@@ -2169,6 +2179,7 @@ module	axidma #(
 	always @(*)
 	if (phantom_read)
 		assert(M_AXI_ARVALID);
+
 	always @(*)
 	if (phantom_write)
 		assert(M_AXI_AWVALID);
@@ -2210,30 +2221,189 @@ module	axidma #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	always @(*)
-	if (!f_past_valid)
+	always @(posedge S_AXI_ACLK)
+	if (!f_past_valid || $past(!S_AXI_ARESETN))
 	begin
-		assume(!S_AXIL_BVALID);
-		assume(!S_AXIL_RVALID);
+		assert(!S_AXIL_BVALID);
+		assert(!S_AXIL_RVALID);
 
-		assume(!M_AXI_AWVALID);
-		assume(!M_AXI_WVALID);
-		assume(!M_AXI_ARVALID);
+		assert(!M_AXI_AWVALID);
+		assert(!M_AXI_WVALID);
+		assert(!M_AXI_ARVALID);
 
-		assume(write_bursts_outstanding == 0);
+		assert(write_bursts_outstanding == 0);
+		assert(write_requests_remaining == 0);
 
-		assume(!phantom_read);
-		assume(!phantom_write);
-		assume(!r_busy);
-		assume(read_bursts_outstanding == 0);
-		assume(no_read_bursts_outstanding);
+		assert(!phantom_read);
+		assert(!phantom_write);
+		assert(!r_busy);
+		assert(read_bursts_outstanding == 0);
+		assert(no_read_bursts_outstanding);
 
-		assume(r_len == 0);
-		assume(zero_len);
+		assert(r_len == 0);
+		assert(zero_len);
+
+		assert(write_count == 0);
+		assert(!M_AXI_WLAST);
+		assert(M_AXI_AWLEN == 0);
+		assert(!r_write_fifo);
+		assert(r_src_addr == 0);
+		assert(r_dst_addr == 0);
 	end
 
 	always @(*)
 		assert(ADDRLSB + LGMAXBURST <= 12);
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Formal contract checking
+	//
+	// Given an arbitrary address within the source address range, and an
+	// arbitrary piece of data at that source address, prove that said
+	// piece of data will get properly written to the destination address
+	// range
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// We'll pick the byte read from const_addr_src, and then written to
+	// const_addr_dst.
+	//
+	generate if (OPT_UNALIGNED)
+	begin : F_UNALIGNED_SAMPLE_CHECK
+		(* anyconst *) reg	[C_AXI_ADDR_WIDTH-1:0]	f_const_posn;
+		reg	[C_AXI_ADDR_WIDTH-1:0]	f_const_addr_src,
+						f_const_addr_dst;
+		reg	[8-1:0]			f_const_byte;
+		reg	[C_AXI_ADDR_WIDTH:0]	f_write_fifo_addr,
+						f_read_fifo_addr,
+						f_partial_out_addr;
+		reg	[C_AXI_DATA_WIDTH-1:0]	f_shifted_read, f_shifted_write;
+		reg	[C_AXI_DATA_WIDTH/8-1:0] f_shifted_wstrb;
+		reg	[C_AXI_DATA_WIDTH-1:0]	f_shifted_to_fifo,
+						f_shifted_partial_to_fifo,
+						f_shifted_partial_from_fifo;
+		reg	[C_AXI_DATA_WIDTH-1:0]	f_shifted_from_fifo,
+						f_shifted_from_partial_out;
+		reg	[ADDRLSB-1:0]		subshift;
+
+
+		always @(*)
+		begin
+			assume(f_const_posn < f_length);
+
+			f_const_addr_src = f_src_addr + f_const_posn;
+			f_const_addr_dst = f_dst_addr + f_const_posn;
+
+			f_shifted_read =(M_AXI_RDATA >> (8*f_const_addr_src[ADDRLSB-1:0]));
+			f_shifted_write=(M_AXI_WDATA >> (8*f_const_addr_dst[ADDRLSB-1:0]));
+			f_shifted_wstrb=(M_AXI_WSTRB >> (f_const_addr_dst[ADDRLSB-1:0]));
+		end
+
+		////////////////////////////////////////////////////////////////
+		//
+		// Step 1: Assume a known input
+		//	Actually, we'll copy it when it comes in
+		//
+		always @(posedge S_AXI_ACLK)
+		if (M_AXI_RVALID
+			&& f_read_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+				== f_const_addr_src[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+		begin
+			// Record our byte to be read
+			f_const_byte <= f_shifted_read[7:0];
+		end
+
+		////////////////////////////////////////////////////////////////
+		//
+		// Step 2: Assert that value gets written on the way out
+		//
+		always @(*)
+		if (M_AXI_WVALID
+			&& f_write_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+				== f_const_addr_dst[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+		begin
+			// Assert that we have the right byte in the end
+			if (!r_err && !r_abort)
+			begin
+				// Although it only really matters if we are
+				// actually writing it to the bus
+				assert(f_shifted_wstrb[0]);
+				assert(f_shifted_write[7:0] == f_const_byte);
+			end else
+				assert(f_shifted_wstrb[0] || M_AXI_WSTRB==0);
+		end
+
+
+		////////////////////////////////////////////////////////////////
+		//
+		// Assert the write side of the realignment FIFO
+		//
+
+		always @(*)
+		begin
+			//
+			// ...
+			//
+
+			subshift = f_const_posn[ADDRLSB-1:0];
+		end
+
+		always @(*)
+			f_shifted_to_fifo = REALIGNMENT_FIFO.r_realigned_incoming
+				>> (8*subshift);
+
+		always @(*)
+			f_shifted_partial_to_fifo = REALIGNMENT_FIFO.r_partial_inword
+				>> (8*subshift);
+
+		//
+		// ...
+		//
+
+		always @(*)
+		if (S_AXI_ARESETN && r_write_fifo
+			&& f_write_fifo_addr <= f_const_addr_src
+			&& f_write_fifo_addr + (1<<ADDRLSB) > f_const_addr_src)
+		begin
+			// Assert that our special byte gets written to the FIFO
+			assert(f_const_byte == f_shifted_to_fifo[7:0]);
+		end
+
+		////////////////////////////////////////////////////////////////
+		//
+		// Assert the read side of the realignment FIFO
+		//
+
+		//
+		// ...
+		//
+		always @(*)
+			f_shifted_from_fifo = REALIGNMENT_FIFO.fifo_data
+							>> (8*subshift);
+
+		always @(*)
+			f_shifted_from_partial_out
+				= REALIGNMENT_FIFO.r_partial_outword
+						>> (8*f_const_addr_dst[ADDRLSB-1:0]);
+
+
+		always @(*)
+		if (!fifo_empty && f_read_fifo_addr <= f_const_addr_dst
+			&& f_read_fifo_addr + (1<<ADDRLSB) > f_const_addr_dst)
+		begin
+			// Assume that our special byte gets read from the FIFO
+			// That way we don't have to verify every element of the
+			// FIFO.  We'll instead rely upon the FIFO working from
+			// here.
+			assume(f_const_byte == f_shifted_from_fifo[7:0]);
+		end
+
+		//
+		// ...
+		//
+
+	end endgenerate
 
 	////////////////////////////////////////////////////////////////////////
 	//
