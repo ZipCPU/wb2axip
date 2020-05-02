@@ -189,10 +189,10 @@ module	aximm2s #(
 		//
 		// The stream interface
 		// {{{
-		output	wire					S_AXIS_TVALID,
-		input	wire					S_AXIS_TREADY,
-		output	wire	[C_AXI_DATA_WIDTH-1:0]		S_AXIS_TDATA,
-		output	wire					S_AXIS_TLAST,
+		output	wire					M_AXIS_TVALID,
+		input	wire					M_AXIS_TREADY,
+		output	wire	[C_AXI_DATA_WIDTH-1:0]		M_AXIS_TDATA,
+		output	wire					M_AXIS_TLAST,
 		// }}}
 		//
 		// The control interface
@@ -768,8 +768,8 @@ module	aximm2s #(
 	end endgenerate
 	// }}}
 
-	assign	read_from_fifo = S_AXIS_TVALID && S_AXIS_TREADY;
-	assign	S_AXIS_TVALID  = !fifo_empty;
+	assign	read_from_fifo = M_AXIS_TVALID && M_AXIS_TREADY;
+	assign	M_AXIS_TVALID  = !fifo_empty;
 
 	// Write the results to the FIFO
 	// {{{
@@ -817,7 +817,7 @@ module	aximm2s #(
 		sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO))
 		sfifo(i_clk, reset_fifo,
 			write_to_fifo, { tlast, write_data }, fifo_full, fifo_fill,
-			read_from_fifo, { S_AXIS_TLAST, S_AXIS_TDATA }, fifo_empty);
+			read_from_fifo, { M_AXIS_TLAST, M_AXIS_TDATA }, fifo_empty);
 		// }}}
 	end else begin : NO_TLAST_FIFO
 
@@ -826,9 +826,9 @@ module	aximm2s #(
 		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
 		sfifo(i_clk, reset_fifo,
 			write_to_fifo, write_data, fifo_full, fifo_fill,
-			read_from_fifo, S_AXIS_TDATA, fifo_empty);
+			read_from_fifo, M_AXIS_TDATA, fifo_empty);
 
-		assign	S_AXIS_TLAST = 1'b1;
+		assign	M_AXIS_TLAST = 1'b1;
 		// }}}
 	end endgenerate
 	// }}}
@@ -933,8 +933,8 @@ module	aximm2s #(
 	// }}}
 
 	// Count the number of bursts outstanding--these are the number of
-	// AWVALIDs that have been accepted, but for which the BVALID has not
-	// (yet) been returned.
+	// ARVALIDs that have been accepted, but for which the RVALID && RLAST
+	// has not (yet) been returned.
 	// {{{
 	initial	ar_none_outstanding   = 1;
 	initial	ar_bursts_outstanding = 0;
@@ -1023,7 +1023,7 @@ module	aximm2s #(
 	begin
 		rd_uncommitted <= (1<<LGFIFO);
 	end else case ({ phantom_start,
-			S_AXIS_TVALID && S_AXIS_TREADY })
+			M_AXIS_TVALID && M_AXIS_TREADY })
 	2'b00: begin end
 	2'b01: begin
 		rd_uncommitted <= rd_uncommitted + 1;
@@ -1063,10 +1063,6 @@ module	aximm2s #(
 			axi_raddr[ADDRLSB-1:0] <= 0;
 	end
 
-	// }}}
-
-	// Count the number of words remaining to be written on the W channel
-	// {{{
 	// }}}
 
 	//
@@ -1783,9 +1779,9 @@ module	aximm2s #(
 		assume(M_AXI_RDATA != f_restricted);
 
 	always @(*)
-	if (f_restrict_data && S_AXIS_TVALID
+	if (f_restrict_data && M_AXIS_TVALID
 			&& (!OPT_UNALIGNED || !unaligned_cmd_addr))
-		assert(S_AXIS_TDATA != f_restricted);
+		assert(M_AXIS_TDATA != f_restricted);
 
 	//
 	// ...
@@ -1888,12 +1884,12 @@ module	aximm2s #(
 		always @(posedge i_clk)
 		if (i_reset || (r_busy && cmd_length_w <= 2))
 			cvr_lastcount <= 0;
-		else if (S_AXIS_TVALID && S_AXIS_TREADY && S_AXIS_TLAST
+		else if (M_AXIS_TVALID && M_AXIS_TREADY && M_AXIS_TLAST
 				&& !cvr_lastcount[3])
 			cvr_lastcount <= cvr_lastcount + 1;
 
 		always @(*)
-			cover(S_AXIS_TVALID && S_AXIS_TREADY && S_AXIS_TLAST);
+			cover(M_AXIS_TVALID && M_AXIS_TREADY && M_AXIS_TLAST);
 
 		always @(posedge i_clk)
 			cover(o_int && cvr_lastcount > 2);
