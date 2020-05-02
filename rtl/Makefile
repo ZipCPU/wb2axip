@@ -42,16 +42,18 @@ YYMMDD=`date +%Y%m%d`
 CXX   := g++
 FBDIR := .
 VDIRFB:= $(FBDIR)/obj_dir
+VERILATOR := verilator
+VFLAGS    := -MMD -Wall -cc
 .DELETE_ON_ERROR:
 .PHONY: test
-test: testwb testaxil
+test: testwb testaxi testaxil
 
 .PHONY: testwb testaxi testaxil
 
 .PHONY: axim2wbsp axim2wbsp wbm2axilite axilrd2wbsp axilwr2wbsp axlite2wbsp
 .PHONY: axixbar axilxbar wbxbar axis2mm aximm2s axidma axim2wbsp aximrd2wbsp
-.PHONY: aximwr2wbsp axixclk demoaxi demofull easyaxil sfifo skidbuffer
-.PHONY: axisafety wbsafety
+.PHONY: aximwr2wbsp axixclk axiperf demoaxi demofull easyaxil sfifo skidbuffer
+.PHONY: axilsafety axisafety wbsafety
 
 axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a
 axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
@@ -68,6 +70,7 @@ axidma:      $(VDIRFB)/Vaxidma__ALL.a
 axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
 aximrd2wbsp: $(VDIRFB)/Vaximrd2wbsp__ALL.a
 aximwr2wbsp: $(VDIRFB)/Vaximwr2wbsp__ALL.a
+axiperf:     $(VDIRFB)/Vaxiperf__ALL.a
 axixclk:     $(VDIRFB)/Vaxixclk__ALL.a
 demoaxi:     $(VDIRFB)/Vdemoaxi__ALL.a
 demofull:    $(VDIRFB)/Vdemofull__ALL.a
@@ -75,6 +78,7 @@ easyaxil:    $(VDIRFB)/Veasyaxil__ALL.a
 sfifo:       $(VDIRFB)/Vsfifo__ALL.a
 skidbuffer:  $(VDIRFB)/Vskidbuffer__ALL.a
 axisafety:   $(VDIRFB)/Vaxisafety__ALL.a
+axilsafety:  $(VDIRFB)/Vaxilsafety__ALL.a
 wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a
 
 testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
@@ -82,7 +86,7 @@ testaxi: axim2wbsp axixbar axixclk demofull
 testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
 testaxi: axis2mm aximm2s axidma
 testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
-testaxil: skidbuffer
+testaxil: skidbuffer axiperf
 
 .PHONY: wbm2axisp
 wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a
@@ -120,7 +124,7 @@ $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp $(VDIRFB)/Vaxim2wbsp.mk: \
 	axim2wbsp.v aximrd2wbsp.v aximwr2wbsp.v wbarbiter.v
 
 $(VDIRFB)/V%.cpp $(VDIRFB)/V%.h $(VDIRFB)/V%.mk: $(FBDIR)/%.v
-	verilator -cc $*.v 
+	$(VERILATOR) $(VFLAGS) $*.v 
 
 $(VDIRFB)/V%__ALL.a: $(VDIRFB)/V%.mk
 	cd $(VDIRFB); make -f V$*.mk
