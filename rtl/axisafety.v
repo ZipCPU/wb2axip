@@ -355,8 +355,6 @@ module axisafety #(
 	reg	[8:0]	m_wpending;
 	reg		m_wempty, m_wlastctr;
 	reg		waddr_valid, raddr_valid;
-
-	reg	last_sreset, last_sreset_2;
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////

@@ -257,7 +257,6 @@ module	axidma #(
 	reg				extra_realignment_write,
 					extra_realignment_read;
 	reg	[2*ADDRLSB+2:0]		write_realignment;
-	reg	[ADDRLSB:0]		read_realignment;
 	reg				last_read_beat;
 	reg				clear_read_pipeline;
 	reg				last_write_burst;
@@ -784,9 +783,8 @@ module	axidma #(
 						r_outword, r_partial_outword,
 						r_realigned_incoming;
 		wire	[C_AXI_DATA_WIDTH-1:0]	fifo_data;
-		reg	[ADDRLSB-1:0]	r_last_write_addr;
-		reg			r_oneword;
-		reg	r_firstword;
+		reg	[ADDRLSB-1:0]		r_last_write_addr;
+		reg				r_oneword, r_firstword;
 
 
 		///////////////////
@@ -804,14 +802,7 @@ module	axidma #(
 			inshift_down = {  inbyte_shift, 3'b000 };
 
 		always @(*)
-		begin
-			read_realignment = 0;
-			read_realignment[ADDRLSB:0] = r_len[ADDRLSB-1:0]
-				+ r_src_addr[ADDRLSB-1:0];
-
-
 			remaining_read_realignment = -r_src_addr[ADDRLSB-1:0];
-		end
 
 		// extra_realignment_read will be true if we need to flush
 		// the read processor after the last word has been read in an

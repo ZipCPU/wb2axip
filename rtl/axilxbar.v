@@ -259,7 +259,9 @@ module	axilxbar #(
 	reg	[NSFULL-1:0]	m_axi_wvalid;
 	reg	[NSFULL-1:0]	m_axi_wready;
 	reg	[NSFULL-1:0]	m_axi_bvalid;
+`ifdef	FORMAL
 	reg	[NSFULL-1:0]	m_axi_bready;
+`endif
 	reg	[1:0]		m_axi_bresp	[0:NSFULL-1];
 
 	reg	[NSFULL-1:0]	m_axi_arvalid;
@@ -285,14 +287,12 @@ module	axilxbar #(
 		m_axi_wvalid = -1;
 		m_axi_wready = -1;
 		m_axi_bvalid = 0;
-		m_axi_bready = -1;
 
 		m_axi_awvalid[NS-1:0] = M_AXI_AWVALID;
 		m_axi_awready[NS-1:0] = M_AXI_AWREADY;
 		m_axi_wvalid[NS-1:0]  = M_AXI_WVALID;
 		m_axi_wready[NS-1:0]  = M_AXI_WREADY;
 		m_axi_bvalid[NS-1:0]  = M_AXI_BVALID;
-		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
@@ -308,6 +308,11 @@ module	axilxbar #(
 			m_axi_rdata[iM] = 0;
 			m_axi_rresp[iM] = INTERCONNECT_ERROR;
 		end
+
+`ifdef	FORMAL
+		m_axi_bready = -1;
+		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
+`endif
 	end
 
 	generate for(N=0; N<NM; N=N+1)
@@ -778,9 +783,7 @@ module	axilxbar #(
 		initial	srindex[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
-		begin
-			srindex[N] = requested_index;
-		end
+			srindex[N] <= requested_index;
 
 
 	end for (N=NM; N<NMFULL; N=N+1)
