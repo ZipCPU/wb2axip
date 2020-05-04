@@ -23,6 +23,219 @@
 //	comes to a stop, the core will stop accumulating values into its
 //	statistics.  Those statistics can then be read out from the AXI-lite
 //	bus and analyzed.
+// }}}
+// Goals:
+// {{{
+//	My two biggest goals are to measure throughput and lag.  Defining those
+//	two measures, of course, is half the battle.   The other half of the
+//	battle is knowing which side to blame for any particular issue.
+//
+//	Throughput can easily be defined as bytes transferred over time,
+//	to give a measure of bytes / second, or beats transferred over some
+//	number of cycles, to give a measure in percentage.  The units of
+//	each are somewhat different, although both measures are supported
+//	below.
+//
+//	Lag is a bit more difficult, and it is compounded by the fact that
+//	not every master or slave can handle multiple outstanding bursts.
+//	So let's define lag as the time period between when a request is
+//	available, and the time when the request is complete.  Hence, lag
+//	on a write channel is the time between WLAST and BVALID.  If multiple
+//	bursts are in flight, then we'll ignore any AW* or W* signals during
+//	this time to just grab lag.  On the read channel, lag is the time
+//	between AR* and the first R*.  If multiple AR* requests are outstanding,
+//	lag is only counted when no R* values have (yet) to be returned for
+//	any of them.
+//
+//	The challenge of all of this is to avoid counting things twice, and
+//	to allow a slave to not be penalized for having some internal packet
+//	limit.  The particular challenge on the write channels is handling the
+//	AW* vs W* synchronization, since both channels need to make a request
+//	for the request to ever be responded to.  On the read channels, the
+//	particular challenge is being able to properly score what's going on
+//	when one (or more) bursts are being responded to at any given time.
+//	Orthogonal measures are required, and every effort below has been
+//	made to create such measures.  By "orthogonal", I simply mean that the
+//	total number of cycles is broken up into independent counters, so that
+//	no two counters ever respond to the same clock cycle.  Not all
+//	counters are orthogonal in this fashion, but each channel (read/write)
+//	has a set of orthogonal counters.  (See the *ORTHOGONAL* flag in the
+//	list below.)
+//
+//	Lag, therefore, is defined by the number of cycles where the master
+//	is waiting for the slave to respond--but only if the slave isn't
+//	already responding to anything else.  A slow link is defined by the
+//	number of cycles where 1) WVALID is low, and no write bursts have been
+//	completed that haven't been responded to, or 2) RVALID is low but yet
+//	the first RVALID of a burst has already come back.  (Up until that
+//	first RVALID, the cycle is counted as lag--but only if nothing else
+//	is in the process of returning anything.)
+//	
+// }}}
+// Registers
+// {{{
+//	  0: Active time
+//		Number of clock periods that the performance monitor has been
+//		accumulating data for.
+//	  4: Max bursts
+//	   Bits 31:24 -- the maximum number of outstanding write bursts at any
+//			given time.  A write burst begins with either
+//			AWVALID && AWREADY or WVALID && WREADY and ends with
+//			BVALID && BREADY
+//	   Bits 23:16 -- the maximum number of outstanding read bursts at any
+//			given time.  A read burst begins with ARVALID &&ARREADY,
+//			and ends with RVALID && RLAST
+//	   Bits 15: 8 -- the maximum write burst size seen, as captured by AWLEN
+//	   Bits  7: 0 -- the maximum read burst size seen, as captured by ARLEN
+//	  8: Write idle cycles
+//		Number of cycles where the write channel is totally idle.
+//						*ORTHOGONAL*
+//	 12: AWBurst count
+//		Number of AWVALID && AWREADY's
+//	 16: Write beat count
+//		Number of write beats, WVALID && WREADYs
+//	 20: AW Byte count
+//		Number of bytes written, as recorded by the AW* channel (not the
+//		W* channel and WSTRB signals)
+//	 24: Write Byte count
+//		Number of bytes written, as recorded by the W* channel and the
+//		non zero WSTRB's
+//	 28: Write slow data
+//		Number of cycles where a write has started, that is WVALID
+//		and WREADY (but !WLAST) have been seen, but yet WVALID is now
+//		low.  These are only counted if a write address request has
+//		already been recceived, and if no completed write packets are
+//		awaiting their respective BVALIDs.
+//						*ORTHOGONAL*
+//	 32: wr_stall--Write stalls
+//		Counts the number of cycles where a write address request has
+//		been issued, but not (yet) enough data writes are outstanding
+//		to complete the burst.  In this context, it counts WVALID &&
+//		!WREADY cycles.
+//						*ORTHOGONAL*
+//	 36: wr_addr_lag--Write address channel lagging
+//		Counts one of three conditions, but only assuming that no
+//		write address has been issued and is outstanding waiting on a
+//		BVALID.  1) Writes are outstanding, possibly even a WLAST has
+//		been received, for which no address has yet been received.
+//		2) The WVALID comes before AWVALID.  3) A WVALID && WREADY
+//		have already taken place, and so there's a write burst in
+//		progress, but one which hasn't yet seen its address.
+//						*ORTHOGONAL*
+//	 40: wr_data_lag--Write data laggging
+//		The AWVALID && AWREADY has been received, but no data has
+//		yet been received for this write burst and WVALID remains
+//		low.  (i.e., no BVALIDs are pending either.)
+//						*ORTHOGONAL*
+//	 44: wr_beat--Write beats (different from the write beat count above)
+//		The big difference between this and the total number of write
+//		beats is that this counts the number of clock cycles where
+//		the write data is on the critical path.  It doesn't count
+///		cycles where no AWVALID has been seen, nor does it count clock
+//		cycles where additional data is passing between one WLAST and
+//		its corresponding BVALID.
+//						*ORTHOGONAL*
+//	 48: aw_burst--AWVALID request accepted
+//		But this particular measure is only counted if there's already
+//		been a full write burst received (and no BVALIDs can yet be
+//		pending--those take precedence)  See the AWW* measures below
+//		for other AWVALID cycles.
+//						*ORTHOGONAL*
+//	 52: addr_stall--Write address channel is stalled
+//		This counts any cycle where AWVALID && !AWREADY and no bursts
+//		are outstanding waiting on BVALID.
+//						*ORTHOGONAL*
+//	 56: aww_stall-- Write address and data, address accepted but not data
+//		Counts AWVALID && AWREADY && WVALID && !WREADY cycles, but
+//		only when 
+//						*ORTHOGONAL*
+//	 60: aww_slow--AWVALID and write data is in process, but not ready
+//		Counts the number of cycles, following the first WVALID,
+//		where WVALID is low and AWVALID && AWREADY are both true
+//		(and no completed bursts are waiting on BVALID--cause then
+//		this cycle wouldn't be on a critical path)
+//						*ORTHOGONAL*
+//	 64: aww_nodata--AWVALID && AWREADY && !WVALID
+//		... and no data for this burst has yet been received, neither
+//		are any BVALIDs pending
+//						*ORTHOGONAL*
+//	 68: aww_beat-Counts the number of cycles beginning a burst where
+//		AWVALID && AWREADY && WVALID && WREADY and the channel is
+//		otherwise idle (no BVALIDs pending)
+//						*ORTHOGONAL*
+//	 72: b_lag_count
+//		Counts the number of cycles between the last accepted AWVALID
+//		and WVALID && WLAST and its corresponding BVALID.  This is
+//		the number of cycles where BVALID could be high in response
+//		to any burst, but yet where it isn't.
+//						*ORTHOGONAL*
+//	 76: b_stall_count
+//		Number of cycles where BVALID && !BREADY.  This could be a
+//		possible indication of backpressure in the interconnect.
+//						*ORTHOGONAL*
+//	 80: (Unused)
+//	 84: (Unused)
+//
+//	 88: Read idle cycles
+//		Number of clock cycles, while the core is collecting, where
+//		nothing is happening on the read channel--ARVALID is low,
+//		nothing is outstanding, etc.	*ORTHOGONAL*
+//	 92: Max responding bursts
+//		This is the maximum number of bursts that have been responding
+//		at the same time, as counted by the maximum number of ID's
+//		which have seen an RVALID but not RLAST.  It's an estimate of
+//		how out of order the channel has become.
+//	 96: Read burst count
+//		The total number of RVALID && RREADY && RLAST's seen
+//	100: Read beat count
+//		The total number of beats requested, as measured by
+//		RVALID && RREADY (or equivalently by ARLEN ... but we measure
+//		RVALID && RREADY here).		*ORTHOGONAL*
+//	104: Read byte count
+//		The total number of bytes requested, as measured by ARSIZE
+//		and ARLEN.
+//	108: AR stalls
+//		Total number of clock cycles where ARVALID && !ARREADY, but
+//		only under the condition that nothing is currently outstanding.
+//		If the master refuses to allow a second AR* burst into the
+//		pipeline, this should show in the maximum number of outstanding
+//		read bursts ever allowed.	*ORTHOGONAL*
+//	112: R stalls
+//		Total number of clock cycles where RVALID && !RREADY.  This is
+//		an indication of a slave that has issued more read requests
+//		than it can process, and so it is suffering from internal
+//		back pressure.			*ORTHOGONAL*
+//	116: Lag counter
+//		Counts the number of clock cycles where an outstanding read
+//		request exists, but for which no data has (yet) been returned.
+//						*ORTHOGONAL*
+//	120: Slow link
+//		Counts the number of clock cycles where RVALID is low, but yet
+//		a burst return has already started but not yet been completed.
+//						*ORTHOGONAL*
+//
+//		If we've done this right, then
+//
+//			active_time == read idle cycles (channel is idle)
+//				+ read_beat_count (data is transferred)_
+//				+ r stalls	(Master isn't ready)
+//				+ lag counter	(No data is ready)
+//				+ slow link	(Slave isn't ready))
+//				+ rd_ar_stalls	(Slave not ready for AR*)
+//
+//		We can then measure read throughput as the number of
+//		active cycles (active time - read idle counts) divided by the
+//		number of bytes (or beats) transferred (depending upon the
+//		units you want.
+//
+//		Lag would be measured by the lag counter divided by the number
+//		of read bursts.
+//
+//	124: Control register
+//		Write a 1 to this register to start recording, and a 0 to this
+//		register to stop.  Writing a 2 will clear the counters as
+//		well.
+// }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -442,8 +655,6 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
-
-
 	initial	wr_max_burst_size = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
@@ -558,14 +769,6 @@ module	axiperf #(
 			wr_w_max_outstanding <= wr_w_outstanding;
 	end
 
-//	always @(posedge S_AXI_ACLK)
-//	if (!S_AXI_ARESETN || clear_request)
-//		wr_max_addr_outstanding <= 0;
-//	else if (wr_aw_outstanding - wr_max_outstanding
-//				> wr_max_addr_outstanding)
-//		wr_max_addr_outstanding
-//			<= wr_aw_max_outstanding - wr_w_max_outstanding;	
-
 	initial	wr_max_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
@@ -587,6 +790,38 @@ module	axiperf #(
 	default: begin end
 	endcase
 
+	// Orthogonal write statistics
+	// {{{
+	// Here's where we capture our orthogonal measures for the write
+	// channel.  It's important that, for all of these counters, only
+	// one of them ever counts a given burst.  Hence, our criteria are
+	// binned and orthogonalized below.
+	//
+	//	AW_O W_O WIP AWV AWR WV WR BV BR
+	//	0    0	 0   0       0		IDLE-CYCLE
+	//	1    1	            	   0	B-LAG
+	//	1    1	            	   1  0	B-STALL
+	//	1    1	            	   1  1	(BURSTS COMPLETED)
+	//	1    0	 1           0  	W-SLOW
+	//	1    0	             1  0	W-STALL
+	//	1    0   0           0          DATA-LAG
+	//	1    0	             1  1	W-BEAT
+	//	0    1       0                  ADDR-LAG
+	//	0    1	     1   1       	AW-BURST
+	//	0     	     1   0       	AW-STALL
+	//	0    0   0   0       1          ADDR-LAG
+	//	0    0   1   0                  ADDR-LAG
+	//
+	//	0    0	     1   1   1  0	AWW-STALL
+	//	0    0	 1   1   1   0  	AWW-SLOW
+	//	0    0   0   1   1   0          AWW-NO-DATA
+	//	0    0       1   1   1  1       AWW-BEAT
+	//
+	//
+	//	      	     1   1       	AW-BURST (Counted elsewhere)
+	//	      	             1  1	W-BEAT   (Counted elsewhere)
+	// Skip the boring stuffs (if using VIM folding)
+	// {{{
 	initial	wr_data_lag      = 0;
 	initial	wr_idle_cycles   = 0;
 	initial	wr_b_lag_count   = 0;
@@ -621,6 +856,7 @@ module	axiperf #(
 		wr_aww_nodata    <= 0;
 		wr_aww_beat      <= 0;
 	end else if (triggered)
+	// }}}
 	casez({ !wr_aw_zero_outstanding, !wr_w_zero_outstanding,
 		wr_in_progress,
 		M_AXI_AWVALID, M_AXI_AWREADY,
@@ -645,34 +881,7 @@ module	axiperf #(
 	9'b00?1111??: wr_aww_beat  <= wr_aww_beat   + 1;
 	default: begin end
 	endcase
-
-	//
-	//	AW_O W_O WIP AWV AWR WV WR BV BR
-	//	0    0	 0   0       0		IDLE-CYCLE
-	//	1    1	            	   0	B-LAG
-	//	1    1	            	   1  0	B-STALL
-	//	1    1	            	   1  1	(BURSTS COMPLETED)
-	//	1    0	 1           0  	W-SLOW
-	//	1    0	             1  0	W-STALL
-	//	1    0   0           0          DATA-LAG
-	//	1    0	             1  1	W-BEAT
-	//	0    1       0                  ADDR-LAG
-	//	0    1	     1   1       	AW-BURST
-	//	0    ?	     1   0       	AW-STALL
-	//	0    0   0   0       1          ADDR-LAG
-	//	0    0   1   0       1          ADDR-LAG
-	//
-	//	0    0	     1   1   1  0	W-STALL
-	//	0    0	 1   1   1   0  	W-SLOW
-	//	0    0   1   0                  ADDR-LAG
-	//	0    0   0   1   1   0          DATA-LAG
-	//	0    0   0   0       1          ADDR-LAG
-	//
-	//
-	//
-	//	      	     1   1       	AW-BURST
-	//	      	             1  1	W-BEAT
-	//
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -682,7 +891,6 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
-
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		rd_max_burst_size <= 0;
@@ -803,16 +1011,13 @@ module	axiperf #(
 
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
-		rd_ar_stalls <= 0;
-	else if (triggered)
-	begin
-		if (M_AXI_ARVALID && !M_AXI_ARREADY)
-			rd_ar_stalls <= rd_ar_stalls + 1;
-	
-		if (M_AXI_RVALID && !M_AXI_RREADY)
-			rd_r_stalls <= rd_r_stalls + 1;
-	end
+		rd_r_stalls <= 0;
+	else if (triggered && M_AXI_RVALID && !M_AXI_RREADY)
+		rd_r_stalls <= rd_r_stalls + 1;
 
+	//
+	// Orthogonal read statistics
+	// {{{
 	initial	rd_idle_cycles = 0;
 	initial	rd_lag_counter = 0;
 	initial	rd_slow_link   = 0;
@@ -822,6 +1027,7 @@ module	axiperf #(
 		rd_idle_cycles <= 0;
 		rd_lag_counter <= 0;
 		rd_slow_link   <= 0;
+		rd_ar_stalls <= rd_ar_stalls + 1;
 	end else if (triggered)
 	begin
 		if (!M_AXI_RVALID)
@@ -832,10 +1038,16 @@ module	axiperf #(
 				rd_lag_counter <= rd_lag_counter + 1;
 			else if (!M_AXI_ARVALID)
 				rd_idle_cycles <= rd_idle_cycles + 1;
+			else if (M_AXI_ARVALID && !M_AXI_ARREADY)
+				rd_ar_stalls <= rd_ar_stalls + 1;
 		end // else if (M_AXI_RREADDY) rd_beat_count <= rd_beat_count+1;
 	end
+	// }}}
+	// }}}
 
 
+	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT,
