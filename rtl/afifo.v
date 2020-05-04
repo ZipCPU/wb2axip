@@ -176,6 +176,9 @@ module afifo(
 	end else begin
 
 		always @(*)
+			lcl_read = i_rd;
+
+		always @(*)
 			o_rd_empty = lcl_rd_empty;
 
 		always @(*)
@@ -185,9 +188,16 @@ module afifo(
 
 
 `ifdef	FORMAL
+`ifdef	AFIFO
+`define	ASSERT	assert
+`define	ASSUME	assume
+`else
+`define	ASSERT	assert
+`define	ASSUME	assert
+`endif
 	//
 	// In the formal proof, F_OPT_DATA_STB includes a series of assumptions
-	// associated with a data stribe I/O pin--things like a discontinuous
+	// associated with a data strobe I/O pin--things like a discontinuous
 	// clock--just to make sure the core still works in those circumstances
 	parameter [0:0]	F_OPT_DATA_STB = 1'b1;
 
@@ -250,31 +260,31 @@ module afifo(
 	always @(*)
 	if (!f_past_valid_gbl)
 	begin
-		assume(!i_wr_reset_n);
-		assume(!i_rd_reset_n);
+		`ASSUME(!i_wr_reset_n);
+		`ASSUME(!i_rd_reset_n);
 	end
 
 	//	2. They only ever become active together
 	always @(*)
 	if (past_wr_reset_n && !i_wr_reset_n)
-		assume(!i_rd_reset_n);
+		`ASSUME(!i_rd_reset_n);
 	always @(*)
 	if (past_rd_reset_n && !i_rd_reset_n)
-		assume(!i_wr_reset_n);
+		`ASSUME(!i_wr_reset_n);
 
 
 	//
 	// Read side may be assumed to be synchronous
 	always @(*)
-	if (f_past_valid_gbl && (past_rclk || !i_rclk)) // if (!$rose(i_rclk))
-		assume(i_rd == past_rd);
+	if (f_past_valid_gbl && i_rd_reset_n && (past_rclk || !i_rclk)) // if (!$rose(i_rclk))
+		`ASSUME(i_rd == past_rd);
 
 	always @(*)
 	if (f_past_valid_rd && !f_rd_in_reset && !lcl_rd_empty
 		&&(past_rclk || !i_rclk))
 	begin
-		assert(lcl_rd_data == past_rd_data);
-		assert(lcl_rd_empty == past_rd_empty);
+		`ASSERT(lcl_rd_data == past_rd_data);
+		`ASSERT(lcl_rd_empty == past_rd_empty);
 	end
 
 
@@ -282,18 +292,18 @@ module afifo(
 	begin
 
 		always @(posedge gbl_clk)
-			assume(!o_wr_full);
+			`ASSUME(!o_wr_full);
 
 		always @(posedge gbl_clk)
 		if (!i_wr_reset_n)
-			assume(!i_wclk);
+			`ASSUME(!i_wclk);
 
 		always @(posedge gbl_clk)
-			assume(i_wr == i_wr_reset_n);
+			`ASSUME(i_wr == i_wr_reset_n);
 
 		always @(posedge gbl_clk)
 		if ($changed(i_wr_reset_n))
-			assume($stable(wclk));
+			`ASSUME($stable(wclk));
 
 	end endgenerate
 
@@ -309,17 +319,17 @@ module afifo(
 
 	always @(*)
 	if (!f_wr_in_reset)
-		assert(f_fill <= { 1'b1, {(MSB){1'b0}} });
+		`ASSERT(f_fill <= { 1'b1, {(MSB){1'b0}} });
 
 
 	always @(*)
 	if (wr_addr == rd_addr)
-		assert(lcl_rd_empty);
+		`ASSERT(lcl_rd_empty);
 
 	always @(*)
 	if ((!f_wr_in_reset && !f_rd_in_reset)
 			&& wr_addr == { ~rd_addr[MSB], rd_addr[MSB-1:0] })
-		assert(o_wr_full);
+		`ASSERT(o_wr_full);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -331,25 +341,25 @@ module afifo(
 	always @(*)
 	if (f_wr_in_reset)
 	begin
-		assert(wr_addr == 0);
-		assert(wgray_cross == 0);
+		`ASSERT(wr_addr == 0);
+		`ASSERT(wgray_cross == 0);
 
-		assert(rd_addr == 0);
-		assert(rgray_cross == 0);
-		assert(rd_wgray == 0);
+		`ASSERT(rd_addr == 0);
+		`ASSERT(rgray_cross == 0);
+		`ASSERT(rd_wgray == 0);
 
-		assert(lcl_rd_empty);
-		assert(!o_wr_full);
+		`ASSERT(lcl_rd_empty);
+		`ASSERT(!o_wr_full);
 	end
 
 	always @(*)
 	if (f_rd_in_reset)
 	begin
-		assert(rd_addr == 0);
-		assert(rgray_cross == 0);
-		assert(rd_wgray == 0);
+		`ASSERT(rd_addr == 0);
+		`ASSERT(rgray_cross == 0);
+		`ASSERT(rd_wgray == 0);
 
-		assert(lcl_rd_empty);
+		`ASSERT(lcl_rd_empty);
 	end
 
 	reg	[(LGFIFO+1)*(NFF-1)-1:0]	f_wcross, f_rcross;
@@ -370,21 +380,28 @@ module afifo(
 	integer	k;
 
 	always @(*)
+		`ASSERT((wr_addr ^ (wr_addr >> 1)) == wgray);
+
+	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
-		assert((f_wcross[k*(LGFIFO+1) +: LGFIFO+1]
+		`ASSERT((f_wcross[k*(LGFIFO+1) +: LGFIFO+1]
 			^ (f_wcross[k*(LGFIFO+1)+: LGFIFO+1]>>1))
 			== wgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);
+
+	always @(*)
+		`ASSERT((rd_addr ^ (rd_addr >> 1)) == rgray);
+
 	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
-		assert((f_rcross[k*(LGFIFO+1) +: LGFIFO+1]
+		`ASSERT((f_rcross[k*(LGFIFO+1) +: LGFIFO+1]
 			^ (f_rcross[k*(LGFIFO+1) +: LGFIFO+1]>>1))
-			== rgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);
+			== rgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);	//!
 
 	always @(*)
-		assert((f_wr_raddr ^ (f_wr_raddr >> 1)) == wr_rgray);
+		`ASSERT((f_wr_raddr ^ (f_wr_raddr >> 1)) == wr_rgray);
 
 	always @(*)
-		assert((f_rd_waddr ^ (f_rd_waddr >> 1)) == rd_wgray);
+		`ASSERT((f_rd_waddr ^ (f_rd_waddr >> 1)) == rd_wgray);
 
 	reg	[LGFIFO:0]	f_rdcross_fill	[NFF-1:0];
 	reg	[LGFIFO:0]	f_wrcross_fill	[NFF-1:0];
@@ -399,13 +416,13 @@ module afifo(
 
 	always @(*)
 	for(k=0; k<NFF; k=k+1)
-		assert(f_rdcross_fill[k] <= { 1'b1, {(LGFIFO){1'b0}} });
+		`ASSERT(f_rdcross_fill[k] <= { 1'b1, {(LGFIFO){1'b0}} });
 
 	always @(*)
 	for(k=1; k<NFF; k=k+1)
-		assert(f_rdcross_fill[k] <= f_rdcross_fill[k-1]);
+		`ASSERT(f_rdcross_fill[k] <= f_rdcross_fill[k-1]);
 	always @(*)
-		assert(f_rdcross_fill[0] <= f_fill);
+		`ASSERT(f_rdcross_fill[0] <= f_fill);
 
 	//
 	//
@@ -419,13 +436,13 @@ module afifo(
 
 	always @(*)
 	for(k=0; k<NFF; k=k+1)
-		assert(f_wrcross_fill[k] <= { 1'b1, {(LGFIFO){1'b0}} });
+		`ASSERT(f_wrcross_fill[k] <= { 1'b1, {(LGFIFO){1'b0}} });
 
 	always @(*)
 	for(k=1; k<NFF; k=k+1)
-		assert(f_wrcross_fill[k] >= f_wrcross_fill[k-1]);
+		`ASSERT(f_wrcross_fill[k] >= f_wrcross_fill[k-1]);
 	always @(*)
-		assert(f_wrcross_fill[0] >= f_fill);
+		`ASSERT(f_wrcross_fill[0] >= f_fill);
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -520,23 +537,23 @@ module afifo(
 	if (i_wr_reset_n) case(f_state)
 	2'b00: begin end
 	2'b01: begin
-		assert(f_first_in_fifo);
-		assert(wr_addr == f_next_addr);
-		assert(f_fill >= 1);
+		`ASSERT(f_first_in_fifo);
+		`ASSERT(wr_addr == f_next_addr);
+		`ASSERT(f_fill >= 1);
 		end
 	2'b10: begin
-		assert(f_first_in_fifo);
-		assert(f_next_in_fifo);
+		`ASSERT(f_first_in_fifo);
+		`ASSERT(f_next_in_fifo);
 		if (!lcl_rd_empty && (rd_addr == f_addr))
-			assert(lcl_rd_data == f_first);
-		assert(f_fill >= 2);
+			`ASSERT(lcl_rd_data == f_first);
+		`ASSERT(f_fill >= 2);
 		end
 	2'b11: begin
-		assert(rd_addr == f_next_addr);
-		assert(f_next_in_fifo);
-		assert(f_fill >= 1);
+		`ASSERT(rd_addr == f_next_addr);
+		`ASSERT(f_next_in_fifo);
+		`ASSERT(f_fill >= 1);
 		if (!lcl_rd_empty)
-			assert(lcl_rd_data == f_next);
+			`ASSERT(lcl_rd_data == f_next);
 		end
 	endcase
 
@@ -551,16 +568,16 @@ module afifo(
 		if (f_past_valid_gbl && i_rd_reset_n)
 		begin
 			if ($past(!o_rd_empty && !i_rd && i_rd_reset_n))
-				assert($stable(o_rd_data));
+				`ASSERT($stable(o_rd_data));
 		end
 
 		always @(posedge gbl_clk)
 		if (!f_rd_in_reset && i_rd_reset_n && i_rclk && !past_rclk)
 		begin
 			if (past_o_rd_empty)
-				assert(o_rd_data == past_rd_data);
+				`ASSERT(o_rd_data == past_rd_data);
 			if (past_rd)
-				assert(o_rd_data == past_rd_data);
+				`ASSERT(o_rd_data == past_rd_data);
 		end
 
 	end endgenerate
@@ -587,7 +604,7 @@ module afifo(
 		cover(i_rd && !o_rd_empty);
 	end
 
-	generate if (!OPT_DATA_STB)
+	generate if (!F_OPT_DATA_STB)
 	begin : COVER_FULL
 
 		reg	cvr_full;

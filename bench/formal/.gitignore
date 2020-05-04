@@ -3,6 +3,7 @@
 *.check
 *.ys.v
 addrdecode_*/
+afifo_*/
 axi2axilite_*/
 axi_addr_miter_*/
 axidma_*/
@@ -19,6 +20,7 @@ axidouble_*/
 aximrd2wbsp_*/
 aximwr2wbsp_*/
 aximm2s_*/
+axiperf_*/
 axis2mm_*/
 axisafety_*/
 axixbar_*/

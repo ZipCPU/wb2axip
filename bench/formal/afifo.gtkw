@@ -1,0 +1,82 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Dec 11 04:26:37 2019
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1920 1054
+[pos] -1 -1
+*-5.190785 160 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 150
+[sst_expanded] 1
+[sst_vpaned_height] 315
+@28
+[color] 3
+afifo.i_wclk
+[color] 3
+afifo.i_wr_reset_n
+[color] 3
+afifo.i_wr
+@22
+[color] 3
+afifo.i_wr_data[15:0]
+@28
+[color] 3
+afifo.o_wr_full
+@200
+-
+@28
+[color] 2
+afifo.i_rclk
+[color] 2
+afifo.i_rd_reset_n
+[color] 2
+afifo.i_rd
+@22
+[color] 2
+afifo.o_rd_data[15:0]
+@28
+[color] 2
+afifo.o_rd_empty
+@200
+-
+@22
+[color] 3
+afifo.wr_addr[3:0]
+[color] 3
+afifo.wr_rgray[3:0]
+afifo.rd_addr[3:0]
+afifo.rd_wgray[3:0]
+@200
+-
+@28
+afifo.f_state[1:0]
+@22
+afifo.f_addr[3:0]
+@28
+afifo.pre_rclk
+afifo.pre_wclk
+afifo.now_rclk
+@22
+afifo.mem<0>[15:0]
+@200
+-
+@22
+afifo.rd_wgray[3:0]
+afifo.rgray[3:0]
+@200
+-
+@22
+afifo.wgray[3:0]
+afifo.wr_rgray[3:0]
+afifo.f_first[15:0]
+@23
+afifo.f_next[15:0]
+@200
+-
+@28
+afifo.f_first_in_fifo
+afifo.f_next_in_fifo
+[pattern_trace] 1
+[pattern_trace] 0
