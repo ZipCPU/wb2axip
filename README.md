@@ -159,10 +159,11 @@ capabilities.
 
 - [AXILSINGLE](rtl/axilsingle.v) is designed to be a companion to
   [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI-lite support.  It's
-  purpose is to simplify connectivity logic when supporting multiple AXI-lite
-  registers.  This core takes a generic AXI-lite interface, and simplifies
-  the interface so that multiple single-register cores can be connected to
-  it.  The single-register cores can either be full AXI-lite cores in their
+  purpose is to [simplify connectivity logic when supporting multiple AXI-lite
+  registers](https://zipcpu.com/zipcpu/2019/08/30/subbus.html).  This core
+  takes a generic AXI-lite interface, and simplifies the interface so that
+  multiple single-register cores can be connected to it at no performance
+  loss.  The single-register cores can either be full AXI-lite cores in their
   own respect, subject to simplification rules, or even simplified from that.
   They must never stall the bus, and must always return responses within one
   clock cycle.  The [AXILSINGLE](rtl/axilsingle.v) handles all backpressure
@@ -174,14 +175,16 @@ capabilities.
 
 - [AXILDOUBLE](rtl/axildouble.v) is the second AXI-lite companion to
   [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI-lite support.  It's
-  purpose is to simplify connectivity logic when supporting multiple AXI-lite
-  slaves.  This core takes a generic AXI-lite interface, and simplifies
-  the interface so that peripherals can be connected to it.  These
-  peripherals cores can either be full AXI-lite cores in their own respect,
-  subject to simplification rules discussed within, or even simplified from
-  that.  They must never stall the bus, and must always return responses
-  within one clock cycle.  The [AXILDOUBLE](rtl/axildouble.v) core handles all
-  backpressure issues, address selection, and invalid address returns.
+  purpose is to [simplify connectivity logic when supporting multiple AXI-lite
+  slaves](https://zipcpu.com/zipcpu/2019/08/30/subbus.html) while imposing
+  no performance penalty save a clock cycle of lag.  This core takes a generic
+  AXI-lite interface, and simplifies the interface so that multiple peripherals
+  can be connected to it.  These peripheral cores can either be full AXI-lite
+  cores in their own respect, subject to simplification rules discussed within,
+  or even simplified from that.  They must never stall the bus, and must always
+  return responses within one clock cycle.  The [AXILDOUBLE](rtl/axildouble.v)
+  core handles all backpressure issues, address selection, and invalid address
+  returns.
 
   *This core has been formally verified.*
 
@@ -294,7 +297,12 @@ capabilities.
   *This core still has problems, particularly with misaligned addresses and
   lengths.*
 
-- AXISINGLE is a (to be written) core that will also be an
+- AXISINGLE is a (to be written) bus simplifier core along the lines of the
+  [AXILSINGLE](rtl/axilsingle.v), [AXILDOUBLE](rtl/axildouble.v) and
+  [AXIDOUBLE](rtl/axidouble.v) cores, in that it can [handle all of the bus
+  logic for multiple AXI slaves while simplifying the bus
+  interactions for each](https://zipcpu.com/zipcpu/2019/08/30/subbus.html)
+  but at no performance penalty.  Once built, this will also be an
   [AutoFPGA](https://github.com/ZipCPU/autofpga) companion core.  Slave's of
   type "SINGLE" (one register, one clock to generate a response) can be ganged
   together using it.  This core will then essentially turn an AXI core into
@@ -304,8 +312,9 @@ capabilities.
 
 - [AXIDOUBLE](rtl/axidouble.v) is the second AXI4 (full) companion to
   [AutoFPGA](https://github.com/ZipCPU/autofpga)'s AXI4 (full) support.  It's
-  purpose is to simplify connectivity logic when supporting multiple AXI4 (full)
-  slaves.  This core takes a generic AXI4 (full) interface, and simplifies
+  purpose is to [simplify connectivity logic when supporting multiple AXI4
+  (full) slaves](https://zipcpu.com/zipcpu/2019/08/30/subbus.html).
+  This core takes a generic AXI4 (full) interface, and simplifies
   the interface so that peripherals can be connected to it with a minimal amount
   of logic.  These peripherals cores can either be full AXI4 (full) cores in
   their own respect, subject to simplification rules discussed within,
