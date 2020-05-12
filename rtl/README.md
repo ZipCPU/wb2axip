@@ -112,7 +112,10 @@ the rest of the design for additional testing.
 
 - [Wishbone](wbsafety.v)
 
-## Clock domain crossers
+## Clock domain crossing bridges
+
+- [Wishbone cross-clock domains](wbxclk.v)
 
 - [AXI4 cross-clock domains](axixclk.v)
+
 - [Asynchronous FIFO](afifo.v) -- support function
