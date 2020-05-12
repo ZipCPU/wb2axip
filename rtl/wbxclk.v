@@ -778,6 +778,7 @@ module	wbxclk(i_wb_clk, i_reset,
 	begin
 		cover(cvr_replies > 1);	// 33
 		cover(cvr_replies > 3);	// 38
+		cover(cvr_replies > 9);
 
 		cover(cvr_abort);	// 31
 		cover(cvr_post_abort > 1 && cvr_replies > 1);	// 63
@@ -788,6 +789,20 @@ module	wbxclk(i_wb_clk, i_reset,
 		cover(cvr_post_abort > 4 && cvr_replies > 3);	// 70
 		cover(cvr_post_abort > 3 && cvr_replies > 6);	// 72
 	end
+
+	always @(posedge gbl_clk)
+	if (!i_reset)
+		cover(cvr_replies > 9 && !i_wb_clk && acks_outstanding == 0
+			&& fwb_nreqs == fwb_nacks && fwb_nreqs == cvr_replies
+			&& !bus_abort && fwb_count != fxck_count);
+
+	always @(posedge gbl_clk)
+	if (!i_reset)
+		cover(cvr_replies > 9 && !i_wb_clk && acks_outstanding == 0
+			&& fwb_nreqs == fwb_nacks && fwb_nreqs == cvr_replies
+			&& !bus_abort && fwb_count != fxck_count
+			&& fwb_step != fxck_step);
+
 
 	////////////////////////////////////////////////////////////////////////
 	//
