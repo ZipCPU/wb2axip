@@ -1,23 +1,27 @@
 [tasks]
+bmc
 prf
 cvr
 
 [options]
+bmc: mode bmc
+bmc: depth 50
 prf: mode prove
-prf: depth 6
-prf: depth 60
+prf: depth 17
 cvr: mode cover
-cvr: depth 32
+cvr: depth 90	# 72 should be sufficient
 multiclock on
 
 [engines]
 smtbmc
 
 [script]
-read -formal wbxclk.v
+~prf: read -formal -DBMC wbxclk.v
+prf:  read -formal       wbxclk.v
 read -formal afifo.v
 read -formal fwb_slave.v
 read -formal fwb_master.v
+cvr: hierarchy -top wbxclk -chparam LGFIFO 3
 prep -top wbxclk
 
 [files]
