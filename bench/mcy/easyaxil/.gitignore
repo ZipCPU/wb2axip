@@ -1,0 +1,7 @@
+database
+quickcheck
+tasks
+*.tgz
+faxil_slave.v
+easyaxil.v
+notes.txt

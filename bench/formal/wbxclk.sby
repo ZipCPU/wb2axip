@@ -1,0 +1,27 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 6
+prf: depth 60
+cvr: mode cover
+cvr: depth 32
+multiclock on
+
+[engines]
+smtbmc
+
+[script]
+read -formal wbxclk.v
+read -formal afifo.v
+read -formal fwb_slave.v
+read -formal fwb_master.v
+prep -top wbxclk
+
+[files]
+../../rtl/afifo.v
+../../rtl/wbxclk.v
+fwb_slave.v
+fwb_master.v

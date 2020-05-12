@@ -37,12 +37,13 @@
 ##
 HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
+CROSSCLOCK:= wbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
 AXISTREAM := xlnxstream_2018_3
 AXISLAVES := demoaxi easyaxil axil2axis axiperf # demofull xlnxfull
 AXIMASTERS :=
 FIREWALLS := wbsafety axilsafety # axisafety
-TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSBARS) $(AXIMASTERS)
+TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS)
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -75,6 +76,9 @@ AXILSINGLE := axilsingle
 AXILDOUBLE := axildouble
 WBP2CLASSIC:= wbp2classic
 WBC2PIPELIN:= wbc2pipeline
+#
+# Cross clock
+WBXCLK     := wbxclk
 #
 # Crossbars
 AXILXBAR   := axilxbar
@@ -195,6 +199,15 @@ $(XLNXSTREAM)_prf/FAIL: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 $(XLNXSTREAM)_cvr/PASS: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 	sby -f $(XLNXSTREAM).sby cvr
 
+#
+# Cross clock
+WBXCLK     := wbxclk
+.PHONY: $(WBXCLK)
+$(WBXCLK): $(WBXCLK)_prf/PASS $(WBXCLK)_cvr/PASS
+$(WBXCLK)_prf/PASS: afifo $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
+	sby -f $(WBXCLK).sby prf
+$(WBXCLK)_cvr/PASS: afifo $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
+	sby -f $(WBXCLK).sby cvr
 
 .PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr $(AXILXBAR)_prf
 $(AXILXBAR): $(AXILXBAR)prf $(AXILXBAR)cvr
@@ -569,7 +582,7 @@ clean:
 	rm -rf  $(WB2LITE)_*/
 	rm -rf  $(RDLITE)_*/     $(WRLITE)_*/
 	rm -rf  $(WBC2PIPELIN)_*/ $(WBP2CLASSIC)_*/
-	rm -rf  $(AXLITE)_*/
+	rm -rf  $(AXLITE)_*/     $(WBXCLK)_*/
 	rm -rf  $(SFIFO)_*/      $(AFIFO)_*/
 	rm -rf  $(SKIDBUFFER)_*/ $(DECODER)_*/
 	rm -rf  $(WBXBAR)_*/     $(AXILXBAR)_*/
