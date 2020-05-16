@@ -66,6 +66,8 @@
 //		Alternatively, the core will enter into an abort state
 //		following any returned bus error indications.
 //
+//  4:	(Unused and reserved)
+//
 //  8-c:	CMD_ADDRLO, CMD_ADDR_HI
 //	[C_AXI_ADDR_WIDTH-1:($clog2(C_AXI_DATA_WIDTH)-3)]
 //		If idle, the address the core will read from when it starts.
@@ -80,7 +82,9 @@
 //		comes back, there may have been several more reads issued before
 //		that error address.
 //
-//  10-14:  CMD_LENLO, CMD_LENHI
+//  10-14:	(Unused and reserved)
+//
+//  18-1c:  CMD_LENLO, CMD_LENHI
 //	[LGLEN-1:0]
 //		The size of the transfer in bytes.  Only accepts aligned
 //		addresses, therefore bits [($clog2(C_AXI_DATA_WIDTH)-3):0]
@@ -94,8 +98,6 @@
 //
 //		I hope to eventually add support for unaligned bursts.  Such
 //		support is not currently part of this core.
-//
-// 12:	(Unused and reserved)
 //
 // }}}
 //

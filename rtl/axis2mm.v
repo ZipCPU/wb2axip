@@ -95,7 +95,9 @@
 //		Alternatively, the core will enter into an abort state
 //		following any returned bus error indications.
 //
-//  8-c:	CMD_ADDR
+//  x4-c:	(Unused and reserved)
+//
+//  x10-14:	CMD_ADDR
 //	[C_AXI_ADDR_WIDTH-1:($clog2(C_AXI_DATA_WIDTH)-3)]
 //		If idle, the address the core will write to when it starts.
 //		If busy, the address the core is currently writing to.
@@ -109,7 +111,7 @@
 //		comes back, there may have been several writes issued before
 //		that error address.
 //
-//  10-14:  CMD_LEN
+//  x18-1c:  CMD_LEN
 //	[LGLEN-1:0]
 //		The size of the transfer in bytes.  Only accepts aligned
 //		addresses, therefore bits [($clog2(C_AXI_DATA_WIDTH)-3):0]
@@ -124,7 +126,6 @@
 //		I hope to eventually add support for unaligned bursts.  Such
 //		support is not currently part of this core.
 //
-// 18-:	(Unused and reserved)
 //
 // }}}
 //
