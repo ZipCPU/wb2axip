@@ -71,11 +71,11 @@ module axilsafety #(
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1),
 	localparam	LGDEPTH   = $clog2(MAX_DEPTH+1),
 	parameter [0:0]	OPT_SELF_RESET = 1'b1,
-	parameter 	OPT_MIN_RESET = 16,
-	parameter [0:0] OPT_WRITES = 1'b1,
-	parameter [0:0] OPT_READS  = 1'b1
+	parameter 	OPT_MIN_RESET = 16
 `ifdef	FORMAL
-	, parameter [0:0]	F_OPT_FAULTLESS = 1'b1
+	, parameter [0:0] F_OPT_WRITES = 1'b1,
+	parameter [0:0] F_OPT_READS  = 1'b1,
+	parameter [0:0]	F_OPT_FAULTLESS = 1'b1
 `endif
 	) (
 		output	reg	o_write_fault,
@@ -439,8 +439,6 @@ module axilsafety #(
 			S_AXI_RRESP <= SLVERR;
 		else if (!downstream_r_zero)
 			S_AXI_RRESP <= rskd_resp;
-		else if (rskd_valid)
-			S_AXI_RRESP <= SLVERR;
 	end
 
 	initial	last_rvalid = 1'b0;
@@ -1034,7 +1032,7 @@ module axilsafety #(
 	end
 
 	always @(*)
-	if (!OPT_WRITES)
+	if (!F_OPT_WRITES)
 	begin
 		assume(!S_AXI_AWVALID);
 		assume(!S_AXI_WVALID);
@@ -1045,7 +1043,7 @@ module axilsafety #(
 	end
 
 	always @(*)
-	if (!OPT_READS)
+	if (!F_OPT_READS)
 	begin
 		assume(!S_AXI_ARVALID);
 		assert(r_count == 0);
@@ -1164,22 +1162,6 @@ module axilsafety #(
 			assert(f_axi_arstall == r_stall_counter);
 `endif
 	end else begin : WILD_DOWNSTREAM
-		// Just so we pass the skid buffer's assumptions ...
-
-		always @(posedge S_AXI_ACLK)
-		if (f_past_valid && $past(M_AXI_ARESETN && M_AXI_BVALID && !M_AXI_BREADY))
-		begin
-			assume(M_AXI_BVALID);
-			assume($stable(M_AXI_BRESP));
-		end
-
-		always @(posedge S_AXI_ACLK)
-		if (f_past_valid && $past(M_AXI_ARESETN && M_AXI_RVALID && !M_AXI_RREADY))
-		begin
-			assume(M_AXI_RVALID);
-			assume($stable(M_AXI_RDATA));
-			assume($stable(M_AXI_RRESP));
-		end
 
 		////////////////////////////////////////////////////////////////
 		//
