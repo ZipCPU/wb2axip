@@ -287,8 +287,9 @@ module	axixbar #(
 	(* keep *) reg	[NM-1:0]		wdata_expected;
 
 	// The shadow buffers
-	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
-	reg	[NM-1:0]	dcd_awvalid, dcd_arvalid;
+	reg	[NMFULL-1:0]	m_awvalid, m_arvalid;
+	wire	[NMFULL-1:0]	m_wvalid;
+	wire	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
 	wire	[C_AXI_ID_WIDTH-1:0]		m_awid		[0:NMFULL-1];
 	wire	[C_AXI_ADDR_WIDTH-1:0]		m_awaddr	[0:NMFULL-1];
@@ -539,8 +540,8 @@ module	axixbar #(
 
 		always @(*)
 			m_awvalid[N] = 0;
-		always @(*)
-			m_wvalid[N]  = 0;
+
+		assign	m_wvalid[N]  = 0;
 		//
 		assign	m_wdata[N] = 0;
 		assign	m_wstrb[N] = 0;

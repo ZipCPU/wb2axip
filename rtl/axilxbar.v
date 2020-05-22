@@ -235,7 +235,7 @@ module	axilxbar #(
 
 	// The shadow buffers
 	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
-	reg	[NM-1:0]	dcd_awvalid, dcd_arvalid;
+	wire	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
 	wire	[C_AXI_ADDR_WIDTH-1:0]		m_awaddr	[0:NMFULL-1];
 	wire	[2:0]				m_awprot	[0:NMFULL-1];
