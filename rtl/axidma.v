@@ -69,7 +69,11 @@ module	axidma #(
 		parameter	C_AXI_DATA_WIDTH = 32,
 		//
 		// These two "parameters" really aren't things that can be
-		// changed externally.
+		// changed externally.  They control the size of the AXI4-lite
+		// port.  Internally, it's defined to have 8, 32-bit registers.
+		// The registers are configured wide enough to support 64-bit
+		// AXI addressing.  Similarly, the AXI-lite data width is fixed
+		// at 32-bits.
 		localparam	C_AXIL_ADDR_WIDTH = 5,
 		localparam	C_AXIL_DATA_WIDTH = 32,
 		//
@@ -77,17 +81,56 @@ module	axidma #(
 		// whether source, destination, or length parameters.
 		parameter [0:0]	OPT_UNALIGNED = 1'b1,
 		//
+		// OPT_WRAPMEM controls what happens if the transfer runs off
+		// of the end of memory.  If set, the transfer will continue
+		// again from the beginning of memory.  If clear, the transfer
+		// will be aborted with an error if either read or write
+		// address ever get this far.
+		parameter [0:0]	OPT_WRAPMEM = 1'b1,
+		//
+		// LGMAXBURST controls the size of the maximum burst produced
+		// by this core.  Specifically, its the log (based 2) of that
+		// maximum size.  Hence, for AXI4, this size must be 8
+		// (i.e. 2^8 or 256 beats) or less.  For AXI3, the size must
+		// be 4 or less.  Tests have verified performance for
+		// LGMAXBURST as low as 2.  While I expect it to fail at
+		// LGMAXBURST=0, I haven't verified at what value this burst
+		// parameter is too small.
 `ifdef	AXI3
 		parameter	LGMAXBURST=4,	// 16 beats max
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
+		// The number of beats in this maximum burst size is
+		// automatically determined from LGMAXBURST, and so its
+		// forced to be a power of two this way.
 		localparam	MAXBURST=(1<<LGMAXBURST),
+		//
+		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
+		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
+		// (words) in it.  High throughput transfers are accomplished
+		// by first storing data into a FIFO, then once a full burst
+		// size is available bursting that data over the bus.  In
+		// order to be able to keep receiving data while bursting it
+		// out, the FIFO size must be at least twice the size of the
+		// maximum burst size.  Larger sizes are possible as well.
 		parameter	LGFIFO = LGMAXBURST+1,	// 512 element FIFO
+		//
+		// LGLEN: specifies the number of bits in the transfer length
+		// register.  If a transfer cannot be specified in LGLEN bits,
+		// it won't happen.  LGLEN must be less than or equal to the
+		// address width.
 		parameter	LGLEN = C_AXI_ADDR_WIDTH,
 		//
+		// AXI uses ID's to transfer information.  This core rather
+		// ignores them.  Instead, it uses a constant ID for all
+		// transfers.  The following two parameters control that ID.
 		parameter	[C_AXI_ID_WIDTH-1:0]	AXI_READ_ID = 0,
 		parameter	[C_AXI_ID_WIDTH-1:0]	AXI_WRITE_ID = 0,
+		//
+		// The "ABORT_KEY" is a byte that, if written to the control
+		// word while the core is running, will cause the data transfer
+		// to be aborted.
 		parameter	[7:0]			ABORT_KEY  = 8'h6d,
 		//
 		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3,
@@ -224,19 +267,19 @@ module	axidma #(
 					no_read_bursts_outstanding;
 	reg	[LGLEN:0]		readlen_b;
 	reg	[LGLENW:0]		readlen_w, initial_readlen_w;
-	reg	[C_AXI_ADDR_WIDTH-1:0]	read_address;
+	reg	[C_AXI_ADDR_WIDTH:0]	read_address;
 	reg	[LGLENW:0]		reads_remaining_w,
 					read_beats_remaining_w,
 					read_bursts_outstanding;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	read_distance_to_boundary_b;
+	reg				reads_remaining_nonzero;
 	//
 	reg				phantom_write, w_write_start;
-	reg	[C_AXI_ADDR_WIDTH-1:0]	write_address;
+	reg	[C_AXI_ADDR_WIDTH:0]	write_address;
 	reg	[LGLENW:0]		writes_remaining_w,
 					write_bursts_outstanding;
 	reg	[LGLENW:0]		write_burst_length;
 	reg				write_requests_remaining;
-	reg	[C_AXI_ADDR_WIDTH-1:0]	write_distance_to_boundary_b;
 	reg	[LGLEN:0]		writelen_b;
 	reg	[LGLENW:0]		write_beats_remaining;
 
@@ -260,6 +303,15 @@ module	axidma #(
 	reg				last_read_beat;
 	reg				clear_read_pipeline;
 	reg				last_write_burst;
+
+	//
+	// Push some write length calculations across clocks
+	reg	[LGLENW:0]		w_writes_remaining_w;
+	reg				multiple_write_bursts_remaining,
+					first_write_burst;
+	reg	[LGMAXBURST:0]		initial_write_distance_to_boundary_w,
+					first_write_len_w;
+
 
 
 
@@ -323,8 +375,19 @@ module	axidma #(
 	else if (!r_busy && axil_write_ready)
 		r_err <= (r_err) && (!wskd_strb[0] || !wskd_data[CTRL_ERR_BIT]);
 	else if (r_busy)
-		r_err <= (r_err || (M_AXI_RVALID && M_AXI_RRESP[1])
-				|| (M_AXI_BVALID && M_AXI_BRESP[1]));
+	begin
+		if (M_AXI_BVALID && M_AXI_BRESP[1])
+			r_err <= 1'b1;
+		if (M_AXI_RVALID && M_AXI_RRESP[1])
+			r_err <= 1'b1;
+
+		if (!OPT_WRAPMEM && write_address[C_AXI_ADDR_WIDTH]
+			&& write_requests_remaining)
+			r_err <= 1'b1;
+		if (!OPT_WRAPMEM && read_address[C_AXI_ADDR_WIDTH]
+			&& reads_remaining_nonzero)
+			r_err <= 1'b1;
+	end
 
 	initial	r_busy = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -616,12 +679,12 @@ module	axidma #(
 
 	always @(posedge S_AXI_ACLK)
 	if (!r_busy)
-		read_address <= r_src_addr;
+		read_address <= { 1'b0, r_src_addr };
 	else if (phantom_read)
 	begin
 	// Verilator lint_off WIDTH
-		read_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-			<= read_address[C_AXI_ADDR_WIDTH-1:ADDRLSB] +(M_AXI_ARLEN+1);
+		read_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+			<= read_address[C_AXI_ADDR_WIDTH:ADDRLSB] +(M_AXI_ARLEN+1);
 	// Verilator lint_on WIDTH
 		read_address[ADDRLSB-1:0] <= 0;
 	end
@@ -632,6 +695,13 @@ module	axidma #(
 		reads_remaining_w <= readlen_b[LGLEN:ADDRLSB];
 	else if (phantom_read)
 		reads_remaining_w <= reads_remaining_w - (M_AXI_ARLEN+1);
+
+	always @(posedge S_AXI_ACLK)
+	if (!r_busy)
+		reads_remaining_nonzero <= 1;
+	else if (phantom_read)
+		reads_remaining_nonzero
+				<= (reads_remaining_w != (M_AXI_ARLEN+1));
 	// Verilator lint_on WIDTH
 
 	always @(posedge S_AXI_ACLK)
@@ -715,8 +785,10 @@ module	axidma #(
 
 	always @(*)
 	begin
-		w_start_read = r_busy && (reads_remaining_w > 0);
+		w_start_read = r_busy && reads_remaining_nonzero;
 		if (phantom_read)
+			w_start_read = 0;
+		if (!OPT_WRAPMEM && read_address[C_AXI_ADDR_WIDTH])
 			w_start_read = 0;
 		if (fifo_space_available < (1<<LGMAXBURST))
 			w_start_read = 0;
@@ -1125,7 +1197,7 @@ module	axidma #(
 	//
 	always @(posedge S_AXI_ACLK)
 	if (!r_busy)
-		write_address <= r_dst_addr;
+		write_address <= { 1'b0, r_dst_addr };
 	else if (phantom_write)
 	begin
 		// Verilator lint_off WIDTH
@@ -1135,11 +1207,21 @@ module	axidma #(
 	end
 
 	// Verilator lint_off WIDTH
+
+	always @(*)
+		w_writes_remaining_w = writes_remaining_w - (M_AXI_AWLEN+1);
+
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
+	begin
 		writes_remaining_w <= writelen_b[LGLEN:ADDRLSB];
-	else if (phantom_write)
-		writes_remaining_w <= writes_remaining_w - (M_AXI_AWLEN+1);
+		multiple_write_bursts_remaining <= |writelen_b[LGLEN:(ADDRLSB+LGMAXBURST)];
+	end else if (phantom_write)
+	begin
+		writes_remaining_w <= w_writes_remaining_w;
+		multiple_write_bursts_remaining
+			<= |w_writes_remaining_w[LGLENW:LGMAXBURST];
+	end
 
 	always @(posedge S_AXI_ACLK)
 	if (i_reset || !r_busy)
@@ -1207,19 +1289,41 @@ module	axidma #(
 
 	always @(*)
 	begin
-		write_distance_to_boundary_b = 0;
-		write_distance_to_boundary_b[ADDRLSB +: LGMAXBURST]
-					= -write_address[ADDRLSB +: LGMAXBURST];
+		initial_write_distance_to_boundary_w
+			= - { 1'b0, write_address[ADDRLSB +: LGMAXBURST] };
+		initial_write_distance_to_boundary_w[LGMAXBURST] = 1'b0;
+	end
+
+	always @(posedge S_AXI_ACLK)
+	if (!r_busy)
+	begin
+		first_write_burst <= 1'b1;
+		if (|writelen_b[LGLEN:ADDRLSB+LGMAXBURST])
+			first_write_len_w <= (1<<LGMAXBURST);
+		else
+			first_write_len_w <= { 1'b0,
+				writelen_b[ADDRLSB +: LGMAXBURST] };
+	end else begin
+		if (phantom_write)
+			first_write_burst <= 1'b0;
+
+		if (first_write_burst
+			&& write_address[ADDRLSB +: LGMAXBURST] != 0
+			&& first_write_len_w
+				> initial_write_distance_to_boundary_w)
+			first_write_len_w<=initial_write_distance_to_boundary_w;
 	end
 
 	// Verilator lint_off WIDTH
 	always @(*)
-	begin
+	if (first_write_burst)
+		write_burst_length = first_write_len_w;
+	else begin
 		write_burst_length = (1<<LGMAXBURST);
-		if ((write_address[ADDRLSB +: LGMAXBURST] != 0)
-			&& (write_distance_to_boundary_b[ADDRLSB +: LGMAXBURST] != 0))
-			write_burst_length = write_distance_to_boundary_b[LGLEN-1:ADDRLSB];
-		if (write_burst_length > writes_remaining_w)
+
+		if (!multiple_write_bursts_remaining
+			&& (write_burst_length[ADDRLSB +: LGMAXBURST]
+				> writes_remaining_w[ADDRLSB +: LGMAXBURST]))
 			write_burst_length = writes_remaining_w;
 	end
 	// Verilator lint_on WIDTH
@@ -1262,10 +1366,10 @@ module	axidma #(
 				&&(fifo_data_available > write_burst_length);
 		else
 			w_write_start = (fifo_data_available >= write_burst_length);
-		if (write_burst_length == 0)
-			w_write_start = 0;
 		// Verilator lint_on WIDTH
 		if (!write_requests_remaining)
+			w_write_start = 0;
+		if (!OPT_WRAPMEM && write_address[C_AXI_ADDR_WIDTH])
 			w_write_start = 0;
 		if (phantom_write)
 			w_write_start = 0;
@@ -1321,7 +1425,7 @@ module	axidma #(
 	if (!r_busy)
 		M_AXI_AWADDR <= r_dst_addr;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
-		M_AXI_AWADDR <= write_address;
+		M_AXI_AWADDR <= write_address[C_AXI_ADDR_WIDTH-1:0];
 
 
 	always @(*)
@@ -1346,7 +1450,6 @@ module	axidma #(
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
 			M_AXI_RID, M_AXI_BRESP[0], M_AXI_RRESP[0],
 			S_AXIL_AWADDR[AXILLSB-1:0], S_AXIL_ARADDR[AXILLSB-1:0],
-			write_distance_to_boundary_b[ADDRLSB-1:0],
 			fifo_full, fifo_fill, fifo_empty,
 `ifdef	AXI3
 			readlen_w[LGLENW:4],
@@ -1393,9 +1496,9 @@ module	axidma #(
 	// ...
 	//
 
-	reg	[C_AXI_ADDR_WIDTH-1:0]	f_next_wraddr, f_next_rdaddr;
+	reg	[C_AXI_ADDR_WIDTH:0]	f_next_wraddr, f_next_rdaddr;
 
-	reg	[C_AXI_ADDR_WIDTH-1:0]	f_src_addr, f_dst_addr,
+	reg	[C_AXI_ADDR_WIDTH:0]	f_src_addr, f_dst_addr,
 				f_read_address, f_write_address,
 				f_read_check_addr, f_write_beat_addr,
 				f_read_beat_addr;
@@ -1462,9 +1565,11 @@ module	axidma #(
 				|| (zero_len == (r_len == 0)));
 	else
 		assert(zero_len == (r_len == 0 && writes_remaining_w == 0));
+
 	always @(*)
 	if (!i_reset && !OPT_UNALIGNED)
 		assert(r_src_addr[ADDRLSB-1:0] == 0);
+
 	always @(*)
 	if (!i_reset && !OPT_UNALIGNED)
 		assert(r_dst_addr[ADDRLSB-1:0] == 0);
@@ -1563,13 +1668,16 @@ module	axidma #(
 	always @(posedge S_AXI_ACLK)
 	if (w_start)
 	begin
-		f_src_addr <= r_src_addr;
-		f_dst_addr <= r_dst_addr;
+		f_src_addr <= { 1'b0, r_src_addr };
+		f_dst_addr <= { 1'b0, r_dst_addr };
 		f_length   <= r_len;
 	end else if (r_busy)
 	begin
 		assert(f_length != 0);
 		assert(f_length[LGLEN] == 0);
+
+		assert(f_src_addr[C_AXI_ADDR_WIDTH] == 1'b0);
+		assert(f_dst_addr[C_AXI_ADDR_WIDTH] == 1'b0);
 	end
 
 	always @(*)
@@ -1594,7 +1702,7 @@ module	axidma #(
 		f_last_dst_addr = f_dst_addr + f_length + (1<<ADDRLSB)-1;
 		f_last_dst_addr[ADDRLSB-1:0] = 0;
 
-		f_rd_arfirst = (M_AXI_ARADDR == f_src_addr);
+		f_rd_arfirst = ({ 1'b0, M_AXI_ARADDR } == f_src_addr);
 		f_rd_arlast  = (M_AXI_ARADDR[C_AXI_ADDR_WIDTH-1:ADDRLSB]
 			+ (M_AXI_ARLEN+1)
 			== f_last_src_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]);
@@ -1615,25 +1723,18 @@ module	axidma #(
 			f_extra_realignment_read
 				= (((1<<ADDRLSB)-f_src_addr[ADDRLSB-1:0])
 					>= f_length[ADDRLSB-1:0]) ? 1:0;
-			if (f_length[LGLEN:ADDRLSB] == 0)
-				f_extra_realignment_read = 0;
 			if (f_length[ADDRLSB-1:0] == 0)
 				f_extra_realignment_read = 0;
+		end else
+			f_extra_realignment_read = 1'b0;
 
 		//
 		// f_extra_realignment_preread
 		// will be true anytime we need to read a first word before
 		// writing anything to the buffer.
 		if (OPT_UNALIGNED && f_src_addr[ADDRLSB-1:0] != 0)
-		begin
-			if (f_length[LGLEN:ADDRLSB] != 0)
-				f_extra_realignment_preread = (f_src_addr[ADDRLSB-1:0] != 0);
-			else
-				f_extra_realignment_preread =
-					({ 1'b0, f_src_addr[ADDRLSB-1:0] }
-					+ { 1'b0, f_length[ADDRLSB-1:0] }
-						> (1<<ADDRLSB));
-		end else
+			f_extra_realignment_preread = 1'b1;
+		else
 			f_extra_realignment_preread = 1'b0;
 
 		//
@@ -1707,14 +1808,15 @@ module	axidma #(
 	always @(*)
 	begin
 		f_write_address = 0;
-		f_write_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-		= f_dst_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+		f_write_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+		= f_dst_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
 			+ (f_wrlength[LGLEN:ADDRLSB] - writes_remaining_w);
 	end
 
 	always @(*)
 	begin
-		f_next_wraddr = M_AXI_AWADDR + ((M_AXI_AWLEN+1)<<M_AXI_AWSIZE);
+		f_next_wraddr = { 1'b0, M_AXI_AWADDR }
+					+ ((M_AXI_AWLEN+1)<<M_AXI_AWSIZE);
 		f_next_wraddr[ADDRLSB-1:0] = 0;
 	end
 
@@ -1736,7 +1838,8 @@ module	axidma #(
 		end
 
 		if (M_AXI_AWADDR[ADDRLSB-1:0] != 0)
-			assert(M_AXI_AWADDR == f_dst_addr);
+			assert({ 1'b0, M_AXI_AWADDR[C_AXI_ADDR_WIDTH-1:0] }
+					== f_dst_addr);
 		else if (M_AXI_AWADDR != f_dst_addr)
 			assert(M_AXI_AWADDR[0 +: LGMAXBURST+ADDRLSB] == 0);
 	end
@@ -1756,8 +1859,8 @@ module	axidma #(
 		assert(f_writes_complete   <= f_wrlength[LGLEN:ADDRLSB]);
 		assert(fifo_fill           <= f_wrlength[LGLEN:ADDRLSB]);
 
-		assert(write_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-			== f_write_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]);
+		assert(write_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+			== f_write_address[C_AXI_ADDR_WIDTH:ADDRLSB]);
 
 		if (M_AXI_AWADDR != f_dst_addr && writes_remaining_w != 0)
 			assert(M_AXI_AWADDR[LGMAXBURST+ADDRLSB-1:0] == 0);
@@ -1768,7 +1871,8 @@ module	axidma #(
 			&&(writes_remaining_w != 0))
 			assert(write_address[LGMAXBURST+ADDRLSB-1:0] == 0);
 
-		if ((write_address[C_AXI_ADDR_WIDTH-1:ADDRLSB] != f_dst_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+		if ((write_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+				!= f_dst_addr[C_AXI_ADDR_WIDTH:ADDRLSB])
 			&&(writes_remaining_w > 0))
 			assert(write_address[LGMAXBURST+ADDRLSB-1:0] == 0);
 
@@ -1803,8 +1907,8 @@ module	axidma #(
 
 	always @(*)
 	if (r_busy && !r_abort && !r_err)
-		assert(write_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-				== f_dst_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+		assert(write_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+				== f_dst_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
 			|| (write_address[LGMAXBURST-1:0] == 0)
 			|| (writes_remaining_w == 0));
 
@@ -1812,7 +1916,8 @@ module	axidma #(
 	if (phantom_write)
 		assert(writes_remaining_w >= (M_AXI_AWLEN+1));
 	else if (M_AXI_AWVALID)
-		assert(write_address == f_next_wraddr);
+		assert(write_address[C_AXI_ADDR_WIDTH-1:0]
+					== f_next_wraddr[C_AXI_ADDR_WIDTH-1:0]);
 
 	//
 	// ...
@@ -1833,8 +1938,8 @@ module	axidma #(
 	always @(*)
 	begin
 		f_write_beat_addr = 0;
-		f_write_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-			= f_dst_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+		f_write_beat_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+			= f_dst_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
 			+ (f_wrlength[LGLEN:ADDRLSB]-write_beats_remaining);
 
 		//
@@ -1880,10 +1985,19 @@ module	axidma #(
 			f_read_address = f_src_addr;
 		else begin
 			f_read_address = 0;
-			f_read_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-			= f_src_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+			f_read_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+			= f_src_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
 				+ (f_rdlength[LGLEN:ADDRLSB] - reads_remaining_w);
 		end
+
+		f_araddr = f_read_address;
+		if (M_AXI_ARVALID && !phantom_read)
+			f_araddr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				= f_araddr[C_AXI_ADDR_WIDTH:ADDRLSB]
+						- (M_AXI_ARLEN+1);
+		if (f_araddr[C_AXI_ADDR_WIDTH:ADDRLSB]
+					== f_src_addr[C_AXI_ADDR_WIDTH:ADDRLSB])
+			f_araddr[ADDRLSB-1:0] = f_src_addr[ADDRLSB-1:0];
 
 		//
 		// Match the read check address to our source address
@@ -1901,14 +2015,14 @@ module	axidma #(
 		if (f_reads_complete == 0)
 			f_read_beat_addr = f_src_addr;
 		else
-			f_read_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-				= f_src_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+			f_read_beat_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				= f_src_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
 				+ f_reads_complete;
 
 		f_end_of_read_burst = M_AXI_ARADDR;
 		f_end_of_read_burst[ADDRLSB-1:0] = 0;
-		f_end_of_read_burst[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-			= f_end_of_read_burst[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+		f_end_of_read_burst[C_AXI_ADDR_WIDTH:ADDRLSB]
+			= f_end_of_read_burst[C_AXI_ADDR_WIDTH:ADDRLSB]
 			+ (M_AXI_ARLEN + 1);
 
 		//
@@ -1918,7 +2032,7 @@ module	axidma #(
 
 	always @(*)
 	begin
-		f_next_rdaddr = M_AXI_ARADDR + ((M_AXI_ARLEN+1)<<M_AXI_ARSIZE);
+		f_next_rdaddr = { 1'b0, M_AXI_ARADDR } + ((M_AXI_ARLEN+1)<<M_AXI_ARSIZE);
 		f_next_rdaddr[ADDRLSB-1:0] = 0;
 	end
 
@@ -1948,9 +2062,9 @@ module	axidma #(
 			assert(M_AXI_ARADDR[ADDRLSB-1:0] == 0);
 
 		if (phantom_read)
-			assert(M_AXI_ARADDR == read_address);
+			assert(M_AXI_ARADDR == read_address[C_AXI_ADDR_WIDTH-1:0]);
 		else if (M_AXI_ARVALID)
-			assert(read_address == f_next_rdaddr);
+			assert(read_address[C_AXI_ADDR_WIDTH-1:0] == f_next_rdaddr[C_AXI_ADDR_WIDTH-1:0]);
 	end // else ...
 
 	//
@@ -1959,7 +2073,7 @@ module	axidma #(
 
 	// Constrain read_address--our pointer to the next bursts address
 	always @(*)
-	if (r_busy) //  && !r_abort && !r_err)
+	if (r_busy)
 	begin
 		assert((read_address == f_src_addr)
 			|| (read_address[LGMAXBURST+ADDRLSB-1:0] == 0)
@@ -1974,8 +2088,8 @@ module	axidma #(
 			&&(reads_remaining_w > 0))
 			assert(read_address[LGMAXBURST+ADDRLSB-1:0] == 0);
 
-		if ((read_address[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-				!= f_src_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+		if ((read_address[C_AXI_ADDR_WIDTH:ADDRLSB]
+				!= f_src_addr[C_AXI_ADDR_WIDTH:ADDRLSB])
 			&&(reads_remaining_w > 0))
 			assert(read_address[LGMAXBURST+ADDRLSB-1:0] == 0);
 	end
@@ -2015,7 +2129,8 @@ module	axidma #(
 	begin
 		if (M_AXI_RLAST)
 		begin
-			if (f_read_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB] != f_last_src_beat[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+			if (f_read_beat_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				!= f_last_src_beat[C_AXI_ADDR_WIDTH:ADDRLSB])
 				assert(&f_read_beat_addr[ADDRLSB+LGMAXBURST-1:ADDRLSB]);
 		end else
 			assert(f_read_beat_addr[ADDRLSB+LGMAXBURST-1:ADDRLSB]
@@ -2041,7 +2156,7 @@ module	axidma #(
 
 	always @(*)
 	if (r_busy && !r_err)
-		assert(f_read_beat_addr == r_src_addr);
+		assert(f_read_beat_addr[C_AXI_ADDR_WIDTH-1:0] == r_src_addr);
 
 	always @(*)
 	if (r_busy)
@@ -2263,7 +2378,7 @@ module	axidma #(
 	generate if (OPT_UNALIGNED)
 	begin : F_UNALIGNED_SAMPLE_CHECK
 		(* anyconst *) reg	[C_AXI_ADDR_WIDTH-1:0]	f_const_posn;
-		reg	[C_AXI_ADDR_WIDTH-1:0]	f_const_addr_src,
+		reg	[C_AXI_ADDR_WIDTH:0]	f_const_addr_src,
 						f_const_addr_dst;
 		reg	[8-1:0]			f_const_byte;
 		reg	[C_AXI_ADDR_WIDTH:0]	f_write_fifo_addr,
@@ -2298,8 +2413,8 @@ module	axidma #(
 		//
 		always @(posedge S_AXI_ACLK)
 		if (M_AXI_RVALID
-			&& f_read_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-				== f_const_addr_src[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+			&& f_read_beat_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				== f_const_addr_src[C_AXI_ADDR_WIDTH:ADDRLSB])
 		begin
 			// Record our byte to be read
 			f_const_byte <= f_shifted_read[7:0];
@@ -2311,8 +2426,8 @@ module	axidma #(
 		//
 		always @(*)
 		if (M_AXI_WVALID
-			&& f_write_beat_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-				== f_const_addr_dst[C_AXI_ADDR_WIDTH-1:ADDRLSB])
+			&& f_write_beat_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				== f_const_addr_dst[C_AXI_ADDR_WIDTH:ADDRLSB])
 		begin
 			// Assert that we have the right byte in the end
 			if (!r_err && !r_abort)
@@ -2330,7 +2445,6 @@ module	axidma #(
 		//
 		// Assert the write side of the realignment FIFO
 		//
-
 		always @(*)
 		begin
 			//
@@ -2365,10 +2479,18 @@ module	axidma #(
 		//
 		// Assert the read side of the realignment FIFO
 		//
+		always @(*)
+		begin
+			f_read_fifo_addr =f_dst_addr;
+			f_read_fifo_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+				= f_dst_addr[C_AXI_ADDR_WIDTH:ADDRLSB]
+					+ (r_partial_outvalid ? 1:0)
+					+ f_writes_complete;
 
-		//
-		// ...
-		//
+			f_partial_out_addr = f_read_fifo_addr;
+			f_partial_out_addr[ADDRLSB-1:0] = 0;
+		end
+
 		always @(*)
 			f_shifted_from_fifo = REALIGNMENT_FIFO.fifo_data
 							>> (8*subshift);
@@ -2592,7 +2714,7 @@ module	axidma #(
 				&& f_extra_realignment_preread
 				&& !f_extra_realignment_read
 				&& !f_extra_realignment_write
-				&& f_length[C_AXI_ADDR_WIDTH-1:ADDRLSB] > 2);
+				&& f_length[LGLEN-1:ADDRLSB] > 2);
 
 			cover(!r_busy && !r_err && !r_abort
 				&& !f_extra_realignment_preread
@@ -2606,6 +2728,9 @@ module	axidma #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Careless assumptions (i.e. constraints)
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 
 	// None (currently)
