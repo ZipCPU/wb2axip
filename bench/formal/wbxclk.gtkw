@@ -1,0 +1,148 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Mon May  4 03:06:56 2020
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1920 1021
+[pos] -1 -1
+*-5.552812 130 130 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] wbxclk.
+[treeopen] wbxclk.reqfifo.
+[sst_width] 270
+[signals_width] 240
+[sst_expanded] 1
+[sst_vpaned_height] 290
+@28
+wbxclk.i_reset
+wbxclk.i_wb_clk
+@200
+-
+@800200
+-Upstream WB
+@28
+[color] 3
+wbxclk.i_wb_cyc
+[color] 3
+wbxclk.i_wb_stb
+[color] 3
+wbxclk.i_wb_we
+@22
+[color] 3
+wbxclk.i_wb_addr[31:0]
+[color] 3
+wbxclk.i_wb_data[31:0]
+[color] 3
+wbxclk.i_wb_sel[3:0]
+@28
+[color] 2
+wbxclk.o_wb_stall
+[color] 2
+wbxclk.o_wb_ack
+@22
+[color] 2
+wbxclk.o_wb_data[31:0]
+@28
+[color] 2
+wbxclk.o_wb_err
+@22
+wbxclk.fwb_outstanding[5:0]
+@28
+wbxclk.wb_active
+@1000200
+-Upstream WB
+@28
+wbxclk.i_xclk_clk
+wbxclk.xck_reset
+wbxclk.bus_abort
+@800200
+-Downstream
+@28
+[color] 2
+wbxclk.o_xclk_cyc
+[color] 2
+wbxclk.o_xclk_stb
+[color] 2
+wbxclk.o_xclk_we
+@22
+[color] 2
+wbxclk.o_xclk_addr[31:0]
+[color] 2
+wbxclk.o_xclk_data[31:0]
+[color] 2
+wbxclk.o_xclk_sel[3:0]
+@28
+[color] 3
+wbxclk.i_xclk_stall
+[color] 3
+wbxclk.i_xclk_ack
+@22
+[color] 3
+wbxclk.i_xclk_data[31:0]
+@28
+[color] 1
+wbxclk.i_xclk_err
+@22
+wbxclk.fxck_outstanding[5:0]
+@29
+wbxclk.xclk_err_state
+@1000200
+-Downstream
+@800200
+-Req FIFO
+@28
+wbxclk.reqfifo.i_wclk
+wbxclk.reqfifo.i_wr_reset_n
+wbxclk.reqfifo.i_wr
+@22
+wbxclk.reqfifo.i_wr_data[69:0]
+@28
+wbxclk.reqfifo.o_wr_full
+@22
+wbxclk.reqfifo.wr_addr[5:0]
+@200
+-
+@28
+wbxclk.reqfifo.i_rclk
+wbxclk.reqfifo.i_rd_reset_n
+wbxclk.reqfifo.i_rd
+@22
+wbxclk.reqfifo.o_rd_data[69:0]
+@28
+wbxclk.reqfifo.o_rd_empty
+@22
+wbxclk.reqfifo.rd_addr[5:0]
+wbxclk.reqfifo_fill[5:0]
+@200
+-
+@22
+wbxclk.reqfifo.rd_addr[5:0]
+wbxclk.reqfifo.wr_addr[5:0]
+@1000200
+-Req FIFO
+@c00200
+-ACK FIFO
+@28
+wbxclk.ackfifo.i_wclk
+wbxclk.ackfifo.i_wr_reset_n
+wbxclk.ackfifo.i_wr
+@22
+wbxclk.ackfifo.i_wr_data[33:0]
+@28
+wbxclk.ackfifo.o_wr_full
+@200
+-
+@28
+wbxclk.ackfifo.i_rclk
+wbxclk.ackfifo.i_rd
+wbxclk.ackfifo.i_rd_reset_n
+@22
+wbxclk.ackfifo.o_rd_data[33:0]
+@28
+wbxclk.ackfifo.o_rd_empty
+@22
+wbxclk.ackfifo_fill[5:0]
+@1401200
+-ACK FIFO
+[pattern_trace] 1
+[pattern_trace] 0

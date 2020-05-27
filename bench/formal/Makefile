@@ -201,12 +201,11 @@ $(XLNXSTREAM)_cvr/PASS: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 
 #
 # Cross clock
-WBXCLK     := wbxclk
 .PHONY: $(WBXCLK)
 $(WBXCLK): $(WBXCLK)_prf/PASS $(WBXCLK)_cvr/PASS
-$(WBXCLK)_prf/PASS: afifo $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
+$(WBXCLK)_prf/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby prf
-$(WBXCLK)_cvr/PASS: afifo $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
+$(WBXCLK)_cvr/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby cvr
 
 .PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr $(AXILXBAR)_prf
