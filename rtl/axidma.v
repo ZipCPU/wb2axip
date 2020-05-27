@@ -569,7 +569,7 @@ module	axidma #(
 		endcase
 	end else if (r_busy)
 	begin
-		r_dst_addr <= write_address;
+		r_dst_addr <= write_address[C_AXI_ADDR_WIDTH-1:0];
 		if (writes_remaining_w[LGLENW])
 			r_len <= -1;
 		else
@@ -736,7 +736,7 @@ module	axidma #(
 	if (!r_busy)
 		M_AXI_ARADDR <= r_src_addr;
 	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
-		M_AXI_ARADDR <= read_address;
+		M_AXI_ARADDR <= read_address[C_AXI_ADDR_WIDTH-1:0];
 
 	always @(*)
 	if (OPT_UNALIGNED)
