@@ -313,7 +313,7 @@ module	axis2mm #(
 				CMD_LENHI     = 3'b111;
 				// CMD_RESERVED = 2'b11;
 	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
-	localparam	LGMAX_FIXED_BURST = 4;	// By AXI spec
+	localparam	LGMAX_FIXED_BURST = (LGMAXBURST > 4) ? 4 : LGMAXBURST;
 	localparam	MAX_FIXED_BURST = (1<<LGMAX_FIXED_BURST);
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3);
 	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
@@ -330,18 +330,18 @@ module	axis2mm #(
 	// Signal declarations
 	// {{{
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
-		cmd_abort, zero_length,
+		cmd_abort, zero_length, r_pre_start,
 		w_cmd_start, w_complete, w_cmd_abort;
 	reg	[2:0]		r_errcode;
 	// reg	cmd_start;
 	reg			axi_abort_pending;
 
 	reg	[LGLENW-1:0]	aw_requests_remaining,
-				aw_bursts_outstanding;
+				aw_bursts_outstanding,
+				aw_next_remaining;
 	reg	[LGMAXBURST:0]	wr_writes_pending;
 	reg	[LGMAXBURST:0]		r_max_burst;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_addr;
-	reg	[C_AXI_ADDR_WIDTH-1:0]	next_awaddr;
 
 	reg	[C_AXI_ADDR_WIDTH-1:0]	cmd_addr;
 	reg	[LGLENW-1:0]		cmd_length_w;
@@ -392,11 +392,18 @@ module	axis2mm #(
 	reg	[LGFIFO:0]	next_fill;
 	reg	[LGMAXBURST:0]	initial_burstlen;
 	reg	[LGMAXBURST-1:0] addralign;
-	reg			w_increment;
 
 	//
 	// Option processing
 	reg			r_tlast_syncd;
+
+	reg			aw_multiple_full_bursts,
+				aw_multiple_fixed_bursts,
+				aw_multiple_bursts_remaining,
+				aw_needs_alignment;
+	reg	[LGFIFO:0]	data_available;
+	reg			sufficiently_filled;
+
 
 	// }}}
 
@@ -693,6 +700,13 @@ module	axis2mm #(
 		if (!OPT_UNALIGNED)
 			new_wideaddr[ADDRLSB-1:0] = 0;
 
+		// We only support C_AXI_ADDR_WIDTH address bits
+		new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] = 0;
+
+		//
+		///////////////
+		//
+
 		new_widelen = wide_length;
 		if (awskd_addr == CMD_LENLO)
 			new_widelen[C_AXIL_DATA_WIDTH-1:0] = new_lengthlo;
@@ -702,12 +716,17 @@ module	axis2mm #(
 
 		// We only support integer numbers of words--even if unaligned
 		new_widelen[ADDRLSB-1:0] = 0;
+
+		// We only support LGLEN length bits
+		new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN] = 0;
 	end
 
 	initial	r_increment   = 1'b1;
 	initial	cmd_addr      = 0;
 	initial	cmd_length_w  = 0;	// Counts in bytes
 	initial	zero_length   = 1;
+	initial aw_multiple_full_bursts  = 0;
+	initial aw_multiple_fixed_bursts = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
@@ -715,6 +734,8 @@ module	axis2mm #(
 		cmd_addr      <= 0;
 		cmd_length_w  <= 0;
 		zero_length   <= 1;
+		aw_multiple_full_bursts  <= 0;
+		aw_multiple_fixed_bursts <= 0;
 	end else if (axil_write_ready && !r_busy)
 	begin
 		case(awskd_addr)
@@ -730,16 +751,22 @@ module	axis2mm #(
 		CMD_LENLO: begin
 			cmd_length_w <= new_widelen[ADDRLSB +: LGLENW];
 			zero_length <= (new_widelen[ADDRLSB +: LGLENW] == 0);
+			aw_multiple_full_bursts  <= |new_widelen[LGLEN-1:(ADDRLSB+LGMAXBURST)];
+			aw_multiple_fixed_bursts <= |new_widelen[LGLEN-1:(ADDRLSB+LGMAX_FIXED_BURST)];
+
 			end
-		CMD_LENHI: if (LGLENW+ADDRLSB > C_AXIL_DATA_WIDTH)
+		CMD_LENHI: if (LGLEN > C_AXIL_DATA_WIDTH)
 			begin
 			cmd_length_w <= new_widelen[ADDRLSB +: LGLENW];
 			zero_length <= (new_widelen[ADDRLSB +: LGLENW] == 0);
+			aw_multiple_full_bursts  <= |new_widelen[LGLEN-1:(ADDRLSB+LGMAXBURST)];
+			aw_multiple_fixed_bursts <= |new_widelen[LGLEN-1:(ADDRLSB+LGMAX_FIXED_BURST)];
 			end
 		default: begin end
 		endcase
 	end else if (r_busy && r_continuous)
-		cmd_addr <= axi_addr;
+		cmd_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+					<= axi_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB];
 
 	always @(*)
 	begin
@@ -887,6 +914,41 @@ module	axis2mm #(
 	// with the overall command length and then reduced by M_AWLEN on
 	// each address write
 	// {{{
+	always @(*)
+	begin
+		// aw_next_remaining = aw_requests_remaining;
+		// if (phantom_start)
+		//	aw_next_remaining = aw_requests_remaining
+		//		+  (~{{ (LGLENW-8){1'b0}}, M_AXI_AWLEN });
+		//		// - (M_AXI_AWLEN+1)
+		//		// + (~M_AXI_AWLEN+1) - 1
+		//		// + ~M_AXI_AWLEN
+		aw_next_remaining = aw_requests_remaining
+			+ { {(LGLENW-8){phantom_start}},
+					(phantom_start) ? ~M_AXI_AWLEN : 8'h00};
+	end
+
+	always @(posedge i_clk)
+	if (!r_busy)
+		r_pre_start <= 1;
+	else
+		r_pre_start <= 0;
+
+	always @(posedge i_clk)
+	if (!r_busy)
+	begin
+		aw_needs_alignment <= 0;
+
+		if (|new_wideaddr[ADDRLSB +: LGMAXBURST])
+		begin
+			if (|new_widelen[LGLEN-1:(LGMAXBURST+ADDRLSB)])
+				aw_needs_alignment <= 1;
+			if (~new_wideaddr[ADDRLSB +: LGMAXBURST]
+					< new_widelen[ADDRLSB +: LGMAXBURST])
+				aw_needs_alignment <= 1;
+		end
+	end
+
 	initial	aw_none_remaining = 1;
 	initial	aw_requests_remaining = 0;
 	always @(posedge i_clk)
@@ -894,17 +956,19 @@ module	axis2mm #(
 	begin
 		aw_requests_remaining <= cmd_length_w;
 		aw_none_remaining     <= zero_length;
+		aw_multiple_bursts_remaining <= |cmd_length_w[LGLENW-1:LGMAXBURST+1];
 	end else if (cmd_abort || axi_abort_pending)
 	begin
 		aw_requests_remaining <= 0;
 		aw_none_remaining <= 1;
+		aw_multiple_bursts_remaining <= 0;
 	end else if (phantom_start)
 	begin
-		// Verilator lint_off WIDTH
-		aw_requests_remaining
-			<= aw_requests_remaining - (M_AXI_AWLEN + 1);
-		aw_none_remaining <= (aw_requests_remaining == (M_AXI_AWLEN+1));
-		// Verilator lint_on WIDTH
+		aw_requests_remaining <= aw_next_remaining;
+		aw_none_remaining<= !aw_multiple_bursts_remaining
+			&&(aw_next_remaining[LGMAXBURST:0] == 0);
+		aw_multiple_bursts_remaining
+				<= |aw_next_remaining[LGLENW-1:LGMAXBURST+1];
 	end
 	// }}}
 
@@ -912,36 +976,24 @@ module	axis2mm #(
 	// {{{
 	always @(*)
 		addralign = 1+(~cmd_addr[ADDRLSB +: LGMAXBURST]);
-	always @(*)
-		w_increment = !wskd_data[27];
 
 	always @(*)
 	begin
 		initial_burstlen = (1<<LGMAXBURST);
-		if (!w_increment)
+		if (!r_increment)
 		begin
-			if (LGMAXBURST < LGMAX_FIXED_BURST)
-				initial_burstlen = (1<<LGMAXBURST);
-			else
-				initial_burstlen = MAX_FIXED_BURST;
-			if (cmd_length_w < { {(LGLENW-LGMAXBURST-1){1'b0}},
-							initial_burstlen })
-				initial_burstlen = cmd_length_w[LGMAXBURST:0];
-		end else if (cmd_length_w >= (1<<LGMAXBURST))
-		begin
-			if (|cmd_addr[ADDRLSB +: LGMAXBURST])
-				initial_burstlen = { 1'b0, addralign };
-		end else begin
-			initial_burstlen = cmd_length_w[LGMAXBURST:0];
-			if ((|cmd_addr[ADDRLSB +: LGMAXBURST])
-				&&({{(LGLENW-LGMAXBURST){1'b0}}, addralign } < cmd_length_w))
-				initial_burstlen = { 1'b0, addralign };
-		end
+			initial_burstlen = MAX_FIXED_BURST;
+			if (!aw_multiple_fixed_bursts)
+				initial_burstlen = { 1'b0, cmd_length_w[LGMAXBURST-1:0] };
+		end else if (aw_needs_alignment)
+			initial_burstlen = { 1'b0, addralign };
+		else if (!aw_multiple_full_bursts)
+			initial_burstlen = { 1'b0, cmd_length_w[LGMAXBURST-1:0] };
 	end
 
 	initial	r_max_burst = 0;
 	always @(posedge i_clk)
-	if (!r_busy)
+	if (!r_busy || r_pre_start)
 	begin
 		// Force us to align ourself early
 		//   That way we don't need to check for
@@ -952,13 +1004,15 @@ module	axis2mm #(
 		// Verilator lint_off WIDTH
 		if (r_increment || LGMAXBURST <= LGMAX_FIXED_BURST)
 		begin
-			if (aw_requests_remaining - (M_AXI_AWLEN+1) < (1<<LGMAXBURST))
-				r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
+			if (!aw_multiple_bursts_remaining
+				&& aw_next_remaining[LGMAXBURST:0] < (1<<LGMAXBURST))
+				r_max_burst <= { 1'b0, aw_next_remaining[7:0] };
 			else
 				r_max_burst <= (1<<LGMAXBURST);
 		end else begin
-			if (aw_requests_remaining - (M_AXI_AWLEN+1) < MAX_FIXED_BURST)
-				r_max_burst <= aw_requests_remaining[8:0] - (M_AXI_AWLEN+1);
+			if (!aw_multiple_bursts_remaining
+				&& aw_next_remaining[LGMAXBURST:0] < MAX_FIXED_BURST)
+				r_max_burst <= { 1'b0, aw_next_remaining[7:0] };
 			else
 				r_max_burst <= MAX_FIXED_BURST;
 		end
@@ -1010,6 +1064,8 @@ module	axis2mm #(
 			axi_abort_pending <= 1;
 		if (cmd_abort)
 			axi_abort_pending <= 1;
+		if (r_err)
+			axi_abort_pending <= 1;
 	end
 	// }}}
 
@@ -1045,14 +1101,15 @@ module	axis2mm #(
 	// {{{
 	initial	axi_addr = 0;
 	always @(posedge i_clk)
-	if (!r_busy)
-		axi_addr <= cmd_addr;
-	else if (axi_abort_pending || !r_increment)
-		// Stop incrementing tthe address following an abort
-		axi_addr <= axi_addr;
-	else begin
-		if (M_AXI_WVALID && M_AXI_WREADY)
+	begin
+		if (!r_busy)
+			axi_addr <= cmd_addr;
+		else if (axi_abort_pending || !r_increment)
+			// Stop incrementing the address following an abort
+			axi_addr <= axi_addr;
+		else if (M_AXI_WVALID && M_AXI_WREADY)
 			axi_addr <= axi_addr + (1<<ADDRLSB);
+
 		if (!OPT_UNALIGNED)
 			axi_addr[ADDRLSB-1:0] <= 0;
 	end
@@ -1101,12 +1158,12 @@ module	axis2mm #(
 
 		// But not if the amount of information we need isn't (yet)
 		// in the FIFO.
-		if (next_fill < {{(LGFIFO-LGMAXBURST){1'b0}}, r_max_burst})
+		if (!sufficiently_filled)
 			w_phantom_start = 0;
 
 		// Insist on a minimum of one clock between burst starts,
 		// since our burst length calculation takes a clock to do
-		if (phantom_start)
+		if (phantom_start || r_pre_start)
 			w_phantom_start = 0;
 
 		// If we're still writing the last burst, then don't start
@@ -1180,18 +1237,51 @@ module	axis2mm #(
 		next_fill = next_fill + fifo_fill - 2;
 	end
 
+	initial	data_available = 0;
+	always @(posedge i_clk)
+	if (reset_fifo)
+		data_available <= 0;
+	else if (axi_abort_pending)
+		data_available <= fifo_fill + (write_to_fifo ? 1:0);
+	else case({ write_to_fifo, phantom_start })
+	2'b10: data_available <= data_available + 1;
+	// Verilator lint_off WIDTH
+	2'b01: data_available <= data_available - (M_AXI_AWLEN+1);
+	2'b11: data_available <= data_available - (M_AXI_AWLEN);
+	// Verilator lint_on  WIDTH
+	default: begin end
+	endcase
+
 	always @(*)
-	begin
-		next_awaddr = axi_addr;
-		if (M_AXI_WVALID && M_AXI_WREADY && r_increment)
-			next_awaddr = next_awaddr + (1<<ADDRLSB);
-	end
+	if (|aw_requests_remaining[LGLENW-1:LGMAXBURST])
+		sufficiently_filled = |data_available[LGFIFO:LGMAXBURST];
+	else
+		sufficiently_filled = (data_available[LGMAXBURST-1:0]
+				>= aw_requests_remaining[LGMAXBURST-1:0]);
 
 	always @(posedge i_clk)
-	if (!M_AXI_AWVALID || M_AXI_AWREADY)
 	begin
-		axi_awlen  <= r_max_burst[7:0] - 8'd1;
-		axi_awaddr <= next_awaddr;
+		if (!M_AXI_AWVALID || M_AXI_AWREADY)
+			axi_awlen  <= r_max_burst[7:0] - 8'd1;
+		if (M_AXI_AWVALID && M_AXI_AWREADY)
+		begin
+			axi_awaddr[ADDRLSB-1:0] <= 0;
+			// Verilator lint_off WIDTH
+			if (r_increment)
+				axi_awaddr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+				    <= axi_awaddr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
+						+ (M_AXI_AWLEN+1);
+			// Verilator lint_on WIDTH
+		end
+
+		if (!r_busy)
+		begin
+			axi_awlen <= initial_burstlen[7:0] - 8'd1;
+			axi_awaddr<= cmd_addr;
+		end
+
+		if (!OPT_UNALIGNED)
+			axi_awaddr[ADDRLSB-1:0] <= 0;
 	end
 	// }}}
 
@@ -1273,7 +1363,7 @@ module	axis2mm #(
 
 	////////////////////////////////////////////////////////////////////////
 	//
-	// Properties of the AXI-stream data interface
+	// The AXI-stream data interface
 	// {{{
 	//
 	////////////////////////////////////////////////////////////////////////
@@ -1329,13 +1419,23 @@ module	axis2mm #(
 		.i_axi_rvalid(S_AXIL_RVALID),
 		.i_axi_rready(S_AXIL_RREADY),
 		.i_axi_rdata( S_AXIL_RDATA),
-		.i_axi_rresp( S_AXIL_RRESP));
+		.i_axi_rresp( S_AXIL_RRESP),
+		//
+		.f_axi_rd_outstanding(faxil_rd_outstanding),
+		.f_axi_wr_outstanding(faxil_wr_outstanding),
+		.f_axi_awr_outstanding(faxil_awr_outstanding)
 		// }}}
 		);
 
-	//
-	// ...
-	//
+	always @(*)
+	begin
+		assert(faxil_rd_outstanding == (S_AXIL_RVALID ? 1:0)
+			+(S_AXIL_ARREADY ? 0:1));
+		assert(faxil_wr_outstanding == (S_AXIL_BVALID ? 1:0)
+			+(S_AXIL_WREADY ? 0:1));
+		assert(faxil_awr_outstanding== (S_AXIL_BVALID ? 1:0)
+			+(S_AXIL_AWREADY ? 0:1));
+	end
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1414,6 +1514,15 @@ module	axis2mm #(
 	// ...
 	//
 
+	always @(*)
+		assert(aw_bursts_outstanding
+			== faxi_awr_nbursts
+				+ ((M_AXI_AWVALID&&!phantom_start) ? 1:0));
+
+	//
+	// ...
+	//
+
 	always @(posedge i_clk)
 	if (M_AXI_AWVALID)
 	begin
@@ -1432,10 +1541,11 @@ module	axis2mm #(
 	end
 
 	always @(*)
-	if (r_busy)
+	if (r_busy && !OPT_UNALIGNED)
 		assert(M_AXI_AWADDR[ADDRLSB-1:0] == 0);
 
 	always @(*)
+	if (!OPT_UNALIGNED)
 		assert(cmd_addr[ADDRLSB-1:0] == 0);
 
 	//
@@ -1450,6 +1560,7 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
+	// ...
 
 	always @(*)
 	if (!r_busy)
@@ -1464,6 +1575,16 @@ module	axis2mm #(
 
 	always @(*)
 		assert(zero_length == (cmd_length_w == 0));
+
+	//
+	// ...
+	//
+	always @(*)
+	if (phantom_start)
+		assert(data_available >= (M_AXI_AWLEN+1));
+	else if (M_AXI_AWVALID)
+		assert(data_available >= 0 && data_available <= (1<<LGFIFO));
+
 
 	always @(*)
 	if (phantom_start)
@@ -1498,10 +1619,136 @@ module	axis2mm #(
 
 	always @(*)
 		assert(aw_none_remaining == (aw_requests_remaining == 0));
+
+	always @(*)
+	if (r_busy)
+		assert(aw_multiple_bursts_remaining == (|aw_requests_remaining[LGLENW-1:LGMAXBURST+1]));
+
 	always @(*)
 		assert(aw_last_outstanding == (aw_bursts_outstanding == 1));
 
+	//
+	// ...
+	//
+
+	always @(*)
+	if (r_complete)
+		assert(!r_busy);
+
+	always @(*)
+		assert(fifo_fill >= wr_writes_pending);
+
+	always @(*)
+	if (r_busy)
+		assert(r_max_burst <= (1<<LGMAXBURST));
+
+	always @(*)
+	if (r_busy && !r_pre_start)
+		assert((r_max_burst > 0) || (aw_requests_remaining == 0));
+
+
+	always @(*)
+	if (phantom_start)
+	begin
+		assert(M_AXI_AWVALID && M_AXI_WVALID);
+		assert(wr_none_pending);
+		// assert(drain_triggered);
+	end
+
+	always @(posedge i_clk)
+	if (phantom_start)
+	begin
+		assert(r_max_burst > 0);
+		assert(M_AXI_AWLEN == $past(r_max_burst)-1);
+	end
+
+	always @(*)
+	if (r_busy && aw_requests_remaining == f_length)
+		assert(initial_burstlen > 0);
+
+	always @(*)
+	if ((LGMAXBURST < 8) && (r_busy))
+		assert(M_AXI_AWLEN+1 <= (1<<LGMAXBURST));
+
+	always @(*)
+	if (r_busy && !r_increment && (M_AXI_AWVALID
+				|| ((aw_requests_remaining < cmd_length_w)
+					&& (aw_requests_remaining > 0))))
+		assert(M_AXI_AWLEN+1 <= MAX_FIXED_BURST);
+
+	always @(*)
+	if (M_AXI_AWVALID && M_AXI_AWADDR[ADDRLSB +: LGMAXBURST])
+	begin
+		// If we are ever unaligned, our first step should be to
+		// align ourselves
+		assert(M_AXI_AWLEN+1 <=
+			1 +(~M_AXI_AWADDR[ADDRLSB +: LGMAXBURST]));
+	end
+
+	always @(*)
+	if (!wr_none_pending)
+	begin
+		// Second alignment check: every burst must end aligned
+		if (r_increment)
+		assert(axi_addr[ADDRLSB +: LGMAXBURST] + wr_writes_pending
+			<= (1<<LGMAXBURST));
+	end
+
+	always @(posedge i_clk)
+	if (phantom_start)
+	begin
+		assert(axi_awlen == $past(r_max_burst[7:0]) - 8'd1);
+		if (r_increment && (cmd_length_w > axi_awlen + 1)
+			&&(aw_requests_remaining != cmd_length_w))
+			assert(M_AXI_AWADDR[ADDRLSB +: LGMAXBURST] == 0);
+	end
+
+	//
+	// ...
+	//
+
 	// }}}
+
+	always @(*)
+	if (fifo_full)
+		assert(!S_AXIS_TREADY);
+	else if (OPT_TREADY_WHILE_IDLE)
+		// If we aren't full, and we set TREADY whenever idle,
+		// then we should otherwise have TREADY set at all times
+		assert(S_AXIS_TREADY);
+	else if (!r_tlast_syncd)
+		// If we aren't syncd, always be ready until we finally sync up
+		assert(S_AXIS_TREADY);
+	else if (reset_fifo)
+		// If we aren't accepting any data, but are idling with TREADY
+		// low, then make sure we drop TREADY when idle
+		assert(!S_AXIS_TREADY);
+	else
+		// In all other cases, assert TREADY
+		assert(S_AXIS_TREADY);
+
+
+	//
+	// ...
+	//
+
+	//
+	// Error logic checking
+	//
+	always @(*)
+	if (!r_err)
+		assert(r_errcode == 0);
+	else
+		assert(r_errcode != 0);
+
+	//
+	// ...
+	//
+
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $past(S_AXI_ARESETN) && $past(w_cmd_start)
+		&&!$past(overflow && r_continuous))
+		assert(!r_err);
 
 	////////////////////////////////////////////////////////////////////////
 	//
