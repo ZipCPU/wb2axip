@@ -1332,7 +1332,7 @@ module	axis2mm #(
 	// Verilator lint_on  WIDTH
 	assign	M_AXI_AWBURST= awburst;
 	assign	M_AXI_AWLOCK = 0;
-	assign	M_AXI_AWCACHE= 0;
+	assign	M_AXI_AWCACHE= 4'b0011;
 	assign	M_AXI_AWPROT = 0;
 	assign	M_AXI_AWQOS  = 0;
 

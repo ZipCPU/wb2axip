@@ -21,7 +21,7 @@
 //		Instead, the controller will handle all burst addressing
 //		internally
 //	4. This makes AWBURST irrelevant
-//	5. Other wires are simplified as well: AWLOCK=0, AWCACHE=0, AWQOS=0
+//	5. Other wires are simplified as well: AWLOCK=0, AWCACHE=3, AWQOS=0
 //	6. If OPT_EXCLUSIVE_ACCESS is set, the controller will handle lock
 //		logic internally
 //	7. The slave must guarantee that AWREADY == WREADY = 1
@@ -45,7 +45,7 @@
 //	3. The controller will guarantee that ARLEN == 0
 //		All burst logic is handled internally
 //	4. As before, this makes ARBURST irrelevant
-//	5. Other wires are simplified: ARLOCK=0, ARCACHE = 0, ARQOS=0, etc
+//	5. Other wires are simplified: ARLOCK=0, ARCACHE = 3, ARQOS=0, etc
 //	6. The slave must guarantee that RVALID == $past(ARVALID)
 //		The controller actually ignores RVALID--but to be a valid slave,
 //		this must be assumed.
@@ -316,7 +316,7 @@ module	axidouble #(
 	assign	M_AXI_AWLEN = 0;
 	assign	M_AXI_AWBURST = 2'b00;
 	assign	M_AXI_AWLOCK  = 1'b0;
-	assign	M_AXI_AWCACHE = 4'h0;
+	assign	M_AXI_AWCACHE = 4'h3;
 	// assign	M_AXI_AWPROT  = 3'h0;
 	assign	M_AXI_AWQOS   = 4'h0;
 	//
@@ -329,7 +329,7 @@ module	axidouble #(
 	assign	M_AXI_ARLEN	= 8'h0; // Burst of one beat
 	assign	M_AXI_ARBURST	= 2'b00; // INC
 	assign	M_AXI_ARLOCK	= 1'b0;
-	assign	M_AXI_ARCACHE	= 4'h0;
+	assign	M_AXI_ARCACHE	= 4'h3;
 	// assign	M_AXI_ARPROT	= 3'h0;
 	assign	M_AXI_ARQOS	= 4'h0;
 	//

@@ -1143,7 +1143,7 @@ module	aximm2s #(
 	// Verilator lint_on  WIDTH
 	assign	M_AXI_ARBURST= axi_arburst;
 	assign	M_AXI_ARLOCK = 0;
-	assign	M_AXI_ARCACHE= 0;
+	assign	M_AXI_ARCACHE= 4'b0011;
 	assign	M_AXI_ARPROT = 0;
 	assign	M_AXI_ARQOS  = 0;
 

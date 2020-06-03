@@ -118,7 +118,7 @@ module axilite2axi #(
 	assign	M_AXI_AWSIZE  = ADDRLSB[2:0];
 	assign	M_AXI_AWBURST = 0;
 	assign	M_AXI_AWLOCK  = 0;
-	assign	M_AXI_AWCACHE = 0;
+	assign	M_AXI_AWCACHE = 4'b0011; // As recommended by Xilinx UG1037
 	assign	M_AXI_AWPROT  = S_AXI_AWPROT;
 	assign	M_AXI_AWQOS   = 0;
 	assign	M_AXI_AWVALID = S_AXI_AWVALID;
@@ -141,7 +141,7 @@ module axilite2axi #(
 	assign	M_AXI_ARSIZE  = ADDRLSB[2:0];
 	assign	M_AXI_ARBURST = 0;
 	assign	M_AXI_ARLOCK  = 0;
-	assign	M_AXI_ARCACHE = 0;
+	assign	M_AXI_ARCACHE = 4'b0011; // As recommended by Xilinx UG1037
 	assign	M_AXI_ARPROT  = S_AXI_ARPROT;
 	assign	M_AXI_ARQOS   = 0;
 	assign	M_AXI_ARVALID = S_AXI_ARVALID;

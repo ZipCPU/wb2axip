@@ -828,7 +828,7 @@ module	axidma #(
 		M_AXI_ARBURST = AXI_INCR;
 		M_AXI_ARSIZE  = ADDRLSB[2:0];
 		M_AXI_ARLOCK  = 1'b0;
-		M_AXI_ARCACHE = 4'h0;
+		M_AXI_ARCACHE = 4'b0011;
 		M_AXI_ARPROT  = r_prot;
 		M_AXI_ARQOS   = r_qos;
 		//
@@ -1434,7 +1434,7 @@ module	axidma #(
 		M_AXI_AWBURST = AXI_INCR;
 		M_AXI_AWSIZE  = ADDRLSB[2:0];
 		M_AXI_AWLOCK  = 1'b0;
-		M_AXI_AWCACHE = 4'h0;
+		M_AXI_AWCACHE = 4'b0011;
 		M_AXI_AWPROT  = r_prot;
 		M_AXI_AWQOS   = r_qos;
 		//

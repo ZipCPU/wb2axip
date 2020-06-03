@@ -157,13 +157,13 @@ module wbm2axisp #(
 	assign o_axi_awburst = 2'b01;	// Incrementing address (ignored)
 	assign o_axi_awlock  = 1'b0;	// Normal signaling
 	assign o_axi_arlock  = 1'b0;	// Normal signaling
-	assign o_axi_awcache = 4'h2;	// Normal: no cache, no buffer
+	assign o_axi_awcache = 4'h3;	// Normal: no cache, modifyable
 	//
 	assign o_axi_arid    = AXI_READ_ID;
 	assign o_axi_arlen   = 8'h0;	// Burst length is one
 	assign o_axi_arsize  = DWSIZE[2:0];
 	assign o_axi_arburst = 2'b01;	// Incrementing address (ignored)
-	assign o_axi_arcache = 4'h2;	// Normal: no cache, no buffer
+	assign o_axi_arcache = 4'h3;	// Normal: no cache, modifyable
 	assign o_axi_awprot  = 3'b010;	// Unpriviledged, unsecure, data access
 	assign o_axi_arprot  = 3'b010;	// Unpriviledged, unsecure, data access
 	assign o_axi_awqos   = 4'h0;	// Lowest quality of service (unused)
