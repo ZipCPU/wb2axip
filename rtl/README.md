@@ -30,8 +30,10 @@ All three cores are supported by the (dev branch of)
 - [AXIS2MM](axis2mm.v).  Doesn't yet support unaligned transfers.  It may
   eventually, but it will also only ever support full word transfers
   through the stream.
-- [AXIDMA](axis2mm.v).  Unaligned transfer support is kept in another
-  repository, under a different license (currently).
+- [AXIDMA](axis2mm.v).  Supports unaligned transfers.
+- [AXIVFIFO](axivfifo.v).  A virtual FIFO, using an external AXI device for
+  memory backing--perhaps even an SDRAM.  It doesn't really matter--it just
+  needs to be AXI.
 
 - [Synchronous FIFO](sfifo.v)
 - [Synchronous FIFO with threshold](sfifothresh.v)

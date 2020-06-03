@@ -126,7 +126,7 @@ throughput capabilities.
   buffers](https://zipcpu.com/blog/2019/05/22/skidbuffer.html), and forcing idle
   channel values to zero in order to reduce power.
 
-  *This core has been formally verified.*
+  *This core has been formally verified and used in several designs.*
 
 - [AXILXBAR](rtl/axilxbar.v) is a fully functional, formally verified, `N`
   master to `M` slave AXI-lite [crossbar interconnect](https://zipcpu.com/blog/2019/07/17/crossbar.html).  As such, it permits
@@ -203,7 +203,7 @@ throughput capabilities.
   Xilinx's crossbar to do this, it would've broken their [demonstration
   AXI-full slave core](http://zipcpu.com/formal/2019/05/13/axifull.html).
 
-  *This core has been formally verified.*
+  *This core has been formally verified and used in several designs.*
 
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
@@ -227,7 +227,8 @@ throughput capabilities.
   buffers](https://zipcpu.com/blog/2019/05/22/skidbuffer.html) have been
   separated into an external module.
 
-  *This core has been formally verified.*
+  *This core has been formally verified.  While not used in any designs per se
+  it has formed the basis for many AXI-lite designs.*
 
 - [DEMOFULL](rtl/demofull.v) is a [fully capable AXI4 demonstration slave
   core](https://zipcpu.com/blog/2019/05/29/demoaxi.html)
@@ -242,7 +243,7 @@ throughput capabilities.
   per channel per clock with no stalls between bursts if the environment will
   allow it.
 
-  *This core has been formally verified.*
+  *This core has been formally verified and used in several designs.*
 
 - [AXILSAFETY](rtl/axilsafety.v) is a bus fault isolator AXI-lite translator,
   sometimes called a firewall, designed to support a connection to a trusted
@@ -276,14 +277,14 @@ throughput capabilities.
   for an AXI-lite slave.  This conversion is fully pipelined, and capable of
   sending back to back AXI-lite requests on both channels.
 
-  *This core has been formally verified.*
+  *This core has been formally verified and used in several designs.*
 
 - [AXIS2MM](rtl/axis2mm.v) converts an incoming stream signal into outgoinng
   AXI (full) requests.  Supports bursting and aborted transactions.  Also
   supports writes to a constant address, and continuous writes to concurrent
   addresses.  This core depends upon all stream addresses being aligned.
 
-  *This core has been formally verified.*
+  *This core has been formally verified and checked in simulation.*
 
 - [AXIMM2S](rtl/aximm2s.v) reads from a given address, and writes it to
   a FIFO buffer and then to an eventual AXI stream.  Read requests are not
@@ -295,7 +296,7 @@ throughput capabilities.
   Both this core and the one above it depend upon all stream addresses being
   aligned.
 
-  *This core has been formally verified.*
+  *This core has been both formally verified and checked in simulation.*
 
 - [AXIDMA](rtl/axidma.v) is a hardware assisted memory copy.  Given a source
   address, read address, and length, this core reads from the source address
@@ -306,7 +307,7 @@ throughput capabilities.
   This particular version can only handle bus aligned transfers.  A separate
   version that can handle unaligned transfers is available for purchase.
 
-  *This core has been formally verified.*
+  *This core has been formally verified and used in several designs.*
 
 - AXISINGLE is a (to be written) bus simplifier core along the lines of the
   [AXILSINGLE](rtl/axilsingle.v), [AXILDOUBLE](rtl/axildouble.v) and
@@ -347,6 +348,14 @@ throughput capabilities.
   by the masters ability to arbitrarily lower CYC at any time mid-cycle and
   reliably be able to cancel any outgoing transactions in the downstream
   channel direction.
+
+  *This core has been formally verified.*
+
+- [AXIVFIFO](rtl/axivfifo.v) implements a virtual FIFO.  A virtual FIFO is
+  basically a memory backed FIFO.  Hence, after data gets written to this
+  core it is then burst across an AXI bus to the whatever memory device is
+  connected to the bus.  This allows you to build FIFOs of arbitrarily large
+  length for ... whatever task.
 
   *This core has been formally verified.*
 
