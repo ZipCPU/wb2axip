@@ -24,15 +24,64 @@
 // {{{
 //   0:	FBUF_CONTROL and status
 //	bit 0: START(1)/STOP(0)
-//   4:	FBUF_LINEWORDS
-//   6:	FBUF_NUMLINES
-//   8:	FBUF_ADDRESS
-//  12:	(reserved for the upper FBUF_ADDRESS)
-// }}}
+//		Command the core to start by writing a '1' to this bit.  It
+//		will then remain busy/active until either you tell it to halt,
+//		or an error occurrs.
+//	bit 1: BUSY
+//	bit 2: ERR
+//		If the core receives a bus error, it assumes it has been
+//		inappropriately set up, sets this error bit and then halts.
+//		It will not start again until this bit is cleared.  Only a
+//		write to the control register with the ERR bit set will clear
+//		it.  (Don't do this unless you know what caused it to halt ...)
+//	bit 3: DIRTY
+//		If you update core parameters while it is running, the busy
+//		bit will be set.  This bit is an indication that the current
+//		configuration doesn't necessarily match the one you are reading
+//		out.  To clear DIRTY, deactivate the core, wait for it to be
+//		no longer busy, and then start it again.  This will also start
+//		it under the new configuration so the two match.
 //
-// Status:	This core is currently a draft.  It can succeed about 22 clock
-//		cycles of a formal check--not nearly long enough to be truly
-//		relevant, but long enough for me to put it down for a while.
+//   2:	FBUF_LINESTEP
+//		Controls the distance from one line to the next.  This is the
+//		value added to the address of the beginning of the line to get
+//		to the beginning of the next line.  This should nominally be
+//		equal to the number of bytes per line, although it doesn't
+//		need to be.
+//
+//		Any attempt to set this value to zero will simply copy the
+//		number of data bytes per line into this value.
+//
+//   4:	FBUF_LINEBYTES
+//		This is the number of data bytes necessary to capture all of
+//		the video data in a line.  This value must be more than zero
+//		in order to activate the core.
+//
+//		At present, this core can only handle a number of bytes aligned
+//		with the word size of the bus.
+//
+//   6:	FBUF_NUMLINES
+//		The number of lines of active video data in a frame.  This
+//		number must be greater than zero in order to activate and
+//		operate the core.
+//
+//   8:	FBUF_ADDRESS
+//		The is the first address of video data in memory.  Each frame
+//		will start reading from this address.
+//
+//  12:	(reserved for the upper FBUF_ADDRESS)
+//
+//  BUGS:
+//	Memory reads are currently allowed to wrap around the end of memory.
+//	I'm not (yet) sure if this is a good thing or a bad thing.  I mean, its
+//	a great thing for small dedicated memories designated for this purpose
+//	alone, but perhaps a bad thing if the memory space is shared with
+//	peripherals as well as a CPU.
+//
+//	I'd still like to add an option to handle  memory addresses that aren't
+//	aligned.  Until that is done, the means of interacting with the core
+//	will change from one implementation to another.
+// }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
@@ -42,26 +91,20 @@
 // Copyright (C) 2020, Gisselquist Technology, LLC
 // {{{
 //
-// This digital logic component is the proprietary property of Gisselquist
-// Technology, LLC.  It may only be distributed and/or re-distributed by the
-// express permission of Gisselquist Technology.
+// This file is part of the WB2AXIP project.
 //
-// Permission has been granted to the Patreon sponsors of the ZipCPU blog
-// to use this logic component as they see fit, but not to redistribute it
-// beyond their individual personal or commercial use.
+// The WB2AXIP project contains free software and gateware, licensed under the
+// Apache License, Version 2.0 (the "License").  You may not use this project,
+// or this file, except in compliance with the License.  You may obtain a copy
+// of the License at
 //
-// This component is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY
-// or FITNESS FOR A PARTICULAR PURPOSE.
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
-// Please feel free to contact me should you have any questions, or even if you
-// just want to ask about what you find within here.
-//
-// Yours,
-//
-// Dan Gisselquist
-// Owner
-// Gisselquist Technology, LLC
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+// License for the specific language governing permissions and limitations
+// under the License.
 //
 // }}}
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,15 +136,18 @@ module	axivdma #(
 		parameter	OPT_LGMAXBURST = 8,
 		//
 		parameter [0:0]	DEF_ACTIVE_ON_RESET = 0,
-		parameter [0:0]	DEF_LINES_PER_FRAME = 1024,
-		parameter [0:0]	DEF_WORDS_PER_LINE  = (1280 * 32)/C_AXI_DATA_WIDTH,
+		parameter [15:0] DEF_LINES_PER_FRAME = 1024,
+		parameter [16-ADDRLSB-1:0] DEF_WORDS_PER_LINE  = (1280 * 32)/C_AXI_DATA_WIDTH,
 		//
 		// DEF_FRAMEADDR: the default AXI address of the frame buffer
 		// containing video memory.  Unless OPT_UNALIGNED is set, this
 		// should be aligned so that DEF_FRAMEADDR[ADDRLSB-1:0] == 0.
-		parameter [C_AXI_ADDR_WIDTH-1:0]	DEF_FRAMEADDR = 0,
+		parameter [C_AXI_ADDR_WIDTH-1:0] DEF_FRAMEADDR = 0,
 		//
-		// The size of the FIFO
+		// The (log-based two of  the) size of the FIFO in words.
+		// I like to set this to the size of two AXI bursts, so that
+		// while one is being read out the second can be read in.  Can
+		// also be set larger if desired.
 		parameter	LGFIFO = OPT_LGMAXBURST+1,
 		//
 		// AXI_ID is the ID we will use for all of our AXI transactions
@@ -173,6 +219,9 @@ module	axivdma #(
 		// }}}
 		// }}}
 	);
+
+	// Core logic implementation
+	// {{{
 	// Local parameter declarations
 	// {{{
 	localparam [1:0]	FBUF_CONTROL	= 2'b00,
@@ -182,7 +231,8 @@ module	axivdma #(
 
 	localparam		CBIT_ACTIVE	= 0,
 				CBIT_BUSY	= 1,
-				CBIT_ERR	= 2;
+				CBIT_ERR	= 2,
+				CBIT_DIRTY	= 3;
 
 	localparam	TMPLGMAXBURST=(LGFIFO-1 > OPT_LGMAXBURST)
 					? OPT_LGMAXBURST : LGFIFO-1;
@@ -199,10 +249,10 @@ module	axivdma #(
 	// Signal declarations
 	// {{{
 	reg				r_busy, r_err, r_stopped;
-	reg				cfg_active, cfg_zero_length;
+	reg				cfg_active, cfg_zero_length, cfg_dirty;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	cfg_frame_addr;
-	reg	[15:0]			cfg_line_words, cfg_frame_lines,
-					cfg_line_step;
+	reg	[15:0]			cfg_frame_lines, cfg_line_step;
+	reg	[16-ADDRLSB-1:0]	cfg_line_words;
 
 	// FIFO signals
 	wire				reset_fifo, write_to_fifo,
@@ -247,19 +297,23 @@ module	axivdma #(
 	reg	[15:0]			ar_bursts_outstanding;
 	//
 	reg				vlast, hlast;
-	reg	[15:0]			r_frame_lines, r_line_words, r_line_step;
+	reg	[15:0]			r_frame_lines, r_line_step;
+	reg	[16-ADDRLSB-1:0]	r_line_words;
 	reg	[C_AXI_ADDR_WIDTH:0]	r_frame_addr;
 
 	reg				req_hlast, req_vlast;
-	reg	[15:0]			req_nlines, req_line_words,
-					req_line_step;
+	reg	[15:0]			req_nlines;
+	reg	[16-ADDRLSB-1:0]	req_line_words;
 	reg	[C_AXI_ADDR_WIDTH:0]	req_addr, req_line_addr;
 	//
-	reg		rd_hlast, rd_vlast;
-	reg	[15:0]	rd_lines, rd_line_beats, rd_line_step;
-	wire		no_fifo_space_available;
+	reg				rd_hlast, rd_vlast;
+	reg	[15:0]			rd_lines;
+	reg	[16-ADDRLSB-1:0]	rd_line_beats;
+	wire				no_fifo_space_available;
 	//
 	reg	[LGMAXBURST-1:0]	till_boundary;
+	reg	[LGFIFO:0]		fifo_space_available;
+
 
 `ifdef	FORMAL
 	reg	[C_AXI_ADDR_WIDTH:0]	f_rd_line_addr, f_rd_addr;
@@ -319,7 +373,6 @@ module	axivdma #(
 	// Read signaling
 	//
 	// {{{
-
 	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilarskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
@@ -355,12 +408,8 @@ module	axivdma #(
 	// {{{
 
 	//
-	// Abort transaction
-	//
-
-	//
-	// Start command
-	//
+	// r_busy,  r_err
+	// {{{
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
@@ -384,15 +433,18 @@ module	axivdma #(
 			r_err  <= 1;
 		end
 	end
+	// }}}
 
+	// wide_* and new_* write setup registers
+	// {{{
 	always @(*)
 	begin
 		wide_address = 0;
 		wide_address[C_AXI_ADDR_WIDTH-1:0] = cfg_frame_addr;
-		if (!OPT_UNALIGNED)
-			wide_address[ADDRLSB-1:0] = 0;
+		wide_address[ADDRLSB-1:0] = 0;
 
-		wide_config  = { cfg_frame_lines, cfg_line_words };
+		wide_config  = { cfg_frame_lines, cfg_line_words,
+					{(ADDRLSB){1'b0}} };
 	end
 
 	assign	new_cmdaddrlo = apply_wstrb(
@@ -425,36 +477,37 @@ module	axivdma #(
 			new_wideaddr[C_AXIL_DATA_WIDTH-1:0] = new_cmdaddrlo;
 		if (awskd_addr == FBUF_ADDRHI)
 			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH] = new_cmdaddrhi;
-		if (!OPT_UNALIGNED)
-			new_wideaddr[ADDRLSB-1:0] = 0;
+		new_wideaddr[ADDRLSB-1:0] = 0;
 		new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] = 0;
 	end
+	// }}}
 
-
-	initial begin
-		cfg_active      = 0;
-		cfg_frame_addr  = DEF_FRAMEADDR;
-		if (!OPT_UNALIGNED)
-			cfg_frame_addr[ADDRLSB-1:0] = 0;
-		cfg_line_words = DEF_WORDS_PER_LINE;
-		cfg_frame_lines = DEF_LINES_PER_FRAME;
-		cfg_zero_length = (DEF_WORDS_PER_LINE == 0)
+	// Configuration registers (Write)
+	// {{{
+	initial	cfg_active      = 0;
+	initial	cfg_frame_addr  = DEF_FRAMEADDR;
+	initial	cfg_frame_addr[ADDRLSB-1:0] = 0;
+	initial	cfg_line_words = DEF_WORDS_PER_LINE;
+	initial	cfg_frame_lines = DEF_LINES_PER_FRAME;
+	initial	cfg_zero_length = (DEF_WORDS_PER_LINE == 0)
 				||(DEF_LINES_PER_FRAME == 0);
-	end
-	// initial	unaligned_cmd_addr = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
 		cfg_active	<= DEF_ACTIVE_ON_RESET;
 		cfg_frame_addr	<= DEF_FRAMEADDR;
 		cfg_line_words	<= DEF_WORDS_PER_LINE;
-		cfg_line_step	<= DEF_WORDS_PER_LINE;
+		cfg_line_step	<= { DEF_WORDS_PER_LINE, {(ADDRLSB){1'b0}} };
 		cfg_frame_lines	<= DEF_LINES_PER_FRAME;
 		cfg_zero_length <= (DEF_WORDS_PER_LINE==0)
 			||(DEF_LINES_PER_FRAME == 0);
-		// unaligned_cmd_addr <= 1'b0;
-	end else if (axil_write_ready)
-	begin
+		cfg_dirty <= 0;
+	end else begin
+		if (r_stopped)
+			cfg_dirty <= 0;
+
+		if (axil_write_ready)
+		begin
 		if (M_AXI_RREADY && M_AXI_RVALID && M_AXI_RRESP[1])
 			cfg_active <= 0;
 
@@ -465,37 +518,48 @@ module	axivdma #(
 					&& (!cfg_zero_length))
 				cfg_active <= 1;
 
-			if (new_control[ADDRLSB+: 16] > cfg_line_words)
-				cfg_line_step <= new_control[ADDRLSB +: 16];
-			end
+			if (new_control[31:16] == 0)
+			begin
+				cfg_line_step <= 0;
+				cfg_line_step[16-ADDRLSB-1:0] <= cfg_line_words;
+				// Verilator lint_off WIDTH
+				cfg_dirty <= (cfg_line_step
+					!= (cfg_line_words << ADDRLSB));
+				// Verilator lint_on  WIDTH
+			end else begin
+				cfg_line_step <= new_control[31:16];
+				cfg_dirty <= (cfg_line_step != new_control[31:16]);
+			end end
 		FBUF_FRAMEINFO: begin
-			{ cfg_frame_lines, cfg_line_words } <= new_config;
+			{ cfg_frame_lines, cfg_line_words }
+				<= new_config[C_AXI_DATA_WIDTH-1:ADDRLSB];
 			cfg_zero_length <= (new_config[31:16] == 0)
-					||(new_config[15:0] == 0);
+					||(new_config[15:ADDRLSB] == 0);
 			if ((new_config[31:16] == 0)
-					||(new_config[15:0] == 0))
+					||(new_config[15:ADDRLSB] == 0))
 				cfg_active <= 0;
-			if (new_config[15:0] > cfg_line_step)
-				cfg_line_step = new_config[15:0];
+			cfg_dirty <= 1;
 			end
 		FBUF_ADDRLO, FBUF_ADDRHI: begin
 			cfg_frame_addr <= new_wideaddr[C_AXI_ADDR_WIDTH-1:0];
-			// cfg_unaligned  <= |new_wideaddr[ADDRLSB-1:0];
-			// if (!OPT_UNALIGNED)
-			//	unaligned_cmd_addr <= 1'b0;
+			cfg_dirty <= 1;
 			end
 		default: begin end
 		endcase
+		end
 	end
+	// }}}
 
+	// AXI-Lite read register data
+	// {{{
 	always @(*)
 	begin
 		w_status_word = 0;
-		w_status_word[CBIT_BUSY]	= r_busy;
-		w_status_word[ADDRLSB +: 16]	= cfg_line_step;
-		w_status_word[CBIT_ACTIVE]	= cfg_active
-				&& ((ADDRLSB>=2)||r_busy);
+		w_status_word[31:16]		= cfg_line_step;
+		w_status_word[CBIT_DIRTY]	= cfg_dirty;
 		w_status_word[CBIT_ERR]		= r_err;
+		w_status_word[CBIT_BUSY]	= r_busy;
+		w_status_word[CBIT_ACTIVE]	= cfg_active || (r_busy || !r_stopped);
 	end
 
 	always @(posedge i_clk)
@@ -505,13 +569,16 @@ module	axivdma #(
 		case(arskd_addr)
 		FBUF_CONTROL:	axil_read_data <= w_status_word;
 		FBUF_FRAMEINFO:	axil_read_data <= { cfg_frame_lines,
-						cfg_line_words };
+					cfg_line_words, {(ADDRLSB){1'b0}} };
 		FBUF_ADDRLO:	axil_read_data <= wide_address[C_AXIL_DATA_WIDTH-1:0];
 		FBUF_ADDRHI:	axil_read_data <= wide_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
 		default		axil_read_data <= 0;
 		endcase
 	end
+	// }}}
 
+	// apply_wstrb function for applying wstrbs to register words
+	// {{{
 	function [C_AXIL_DATA_WIDTH-1:0]	apply_wstrb;
 		input	[C_AXIL_DATA_WIDTH-1:0]		prior_data;
 		input	[C_AXIL_DATA_WIDTH-1:0]		new_data;
@@ -524,6 +591,7 @@ module	axivdma #(
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
 		end
 	endfunction
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -532,6 +600,7 @@ module	axivdma #(
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
+	// {{{
 	// {{{
 	assign	reset_fifo = r_stopped;
 
@@ -556,16 +625,19 @@ module	axivdma #(
 	// }}}
 
 	generate if (LGFIFO > 0)
-	begin
-		reg	[LGFIFO:0]	fifo_space_available;
-
+	begin : GEN_SPACE_AVAILBLE
+		// Here's where  we'll put the actual outgoing FIFO
+		// {{{
 		initial	fifo_space_available = (1<<LGFIFO);
 		always @(posedge i_clk)
 		if (reset_fifo)
-			fifo_space_available = (1<<LGFIFO);
+			fifo_space_available <= (1<<LGFIFO);
 		else case({phantom_start, read_from_fifo && !fifo_empty })
+		2'b00: begin end
+		// Verilator lint_off WIDTH
 		2'b10: fifo_space_available <= fifo_space_available - (M_AXI_ARLEN+1);
 		2'b11: fifo_space_available <= fifo_space_available - (M_AXI_ARLEN);
+		// Verilator lint_on  WIDTH
 		2'b01: fifo_space_available <= fifo_space_available + 1;
 		endcase
 
@@ -581,9 +653,9 @@ module	axivdma #(
 				M_AXIS_TDATA }, fifo_empty);
 
 		assign no_fifo_space_available = (fifo_space_available < (1<<LGMAXBURST));
-
-	end else begin
-
+		// }}}
+	end else begin : NO_FIFO
+		// {{{
 		assign	fifo_full  = !M_AXIS_TREADY;
 		assign	fifo_fill  = 0;
 		assign	fifo_empty = !M_AXIS_TVALID;
@@ -592,9 +664,9 @@ module	axivdma #(
 		assign	M_AXIS_TLAST = vlast && hlast;
 		assign	M_AXIS_TUSER = hlast;
 		assign	M_AXIS_TDATA = M_AXI_RDATA;
-		
-		assign no_fifo_space_available = (ar_bursts_outstanding >= 3);
 
+		assign no_fifo_space_available = (ar_bursts_outstanding >= 3);
+		// }}}
 	end endgenerate
 
 	// }}}
@@ -606,24 +678,26 @@ module	axivdma #(
 	//
 	//
 	// {{{
-
+	initial	r_frame_addr = 0;
 	always @(posedge  i_clk)
 	if (i_reset || r_stopped || (phantom_start && req_hlast && req_vlast))
 	begin
 		if (cfg_active)
 		begin
-			r_frame_addr  <= cfg_frame_addr;
+			r_frame_addr  <= { 1'b0, cfg_frame_addr };
 			r_frame_lines <= cfg_frame_lines;
 			r_line_words  <= cfg_line_words;
-			r_line_step   <= cfg_line_step;
+			r_line_step   <= { {(ADDRLSB){1'b0}}, cfg_line_step[15:ADDRLSB] };
 		end
 	end
 
+	initial	req_addr = 0;
+	initial	req_line_addr = 0;
 	always @(posedge  i_clk)
 	if (i_reset || r_stopped)
 	begin
-		req_addr       <= cfg_frame_addr;
-		req_line_addr  <= cfg_frame_addr;
+		req_addr       <= { 1'b0, cfg_frame_addr };
+		req_line_addr  <= { 1'b0, cfg_frame_addr };
 		req_line_words <= cfg_line_words;
 	end else if (phantom_start)
 	begin
@@ -631,8 +705,8 @@ module	axivdma #(
 		begin
 			if (cfg_active)
 			begin
-				req_addr       <= cfg_frame_addr;
-				req_line_addr  <= cfg_frame_addr;
+				req_addr       <= { 1'b0, cfg_frame_addr };
+				req_line_addr  <= { 1'b0, cfg_frame_addr };
 				req_line_words <= cfg_line_words;
 			end else begin
 				req_addr       <= r_frame_addr;
@@ -653,6 +727,8 @@ module	axivdma #(
 			req_addr <= req_addr +((M_AXI_ARLEN+1) << M_AXI_ARSIZE);
 			req_line_words <= req_line_words - (M_AXI_ARLEN+1);
 			// verilator lint_on  WIDTH
+
+			req_addr[ADDRLSB-1:0] <= 0;
 		end
 	end
 
@@ -688,6 +764,20 @@ module	axivdma #(
 		assert(req_addr >= r_frame_addr);
 		assert(req_line_addr >= r_frame_addr);
 		assert(req_line_addr <= req_addr);
+	end
+
+	always @(*)
+	if (cfg_active)
+	begin
+		assert(cfg_frame_lines != 0);
+		assert(cfg_line_words  != 0);
+	end
+
+	always @(*)
+	if (!r_stopped)
+	begin
+		assert(r_frame_lines != 0);
+		assert(r_line_words  != 0);
 	end
 `endif
 
@@ -738,8 +828,8 @@ module	axivdma #(
 	always @(posedge i_clk)
 	if (i_reset || r_stopped)
 	begin
-		f_rd_addr      <= cfg_frame_addr;
-		f_rd_line_addr <= cfg_frame_addr;
+		f_rd_addr      <= { 1'b0, cfg_frame_addr };
+		f_rd_line_addr <= { 1'b0, cfg_frame_addr };
 	end else if (M_AXI_RVALID && M_AXI_RREADY)
 	begin
 		if (rd_vlast && rd_hlast)
@@ -769,10 +859,11 @@ module	axivdma #(
 	// Some counters to keep track of our state
 	// {{{
 
+	// ar_bursts_outstanding
+	// {{{
 	// Count the number of bursts outstanding--these are the number of
 	// ARVALIDs that have been accepted, but for which the RVALID && RLAST
 	// has not (yet) been returned.
-	// {{{
 	initial	ar_none_outstanding   = 1;
 	initial	ar_bursts_outstanding = 0;
 	always @(posedge i_clk)
@@ -794,8 +885,9 @@ module	axivdma #(
 	endcase
 	// }}}
 
-	// Are we stopping early?  Aborting something ongoing?
+	// r_stopped, axi_abort_pending
 	// {{{
+	// Are we stopping early?  Aborting something ongoing?
 	initial	axi_abort_pending = 0;
 	always @(posedge i_clk)
 	if (i_reset || r_stopped)
@@ -815,9 +907,11 @@ module	axivdma #(
 		r_stopped <= 1;
 	// }}}
 
-	//
 	// }}}
 
+	//
+	// start_burst
+	// {{{
 	always @(*)
 	begin
 		start_burst = 1;
@@ -837,8 +931,10 @@ module	axivdma #(
 		if (axi_abort_pending)
 			start_burst  = 0;
 	end
+	// }}}
 
-
+	// ARLEN
+	// {{{
 	// Coming in, req_addr and req_line_words can be trusted
 	// lag_start will be true to reflect this
 	always @(posedge i_clk)
@@ -865,7 +961,10 @@ module	axivdma #(
 		else
 			axi_arlen <= till_boundary;
 	end
+	// }}}
 
+	// req_hlast
+	// {{{
 	always @(posedge i_clk)
 	if (lag_start || start_burst)
 	begin
@@ -886,9 +985,24 @@ module	axivdma #(
 			assert(axi_arlen+1 == req_line_words);
 		else
 			assert(axi_arlen+1 < req_line_words);
+	end else if (!r_stopped && !lag_start)
+	begin
+		if (max_burst != req_line_words)
+			assert(!req_hlast);
+		else if (!req_hlast && !M_AXI_ARVALID)
+			assert(axi_arlen < max_burst);
+
+		assert(max_burst > 0);
+		if (req_line_words > (1<<LGMAXBURST))
+			assert(max_burst == (1<<LGMAXBURST));
+		else
+			assert(max_burst == req_line_words);
 	end
 `endif
+	// }}}
 
+	// phantom_start
+	// {{{
 	initial	phantom_start = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -902,6 +1016,7 @@ module	axivdma #(
 		lag_start <= 1;
 	else
 		lag_start <= phantom_start;
+	// }}}
 
 	// ARVALID
 	// {{{
@@ -913,9 +1028,17 @@ module	axivdma #(
 		axi_arvalid <= start_burst;
 	// }}}
 
+	// ARADDR
+	// {{{
+	initial	axi_araddr = 0;
 	always @(posedge i_clk)
-	if (start_burst)
-		axi_araddr <= req_addr[C_AXI_ADDR_WIDTH-1:0];
+	begin
+		if (start_burst)
+			axi_araddr <= req_addr[C_AXI_ADDR_WIDTH-1:0];
+
+		axi_araddr[ADDRLSB-1:0] <= 0;
+	end
+	// }}}
 
 	// Set the constant M_AXI_* signals
 	// {{{
@@ -942,8 +1065,10 @@ module	axivdma #(
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_RID,
 			M_AXI_RRESP[0], fifo_full, wskd_strb[2:0],
 			S_AXIL_AWADDR[AXILLSB-1:0], S_AXIL_ARADDR[AXILLSB-1:0],
-			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
+			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
+			new_control, new_config, fifo_fill };
 	// Verilator lint_on  UNUSED
+	// }}}
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -981,10 +1106,10 @@ module	axivdma #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-lite control interface
-	// {{{
+	//
 	////////////////////////////////////////////////////////////////////////
 	//
-	//
+	// {{{
 	localparam	F_AXIL_LGDEPTH = 4;
 	wire	[F_AXIL_LGDEPTH-1:0]	faxil_rd_outstanding,
 			faxil_wr_outstanding, faxil_awr_outstanding;
@@ -1053,18 +1178,14 @@ module	axivdma #(
 	if (cfg_zero_length)
 		assert(!cfg_active);
 
-	always @(*)
-	if (cfg_line_step < cfg_line_words)
-		assert(!cfg_active);
-
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI master memory interface
-	// {{{
+	//
 	////////////////////////////////////////////////////////////////////////
 	//
-	//
+	// {{{
 
 	//
 	localparam	F_AXI_LGDEPTH = 11; // LGLENW-LGMAXBURST+2 ??
@@ -1129,7 +1250,6 @@ module	axivdma #(
 		.i_axi_rdata( M_AXI_RDATA),
 		.i_axi_rlast( M_AXI_RLAST),
 		.i_axi_rresp( M_AXI_RRESP),
-		// }}}
 		// ...
 		// }}}
 	);
@@ -1179,6 +1299,19 @@ module	axivdma #(
 			assert(req_line_addr[ADDRLSB-1:0] == 0);
 		end
 
+		if (M_AXI_RVALID)
+			assert(M_AXI_RLAST == (rd_hlast || (&f_rd_subaddr)));
+	end
+
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Read request to return address correlations
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 
 		if (M_AXI_RVALID)
 		begin
@@ -1191,6 +1324,24 @@ module	axivdma #(
 				assume(!M_AXI_RLAST);
 		end
 	end
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Other formal properties
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Contract checks
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// {{{
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1274,6 +1425,19 @@ module	axivdma #(
 		assume($stable(cfg_line_words));
 		assume($stable(cfg_line_step));
 	end
+
+
+	always @(*)
+		assume(!f_sequential);
+
+	always @(*)
+		assume(!f_biglines);
+
+	always @(*)
+		assume(!req_addr[C_AXI_ADDR_WIDTH]);
+
+	always @(*)
+		assume(!req_line_addr[C_AXI_ADDR_WIDTH]);
 	// }}}
 	// }}}
 `endif
