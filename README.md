@@ -293,8 +293,8 @@ throughput capabilities.
   the rest of the bus does as well.  Supports continuous, fixed address or
   incrementing, and aborted transactions.
 
-  Both this core and the one above it depend upon all stream addresses being
-  aligned.
+  Both this core and the one above it depend upon all stream words being
+  aligned to the stream.
 
   *This core has been both formally verified and checked in simulation.*
 
@@ -304,10 +304,20 @@ throughput capabilities.
   optimization, memory address requests are not made unless the core is able
   to transfer at a 100% throughput rate.
 
-  This particular version can only handle bus aligned transfers.  A separate
-  version that can handle unaligned transfers is available for purchase.
-
   *This core has been formally verified and used in several designs.*
+
+- [AXIVDMA](rtl/axivdma.v) is a AXI-based frame-buffer source.  Given a frame
+  start address in memory, the number of lines in an image and the number of
+  bytes per line, this core will perpetually read a video image from memory
+  and produce it on an outgoing stream interface.
+
+  This particular version can only handle bus aligned transfers.
+
+  *This core has been formally verified.*
+
+  You can find a demonstration of this core being used in my [VGA
+  simulator](https://github.com/ZipCPU/vgasim)--supporting both VGA and HDMI
+  outputs.
 
 - AXISINGLE is a (to be written) bus simplifier core along the lines of the
   [AXILSINGLE](rtl/axilsingle.v), [AXILDOUBLE](rtl/axildouble.v) and
