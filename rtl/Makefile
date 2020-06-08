@@ -40,10 +40,12 @@
 all:	test
 YYMMDD=`date +%Y%m%d`
 CXX   := g++
+IVCHECK  := ivcheck
+IVERILOG := iverilog
 FBDIR := .
 VDIRFB:= $(FBDIR)/obj_dir
 VERILATOR := verilator
-VFLAGS    := -MMD -Wall -cc
+VFLAGS    := -MMD -O3 -Wall -cc
 .DELETE_ON_ERROR:
 .PHONY: test
 test: testwb testaxi testaxil
@@ -53,38 +55,39 @@ test: testwb testaxi testaxil
 .PHONY: axim2wbsp axim2wbsp wbm2axilite axilrd2wbsp axilwr2wbsp axlite2wbsp
 .PHONY: axixbar axilxbar wbxbar axis2mm aximm2s axidma axim2wbsp aximrd2wbsp
 .PHONY: aximwr2wbsp axixclk axiperf demoaxi demofull easyaxil sfifo skidbuffer
-.PHONY: axilsafety axisafety wbsafety
+.PHONY: axilsafety axisafety wbsafety axivfifo
 
-axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a
+axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a    $(IVCHECK)/axim2wbsp
 axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
-wbm2axilite: $(VDIRFB)/Vwbm2axilite__ALL.a
-axilrd2wbsp: $(VDIRFB)/Vaxilrd2wbsp__ALL.a
-axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a
-axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a
-axixbar:     $(VDIRFB)/Vaxixbar__ALL.a
-axilxbar:    $(VDIRFB)/Vaxilxbar__ALL.a
-wbxbar:      $(VDIRFB)/Vwbxbar__ALL.a
-axis2mm:     $(VDIRFB)/Vaxis2mm__ALL.a
-aximm2s:     $(VDIRFB)/Vaximm2s__ALL.a
-axidma:      $(VDIRFB)/Vaxidma__ALL.a
-axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
-aximrd2wbsp: $(VDIRFB)/Vaximrd2wbsp__ALL.a
-aximwr2wbsp: $(VDIRFB)/Vaximwr2wbsp__ALL.a
-axiperf:     $(VDIRFB)/Vaxiperf__ALL.a
-axixclk:     $(VDIRFB)/Vaxixclk__ALL.a
-demoaxi:     $(VDIRFB)/Vdemoaxi__ALL.a
-demofull:    $(VDIRFB)/Vdemofull__ALL.a
-easyaxil:    $(VDIRFB)/Veasyaxil__ALL.a
-sfifo:       $(VDIRFB)/Vsfifo__ALL.a
-skidbuffer:  $(VDIRFB)/Vskidbuffer__ALL.a
-axisafety:   $(VDIRFB)/Vaxisafety__ALL.a
-axilsafety:  $(VDIRFB)/Vaxilsafety__ALL.a
-wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a
+wbm2axilite: $(VDIRFB)/Vwbm2axilite__ALL.a  $(IVCHECK)/wbm2axilite
+axilrd2wbsp: $(VDIRFB)/Vaxilrd2wbsp__ALL.a  $(IVCHECK)/axilrd2wbsp
+axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a  $(IVCHECK)/axilwr2wbsp
+axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a  $(IVCHECK)/axlite2wbsp
+axivfifo:    $(VDIRFB)/Vaxivfifo__ALL.a     $(IVCHECK)/axivfifo
+axixbar:     $(VDIRFB)/Vaxixbar__ALL.a      $(IVCHECK)/axixbar
+axilxbar:    $(VDIRFB)/Vaxilxbar__ALL.a     $(IVCHECK)/axilxbar
+wbxbar:      $(VDIRFB)/Vwbxbar__ALL.a       $(IVCHECK)/wbxbar
+axis2mm:     $(VDIRFB)/Vaxis2mm__ALL.a      $(IVCHECK)/axis2mm
+aximm2s:     $(VDIRFB)/Vaximm2s__ALL.a      $(IVCHECK)/aximm2s
+axidma:      $(VDIRFB)/Vaxidma__ALL.a       $(IVCHECK)/axidma
+axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a    $(IVCHECK)/axim2wbsp
+aximrd2wbsp: $(VDIRFB)/Vaximrd2wbsp__ALL.a  $(IVCHECK)/aximrd2wbsp
+aximwr2wbsp: $(VDIRFB)/Vaximwr2wbsp__ALL.a  $(IVCHECK)/aximwr2wbsp
+axiperf:     $(VDIRFB)/Vaxiperf__ALL.a      $(IVCHECK)/axiperf
+axixclk:     $(VDIRFB)/Vaxixclk__ALL.a      $(IVCHECK)/axixclk
+demoaxi:     $(VDIRFB)/Vdemoaxi__ALL.a      $(IVCHECK)/demoaxi
+demofull:    $(VDIRFB)/Vdemofull__ALL.a     $(IVCHECK)/demofull
+easyaxil:    $(VDIRFB)/Veasyaxil__ALL.a     $(IVCHECK)/easyaxil
+sfifo:       $(VDIRFB)/Vsfifo__ALL.a        $(IVCHECK)/sfifo
+skidbuffer:  $(VDIRFB)/Vskidbuffer__ALL.a   $(IVCHECK)/skidbuffer
+axisafety:   $(VDIRFB)/Vaxisafety__ALL.a    $(IVCHECK)/axisafety
+axilsafety:  $(VDIRFB)/Vaxilsafety__ALL.a   $(IVCHECK)/axilsafety
+wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a     $(IVCHECK)/wbsafety
 
 testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
 testaxi: axim2wbsp axixbar axixclk demofull
 testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
-testaxi: axis2mm aximm2s axidma
+testaxi: axis2mm aximm2s axidma axivfifo
 testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
 testaxil: skidbuffer axiperf
 
@@ -112,8 +115,6 @@ $(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.c
 $(VDIRFB)/Vaxilwr2wbsp__ALL.a: $(VDIRFB)/Vaxilwr2wbsp.mk
 $(VDIRFB)/Vaxilwr2wbsp.h $(VDIRFB)/Vaxilwr2wbsp.cpp $(VDIRFB)/Vaxilwr2wbsp.mk: axilwr2wbsp.v
 
-.PHONY: axlite2wbsp
-axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a
 $(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.cpp
 $(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.mk
 $(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.cpp $(VDIRFB)/Vaxlite2wbsp.mk: axlite2wbsp.v
@@ -123,11 +124,135 @@ $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.mk
 $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp $(VDIRFB)/Vaxim2wbsp.mk: \
 	axim2wbsp.v aximrd2wbsp.v aximwr2wbsp.v wbarbiter.v
 
+$(VDIRFB)/Vaxivfifo__ALL.a: $(VDIRFB)/Vaxivfifo.h $(VDIRFB)/Vaxivfifo.cpp
+$(VDIRFB)/Vaxivfifo__ALL.a: $(VDIRFB)/Vaxivfifo.mk
+$(VDIRFB)/Vaxivfifo.h $(VDIRFB)/Vaxivfifo.cpp $(VDIRFB)/Vaxivfifo.mk: \
+	axivfifo.v aximrd2wbsp.v aximwr2wbsp.v wbarbiter.v
+
 $(VDIRFB)/V%.cpp $(VDIRFB)/V%.h $(VDIRFB)/V%.mk: $(FBDIR)/%.v
-	$(VERILATOR) $(VFLAGS) $*.v 
+	$(VERILATOR) $(VFLAGS) $*.v
 
 $(VDIRFB)/V%__ALL.a: $(VDIRFB)/V%.mk
 	cd $(VDIRFB); make -f V$*.mk
+
+##
+## Run Icarus Verilog (iverilog) on each of these cores for a lint check
+##
+$(IVCHECK)/axi2axilite: axi2axilite.v sfifo.v skidbuffer.v axi_addr.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axil2axis: axil2axis.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axildouble: axildouble.v sfifo.v skidbuffer.v addrdecode.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilrd2wbsp: axilrd2wbsp.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilsafety: axilsafety.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilsingle: axilsingle.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilwr2wbsp: axilwr2wbsp.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilxbar: axilxbar.v skidbuffer.v addrdecode.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axidma: axidma.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/aximm2s: aximm2s.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axim2wbsp: axim2wbsp.v sfifo.v skidbuffer.v aximrd2wbsp.v aximwr2wbsp.v axi_addr.v wbarbiter.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/aximrd2wbsp: aximrd2wbsp.v sfifo.v skidbuffer.v axi_addr.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/aximwr2wbsp: aximwr2wbsp.v sfifo.v skidbuffer.v axi_addr.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axiperf: axiperf.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axisafety: axisafety.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axis2mm: axis2mm.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axivfifo: axivfifo.v sfifo.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axixbar: axixbar.v skidbuffer.v addrdecode.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axixclk: axixclk.v afifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axlite2wbsp: axlite2wbsp.v axilrd2wbsp.v axilwr2wbsp.v wbarbiter.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/demoaxi: demoaxi.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/demofull: demofull.v axi_addr.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/easyaxil: easyaxil.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/sfifo: sfifo.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/skidbuffer: skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/wbm2axilite: wbm2axilite.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/wbsafety: wbsafety.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/wbxbar: wbxbar.v skidbuffer.v addrdecode.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+define	mk-ivcheck
+	@bash -c "if [ ! -e $(IVCHECK) ]; then mkdir -p $(IVCHECK); fi"
+endef
 
 .PHONY: clean
 clean:
@@ -135,3 +260,4 @@ clean:
 	rm -rf $(VDIRFB)/*.cpp
 	rm -rf $(VDIRFB)/*.h
 	rm -rf $(VDIRFB)/
+	rm -rf $(IVCHECK)/
