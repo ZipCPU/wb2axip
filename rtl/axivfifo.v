@@ -231,7 +231,6 @@ module	axivfifo #(
 	reg				soft_reset, vfifo_empty, vfifo_full;
 	wire				reset_fifo;
 	reg	[C_AXI_ADDR_WIDTH-ADDRLSB:0]	vfifo_fill;
-	reg	[C_AXI_ADDR_WIDTH:0]	mem_space_available, mem_data_available;
 	reg	[BURSTAW:0]		mem_data_available_w,
 					writes_outstanding;
 	reg	[BURSTAW:0]		mem_space_available_w,
@@ -359,12 +358,10 @@ module	axivfifo #(
 	// Well, obviously, we can't fill our memory device or we have problems.
 	// To make sure we don't overflow, we count memory usage here.  We'll
 	// count memory usage in units of bursts of (1<<LGMAXBURST) words of
-	// (1<<ADDRLSB) bytes each.  A second assignment below is used to
-	// convert this into a byte-wise measure--just to have consistent units.
-	// So ... here we count the amount of device memory that hasn't (yet)
-	// been committed.  This is different from the memory used (which we
-	// don't calculate), or the memory which may yet be read--which we'll
-	// calculate in a moment.
+	// (1<<ADDRLSB) bytes each.  So ... here we count the amount of device
+	// memory that hasn't (yet) been committed.  This is different from the
+	// memory used (which we don't calculate), or the memory which may yet
+	// be read--which we'll calculate in a moment.
 	initial	mem_space_available_w = (1<<BURSTAW);
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || soft_reset)
@@ -374,10 +371,6 @@ module	axivfifo #(
 	2'b10: mem_space_available_w <= mem_space_available_w - 1;
 	default: begin end
 	endcase
-
-	always @(*)
-		mem_space_available = { mem_space_available_w,
-			{(LGMAXBURST+ADDRLSB){1'b0} } };
 	// }}}
 
 	// Determining when the read half is idle
@@ -431,10 +424,6 @@ module	axivfifo #(
 	2'b01: mem_data_available_w <= mem_data_available_w - 1;
 	default: begin end
 	endcase
-
-	always @(*)
-		mem_data_available = { mem_data_available_w,
-			{(LGMAXBURST+ADDRLSB){1'b0} } };
 	// }}}
 
 	//
@@ -862,6 +851,7 @@ module	axivfifo #(
 					f_data_available;
 
 	reg	[C_AXI_ADDR_WIDTH-1:0]	f_read_checksum;
+	reg	[C_AXI_ADDR_WIDTH:0]	mem_space_available, mem_data_available;
 	// }}}
 
 
@@ -957,6 +947,9 @@ module	axivfifo #(
 	//
 	// Write sanity checking
 	// {{{
+	always @(*)
+		mem_space_available = { mem_space_available_w,
+			{(LGMAXBURST+ADDRLSB){1'b0} } };
 
 	// Let's calculate the address of each write beat
 	// {{{
@@ -1005,8 +998,12 @@ module	axivfifo #(
 	//
 	// Read sanity checking
 	// {{{
-	// ...
 
+	always @(*)
+		mem_data_available = { mem_data_available_w,
+			{(LGMAXBURST+ADDRLSB){1'b0} } };
+	//
+	// ...
 	// Check the reads-idle signal
 	// {{{
 	// ...
