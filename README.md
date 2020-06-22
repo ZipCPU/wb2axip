@@ -306,6 +306,16 @@ throughput capabilities.
 
   *This core has been formally verified and used in several designs.*
 
+- [AXIVCAMERA](rtl/axivcamera.v) is a AXI-based frame-buffer writer.  Given
+  an AXI-stream video source, a frame start address, the number of lines in the
+  image and the number of bytes per line, this core will copy one (or more)
+  frames of video to memory.
+
+  This core is still very much in its draft stage.  Although it passes a bus
+  property check, it still has some known issues which might cause it to hang
+  in an actual design.  See [the source-file header](rtl/axivcamera.v) for
+  more details
+
 - [AXIVDISPLAY](rtl/axivdisplay.v) is a AXI-based frame-buffer source.  Given
   a frame start address in memory, the number of lines in an image and the
   number of bytes per line, this core will perpetually read a video image
