@@ -1301,6 +1301,7 @@ module	axivfifo #(
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
+	//
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || $past(!S_AXI_ARESETN))
 	begin

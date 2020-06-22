@@ -45,7 +45,7 @@ IVERILOG := iverilog
 FBDIR := .
 VDIRFB:= $(FBDIR)/obj_dir
 VERILATOR := verilator
-VFLAGS    := -MMD -O3 -Wall -cc
+VFLAGS    := -MMD -O3 -Wall -Wpedantic -cc
 .DELETE_ON_ERROR:
 .PHONY: test
 test: testwb testaxi testaxil
