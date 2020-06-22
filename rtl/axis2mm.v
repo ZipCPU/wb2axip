@@ -134,9 +134,9 @@
 //	1. The core passes both cover checks and formal property (assertion)
 //		based checks.  It has not (yet) been tested in real hardware.
 //
-//	2. I'd like to support unaligned addresses and lengths.  This will
+//	2. I'd also like to support unaligned addresses and lengths.  This will
 //		require aligning the data coming out of the FIFO as well.
-//		As written, the core doesn't yet support these.
+//		As written, the core doesn't yet support these features.
 //
 // }}}
 // Creator:	Dan Gisselquist, Ph.D.
@@ -381,7 +381,6 @@ module	axis2mm #(
 	reg	[7:0]			axi_awlen;
 	reg				axi_wvalid, axi_wlast;
 	reg [C_AXI_DATA_WIDTH/8-1:0]	axi_wstrb;
-	reg	[1:0]			awburst;
 
 	// Speed up checking for zeros
 	reg				aw_none_remaining,
@@ -389,7 +388,6 @@ module	axis2mm #(
 					wr_none_pending; // r_none_remaining;
 
 	reg				w_phantom_start, phantom_start;
-	reg	[LGFIFO:0]	next_fill;
 	reg	[LGMAXBURST:0]	initial_burstlen;
 	reg	[LGMAXBURST-1:0] addralign;
 
@@ -928,6 +926,7 @@ module	axis2mm #(
 					(phantom_start) ? ~M_AXI_AWLEN : 8'h00};
 	end
 
+	initial	r_pre_start = 1;
 	always @(posedge i_clk)
 	if (!r_busy)
 		r_pre_start <= 1;
@@ -1166,6 +1165,9 @@ module	axis2mm #(
 		if (phantom_start || r_pre_start)
 			w_phantom_start = 0;
 
+		if (M_AXI_AWVALID && !M_AXI_AWREADY)
+			w_phantom_start = 0;
+
 		// If we're still writing the last burst, then don't start
 		// any new ones
 		if (M_AXI_WVALID && (!M_AXI_WLAST || !M_AXI_WREADY))
@@ -1208,35 +1210,6 @@ module	axis2mm #(
 	// Calculate AWLEN and AWADDR for the next AWVALID
 	// {{{
 	//
-	// Determine next_awlen, for AWLEN in a bit
-	//
-	always @(*)
-	begin
-		next_fill = 2;
-		if (M_AXI_WVALID)
-		begin
-			// If we have already committed to reading
-			// an element from the FIFO, then adjust
-			// the size of the available values to be
-			// read by that amount
-			if (M_AXI_WLAST)
-				next_fill = 2-1;
-			else
-				// if !M_AXI_WLAST, then we've
-				// committed to reading at least
-				// one more value
-				next_fill = 2 - 2;
-		end
-
-		// Just to get a touch more performance, if we
-		// are writing to the FIFO on this clock, allow the
-		// FIFO to have just one more element
-		next_fill = next_fill + (write_to_fifo ? 1:0);
-		next_fill[8:2] = 0;
-
-		next_fill = next_fill + fifo_fill - 2;
-	end
-
 	initial	data_available = 0;
 	always @(posedge i_clk)
 	if (reset_fifo)
@@ -1259,10 +1232,13 @@ module	axis2mm #(
 		sufficiently_filled = (data_available[LGMAXBURST-1:0]
 				>= aw_requests_remaining[LGMAXBURST-1:0]);
 
+	//
+	//
 	always @(posedge i_clk)
 	begin
 		if (!M_AXI_AWVALID || M_AXI_AWREADY)
 			axi_awlen  <= r_max_burst[7:0] - 8'd1;
+
 		if (M_AXI_AWVALID && M_AXI_AWREADY)
 		begin
 			axi_awaddr[ADDRLSB-1:0] <= 0;
@@ -1275,10 +1251,7 @@ module	axis2mm #(
 		end
 
 		if (!r_busy)
-		begin
-			axi_awlen <= initial_burstlen[7:0] - 8'd1;
 			axi_awaddr<= cmd_addr;
-		end
 
 		if (!OPT_UNALIGNED)
 			axi_awaddr[ADDRLSB-1:0] <= 0;
@@ -1313,13 +1286,6 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (!M_AXI_WVALID || M_AXI_WREADY)
 		axi_wstrb <= (axi_abort_pending) ? 0:-1;
-
-	always @(posedge i_clk)
-	if (r_increment)
-		awburst <= 2'b01;
-	else
-		awburst <= 2'b00;
-
 	// }}}
 
 	// {{{
@@ -1330,9 +1296,9 @@ module	axis2mm #(
 	// Verilator lint_off WIDTH
 	assign	M_AXI_AWSIZE = $clog2(C_AXI_DATA_WIDTH)-3;
 	// Verilator lint_on  WIDTH
-	assign	M_AXI_AWBURST= awburst;
+	assign	M_AXI_AWBURST= { 1'b0, r_increment };
 	assign	M_AXI_AWLOCK = 0;
-	assign	M_AXI_AWCACHE= 4'b0011;
+	assign	M_AXI_AWCACHE= 0;
 	assign	M_AXI_AWPROT = 0;
 	assign	M_AXI_AWQOS  = 0;
 
@@ -1709,6 +1675,9 @@ module	axis2mm #(
 
 	// }}}
 
+	//
+	// Synchronization properties
+	// {{{
 	always @(*)
 	if (fifo_full)
 		assert(!S_AXIS_TREADY);
@@ -1731,10 +1700,11 @@ module	axis2mm #(
 	//
 	// ...
 	//
+	// }}}
 
 	//
 	// Error logic checking
-	//
+	// {{{
 	always @(*)
 	if (!r_err)
 		assert(r_errcode == 0);
@@ -1749,6 +1719,7 @@ module	axis2mm #(
 	if (f_past_valid && $past(S_AXI_ARESETN) && $past(w_cmd_start)
 		&&!$past(overflow && r_continuous))
 		assert(!r_err);
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1829,8 +1800,8 @@ module	axis2mm #(
 		end
 	end
 	// }}}
+
+	// This ends our formal property set
 `endif
+	// }}}
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif
