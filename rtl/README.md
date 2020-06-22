@@ -34,8 +34,10 @@ All three cores are supported by the (dev branch of)
 - [AXIVFIFO](axivfifo.v).  A virtual FIFO, using an external AXI device for
   memory backing--perhaps even an SDRAM.  It doesn't really matter--it just
   needs to be AXI.
-- [AXIVDMA](axivdma.v).  Reads from memory to generate an AXI stream video
-  source.
+- [AXIVDISPLAY](axivdisplay.v).  Reads a frame buffer from memory to generate
+  a continuous AXI-stream video source output.
+- AXIVCAMERA.  (Coming soon) Accepts an AXI-stream pixel source and writes 
+  the pixels to memory.
 
 - [Synchronous FIFO](sfifo.v)
 - [Synchronous FIFO with threshold](sfifothresh.v)

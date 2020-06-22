@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axivdma
+// Filename: 	axivdisplay
 //
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
@@ -72,15 +72,20 @@
 //  12:	(reserved for the upper FBUF_ADDRESS)
 //
 //  BUGS:
-//	Memory reads are currently allowed to wrap around the end of memory.
+//	1. Memory reads are currently allowed to wrap around the end of memory.
 //	I'm not (yet) sure if this is a good thing or a bad thing.  I mean, its
 //	a great thing for small dedicated memories designated for this purpose
 //	alone, but perhaps a bad thing if the memory space is shared with
 //	peripherals as well as a CPU.
 //
-//	I'd still like to add an option to handle  memory addresses that aren't
-//	aligned.  Until that is done, the means of interacting with the core
-//	will change from one implementation to another.
+//	2. I'd still like to add an option to handle  memory addresses that
+//	aren't aligned.  Until that is done, the means of interacting with the
+//	core will change from one implementation to another.
+//
+//	3. If the configuration changes mid-write, but without de-activating
+//	the core and waiting for it to come to idle, the synchronization flags
+//	might out-of-sync with the pixels.  To resolve, deactivate the core and
+//	let it come to whenever changing configuration parameters.
 // }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.
@@ -112,7 +117,7 @@
 //
 `default_nettype none
 //
-module	axivdma #(
+module	axivdisplay #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
@@ -130,7 +135,7 @@ module	axivdma #(
 		// OPT_UNALIGNED: Allow unaligned accesses, address requests
 		// and sizes which may or may not match the underlying data
 		// width.  If set, the core will quietly align these requests.
-		parameter [0:0]	OPT_UNALIGNED = 1'b0,
+		// parameter [0:0]	OPT_UNALIGNED = 1'b0,
 		//
 		// OPT_LGMAXBURST
 		parameter	OPT_LGMAXBURST = 8,
@@ -248,7 +253,7 @@ module	axivdma #(
 
 	// Signal declarations
 	// {{{
-	reg				r_busy, r_err, r_stopped;
+	reg				soft_reset, r_err, r_stopped;
 	reg				cfg_active, cfg_zero_length, cfg_dirty;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	cfg_frame_addr;
 	reg	[15:0]			cfg_frame_lines, cfg_line_step;
@@ -290,16 +295,15 @@ module	axivdma #(
 	// wire				realign_last_valid;
 
 	reg	axi_arvalid, lag_start, phantom_start, start_burst,
-		axi_abort_pending, ar_none_outstanding;
+		ar_none_outstanding;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_araddr;
 	reg	[LGMAXBURST:0]		max_burst;
 	reg	[7:0]			axi_arlen;
 	reg	[15:0]			ar_bursts_outstanding;
 	//
-	reg				vlast, hlast;
+	wire				vlast, hlast;
 	reg	[15:0]			r_frame_lines, r_line_step;
 	reg	[16-ADDRLSB-1:0]	r_line_words;
-	reg	[C_AXI_ADDR_WIDTH:0]	r_frame_addr;
 
 	reg				req_hlast, req_vlast;
 	reg	[15:0]			req_nlines;
@@ -408,14 +412,15 @@ module	axivdma #(
 	// {{{
 
 	//
-	// r_busy,  r_err
+	// soft_reset,  r_err
 	// {{{
+	initial	soft_reset = 1;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
-		r_busy <= 0;
+		soft_reset <= 1;
 		r_err  <= 0;
-	end else if (!r_busy)
+	end else if (soft_reset)
 	begin
 
 		if ((axil_write_ready && awskd_addr == FBUF_CONTROL)
@@ -423,15 +428,21 @@ module	axivdma #(
 			r_err <= cfg_zero_length;
 
 		if (cfg_active && !r_err && r_stopped)
-			r_busy <= 1;
+			soft_reset <= 0;
 
-	end else // if (r_busy)
+	end else // if (!soft_reset)
 	begin
+		// Halt on any bus error.  We'll require user intervention
+		// to start back up again
 		if (M_AXI_RREADY && M_AXI_RVALID && M_AXI_RRESP[1])
 		begin
-			r_busy <= 0;
+			soft_reset <= 1;
 			r_err  <= 1;
 		end
+
+		// Halt on any user request
+		if (!cfg_active)
+			soft_reset <= 1;
 	end
 	// }}}
 
@@ -505,23 +516,23 @@ module	axivdma #(
 	end else begin
 		if (r_stopped)
 			cfg_dirty <= 0;
-
-		if (axil_write_ready)
-		begin
+		if (cfg_active && req_hlast && req_vlast && phantom_start)
+			cfg_dirty <= 0;
 		if (M_AXI_RREADY && M_AXI_RVALID && M_AXI_RRESP[1])
 			cfg_active <= 0;
 
+		if (axil_write_ready)
 		case(awskd_addr)
 		FBUF_CONTROL: begin
-			if (wskd_strb[0] && wskd_data[CBIT_ACTIVE]
+			if (wskd_strb[0])
+				cfg_active <= wskd_data[CBIT_ACTIVE]
 					&& (!r_err || wskd_data[CBIT_ERR])
-					&& (!cfg_zero_length))
-				cfg_active <= 1;
+					&& (!cfg_zero_length);
 
 			if (new_control[31:16] == 0)
 			begin
 				cfg_line_step <= 0;
-				cfg_line_step[16-ADDRLSB-1:0] <= cfg_line_words;
+				cfg_line_step[16-1:ADDRLSB] <= cfg_line_words;
 				// Verilator lint_off WIDTH
 				cfg_dirty <= (cfg_line_step
 					!= (cfg_line_words << ADDRLSB));
@@ -546,7 +557,6 @@ module	axivdma #(
 			end
 		default: begin end
 		endcase
-		end
 	end
 	// }}}
 
@@ -558,8 +568,8 @@ module	axivdma #(
 		w_status_word[31:16]		= cfg_line_step;
 		w_status_word[CBIT_DIRTY]	= cfg_dirty;
 		w_status_word[CBIT_ERR]		= r_err;
-		w_status_word[CBIT_BUSY]	= r_busy;
-		w_status_word[CBIT_ACTIVE]	= cfg_active || (r_busy || !r_stopped);
+		w_status_word[CBIT_BUSY]	= !soft_reset;
+		w_status_word[CBIT_ACTIVE]	= cfg_active || (!soft_reset || !r_stopped);
 	end
 
 	always @(posedge i_clk)
@@ -604,24 +614,12 @@ module	axivdma #(
 	// {{{
 	assign	reset_fifo = r_stopped;
 
-	// Realign the data (if OPT_UNALIGN) before sending it to the FIFO
-	// {{{
-	// This allows us to handle unaligned addresses.
-	generate if (OPT_UNALIGNED)
-	begin : REALIGN_DATA
-
-		/* DRAFT REALIGNMENT NOT (YET) WRITTEN */
-
-	end else begin : ALIGNED_DATA
-
-		assign	write_to_fifo  = M_AXI_RVALID;
-		assign	write_data = M_AXI_RDATA;
-		// assign	realign_last_valid = 0;
-		assign	vlast = rd_vlast;
-		assign	hlast = rd_hlast;
-		assign	M_AXI_RREADY  = !fifo_full;
-
-	end endgenerate
+	assign	write_to_fifo  = M_AXI_RVALID;
+	assign	write_data = M_AXI_RDATA;
+	// assign	realign_last_valid = 0;
+	assign	vlast = rd_vlast;
+	assign	hlast = rd_hlast;
+	assign	M_AXI_RREADY  = !fifo_full;
 	// }}}
 
 	generate if (LGFIFO > 0)
@@ -678,17 +676,12 @@ module	axivdma #(
 	//
 	//
 	// {{{
-	initial	r_frame_addr = 0;
 	always @(posedge  i_clk)
 	if (i_reset || r_stopped || (phantom_start && req_hlast && req_vlast))
 	begin
-		if (cfg_active)
-		begin
-			r_frame_addr  <= { 1'b0, cfg_frame_addr };
-			r_frame_lines <= cfg_frame_lines;
-			r_line_words  <= cfg_line_words;
-			r_line_step   <= { {(ADDRLSB){1'b0}}, cfg_line_step[15:ADDRLSB] };
-		end
+		r_frame_lines <= cfg_frame_lines;
+		r_line_words  <= cfg_line_words;
+		r_line_step   <= { {(ADDRLSB){1'b0}}, cfg_line_step[15:ADDRLSB] };
 	end
 
 	initial	req_addr = 0;
@@ -703,16 +696,9 @@ module	axivdma #(
 	begin
 		if (req_hlast && req_vlast)
 		begin
-			if (cfg_active)
-			begin
-				req_addr       <= { 1'b0, cfg_frame_addr };
-				req_line_addr  <= { 1'b0, cfg_frame_addr };
-				req_line_words <= cfg_line_words;
-			end else begin
-				req_addr       <= r_frame_addr;
-				req_line_addr  <= r_frame_addr;
-				req_line_words <= r_line_words;
-			end
+			req_addr       <= { 1'b0, cfg_frame_addr };
+			req_line_addr  <= { 1'b0, cfg_frame_addr };
+			req_line_words <= cfg_line_words;
 		end else if (req_hlast)
 		begin
 			// verilator lint_off WIDTH
@@ -724,11 +710,11 @@ module	axivdma #(
 			req_line_words <= r_line_words;
 		end else begin
 			// verilator lint_off WIDTH
-			req_addr <= req_addr +((M_AXI_ARLEN+1) << M_AXI_ARSIZE);
+			req_addr <= req_addr + (1<<(LGMAXBURST+ADDRLSB));
 			req_line_words <= req_line_words - (M_AXI_ARLEN+1);
 			// verilator lint_on  WIDTH
 
-			req_addr[ADDRLSB-1:0] <= 0;
+			req_addr[LGMAXBURST+ADDRLSB-1:0] <= 0;
 		end
 	end
 
@@ -741,14 +727,8 @@ module	axivdma #(
 	begin
 		if (req_vlast)
 		begin
-			if (cfg_active)
-			begin
-				req_nlines <= cfg_frame_lines-1;
-				req_vlast <= (cfg_frame_lines <= 1);
-			end else begin
-				req_nlines <= r_frame_lines-1;
-				req_vlast <= (r_frame_lines <= 1);
-			end
+			req_nlines <= cfg_frame_lines-1;
+			req_vlast <= (cfg_frame_lines <= 1);
 		end else begin
 			req_nlines <= req_nlines - 1;
 			req_vlast <= (req_nlines <= 1);
@@ -758,11 +738,9 @@ module	axivdma #(
 	always @(*)
 	if (!r_stopped)
 	begin
-		assert(!r_frame_addr[C_AXI_ADDR_WIDTH]);
-
 		assert(req_vlast == (req_nlines == 0));
-		assert(req_addr >= r_frame_addr);
-		assert(req_line_addr >= r_frame_addr);
+		assert(req_addr >= { 1'b0, cfg_frame_addr });
+		assert(req_line_addr >= { 1'b0, cfg_frame_addr });
 		assert(req_line_addr <= req_addr);
 	end
 
@@ -834,8 +812,8 @@ module	axivdma #(
 	begin
 		if (rd_vlast && rd_hlast)
 		begin
-			f_rd_addr <= r_frame_addr;
-			f_rd_line_addr <= r_frame_addr;
+			f_rd_addr <= cfg_frame_addr;
+			f_rd_line_addr <= cfg_frame_addr;
 		end else if (rd_hlast)
 		begin
 			f_rd_addr <= f_rd_line_addr + (r_line_step << M_AXI_ARSIZE);
@@ -885,25 +863,17 @@ module	axivdma #(
 	endcase
 	// }}}
 
-	// r_stopped, axi_abort_pending
+	// r_stopped
 	// {{{
-	// Are we stopping early?  Aborting something ongoing?
-	initial	axi_abort_pending = 0;
-	always @(posedge i_clk)
-	if (i_reset || r_stopped)
-		axi_abort_pending <= 0;
-	else if (M_AXI_RVALID && M_AXI_RREADY && M_AXI_RRESP[1])
-		axi_abort_pending <= 1;
-	else if (!r_busy && !ar_none_outstanding)
-		axi_abort_pending <= 1;
-
+	// Following an error or drop of cfg_active, soft_reset will go high.
+	// We then come to a stop once everything becomes inactive
 	initial	r_stopped = 1;
 	always @(posedge  i_clk)
 	if (i_reset)
 		r_stopped <= 1;
 	else if (r_stopped)
-		r_stopped <= !r_busy || !cfg_active;
-	else if (axi_abort_pending && ar_none_outstanding && !M_AXI_ARVALID)
+		r_stopped <= soft_reset || !cfg_active;
+	else if (soft_reset && ar_none_outstanding && !M_AXI_ARVALID)
 		r_stopped <= 1;
 	// }}}
 
@@ -928,7 +898,7 @@ module	axivdma #(
 			start_burst = 0;
 
 		// If the user wants us to stop, then stop
-		if (axi_abort_pending)
+		if (!cfg_active || soft_reset)
 			start_burst  = 0;
 	end
 	// }}}
@@ -940,7 +910,7 @@ module	axivdma #(
 	always @(posedge i_clk)
 	if (lag_start)
 	begin
-		if (req_line_words > (1<<LGMAXBURST))
+		if (req_line_words >= (1<<LGMAXBURST))
 			max_burst <= (1<<LGMAXBURST);
 		else
 			// Verilator lint_off WIDTH
@@ -985,7 +955,7 @@ module	axivdma #(
 			assert(axi_arlen+1 == req_line_words);
 		else
 			assert(axi_arlen+1 < req_line_words);
-	end else if (!r_stopped && !lag_start)
+	end else if (!soft_reset && !r_stopped && !lag_start)
 	begin
 		if (max_burst != req_line_words)
 			assert(!req_hlast);
@@ -1278,19 +1248,11 @@ module	axivdma #(
 	// ...
 	//
 
-	always @(*)
-	if (r_busy)
-	begin
-		if (!OPT_UNALIGNED)
-			assert(!M_AXI_ARVALID || M_AXI_ARADDR[ADDRLSB-1:0] == 0);
-	end
-
 	reg	[LGMAXBURST-1:0]	f_rd_subaddr;
 	always @(*)
 		f_rd_subaddr = f_rd_addr[ADDRLSB +: LGMAXBURST];
 
 	always @(*)
-	if (!OPT_UNALIGNED)
 	begin
 		assert(cfg_frame_addr[ADDRLSB-1:0] == 0);
 		if (!r_stopped)
@@ -1377,7 +1339,7 @@ module	axivdma #(
 		cvr_full_frame <= rd_vlast && rd_hlast && M_AXI_RVALID && M_AXI_RREADY;
 
 	always @(*)
-		cover(r_busy);
+		cover(!soft_reset);
 
 	always @(*)
 		cover(start_burst);
@@ -1392,10 +1354,10 @@ module	axivdma #(
 		cover(M_AXI_RVALID & M_AXI_RLAST);
 
 	always @(*)
-		cover(!axi_abort_pending && cvr_full_frame);
+		cover(!r_stopped && cvr_full_frame);
 
 	always @(*)
-		cover(cvr_full_frame && phantom_start && !axi_abort_pending);
+		cover(cvr_full_frame && phantom_start && !r_stopped);
 
 	always @(*)
 	if (cvr_hlast_rlast)
@@ -1408,7 +1370,7 @@ module	axivdma #(
 	end
 
 	always @(*)
-		cover(cvr_hlast_rlast && cvr_full_frame && phantom_start && !axi_abort_pending);
+		cover(cvr_hlast_rlast && cvr_full_frame && phantom_start && !r_stopped);
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//

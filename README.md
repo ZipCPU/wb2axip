@@ -306,10 +306,10 @@ throughput capabilities.
 
   *This core has been formally verified and used in several designs.*
 
-- [AXIVDMA](rtl/axivdma.v) is a AXI-based frame-buffer source.  Given a frame
-  start address in memory, the number of lines in an image and the number of
-  bytes per line, this core will perpetually read a video image from memory
-  and produce it on an outgoing stream interface.
+- [AXIVDISPLAY](rtl/axivdisplay.v) is a AXI-based frame-buffer source.  Given
+  a frame start address in memory, the number of lines in an image and the
+  number of bytes per line, this core will perpetually read a video image
+  from memory and produce it on an outgoing stream interface.
 
   This particular version can only handle bus aligned transfers.
 
