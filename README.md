@@ -203,8 +203,6 @@ throughput capabilities.
   Xilinx's crossbar to do this, it would've broken their [demonstration
   AXI-full slave core](http://zipcpu.com/formal/2019/05/13/axifull.html).
 
-  *This core has been formally verified and used in several designs.*
-
 - [DEMOAXI](rtl/demoaxi.v) is a demonstration AXI-lite slave core with more
   power and capability than Xilinx's demonstration AXI-lite slave core.
   Particular differences include 1) this one passes a formal verification check
