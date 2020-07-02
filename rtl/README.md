@@ -81,6 +81,11 @@ All three cores are supported by the (dev branch of)
   through the bridge, this solution works quite well--achieving full (nearly
   100%) bus throughput when loaded.
 
+- [AXI3 to AXI4](axi32axi.v).  This is a work in progress core, still missing
+  it's AXI4 to AXI3 sister bridge.  That one will be more difficult, since it
+  will need to break apart large AXI4 burst requests into smaller AXI3 bursts,
+  sort of like the [AXI4 to AXI4-lite bridge](axi2axilite.v) does.
+
 ## AXI Simplifiers
 
 These follow from the discussion in [this article about how to simplify
@@ -118,6 +123,18 @@ the rest of the design for additional testing.
 - [AXI4](axisafety.v)
 
 - [Wishbone](wbsafety.v)
+
+## Empty slaves
+
+These are used to simplify interconnect generation.  When there are no slaves
+connected to an interconnect, the interconnect generator can automatically
+connect one of these slaves (depending on the protocol) and be guaranteed
+that the protocol will still be followed.  All requests, however, will return
+bus errors.
+
+- [AXIEMPTY](axiempty.v) - the AXI4 empty slave
+
+- [AXILEMPTY](axilempty.v) - the AXI4-lite empty slave
 
 ## Clock domain crossing bridges
 

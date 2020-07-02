@@ -84,6 +84,15 @@ by a set of formal properties for Wishbone classic, both for
 [slaves](bench/formal/fwbc_slave.v) as well as
 [masters](bench/formal/fwbc_master.v).
 
+# AXI3 bridging
+
+I'm now in the process of adding AXI3 bridges to this repository.  These
+will be necessary for working with the Zynq chips, and others, that are still
+using AXI3.  While the work is ongoing, I do have an [AXI3 to
+AXI4](rtl/axi32axi.v) bridge available that's undergoing testing.  The bridge
+isn't fully general purpose, since it assumes the W\* channel will remain
+in order, but it should be good enough for many (most?) applications.
+
 # Formal Verification
 
 Currently, the project contains formal specifications for
@@ -160,6 +169,21 @@ throughput capabilities.
   handle 100% throughput like most of my IP here.  Therefore, anything less
   than 100% throughput through this core will be a test of and reflection
   of how the rest of your system works.
+
+  *This core has been formally verified.*
+
+- [AXIEMPTY](rtl/axiempty.v) is a cross bar helper.  It's the simplest, most
+  basic slave I could come up with that obeyed all the rules of AXI while
+  returning a bus error for every request.  It's designed to be used by the
+  interconnect generator for those cases where there are no slaves on a given
+  AXI bus.
+
+  *This core has been formally verified.*
+
+- [AXILEMPTY](rtl/axilempty.v) is a cross bar helper along the same lines as
+  the [AXIEMPTY](rtl/axiempty.v) core above.  It has an nearly identical
+  purpose, save only that [AXILEMPTY](rtl/axilempty.v) is built to be the
+  empty slave on an AXI-lite bus, not an AXI one.
 
   *This core has been formally verified.*
 
