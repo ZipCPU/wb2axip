@@ -116,7 +116,7 @@ module	axi32axi #(
 		output	wire	[1:0]			S_AXI_RRESP,
 		//
 		//
-		// The AXI Master (DMA) interface
+		// The AXI4 Master (outgoing) interface
 		output	wire				M_AXI_AWVALID,
 		input	wire				M_AXI_AWREADY,
 		output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
@@ -177,7 +177,7 @@ module	axi32axi #(
 		axi4_awlock = S_AXI_AWLOCK[0];
 
 	skidbuffer #(
-		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + + 3 + 2 + 1+4+3+4),
+		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
 		.OPT_OUTREG(1'b1)
 	) awskid (
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
@@ -208,7 +208,7 @@ module	axi32axi #(
 		axi4_arlock = S_AXI_ARLOCK[0];
 
 	skidbuffer #(
-		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + + 3 + 2 + 1+4+3+4),
+		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
 		.OPT_OUTREG(1'b1)
 	) arskid (
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
