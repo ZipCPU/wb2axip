@@ -552,7 +552,7 @@ module	axivcamera #(
 			if (!cfg_active && r_stopped)
 			begin
 			{ cfg_frame_lines, cfg_line_words }
-				<= new_config[C_AXI_DATA_WIDTH-1:ADDRLSB];
+				<= new_config[C_AXIL_DATA_WIDTH-1:ADDRLSB];
 			cfg_zero_length <= (new_config[31:16] == 0)
 					||(new_config[15:ADDRLSB] == 0);
 			end
@@ -751,7 +751,7 @@ module	axivcamera #(
 	if (!cfg_active || req_vlast)
 		next_line_addr = { 1'b0, cfg_frame_addr };
 	else
-		next_line_addr = req_line_addr+ { {(16){1'b0}}, cfg_line_step };
+		next_line_addr = req_line_addr+ { {(C_AXI_ADDR_WIDTH-16){1'b0}}, cfg_line_step };
 
 	always @(posedge i_clk)
 	if (req_newline)
