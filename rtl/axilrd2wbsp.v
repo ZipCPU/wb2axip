@@ -32,7 +32,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-`default_nettype	none
+//`default_nettype	none
 //
 module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	// AXI read address channel signals

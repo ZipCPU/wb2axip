@@ -44,7 +44,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-`default_nettype	none
+//`default_nettype	none
 //
 module	aximrd2wbsp #(
 	parameter C_AXI_ID_WIDTH	= 6, // The AXI id width used for R&W

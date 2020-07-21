@@ -33,7 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-`default_nettype	none
+//`default_nettype	none
 //
 module	axilwr2wbsp(i_clk, i_axi_reset_n,
 	// AXI write address channel signals

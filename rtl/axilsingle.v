@@ -112,11 +112,11 @@ module	axilsingle #(
 		parameter	NS = 16,
 		//
 		parameter integer C_AXI_DATA_WIDTH = 32,
-		localparam integer C_AXI_ADDR_WIDTH = $clog2(NS)+$clog2(C_AXI_DATA_WIDTH)-3,
+		parameter integer C_AXI_ADDR_WIDTH = $clog2(NS)+$clog2(C_AXI_DATA_WIDTH)-3,
 		//
 		// AW, and DW, are short-hand abbreviations used locally.
-		localparam	AW = C_AXI_ADDR_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
+		parameter	AW = C_AXI_ADDR_WIDTH,
+		parameter	DW = C_AXI_DATA_WIDTH,
 		//
 		// LGFLEN specifies the log (based two) of the number of
 		// transactions that may need to be held outstanding internally.
