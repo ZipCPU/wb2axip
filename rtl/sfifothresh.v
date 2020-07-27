@@ -95,3 +95,7 @@ module sfifothresh(i_clk, i_reset,
 		assert(o_int == (o_fill >= $past(i_threshold)));
 `endif
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

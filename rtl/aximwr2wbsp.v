@@ -33,7 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-//`default_nettype	none
+`default_nettype	none
 //
 //
 module aximwr2wbsp #(
@@ -569,3 +569,7 @@ module aximwr2wbsp #(
 		cover(cvr_wrid_bursts == 4);
 `endif
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

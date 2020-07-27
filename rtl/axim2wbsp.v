@@ -39,7 +39,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-//`default_nettype	none
+`default_nettype	none
 //
 module axim2wbsp #(
 	parameter  C_AXI_ID_WIDTH	= 16, // The AXI id width used for R&W
@@ -281,3 +281,7 @@ module axim2wbsp #(
 `ifdef	FORMAL
 `endif
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

@@ -76,7 +76,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
-//`default_nettype none
+`default_nettype none
 //
 module skidbuffer(i_clk, i_reset,
 		i_valid, o_ready, i_data,

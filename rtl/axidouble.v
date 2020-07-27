@@ -1198,3 +1198,4 @@ module	axidouble #(
 	end endgenerate
 `endif
 endmodule
+`default_nettype wire

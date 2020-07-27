@@ -735,6 +735,6 @@ module	axildouble #(
 		cover((cvr_writes > 4) && (cvr_reads > 4));
 `endif
 endmodule
-// `ifndef	YOSYS
-// `default_nettype wire
-// `endif
+`ifndef	YOSYS
+`default_nettype wire
+`endif

@@ -632,3 +632,4 @@ module afifo(
 	end endgenerate
 `endif
 endmodule
+`default_nettype wire
