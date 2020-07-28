@@ -106,16 +106,16 @@ module axim2wbsp #(
 
 	// We'll share the clock and the reset
 	output	wire				o_reset,
-	output	wire				o_wb_cyc,
-	output	wire				o_wb_stb,
-	output	wire				o_wb_we,
-	output	wire [(AW-1):0]			o_wb_addr,
-	output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
-	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	input	wire				i_wb_stall,
-	input	wire				i_wb_ack,
-	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
-	input	wire				i_wb_err
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM CYC" *) output	wire				o_wb_cyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STB" *) output	wire				o_wb_stb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM WE" *) output	wire				o_wb_we,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ADR" *) output	wire [(AW-1):0]			o_wb_addr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MOSI" *) output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM SEL" *) output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STALL" *)input	wire				i_wb_stall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ACK" *) input	wire				i_wb_ack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MISO" *) input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ERR" *)input	wire				i_wb_err
 	);
 	//
 	//
