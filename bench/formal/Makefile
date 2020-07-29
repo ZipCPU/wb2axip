@@ -468,9 +468,25 @@ $(AXILDOUBLE)_cvr/PASS: $(RTL)/$(AXILDOUBLE).v $(RTL)/$(SFIFO).v $(AXILDOUBLE).s
 	sby -f $(AXILDOUBLE).sby cvr
 
 .PHONY: $(SFIFO)
-$(SFIFO): $(SFIFO)_prf/PASS $(SFIFO)_cvr/PASS
+$(SFIFO): $(SFIFO)_prf/PASS    $(SFIFO)_prf_a/PASS  $(SFIFO)_cvr/PASS
+$(SFIFO): $(SFIFO)_prf_r/PASS  $(SFIFO)_prf_w/PASS  $(SFIFO)_prf_wr/PASS
+$(SFIFO): $(SFIFO)_prf_ar/PASS $(SFIFO)_prf_aw/PASS $(SFIFO)_prf_awr/PASS
 $(SFIFO)_prf/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
 	sby -f $(SFIFO).sby prf
+$(SFIFO)_prf_r/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_r
+$(SFIFO)_prf_w/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_w
+$(SFIFO)_prf_wr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_wr
+$(SFIFO)_prf_a/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_a
+$(SFIFO)_prf_ar/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_ar
+$(SFIFO)_prf_aw/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_aw
+$(SFIFO)_prf_awr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
+	sby -f $(SFIFO).sby prf_awr
 $(SFIFO)_cvr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
 	sby -f $(SFIFO).sby cvr
 

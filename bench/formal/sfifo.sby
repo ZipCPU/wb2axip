@@ -1,5 +1,12 @@
 [tasks]
-prf
+prf     prf
+prf_r	prf                 opt_read_on_empty
+prf_w	prf                                   opt_write_on_full
+prf_wr	prf                 opt_read_on_empty opt_write_on_full
+prf_a	prf opt_async_read
+prf_ar	prf opt_async_read opt_read_on_empty
+prf_aw	prf opt_async_read                   opt_write_on_full
+prf_awr	prf opt_async_read opt_read_on_empty opt_write_on_full
 cvr
 
 [options]
@@ -14,6 +21,13 @@ smtbmc
 [script]
 read -define SFIFO
 read -formal sfifo.v
+--pycode-begin--
+cmd = "hierarchy -top sfifo"
+cmd += " -chparam OPT_ASYNC_READ  %d" % ( 1 if "opt_async_read" in tags else 0)
+cmd += " -chparam OPT_WRITE_ON_FULL  %d" % ( 1 if "opt_write_on_full" in tags else 0)
+cmd += " -chparam OPT_READ_ON_EMPTY  %d" % ( 1 if "opt_read_on_empty" in tags else 0)
+output(cmd)
+--pycode-end--
 prep -top sfifo
 
 [files]
