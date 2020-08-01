@@ -60,67 +60,69 @@ module wbm2axisp #(
 	parameter [C_AXI_ID_WIDTH-1:0] AXI_WRITE_ID = 1'b0,
 	parameter LGFIFO		=   6
 	) (
-	input	wire			i_clk,	// System clock
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME M_AXI_ACLK, ASSOCIATED_BUSIF M_AXI" *)
+	// , ASSOCIATED_RESET S_AXI_ARESETN, FREQ_HZ 80000000, PHASE 0.000" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 M_AXI_ACLK CLK" *)     input	wire			i_clk,	// System clock
 	input	wire			i_reset,// Reset signal,drives AXI rst
 
 	// AXI write address channel signals
-	output	reg			o_axi_awvalid,	// Write address valid
-	input	wire			i_axi_awready, // Slave is ready to accept
-	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
-	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,	// Write address
-	output	wire	[7:0]		o_axi_awlen,	// Write Burst Length
-	output	wire	[2:0]		o_axi_awsize,	// Write Burst size
-	output	wire	[1:0]		o_axi_awburst,	// Write Burst type
-	output	wire	[0:0]		o_axi_awlock,	// Write lock type
-	output	wire	[3:0]		o_axi_awcache,	// Write Cache type
-	output	wire	[2:0]		o_axi_awprot,	// Write Protection type
-	output	wire	[3:0]		o_axi_awqos,	// Write Quality of Svc
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWVALID" *)   output	reg			o_axi_awvalid,	// Write address valid
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWREADY" *)   input	wire			i_axi_awready, // Slave is ready to accept
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWID" *)      output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_awid,	// Write ID
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWADDR" *)    output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,	// Write address
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWLEN" *)     output	wire	[7:0]		o_axi_awlen,	// Write Burst Length
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWSIZE" *)    output	wire	[2:0]		o_axi_awsize,	// Write Burst size
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWBURST" *)   output	wire	[1:0]		o_axi_awburst,	// Write Burst type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWLOCK" *)    output	wire	[0:0]		o_axi_awlock,	// Write lock type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWCACHE" *)   output	wire	[3:0]		o_axi_awcache,	// Write Cache type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWPROT" *)    output	wire	[2:0]		o_axi_awprot,	// Write Protection type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWQOS" *)     output	wire	[3:0]		o_axi_awqos,	// Write Quality of Svc
 
 // AXI write data channel signals
-	output	reg			o_axi_wvalid,	// Write valid
-	input	wire			i_axi_wready,  // Write data ready
-	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,	// Write data
-	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,	// Write strobes
-	output	wire			o_axi_wlast,	// Last write transaction
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WVALID" *)    output	reg			o_axi_wvalid,	// Write valid
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WREADY" *)    input	wire			i_axi_wready,  // Write data ready
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WDATA" *)     output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,	// Write data
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WSTRB" *)     output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,	// Write strobes
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WLAST" *)     output	wire			o_axi_wlast,	// Last write transaction
 
 // AXI write response channel signals
-	input	wire			i_axi_bvalid,  // Write reponse valid
-	output	wire			o_axi_bready,  // Response ready
-	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
-	input	wire [1:0]		i_axi_bresp,	// Write response
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BVALID" *)    input	wire			i_axi_bvalid,  // Write reponse valid
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BREADY" *)    output	wire			o_axi_bready,  // Response ready
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BID" *)       input wire [C_AXI_ID_WIDTH-1:0]	i_axi_bid,	// Response ID
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BRESP" *)     input	wire [1:0]		i_axi_bresp,	// Write response
 
 // AXI read address channel signals
-	output	reg			o_axi_arvalid,	// Read address valid
-	input	wire			i_axi_arready,	// Read address ready
-	output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_arid,	// Read ID
-	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
-	output	wire	[7:0]		o_axi_arlen,	// Read Burst Length
-	output	wire	[2:0]		o_axi_arsize,	// Read Burst size
-	output	wire	[1:0]		o_axi_arburst,	// Read Burst type
-	output	wire	[0:0]		o_axi_arlock,	// Read lock type
-	output	wire	[3:0]		o_axi_arcache,	// Read Cache type
-	output	wire	[2:0]		o_axi_arprot,	// Read Protection type
-	output	wire	[3:0]		o_axi_arqos,	// Read Protection type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARVALID" *)   output	reg			o_axi_arvalid,	// Read address valid
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARREADY" *)   input	wire			i_axi_arready,	// Read address ready
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARID" *)      output	wire	[C_AXI_ID_WIDTH-1:0]	o_axi_arid,	// Read ID
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARADDR" *)    output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,	// Read address
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARLEN" *)     output	wire	[7:0]		o_axi_arlen,	// Read Burst Length
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARSIZE" *)    output	wire	[2:0]		o_axi_arsize,	// Read Burst size
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARBURST" *)   output	wire	[1:0]		o_axi_arburst,	// Read Burst type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARLOCK" *)    output	wire	[0:0]		o_axi_arlock,	// Read lock type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARCACHE" *)   output	wire	[3:0]		o_axi_arcache,	// Read Cache type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARPROT" *)    output	wire	[2:0]		o_axi_arprot,	// Read Protection type
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARQOS" *)     output	wire	[3:0]		o_axi_arqos,	// Read Protection type
 
 // AXI read data channel signals
-	input	wire			i_axi_rvalid,  // Read reponse valid
-	output	wire			o_axi_rready,  // Read Response ready
-	input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
-	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,    // Read data
-	input	wire	[1:0]		i_axi_rresp,   // Read response
-	input	wire			i_axi_rlast,    // Read last
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RVALID" *)    input	wire			i_axi_rvalid,  // Read reponse valid
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RREADY" *)    output	wire			o_axi_rready,  // Read Response ready
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RID" *)       input wire [C_AXI_ID_WIDTH-1:0]	i_axi_rid,     // Response ID
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RDATA" *)     input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,    // Read data
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RRESP" *)     input	wire	[1:0]		i_axi_rresp,   // Read response
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RLAST" *)     input	wire			i_axi_rlast,    // Read last
 
 	// We'll share the clock and the reset
-	input	wire			i_wb_cyc,
-	input	wire			i_wb_stb,
-	input	wire			i_wb_we,
-	input	wire	[(AW-1):0]	i_wb_addr,
-	input	wire	[(DW-1):0]	i_wb_data,
-	input	wire	[(DW/8-1):0]	i_wb_sel,
-	output	reg			o_wb_stall,
-	output	reg			o_wb_ack,
-	output	reg	[(DW-1):0]	o_wb_data,
-	output	reg			o_wb_err
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS CYC" *)      input	wire			i_wb_cyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STB" *)      input	wire			i_wb_stb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS WE" *)       input	wire			i_wb_we,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ADR" *)      input	wire	[(AW-1):0]	i_wb_addr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MOSI" *) input	wire	[(DW-1):0]	i_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS SEL" *)      input	wire	[(DW/8-1):0]	i_wb_sel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)    output	reg			o_wb_stall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ACK" *)      output	reg			o_wb_ack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MISO" *) output	reg	[(DW-1):0]	o_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ERR" *)      output	reg			o_wb_err
 );
 
 //*****************************************************************************
