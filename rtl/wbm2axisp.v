@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbm2axisp.v (Wishbone master to AXI slave, pipelined)
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	The B4 Wishbone SPEC allows transactions at a speed as fast as
@@ -23,9 +23,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2016-2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -45,7 +45,7 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module wbm2axisp #(
 	// {{{
 	parameter C_AXI_DATA_WIDTH	= 128,// Width of the AXI R&W data
@@ -350,10 +350,15 @@ module wbm2axisp #(
 		// }}}
 	end else begin : BIG_ENDIAN_WSTRB
 		// {{{
+		reg	[SUBW-1:0]	neg_addr;
+
+		always @(*)
+			neg_addr = ~m_addr[SUBW-1:0];
+
 		always @(posedge i_clk)
 		if (!o_axi_wvalid || i_axi_wready)
 			// Verilator lint_off WIDTH
-			o_axi_wstrb   <= m_sel << ((DW/8)*(~{ 1'b0, m_addr[SUBW-1:0] }));
+			o_axi_wstrb   <= m_sel << ((DW/8)* neg_addr);
 			// Verilator lint_on WIDTH
 		// }}}
 	end endgenerate
@@ -392,12 +397,17 @@ module wbm2axisp #(
 		// }}}
 	end else begin : OPT_BIG_ENDIAN
 		// {{{
+		reg	[SUBW-1:0]	neg_addr;
+
+		always @(*)
+			neg_addr = ~m_addr[SUBW-1:0];
+
 		always @(posedge i_clk)
 		if (!o_axi_awvalid || i_axi_awready)
 		begin
 			o_axi_awaddr <= 0;
 			o_axi_awaddr <= m_addr << ($clog2(DW)-3);
-			o_axi_awaddr[$clog2(DW)-3 +: SUBW] <= ~m_addr[SUBW-1:0];
+			o_axi_awaddr[$clog2(DW)-3 +: SUBW] <= neg_addr;
 		end
 
 		always @(posedge i_clk)
@@ -405,7 +415,7 @@ module wbm2axisp #(
 		begin
 			o_axi_araddr <= 0;
 			o_axi_araddr <= m_addr << ($clog2(DW)-3);
-			o_axi_araddr[$clog2(DW)-3 +: SUBW] <= ~m_addr[SUBW-1:0];
+			o_axi_araddr[$clog2(DW)-3 +: SUBW] <= neg_addr;
 		end
 		// }}}
 	end endgenerate
@@ -461,7 +471,7 @@ module wbm2axisp #(
 
 		always @(posedge i_clk)
 		if (m_valid && m_ready)
-			addr_fifo[wr_addr[LGFIFO-1:0]] <= i_wb_addr[SUBW-1:0];
+			addr_fifo[wr_addr[LGFIFO-1:0]] <= m_addr[SUBW-1:0];
 
 		initial	rd_addr = 0;
 		always @(posedge i_clk)
@@ -480,8 +490,13 @@ module wbm2axisp #(
 
 		end else begin : BIG_ENDIAN_RDATA
 
+			reg	[SUBW-1:0]	neg_fifo_value;
+
+			always @(*)
+				neg_fifo_value = ~fifo_value;
+
 			assign	return_data = i_axi_rdata
-						>> ((~fifo_value) * DW);
+						>> (neg_fifo_value * DW);
 
 		end
 
@@ -563,22 +578,27 @@ module wbm2axisp #(
 		assert(DW == 8 && AW == C_AXI_ADDR_WIDTH);
 		assert(C_AXI_ADDR_WIDTH == AW + $clog2(DW)-3);
 	end
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
 	//
-	// Setup
+	// Setup / f_past_valid
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
-
-	//////////////////////////////////////////////
-	//
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Assumptions about the WISHBONE inputs
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	//////////////////////////////////////////////
 	always @(*)
 	if (!f_past_valid)
 		assume(i_reset);
@@ -593,20 +613,23 @@ module wbm2axisp #(
 				o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
 			f_wb_nreqs, f_wb_nacks, f_wb_outstanding);
 
-	//////////////////////////////////////////////
-	//
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Assumptions about the AXI inputs
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	//////////////////////////////////////////////
-
 
 	faxi_master #(
+		// {{{
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
-		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH))
-		f_axi(.i_clk(i_clk), .i_axi_reset_n(!i_reset),
+		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH)
+		// ...
+		// }}}
+	) f_axi(.i_clk(i_clk), .i_axi_reset_n(!i_reset),
 			// {{{
 			// Write address channel
 			.i_axi_awready(i_axi_awready),
@@ -659,7 +682,7 @@ module wbm2axisp #(
 			// ...
 			//
 			// }}}
-		);
+	);
 
 	always @(*)
 	if (!flushing && i_wb_cyc)
@@ -712,7 +735,7 @@ module wbm2axisp #(
 		assert(!o_axi_wvalid);
 		assert(f_axi_awr_nbursts == 0);
 	end
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Pending counter properties
@@ -793,14 +816,19 @@ module wbm2axisp #(
 	// Prove that a write to this address will change this value
 	//
 
+	// Some extra register declarations
+	// {{{
 	(* anyconst *) reg [C_AXI_ADDR_WIDTH-1:0]	f_const_addr;
 	reg		[C_AXI_DATA_WIDTH-1:0]		f_data;
+	// }}}
 
 	//
 	// Assume a basic bus response to the given data and address
 	//
 	integer	iN;
 
+	// f_data
+	// {{{
 	initial	f_data = 0;
 	always @(posedge i_clk)
 	if (o_axi_wvalid && i_axi_wready && o_axi_awaddr == f_const_addr)
@@ -811,27 +839,40 @@ module wbm2axisp #(
 				f_data[8*iN +: 8] <= o_axi_wdata[8*iN +: 8];
 		end
 	end
+	// }}}
 
+	// Assume RDATA == f_data if appropriate
+	// {{{
 	always @(*)
 	if (i_axi_rvalid && o_axi_rready && f_axi_rd_ckvalid
 			&& (f_axi_rd_ckaddr == f_const_addr))
 		assume(i_axi_rdata == f_data);
+	// }}}
 
+	// f_wb_addr -- A WB address designed to match f_const_addr (AXI addr)
+	// {{{
 	always @(*)
 	begin
 		f_wb_addr = f_const_addr[C_AXI_ADDR_WIDTH-1:DWSIZE];
 		if (!OPT_LITTLE_ENDIAN && SUBW > 0)
 			f_wb_addr[0 +: SUBW] = ~f_wb_addr[0 +: SUBW];
 	end
+	// }}}
 
+	// Assume the address is Wishbone word aligned
+	// {{{
 	generate if (DW > 8)
 	begin
 		always @(*)
 			assume(f_const_addr[$clog2(DW)-4:0] == 0);
 	end endgenerate
+	// }}}
 
+	// f_axi_data -- Replicate f_wb_data across the whole word
+	// {{{
 	always @(*)
 		f_axi_data = {(C_AXI_DATA_WIDTH/DW){f_wb_data}};
+	// }}}
 
 	//
 	// ...
@@ -889,14 +930,17 @@ module wbm2axisp #(
 
 		always @(*)
 			f_axi_strb   <= f_wb_strb << ( (DW/8) *
-				f_wb_addr[$clog2(C_AXI_DATA_WIDTH/DW)-1:0]);
+				f_wb_addr[SUBW-1:0]);
 
 	end else // if (!OPT_LITTLE_ENDIAN)
 	begin
+		reg	[SUBW-1:0]	f_neg_addr;
 
 		always @(*)
-			f_axi_strb   <= f_wb_strb << ( (DW/8) *
-				(~f_wb_addr[$clog2(C_AXI_DATA_WIDTH/DW)-1:0]));
+			f_neg_addr = ~f_wb_addr[SUBW-1:0];
+
+		always @(*)
+			f_axi_strb   <= f_wb_strb << ( (DW/8) * f_neg_addr );
 
 	end endgenerate
 	// }}}
@@ -1079,6 +1123,9 @@ module wbm2axisp #(
 	always @(*)
 		cover(cvr_nreads == 3 && !o_wb_ack && !o_wb_err && !i_wb_cyc);
 
+	//
+	// Generate a cover that doesn't include an abort
+	// {{{
 	(* anyconst *) reg f_never_abort;
 
 	always @(*)
@@ -1092,6 +1139,7 @@ module wbm2axisp #(
 	always @(*)
 		cover(cvr_nreads == 3 && !o_wb_ack && !o_wb_err && !i_wb_cyc
 			&& f_never_abort);
+	// }}}
 
 	// }}}
 `endif // FORMAL
