@@ -1198,4 +1198,7 @@ module	axidouble #(
 	end endgenerate
 `endif
 endmodule
+`ifndef YOSYS
 `default_nettype wire
+`endif
+
