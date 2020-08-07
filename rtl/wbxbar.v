@@ -176,7 +176,7 @@ module	wbxbar(i_clk, i_reset,
 	// assign	o_macc = (i_mstb & ~o_mstall);
 	// assign	o_sacc = (o_sstb & ~i_sstall);
 	//
-	// These definitions work with Verilator, just not with Yosys
+	// These definitions work with Veri1ator, just not with Yosys
 	// reg	[NM-1:0][NS:0]		request;
 	// reg	[NM-1:0][NS-1:0]	requested;
 	// reg	[NM-1:0][NS:0]		grant;
@@ -676,6 +676,11 @@ module	wbxbar(i_clk, i_reset,
 	// riding on them
 	generate if ((NM == 1) && (!OPT_LOWPOWER))
 	begin
+		reg			r_swe;
+		reg	[AW-1:0]	r_saddr;
+		reg	[DW-1:0]	r_sdata;
+		reg	[DW/8-1:0]	r_ssel;
+
 		//
 		// This is the low logic version of our bus data outputs.
 		// It only works if we only have one master.
@@ -686,27 +691,34 @@ module	wbxbar(i_clk, i_reset,
 		//
 		always @(posedge i_clk)
 		begin
-			o_swe[0]        <= o_swe[0];
-			o_saddr[0+: AW] <= o_saddr[0+:AW];
-			o_sdata[0+: DW] <= o_sdata[0+:DW];
-			o_ssel[0+:DW/8] <=o_ssel[0+:DW/8];
+			r_swe   <= o_swe[0];
+			r_saddr <= o_saddr[0+:AW];
+			r_sdata <= o_sdata[0+:DW];
+			r_ssel  <=o_ssel[0+:DW/8];
 
+			// Verilator lint_off WIDTH
 			if (sgrant[mindex[0]] && !s_stall[mindex[0]])
+			// Verilator lint_on  WIDTH
 			begin
-				o_swe[0]        <= m_we[0];
-				o_saddr[0+: AW] <= m_addr[0];
-				o_sdata[0+: DW] <= m_data[0];
-				o_ssel[0+:DW/8] <= m_sel[0];
+				r_swe   <= m_we[0];
+				r_saddr <= m_addr[0];
+				r_sdata <= m_data[0];
+				r_ssel  <= m_sel[0];
 			end
 		end
 
-		for(M=1; M<NS; M=M+1)
+		//
+		// The original version set o_s*[0] above, and then
+		// combinatorially the rest of o_s* here below.  That broke
+		// Veri1ator.  Hence, we're using r_s* and setting all of o_s*
+		// here.
+		for(M=0; M<NS; M=M+1)
 		always @(*)
 		begin
-			o_swe[M]            = o_swe[0];
-			o_saddr[M*AW +: AW] = o_saddr[0 +: AW];
-			o_sdata[M*DW +: DW] = o_sdata[0 +: DW];
-			o_ssel[M*DW/8+:DW/8]= o_ssel[0 +: DW/8];
+			o_swe[M]            = r_swe;
+			o_saddr[M*AW +: AW] = r_saddr[AW-1:0];
+			o_sdata[M*DW +: DW] = r_sdata[DW-1:0];
+			o_ssel[M*DW/8+:DW/8]= r_ssel[DW/8-1:0];
 		end
 
 	end else for(M=0; M<NS; M=M+1)
