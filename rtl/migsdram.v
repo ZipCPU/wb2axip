@@ -286,7 +286,7 @@ module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 `else
 	BUFG	sysclk(i_clk, o_sys_clk);
 	initial	o_sys_reset <= 1'b1;
-	always	@(posedge i_clk)
+	always @(posedge i_clk)
 		o_sys_reset <= 1'b1;
 
 	OBUFDS ckobuf(.I(i_clk), .O(o_ddr_ck_p), .OB(o_ddr_ck_n));

@@ -1,3 +1,8 @@
+Every IP component in the [rtl](../../rtl) directory should have a respective
+SymbiYosys script here.  (A .sby file.)  Many of the AXI scripts remain
+proprietary and so get published elsewhere, but the AXI-lite and Wishbone
+scripts can be found here.
+
 In addition to the formal verification scripts found in this directory,
 you'll also find a series of bus properties for various interface standards.
 In general, these property sets are found in pairs--one property set for the
@@ -28,7 +33,11 @@ be the easiest AXI4-lite property sets to use.
 These properties are kept in a separate repository.  You can see some of what
 they contain in the [master](faxi_master.v) and [slave](faxi_slave.v) properties
 contained in this directory.  The full properties, however, will allow you to
-do a proper induction (unbounded) proof.
+do a proper induction (unbounded) proof.  Those full properties can also handle
+out-of-order packet returns, such as AXI permits, to make certain that a
+core is fully/properly functional.  The difficulty of checking these out of
+order properties using induction is one of the reasons these properties may be
+purchased rather than downloaded for free.
 
 ## AXI Stream
 
@@ -39,6 +48,9 @@ slave is unique, especially input or output slaves that operate at a fixed
 rate.  These properties also rely upon default portlist properties for
 the rarely used signals, `TID`, `TKEEP`, `TDEST`, and `TUSER`, something
 Yosys didn't yet support when they were first written.
+
+That said, the properties are currently good enough as is to prove that
+[Xilinx's AXI-Stream master](xlnxstream_2018_3.v) demonstration IP is broken.
 
 ## Avalon
 

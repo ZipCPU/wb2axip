@@ -1,0 +1,24 @@
+[tasks]
+prf
+cvr
+prfopt prf opt_dstb
+cvropt cvr opt_dstb
+
+[options]
+prf: mode prove
+prf: depth 4
+cvr: mode cover
+cvr: depth 32
+multiclock on
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal -D AFIFO afifo.v
+opt_dstb:  hierarchy -top afifo -chparam F_OPT_DATA_STB 1
+~opt_dstb: hierarchy -top afifo -chparam F_OPT_DATA_STB 0
+prep -top afifo
+
+[files]
+../../rtl/afifo.v

@@ -2,10 +2,9 @@
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
 [*] Thu Dec 27 16:19:38 2018
 [*]
-[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/xlnxdemo_cvr/engine_0/trace19.vcd"
+[dumpfile] "(null)"
 [dumpfile_mtime] "Thu Dec 27 03:40:12 2018"
 [dumpfile_size] 68959
-[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/xlnxdemo.gtkw"
 [timestart] 0
 [size] 1473 600
 [pos] -474 -1

@@ -1,14 +1,19 @@
 [tasks]
 prf
+cvr
 
 [options]
-mode bmc
-depth 50
+prf: mode prove
+cvr: mode cover
+depth 40
 
 [engines]
 smtbmc boolector
 
 [script]
+read -formal skidbuffer.v
+read -formal sfifo.v
+read -formal axi_addr.v
 read -formal aximrd2wbsp.v
 read -formal fwb_master.v
 read -formal faxi_slave.v
@@ -16,6 +21,9 @@ prep -top aximrd2wbsp
 
 
 [files]
+../../rtl/sfifo.v
+../../rtl/skidbuffer.v
+../../rtl/axi_addr.v
 ../../rtl/aximrd2wbsp.v
 fwb_master.v
 faxi_slave.v

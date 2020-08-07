@@ -1,0 +1,39 @@
+[tasks]
+prf           opt_sink opt_src opt_sign opt_sign opt_timeout
+prflps    prf opt_sink opt_src opt_sign opt_lowpower opt_sign
+prflpu    prf opt_sink opt_src opt_sign opt_lowpower
+prfsink   prf opt_sink opt_src opt_sign
+prfsource prf opt_sink opt_src opt_sign
+cvr           opt_sink opt_src opt_timeout
+
+[options]
+prf: mode prove
+prf: depth 12
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axil2axis.v
+read -formal skidbuffer.v
+read -formal sfifo.v
+read -formal faxil_slave.v
+--pycode-begin--
+cmd = "hierarchy -top axil2axis"
+cmd += " -chparam OPT_TIMEOUT %d" % (5 if "opt_timeout" in tags else 0)
+cmd += " -chparam LGFIFO %d" % (2 if "cvr" in tags else 5)
+cmd += " -chparam OPT_SINK %d" % (1 if "opt_sink" in tags else 0)
+cmd += " -chparam OPT_SOURCE %d" % (1 if "opt_src" in tags else 0)
+cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+cmd += " -chparam OPT_SIGN_EXTEND %d" % (1 if "opt_sign" in tags else 0)
+output(cmd);
+--pycode-end--
+prep -top axil2axis
+
+[files]
+../../rtl/axil2axis.v
+../../rtl/skidbuffer.v
+../../rtl/sfifo.v
+faxil_slave.v

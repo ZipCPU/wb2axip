@@ -235,7 +235,7 @@ module	axilxbar #(
 
 	// The shadow buffers
 	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
-	reg	[NM-1:0]	dcd_awvalid, dcd_arvalid;
+	wire	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
 	wire	[C_AXI_ADDR_WIDTH-1:0]		m_awaddr	[0:NMFULL-1];
 	wire	[2:0]				m_awprot	[0:NMFULL-1];
@@ -259,7 +259,9 @@ module	axilxbar #(
 	reg	[NSFULL-1:0]	m_axi_wvalid;
 	reg	[NSFULL-1:0]	m_axi_wready;
 	reg	[NSFULL-1:0]	m_axi_bvalid;
+`ifdef	FORMAL
 	reg	[NSFULL-1:0]	m_axi_bready;
+`endif
 	reg	[1:0]		m_axi_bresp	[0:NSFULL-1];
 
 	reg	[NSFULL-1:0]	m_axi_arvalid;
@@ -285,14 +287,12 @@ module	axilxbar #(
 		m_axi_wvalid = -1;
 		m_axi_wready = -1;
 		m_axi_bvalid = 0;
-		m_axi_bready = -1;
 
 		m_axi_awvalid[NS-1:0] = M_AXI_AWVALID;
 		m_axi_awready[NS-1:0] = M_AXI_AWREADY;
 		m_axi_wvalid[NS-1:0]  = M_AXI_WVALID;
 		m_axi_wready[NS-1:0]  = M_AXI_WREADY;
 		m_axi_bvalid[NS-1:0]  = M_AXI_BVALID;
-		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
 
 		for(iM=0; iM<NS; iM=iM+1)
 		begin
@@ -308,6 +308,11 @@ module	axilxbar #(
 			m_axi_rdata[iM] = 0;
 			m_axi_rresp[iM] = INTERCONNECT_ERROR;
 		end
+
+`ifdef	FORMAL
+		m_axi_bready = -1;
+		m_axi_bready[NS-1:0]  = M_AXI_BREADY;
+`endif
 	end
 
 	generate for(N=0; N<NM; N=N+1)
@@ -778,9 +783,7 @@ module	axilxbar #(
 		initial	srindex[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
-		begin
-			srindex[N] = requested_index;
-		end
+			srindex[N] <= requested_index;
 
 
 	end for (N=NM; N<NMFULL; N=N+1)
@@ -901,7 +904,7 @@ module	axilxbar #(
 			mbstall = (S_AXI_BVALID[mwindex[M]] && !S_AXI_BREADY[mwindex[M]]);
 
 		initial	axi_awvalid = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !mwgrant[M])
 			axi_awvalid <= 0;
 		else if (!sawstall)
@@ -912,7 +915,7 @@ module	axilxbar #(
 
 		initial	axi_awaddr  = 0;
 		initial	axi_awprot  = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		begin
 			axi_awaddr  <= 0;
@@ -1027,7 +1030,7 @@ module	axilxbar #(
 						&& !S_AXI_RREADY[mrindex[M]]);
 
 		initial	axi_arvalid = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !mrgrant[M])
 			axi_arvalid <= 0;
 		else if (!arstall)
@@ -1037,7 +1040,7 @@ module	axilxbar #(
 
 		initial	axi_araddr  = 0;
 		initial	axi_arprot  = 0;
-		always @(posedge  S_AXI_ACLK)
+		always @(posedge S_AXI_ACLK)
 		if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		begin
 			axi_araddr  <= 0;

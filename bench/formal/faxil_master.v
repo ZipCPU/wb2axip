@@ -70,19 +70,19 @@ module faxil_master #(
 	parameter 			F_OPT_COVER_BURST = 0,
 	// F_LGDEPTH is the number of bits necessary to count the maximum
 	// number of items in flight.
-	parameter				F_LGDEPTH	= 4,
+	parameter			F_LGDEPTH	= 4,
 	// F_AXI_MAXWAIT is the maximum number of clock cycles the
 	// master should have to wait for a slave to raise its ready flag to
 	// accept a request.  Set to zero for no limit.
-	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXWAIT  = 12,
+	parameter			F_AXI_MAXWAIT  = 12,
 	// F_AXI_MAXRSTALL is the maximum number of clock cycles the
 	// slave should have to wait with a return valid signal high, but
 	// while the master's return ready signal is low.  Set to zero for no
 	// limit.
-	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXRSTALL= 12,
+	parameter			F_AXI_MAXRSTALL= 12,
 	// F_AXI_MAXDELAY is the maximum number of clock cycles between request
 	// and response within the slave.  Set this to zero for no limit.
-	parameter	[(F_LGDEPTH-1):0]	F_AXI_MAXDELAY = 12,
+	parameter			F_AXI_MAXDELAY = 12,
 
 	//
 	localparam DW			= C_AXI_DATA_WIDTH,
@@ -126,6 +126,12 @@ module faxil_master #(
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_wr_outstanding,
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_awr_outstanding
 );
+
+	localparam	MAX_SLAVE_TIMEOUT = (F_AXI_MAXWAIT > F_AXI_MAXDELAY)
+				? (F_AXI_MAXWAIT) : F_AXI_MAXDELAY;
+	localparam	MAX_TIMEOUT = (F_AXI_MAXRSTALL>MAX_SLAVE_TIMEOUT)
+				? (F_AXI_MAXRSTALL) : MAX_SLAVE_TIMEOUT;
+	localparam	LGTIMEOUT = $clog2(MAX_TIMEOUT+1);
 
 //*****************************************************************************
 // Parameter declarations
@@ -362,7 +368,7 @@ module faxil_master #(
 	//
 	generate if (F_AXI_MAXWAIT > 0)
 	begin : CHECK_STALL_COUNT
-		reg	[(F_LGDEPTH-1):0]	f_axi_awstall,
+		reg	[LGTIMEOUT-1:0]		f_axi_awstall,
 						f_axi_wstall,
 						f_axi_arstall;
 
@@ -386,7 +392,7 @@ module faxil_master #(
 			// If we are waiting for the write channel to be valid
 			// then don't count stalls
 			f_axi_awstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else
 			f_axi_awstall <= f_axi_awstall + 1'b1;
 
 		always @(*)
@@ -409,7 +415,7 @@ module faxil_master #(
 			// If we are waiting for the write address channel
 			// to be valid, then don't count stalls
 			f_axi_wstall <= 0;
-		else if ((!i_axi_bvalid)||(i_axi_bready))
+		else
 			f_axi_wstall <= f_axi_wstall + 1'b1;
 
 		always @(*)
@@ -429,7 +435,7 @@ module faxil_master #(
 		if ((!i_axi_reset_n)||(!i_axi_arvalid)||(i_axi_arready)
 				||(i_axi_rvalid))
 			f_axi_arstall <= 0;
-		else if (i_axi_rready)
+		else
 			f_axi_arstall <= f_axi_arstall + 1'b1;
 
 		always @(*)
@@ -452,7 +458,7 @@ module faxil_master #(
 	//
 	generate if (F_AXI_MAXRSTALL > 0)
 	begin : CHECK_RESPONSE_STALLS
-		reg	[(F_LGDEPTH-1):0]	f_axi_bstall,
+		reg	[LGTIMEOUT-1:0]		f_axi_bstall,
 						f_axi_rstall;
 
 		// AXI write response channel
@@ -611,7 +617,7 @@ module faxil_master #(
 	generate if (F_AXI_MAXDELAY > 0)
 	begin : CHECK_MAX_DELAY
 
-		reg	[(F_LGDEPTH-1):0]	f_axi_wr_ack_delay,
+		reg	[LGTIMEOUT-1:0]		f_axi_wr_ack_delay,
 						f_axi_rd_ack_delay;
 
 		//

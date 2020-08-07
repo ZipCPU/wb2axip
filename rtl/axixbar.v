@@ -7,7 +7,7 @@
 // Purpose:	Create a full crossbar between NM AXI sources (masters), and NS
 //		AXI slaves.  Every master can talk to any slave, provided it
 //	isn't already busy.
-//
+// {{{
 // Performance:	This core has been designed with the goal of being able to push
 //		one transaction through the interconnect, from any master to
 //	any slave, per clock cycle.  This may perhaps be its most unique
@@ -19,6 +19,14 @@
 //	minimum latency at four clocks.  The minimum write latency is at
 //	least one clock longer, since the write data must wait for the write
 //	address before proceeeding.
+//
+//	Note that this arbiter only forwards AxID fields.  It does not use
+//	them in arbitration.  As a result, only one master may ever make
+//	requests of any given slave at a time.  All responses from a slave
+//	will be returned to that known master.  This is a known limitation in
+//	this implementation which will be fixed (in time) with funding and
+//	interest.  Until that time, in order for a second master to access
+//	a given slave, the first master must receive all of its acknowledgments.
 //
 // Usage:	To use, you must first set NM and NS to the number of masters
 //	and the number of slaves you wish to connect to.  You then need to
@@ -54,11 +62,11 @@
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
-//
+// }}}
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -75,15 +83,20 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 //
 `default_nettype none
 //
 module	axixbar #(
+		// {{{
 		parameter integer C_AXI_DATA_WIDTH = 32,
 		parameter integer C_AXI_ADDR_WIDTH = 32,
 		parameter integer C_AXI_ID_WIDTH = 2,
+		//
+		// NM is the number of masters driving incoming slave channels
 		parameter	NM = 4,
+		//
+		// NS is the number of slaves connected to the crossbar
 		parameter	NS = 8,
 		//
 		// IW, AW, and DW, are short-hand abbreviations used locally.
@@ -92,6 +105,7 @@ module	axixbar #(
 		localparam	DW = C_AXI_DATA_WIDTH,
 		//
 		// SLAVE_ADDR is an array of addresses, describing each of
+		// {{{
 		// the slave channels.  It works tightly with SLAVE_MASK,
 		// so that when (ADDR & MASK == ADDR), the channel in question
 		// has been requested.
@@ -112,44 +126,60 @@ module	axixbar #(
 			3'b010,  {(AW-3){1'b0}},
 			4'b0001, {(AW-4){1'b0}},
 			4'b0000, {(AW-4){1'b0}} },
+		// }}}
 		//
 		// SLAVE_MASK: is an array, much like SLAVE_ADDR, describing
+		// {{{
 		// which of the bits in SLAVE_ADDR are relevant.  It is
 		// important to maintain for every slave that
 		// 	(~SLAVE_MASK[i] & SLAVE_ADDR[i]) == 0.
 		// Verilator lint_off WIDTH
 		parameter	[NS*AW-1:0]	SLAVE_MASK =
-			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}}}
+			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}} }
 			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
-				{(2){ 4'b1111, {(AW-4){1'b0}}}} },
+				{(2){ 4'b1111, {(AW-4){1'b0}} } } },
 		// Verilator lint_on  WIDTH
+		// }}}
 		//
 		// OPT_LOWPOWER: If set, it forces all unused values to zero,
+		// {{{
 		// preventing them from unnecessarily toggling.  This will
 		// raise the logic count of the core, but might also lower
 		// the power used by the interconnect and the bus driven wires
 		// which (in my experience) tend to have a high fan out.
 		parameter [0:0]	OPT_LOWPOWER = 0,
+		// }}}
 		//
 		// OPT_LINGER: Set this to the number of clocks an idle
+		// {{{
 		// channel shall be left open before being closed.  Once
 		// closed, it will take a minimum of two clocks before the
 		// channel can be opened and data transmitted through it again.
 		parameter	OPT_LINGER = 4,
+		// }}}
 		//
-		// OPT_QOS: If set, the QOS transmission values will be honored
-		// when determining who wins arbitration for accessing a given
-		// slave.  (This feature is not yet implemented)
-		// parameter [0:0]	OPT_QOS = 1,
+		// [EXPERIMENTAL] OPT_QOS: If set, the QOS transmission values
+		// {{{
+		// will be honored when determining who wins arbitration for
+		// accessing a given slave.  (This feature has not yet been
+		// verified)
+		parameter [0:0]	OPT_QOS = 0,
+		// }}}
 		//
 		// LGMAXBURST: Specifies the log based two of the maximum
-		// number of bursts transactions.  This is different from the
-		// maximum number of outstanding beats.
+		// {{{
+		// number of bursts transactions that may be outstanding at any
+		// given time.  This is different from the maximum number of
+		// outstanding beats.
 		parameter	LGMAXBURST = 3
+		// }}}
+		// }}}
 	) (
+		// {{{
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
-		//
+		// Write slave channels from the controlling AXI masters
+		// {{{
 		input	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_AWID,
 		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
 		input	wire	[NM*8-1:0]			S_AXI_AWLEN,
@@ -172,7 +202,9 @@ module	axixbar #(
 		output	wire	[NM*2-1:0]			S_AXI_BRESP,
 		output	wire	[NM-1:0]			S_AXI_BVALID,
 		input	wire	[NM-1:0]			S_AXI_BREADY,
-		//
+		// }}}
+		// Read slave channels from the controlling AXI masters
+		// {{{
 		input	wire	[NM*C_AXI_ID_WIDTH-1:0]		S_AXI_ARID,
 		input	wire	[NM*C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,
 		input	wire	[NM*8-1:0]			S_AXI_ARLEN,
@@ -191,9 +223,9 @@ module	axixbar #(
 		output	wire	[NM-1:0]			S_AXI_RLAST,
 		output	wire	[NM-1:0]			S_AXI_RVALID,
 		input	wire	[NM-1:0]			S_AXI_RREADY,
-		//
-		//
-		//
+		// }}}
+		// Write channel master outputs to the connected AXI slaves
+		// {{{
 		output	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_AWID,
 		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
 		output	wire	[NS*8-1:0]			M_AXI_AWLEN,
@@ -217,7 +249,9 @@ module	axixbar #(
 		input	wire	[NS*2-1:0]			M_AXI_BRESP,
 		input	wire	[NS-1:0]			M_AXI_BVALID,
 		output	wire	[NS-1:0]			M_AXI_BREADY,
-		//
+		// }}}
+		// Read channel master outputs to the connected AXI slaves
+		// {{{
 		output	wire	[NS*C_AXI_ID_WIDTH-1:0]		M_AXI_ARID,
 		output	wire	[NS*C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
 		output	wire	[NS*8-1:0]			M_AXI_ARLEN,
@@ -237,9 +271,12 @@ module	axixbar #(
 		input	wire	[NS-1:0]			M_AXI_RLAST,
 		input	wire	[NS-1:0]			M_AXI_RVALID,
 		output	wire	[NS-1:0]			M_AXI_RREADY
+		// }}}
+		// }}}
 	);
 	//
 	// Local parameters, derived from those above
+	// {{{
 	localparam	LGLINGER = (OPT_LINGER>1) ? $clog2(OPT_LINGER+1) : 1;
 	//
 	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
@@ -253,9 +290,33 @@ module	axixbar #(
 	localparam	NSFULL = (NS>1) ? (1<<LGNS) : 2;
 	//
 	localparam [1:0] INTERCONNECT_ERROR = 2'b11;
+	//
+	// OPT_SKID_INPUT controls whether the input skid buffers register
+	// their outputs or not.  If set, all skid buffers will cost one more
+	// clock of latency.  It's not clear that there's a performance gain
+	// to be had by setting this.
 	localparam [0:0]	OPT_SKID_INPUT = 0;
+	//
+	// OPT_BUFFER_DECODER determines whether or not the outputs of the
+	// address decoder will be buffered or not.  If buffered, there will
+	// be an extra (registered) clock delay on each of the A* channels from
+	// VALID to issue.
 	localparam [0:0]	OPT_BUFFER_DECODER = 1;
+	//
+	// OPT_AWW controls whether or not a W* beat may be issued to a slave
+	// at the same time as the first AW* beat gets sent to the slave.  Set
+	// to 1'b1 for lower latency, at the potential cost of a greater
+	// combinatorial path length
+	localparam	OPT_AWW = 1'b1;
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Internal signal declarations and definitions
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	genvar	N,M;
 	integer	iN, iM;
 
@@ -287,8 +348,9 @@ module	axixbar #(
 	(* keep *) reg	[NM-1:0]		wdata_expected;
 
 	// The shadow buffers
-	reg	[NMFULL-1:0]	m_awvalid, m_wvalid, m_arvalid;
-	reg	[NM-1:0]	dcd_awvalid, dcd_arvalid;
+	reg	[NMFULL-1:0]	m_awvalid, m_arvalid;
+	wire	[NMFULL-1:0]	m_wvalid;
+	wire	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
 	wire	[C_AXI_ID_WIDTH-1:0]		m_awid		[0:NMFULL-1];
 	wire	[C_AXI_ADDR_WIDTH-1:0]		m_awaddr	[0:NMFULL-1];
@@ -386,7 +448,14 @@ module	axixbar #(
 	wire	[NM-1:0]	bskd_ready;
 	wire	[NM-1:0]	rskd_ready;
 
+	reg	[NMFULL-1:0]	write_qos_lockout,
+				read_qos_lockout;
 
+	reg	[NSFULL-1:0]	slave_awready, slave_wready, slave_arready;
+	// }}}
+
+	// m_axi_* convenience signals (write side)
+	// {{{
 	always @(*)
 	begin
 		m_axi_awvalid = -1;
@@ -430,11 +499,70 @@ module	axixbar #(
 			m_axi_rlast[iM] = 1;
 		end
 	end
+	// }}}
+
+	// m_axi_* convenience signals (read side)
+	// {{{
+	always @(*)
+	begin
+		m_axi_arvalid = 0;
+		m_axi_arready = 0;
+		m_axi_rvalid = 0;
+		m_axi_rready = 0;
+		for(iM=0; iM<NS; iM=iM+1)
+		begin
+			m_axi_arlen[iM] = M_AXI_ARLEN[iM* 8 +:  8];
+			m_axi_arid[iM]  = M_AXI_ARID[ iM*IW +: IW];
+		end
+		for(iM=NS; iM<NSFULL; iM=iM+1)
+		begin
+			m_axi_arlen[iM] = 0;
+			m_axi_arid[iM]  = 0;
+		end
+
+		m_axi_arvalid[NS-1:0] = M_AXI_ARVALID;
+		m_axi_arready[NS-1:0] = M_AXI_ARREADY;
+		m_axi_rvalid[NS-1:0]  = M_AXI_RVALID;
+		m_axi_rready[NS-1:0]  = M_AXI_RREADY;
+	end
+	// }}}
+
+	// slave_*ready convenience signals
+	// {{{
+	always @(*)
+	begin
+		// These are designed to keep us from doing things like
+		// m_axi_*[m?index[N]] && m_axi_*[m?index[N]] && .. etc
+		//
+		// First, we'll set bits for all slaves--to include those that
+		// are undefined (but required by our static analysis tools).
+		slave_awready = -1;
+		slave_wready  = -1;
+		slave_arready = -1;
+		//
+		// Here we do all of the combinatoric calculations, so the
+		// master only needs to reference one bit of this signal
+		slave_awready[NS-1:0] = (~M_AXI_AWVALID | M_AXI_AWREADY);
+		slave_wready[NS-1:0]  = (~M_AXI_WVALID | M_AXI_WREADY);
+		slave_arready[NS-1:0] = (~M_AXI_ARVALID | M_AXI_ARREADY);
+	end
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Process our incoming signals: AW*, W*, and AR*
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	// 
 
 	generate for(N=0; N<NM; N=N+1)
 	begin : W1_DECODE_WRITE_REQUEST
+	// {{{
 		wire	[NS:0]	wdecode;
 
+		// awskid, the skidbuffer for the incoming AW* channel
+		// {{{
 		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
 					.OPT_OUTREG(OPT_SKID_INPUT))
 		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
@@ -448,7 +576,11 @@ module	axixbar #(
 			{ skd_awid[N], skd_awaddr[N], skd_awlen[N],
 			  skd_awsize[N], skd_awburst[N], skd_awlock[N],
 			  skd_awcache[N], skd_awprot[N], skd_awqos[N] });
+		// }}}
 
+		// wraddr, decode the write channel's address request to a
+		// particular slave index
+		// {{{
 		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
@@ -465,7 +597,10 @@ module	axixbar #(
 				.o_data({ m_awid[N], m_awlen[N], m_awsize[N],
 				  m_awburst[N], m_awlock[N], m_awcache[N],
 				  m_awprot[N], m_awqos[N]}));
+		// }}}
 
+		// wskid, the skid buffer for the incoming W* channel
+		// {{{
 		skidbuffer #(.DW(DW+DW/8+1),
 					.OPT_OUTREG(OPT_SKID_INPUT))
 		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
@@ -474,11 +609,16 @@ module	axixbar #(
 			  S_AXI_WLAST[N] },
 			m_wvalid[N], slave_waccepts[N],
 			{ m_wdata[N], m_wstrb[N], m_wlast[N] });
+		// }}}
 
+		// slave_awaccepts
+		// {{{
 		always @(*)
 		begin
 			slave_awaccepts[N] = 1'b1;
 			if (!mwgrant[N])
+				slave_awaccepts[N] = 1'b0;
+			if (write_qos_lockout[N])
 				slave_awaccepts[N] = 1'b0;
 			if (mwfull[N])
 				slave_awaccepts[N] = 1'b0;
@@ -486,9 +626,7 @@ module	axixbar #(
 				slave_awaccepts[N] = 1'b0;
 			if (!wgrant[N][NS])
 			begin
-				if ((m_axi_awvalid[mwindex[N]] && !m_axi_awready[mwindex[N]]))
-					slave_awaccepts[N] = 1'b0;
-				if ((m_axi_wvalid[mwindex[N]] && !m_axi_wready[mwindex[N]]))
+				if (!slave_awready[mwindex[N]])
 					slave_awaccepts[N] = 1'b0;
 			end else if (!berr_valid[N] || !bskd_ready[N])
 			begin
@@ -499,22 +637,25 @@ module	axixbar #(
 				slave_awaccepts[N] = 1'b0;
 			end
 		end
+		// }}}
 
+		// slave_waccepts
+		// {{{
 		always @(*)
 		begin
 			slave_waccepts[N] = 1'b1;
 			if (!mwgrant[N])
 				slave_waccepts[N] = 1'b0;
-			if (!wdata_expected[N])
+			if (!wdata_expected[N] && (!OPT_AWW || !slave_awaccepts[N]))
 				slave_waccepts[N] = 1'b0;
 			if (!wgrant[N][NS])
 			begin
-				if (m_axi_wvalid[mwindex[N]]
-						&& !m_axi_wready[mwindex[N]])
+				if (!slave_wready[mwindex[N]])
 					slave_waccepts[N] = 1'b0;
 			end else if (berr_valid[N] || bskd_ready[N])
 				slave_waccepts[N] = 1'b0;
 		end
+		// }}}
 
 		always @(*)
 		begin
@@ -524,9 +665,48 @@ module	axixbar #(
 				wrequest[N][NS:0] = wdecode;
 		end
 
+		// QOS handling via write_qos_lockout
+		// {{{
+		if (!OPT_QOS || NM == 1)
+		begin : WRITE_NO_QOS
+
+			// If we aren't using QOS, then never lock any packets
+			// out from arbitration
+			always @(*)
+				write_qos_lockout[N] = 0;
+
+		end else begin : WRITE_QOS
+
+			// Lock out a master based upon a second master having
+			// a higher QOS request level
+			// {{{
+			initial	write_qos_lockout[N] = 0;
+			always @(posedge  S_AXI_ACLK)
+			if (!S_AXI_ARESETN)
+				write_qos_lockout[N] <= 0;
+			else begin
+				write_qos_lockout[N] <= 0;
+
+				for(iN=0; iN<NM; iN=iN+1)
+				if (iN != N)
+				begin
+					if (m_awvalid[N]
+						&&(|(wrequest[iN][NS-1:0]
+							& wdecode[NS-1:0]))
+						&&(m_awqos[N] < m_awqos[iN]))
+						write_qos_lockout[N] <= 1;
+				end
+			end
+			// }}}
+		end
+		// }}}
+
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_WSKID_BUFFERS
-
+	// {{{
+		// The following values are unused.  They need to be defined
+		// so that our indexing scheme will work, but indexes should
+		// never actually reference them
 		assign	m_awid[N]    = 0;
 		assign	m_awaddr[N]  = 0;
 		assign	m_awlen[N]   = 0;
@@ -539,19 +719,27 @@ module	axixbar #(
 
 		always @(*)
 			m_awvalid[N] = 0;
-		always @(*)
-			m_wvalid[N]  = 0;
+
+		assign	m_wvalid[N]  = 0;
 		//
 		assign	m_wdata[N] = 0;
 		assign	m_wstrb[N] = 0;
 		assign	m_wlast[N] = 0;
 
+		always @(*)
+			write_qos_lockout[N] = 0;
+	// }}}
+	// }}}
 	end endgenerate
 
+	// Read skid buffers and address decoding, slave_araccepts logic
 	generate for(N=0; N<NM; N=N+1)
 	begin : R1_DECODE_READ_REQUEST
+	// {{{
 		wire	[NS:0]	rdecode;
 
+		// arskid
+		// {{{
 		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
 					.OPT_OUTREG(OPT_SKID_INPUT))
 		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
@@ -565,7 +753,10 @@ module	axixbar #(
 			{ skd_arid[N], skd_araddr[N], skd_arlen[N],
 			  skd_arsize[N], skd_arburst[N], skd_arlock[N],
 			  skd_arcache[N], skd_arprot[N], skd_arqos[N] });
+		// }}}
 
+		// Read address decoder
+		// {{{
 		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
@@ -582,6 +773,7 @@ module	axixbar #(
 				.o_data({ m_arid[N], m_arlen[N], m_arsize[N],
 				  m_arburst[N], m_arlock[N], m_arcache[N],
 				  m_arprot[N], m_arqos[N]}));
+		// }}}
 
 		always @(*)
 		begin
@@ -591,10 +783,14 @@ module	axixbar #(
 				rrequest[N][NS:0] = rdecode;
 		end
 
+		// slave_raccepts decoding
+		// {{{
 		always @(*)
 		begin
 			slave_raccepts[N] = 1'b1;
 			if (!mrgrant[N])
+				slave_raccepts[N] = 1'b0;
+			if (read_qos_lockout[N])
 				slave_raccepts[N] = 1'b0;
 			if (mrfull[N])
 				slave_raccepts[N] = 1'b0;
@@ -604,15 +800,56 @@ module	axixbar #(
 			// verilator lint_on  WIDTH
 			if (!rgrant[N][NS])
 			begin
-				if (m_axi_arvalid[mrindex[N]] && !m_axi_arready[mrindex[N]])
+				if (!slave_arready[mrindex[N]])
 					slave_raccepts[N] = 1'b0;
 			end else if (!mrempty[N] || !rerr_none[N] || rskd_valid[N])
 				slave_raccepts[N] = 1'b0;
 		end
+		// }}}
+
+		// Read QOS logic
+		// {{{
+		// read_qos_lockout will get set if a master with a higher
+		// QOS number is requesting a given slave.  It will not
+		// affect existing outstanding packets, but will be used to
+		// prevent further packets from being sent to a given slave.
+		if (!OPT_QOS || NM == 1)
+		begin : READ_NO_QOS
+
+			// If we aren't implementing QOS, then the lockout
+			// signal is never set
+			always @(*)
+				read_qos_lockout[N] = 0;
+
+		end else begin : READ_QOS
+
+			// We set lockout if another master (with a higher
+			// QOS) is requesting this slave *and* the slave
+			// channel is currently stalled.
+			initial	read_qos_lockout[N] = 0;
+			always @(posedge  S_AXI_ACLK)
+			if (!S_AXI_ARESETN)
+				read_qos_lockout[N] <= 0;
+			else begin
+				read_qos_lockout[N] <= 0;
+
+				for(iN=0; iN<NM; iN=iN+1)
+				if (iN != N)
+				begin
+					if (m_arvalid[iN]
+						&& !slave_raccepts[N]
+						&&(|(rrequest[iN][NS-1:0]
+							& rdecode[NS-1:0]))
+						&&(m_arqos[N] < m_arqos[iN]))
+						read_qos_lockout[N] <= 1;
+				end
+			end
+		end
+		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_RSKID_BUFFERS
-
+	// {{{
 		always @(*)
 			m_arvalid[N] = 0;
 		assign	m_arid[N]    = 0;
@@ -625,8 +862,23 @@ module	axixbar #(
 		assign	m_arprot[N]  = 0;
 		assign	m_arqos[N]   = 0;
 
+		always @(*)
+			read_qos_lockout[N] = 0;
+	// }}}
+	// }}}
 	end endgenerate
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Channel arbitration
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	// 
+
+	// wrequested
+	// {{{
 	always @(*)
 	begin : W2_DECONFLICT_WRITE_REQUESTS
 
@@ -637,7 +889,7 @@ module	axixbar #(
 		// This is (currrently) expected.  mwindex is used to index
 		// into wrequested, and mwindex has LGNS bits, where LGNS
 		// is $clog2(NS+1) rather than $clog2(NS).  The extra bits
-		// are defined to be zeros, but the point is there are defined.
+		// are defined to be zeros, but the point is they are defined.
 		// Therefore, no matter what mwindex is, it will always
 		// reference something valid.
 		wrequested[NM] = 0;
@@ -660,9 +912,11 @@ module	axixbar #(
 			end
 			wrequested[NM][iM] = wrequest[NM-1][iM] || wrequested[NM-1][iM];
 		end
-
 	end
+	// }}}
 
+	// rrequested
+	// {{{
 	always @(*)
 	begin : R2_DECONFLICT_READ_REQUESTS
 
@@ -691,60 +945,84 @@ module	axixbar #(
 			end
 			rrequested[NM][iM] = rrequest[NM-1][iM] || rrequested[NM-1][iM];
 		end
-
 	end
+	// }}}
 
-	generate for(M=0; M<NS; M=M+1)
-	begin
-
-		always @(*)
-		begin
-			swgrant[M] = 0;
-			for(iN=0; iN<NM; iN=iN+1)
-			if (wgrant[iN][M])
-				swgrant[M] = 1;
-		end
-
-		always @(*)
-		begin
-			srgrant[M] = 0;
-			for(iN=0; iN<NM; iN=iN+1)
-			if (rgrant[iN][M])
-				srgrant[M] = 1;
-		end
-
-	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
 	begin : W3_ARBITRATE_WRITE_REQUESTS
+	// {{{
 		reg			stay_on_channel;
 		reg			requested_channel_is_available;
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
+		reg			linger;
 
+		// The basic logic:
+		// 1. If we must stay_on_channel, then nothing changes
+		// 2. If the requested channel isn't available, then no grant
+		//   is issued
+		// 3. Otherwise, if we need to leave this channel--such as if
+		//   another master is requesting it, then we lose our grant
+
+		// stay_on_channel
+		// {{{
+		// We must stay on the channel if we aren't done working with it
+		// i.e. more writes requested, more acknowledgments expected,
+		// etc.
 		always @(*)
 		begin
 			stay_on_channel = |(wrequest[N][NS:0] & wgrant[N]);
+			if (write_qos_lockout[N])
+				stay_on_channel = 0;
 
+			// We must stay on this channel until we've received
+			// our last acknowledgment signal.  Only then can we
+			// switch grants
 			if (mwgrant[N] && !mwempty[N])
 				stay_on_channel = 1;
+
+			// if berr_valid is true, we have a grant to the
+			// internal slave-error channel.  While this grant
+			// exists, we cannot issue any others.
 			if (berr_valid[N])
 				stay_on_channel = 1;
 		end
+		// }}}
 
+		// requested_channel_is_available
+		// {{{
 		always @(*)
 		begin
+			// The channel is available to us if 1) we want it,
+			// 2) no one else is using it, and 3) no one earlier
+			// has requested it
 			requested_channel_is_available = 
 				|(wrequest[N][NS-1:0] & ~swgrant
 						& ~wrequested[N][NS-1:0]);
+
+			// Of course, the error pseudo-channel is *always*
+			// available to us.
 			if (wrequest[N][NS])
 				requested_channel_is_available = 1;
 
+			// Likewise, if we are the only master, then the
+			// channel is always available on any request
 			if (NM < 2)
 				requested_channel_is_available = m_awvalid[N];
 		end
+		// }}}
 
-		reg	linger;
+		// Linger option, and setting the "linger" flag
+		// {{{
+		// If used, linger will hold on to a given channels grant
+		// for some number of clock ticks after the channel has become
+		// idle.  This will spare future requests from the same master
+		// to the same slave from neding to go through the arbitration
+		// clock cycle again--potentially saving a clock period.  If,
+		// however, the master in question requests a different slave
+		// or a different master requests this slave, then the linger
+		// option is voided and the grant given up anyway.
 		if (OPT_LINGER == 0)
 		begin
 			always @(*)
@@ -762,17 +1040,28 @@ module	axixbar #(
 				linger_counter <= 0;
 			end else if (!mwempty[N] || bskd_valid[N])
 			begin
+				// While the channel is in use, we set the
+				// linger counter
 				linger_counter <= OPT_LINGER;
 				linger <= 1;
 			end else if (linger_counter > 0)
 			begin
+				// Otherwise, we decrement it until it reaches
+				// zero
 				linger <= (linger_counter > 1);
 				linger_counter <= linger_counter - 1;
 			end else
 				linger <= 0;
 
 		end
+		// }}}
 
+		// leave_channel
+		// {{{
+		// True of another master is requesting access to this slave,
+		// or if we are requesting access to another slave.  If QOS
+		// lockout is enabled, then we also leave the channel if a
+		// request with a higher QOS has arrived
 		always @(*)
 		begin
 			leave_channel = 0;
@@ -786,9 +1075,15 @@ module	axixbar #(
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
+			if (write_qos_lockout[N])
+				leave_channel = 1;
 		end
+		// }}}
 
-
+		// WRITE GRANT ALLOCATION
+		// {{{
+		// Now that we've done our homework, we can switch grants
+		// if necessary
 		initial	wgrant[N]  = 0;
 		initial	mwgrant[N] = 0;
 		always @(posedge S_AXI_ACLK)
@@ -800,16 +1095,20 @@ module	axixbar #(
 		begin
 			if (requested_channel_is_available)
 			begin
-				// Switching channels
+				// Switch to a new channel
 				mwgrant[N] <= 1'b1;
 				wgrant[N]  <= wrequest[N][NS:0];
 			end else if (leave_channel)
 			begin
+				// Revoke the given grant
 				mwgrant[N] <= 1'b0;
 				wgrant[N]  <= 0;
 			end
 		end
+		// }}}
 
+		// mwindex (registered)
+		// {{{
 		always @(*)
 		begin
 			requested_index = 0;
@@ -823,46 +1122,90 @@ module	axixbar #(
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
 			mwindex[N] <= requested_index;
+		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
 
 		always @(*)
 			mwindex[N] = 0;
-
+	// }}}
 	end endgenerate
 
 	generate for(N=0; N<NM; N=N+1)
 	begin : R3_ARBITRATE_READ_REQUESTS
+	// {{{
 		reg			stay_on_channel;
 		reg			requested_channel_is_available;
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
+		reg			linger;
 
+		// The basic logic:
+		// 1. If we must stay_on_channel, then nothing changes
+		// 2. If the requested channel isn't available, then no grant
+		//   is issued
+		// 3. Otherwise, if we need to leave this channel--such as if
+		//   another master is requesting it, then we lose our grant
 
+		// stay_on_channel
+		// {{{
+		// We must stay on the channel if we aren't done working with it
+		// i.e. more writes requested, more acknowledgments expected,
+		// etc.
 		always @(*)
 		begin
 			stay_on_channel = |(rrequest[N][NS:0] & rgrant[N]);
+			if (read_qos_lockout[N])
+				stay_on_channel = 0;
 
-			if (rgrant[N][NS] && (!rerr_none[N] || rskd_valid[N]))
-				stay_on_channel = 1;
+			// We must stay on this channel until we've received
+			// our last acknowledgment signal.  Only then can we
+			// switch grants
 			if (mrgrant[N] && !mrempty[N])
 				stay_on_channel = 1;
-		end
 
+			// if we have a grant to the internal slave-error
+			// channel, then we cannot issue a grant to any other
+			// while this grant is active
+			if (rgrant[N][NS] && (!rerr_none[N] || rskd_valid[N]))
+				stay_on_channel = 1;
+		end
+		// }}}
+
+		// requested_channel_is_available
+		// {{{
 		always @(*)
 		begin
+			// The channel is available to us if 1) we want it,
+			// 2) no one else is using it, and 3) no one earlier
+			// has requested it
 			requested_channel_is_available = 
 				|(rrequest[N][NS-1:0] & ~srgrant
 						& ~rrequested[N][NS-1:0]);
+
+			// Of course, the error pseudo-channel is *always*
+			// available to us.
 			if (rrequest[N][NS])
 				requested_channel_is_available = 1;
 
+			// Likewise, if we are the only master, then the
+			// channel is always available on any request
 			if (NM < 2)
 				requested_channel_is_available = m_arvalid[N];
 		end
+		// }}}
 
-		reg	linger;
+		// Linger option, and setting the "linger" flag
+		// {{{
+		// If used, linger will hold on to a given channels grant
+		// for some number of clock ticks after the channel has become
+		// idle.  This will spare future requests from the same master
+		// to the same slave from neding to go through the arbitration
+		// clock cycle again--potentially saving a clock period.  If,
+		// however, the master in question requests a different slave
+		// or a different master requests this slave, then the linger
+		// option is voided and the grant given up anyway.
 		if (OPT_LINGER == 0)
 		begin
 			always @(*)
@@ -890,7 +1233,14 @@ module	axixbar #(
 				linger <= 0;
 
 		end
+		// }}}
 
+		// leave_channel
+		// {{{
+		// True of another master is requesting access to this slave,
+		// or if we are requesting access to another slave.  If QOS
+		// lockout is enabled, then we also leave the channel if a
+		// request with a higher QOS has arrived
 		always @(*)
 		begin
 			leave_channel = 0;
@@ -904,9 +1254,14 @@ module	axixbar #(
 				// Need to leave this channel to connect
 				// to any other channel
 				leave_channel = 1;
+			if (read_qos_lockout[N])
+				leave_channel = 1;
 		end
+		// }}}
 
 
+		// READ GRANT ALLOCATION
+		// {{{
 		initial	rgrant[N]  = 0;
 		initial	mrgrant[N] = 0;
 		always @(posedge S_AXI_ACLK)
@@ -927,8 +1282,10 @@ module	axixbar #(
 				rgrant[N]  <= 0;
 			end
 		end
+		// }}}
 
-
+		// mrindex (registered)
+		// {{{
 		always @(*)
 		begin
 			requested_index = 0;
@@ -937,28 +1294,32 @@ module	axixbar #(
 				requested_index = requested_index|iM[LGNS-1:0];
 		end
 
-		// Now for mrindex
 		initial	mrindex[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
 			mrindex[N] <= requested_index;
-
+		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
 
 		always @(*)
 			mrindex[N] = 0;
-
+	// }}}
 	end endgenerate
 
-	// Calculate swindex
+	// Calculate swindex (registered)
 	generate for (M=0; M<NS; M=M+1)
 	begin : W4_SLAVE_WRITE_INDEX
-
+	// {{{
+		// swindex is a per slave index, containing the index of the
+		// master that has currently won write arbitration and so
+		// has permission to access this slave
 		if (NM <= 1)
 		begin
 
+			// If there's only ever one master, that index is
+			// always the index of the one master.
 			always @(*)
 				swindex[M] = 0;
 
@@ -966,6 +1327,10 @@ module	axixbar #(
 
 			reg [LGNM-1:0]	reqwindex;
 
+			// In the case of multiple masters, we follow the logic
+			// of the arbiter to generate the appropriate index
+			// here, and register it on the next clock cycle.  If
+			// no slave has arbitration, the index will remain zero
 			always @(*)
 			begin
 				reqwindex = 0;
@@ -985,16 +1350,20 @@ module	axixbar #(
 
 		always @(*)
 			swindex[M] = 0;
-
+	// }}}
 	end endgenerate
 
-	// Calculate srindex
+	// Calculate srindex (registered)
 	generate for (M=0; M<NS; M=M+1)
 	begin : R4_SLAVE_READ_INDEX
+	// {{{
+		// srindex is an index to the master that has currently won
+		// read arbitration to the given slave.
 
 		if (NM <= 1)
 		begin
-
+			// If there's only one master, srindex can always
+			// point to that master--no longic required
 			always @(*)
 				srindex[M] = 0;
 
@@ -1002,6 +1371,9 @@ module	axixbar #(
 
 			reg [LGNM-1:0]	reqrindex;
 
+			// In the case of multiple masters, we'll follow the
+			// read arbitration logic to generate the index--first
+			// combinatorially, then we'll register it.
 			always @(*)
 			begin
 				reqrindex = 0;
@@ -1021,14 +1393,49 @@ module	axixbar #(
 
 		always @(*)
 			srindex[M] = 0;
-
+	// }}}
 	end endgenerate
 
+	// swgrant and srgrant (combinatorial)
+	generate for(M=0; M<NS; M=M+1)
+	begin : SGRANT
+	// {{{
 
+		// s?grant is a convenience to tell a slave that some master
+		// has won arbitration and so has a grant to that slave.
+
+		// swgrant: write arbitration
+		always @(*)
+		begin
+			swgrant[M] = 0;
+			for(iN=0; iN<NM; iN=iN+1)
+			if (wgrant[iN][M])
+				swgrant[M] = 1;
+		end
+
+		// srgrant: read arbitration
+		always @(*)
+		begin
+			srgrant[M] = 0;
+			for(iN=0; iN<NM; iN=iN+1)
+			if (rgrant[iN][M])
+				srgrant[M] = 1;
+		end
+	// }}}
+	end endgenerate
+
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Generate the signals for the various slaves--the forward channel
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	// Assign outputs to the various slaves
 	generate for(M=0; M<NS; M=M+1)
 	begin : W5_WRITE_SLAVE_OUTPUTS
-
+	// {{{
 		reg			axi_awvalid;
 		reg	[IW-1:0]	axi_awid;
 		reg	[AW-1:0]	axi_awaddr;
@@ -1050,24 +1457,15 @@ module	axixbar #(
 		reg			sawstall, swstall;
 		reg			awaccepts;
 
+		// Control the slave's AW* channel
+		// {{{
+
+		// Personalize the slave_awaccepts signal
+		always @(*)
+			awaccepts = slave_awaccepts[swindex[M]];
+
 		always @(*)
 			sawstall= (M_AXI_AWVALID[M]&& !M_AXI_AWREADY[M]);
-		always @(*)
-			swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
-
-		always @(*)
-		begin
-			if (!swgrant[M])
-				awaccepts = 1'b0;
-			if (mwfull[swindex[M]])
-				awaccepts = 1'b0;
-			if (!wrequest[swindex[M]][M])
-				awaccepts = 1'b0;
-			if ((m_axi_wvalid[M] && !m_axi_wready[M]))
-				awaccepts = 1'b0;
-			awaccepts = slave_awaccepts[swindex[M]];
-		end
-
 
 		initial	axi_awvalid = 0;
 		always @(posedge  S_AXI_ACLK)
@@ -1090,6 +1488,8 @@ module	axixbar #(
 		always @(posedge  S_AXI_ACLK)
 		if (OPT_LOWPOWER && (!S_AXI_ARESETN || !swgrant[M]))
 		begin
+			// Under the OPT_LOWPOWER option, we clear all signals
+			// we aren't using
 			axi_awid    <= 0;
 			axi_awaddr  <= 0;
 			axi_awlen   <= 0;
@@ -1126,6 +1526,12 @@ module	axixbar #(
 				axi_awqos   <= 0;
 			end
 		end
+		// }}}
+
+		// Control the slave's W* channel
+		// {{{
+		always @(*)
+			swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
 
 		initial	axi_wvalid = 0;
 		always @(posedge S_AXI_ACLK)
@@ -1166,6 +1572,7 @@ module	axixbar #(
 				axi_wlast  <= 0;
 			end
 		end
+		// }}}
 
 		//
 		always @(*)
@@ -1174,7 +1581,8 @@ module	axixbar #(
 		else
 			axi_bready = bskd_ready[swindex[M]];
 
-		//
+		// Combinatorial assigns
+		// {{{
 		assign	M_AXI_AWVALID[M]          = axi_awvalid;
 		assign	M_AXI_AWID[   M*IW +: IW] = axi_awid;
 		assign	M_AXI_AWADDR[ M*AW +: AW] = axi_awaddr;
@@ -1194,13 +1602,15 @@ module	axixbar #(
 		//
 		//
 		assign	M_AXI_BREADY[M]             = axi_bready;
+		// }}}
 		//
+	// }}}
 	end endgenerate
 
 
 	generate for(M=0; M<NS; M=M+1)
 	begin : R5_READ_SLAVE_OUTPUTS
-
+	// {{{
 		reg				axi_arvalid;
 		reg	[IW-1:0]		axi_arid;
 		reg	[AW-1:0]		axi_araddr;
@@ -1275,7 +1685,6 @@ module	axixbar #(
 			end
 		end
 
-		initial	axi_rready = 1;
 		always @(*)
 		if (!srgrant[M])
 			axi_rready = 1;
@@ -1296,15 +1705,25 @@ module	axixbar #(
 		//
 		assign	M_AXI_RREADY[M]          = axi_rready;
 		//
+	// }}}
 	end endgenerate
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Generate the signals for the various masters--the return channel
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
 	begin : W6_WRITE_RETURN_CHANNEL
-
+	// {{{
 		reg	[1:0]	i_axi_bresp;
 		reg	[IW-1:0] i_axi_bid;
 
+		// Write error (no slave selected) state machine
+		// {{{
 		initial	berr_valid[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1334,7 +1753,10 @@ module	axixbar #(
 			i_axi_bid   = m_axi_bid[mwindex[N]];
 			i_axi_bresp = m_axi_bresp[mwindex[N]];
 		end
+		// }}}
 
+		// bskid, the B* channel skidbuffer
+		// {{{
 		skidbuffer #(.DW(IW+2),
 				.OPT_LOWPOWER(OPT_LOWPOWER),
 				.OPT_OUTREG(1))
@@ -1343,40 +1765,24 @@ module	axixbar #(
 			{ i_axi_bid, i_axi_bresp },
 			S_AXI_BVALID[N], S_AXI_BREADY[N],
 			{ S_AXI_BID[N*IW +: IW], S_AXI_BRESP[N*2 +: 2] });
-
+		// }}}
+	// }}}
 	end endgenerate
-
-	always @(*)
-	begin
-		m_axi_arvalid = 0;
-		m_axi_arready = 0;
-		m_axi_rvalid = 0;
-		m_axi_rready = 0;
-		for(iM=0; iM<NS; iM=iM+1)
-		begin
-			m_axi_arlen[iM] = M_AXI_ARLEN[iM* 8 +:  8];
-			m_axi_arid[iM]  = M_AXI_ARID[ iM*IW +: IW];
-		end
-		for(iM=NS; iM<NSFULL; iM=iM+1)
-		begin
-			m_axi_arlen[iM] = 0;
-			m_axi_arid[iM]  = 0;
-		end
-
-		m_axi_arvalid[NS-1:0] = M_AXI_ARVALID;
-		m_axi_arready[NS-1:0] = M_AXI_ARREADY;
-		m_axi_rvalid[NS-1:0]  = M_AXI_RVALID;
-		m_axi_rready[NS-1:0]  = M_AXI_RREADY;
-	end
 
 	// Return values
 	generate for (N=0; N<NM; N=N+1)
 	begin : R6_READ_RETURN_CHANNEL
+	// {{{
 
 		reg	[DW-1:0]	i_axi_rdata;
 		reg	[IW-1:0]	i_axi_rid;
 		reg	[2-1:0]		i_axi_rresp;
 
+		// generate the read response
+		// {{{
+		// Here we have two choices.  We can either generate our
+		// response from the slave itself, or from our internally
+		// generated (no-slave exists) FSM.
 		always @(*)
 		if (rgrant[N][NS])
 			rskd_valid[N] = !rerr_none[N];
@@ -1396,7 +1802,14 @@ module	axixbar #(
 			rskd_rlast[N]= m_axi_rlast[mrindex[N]];
 			i_axi_rresp = m_axi_rresp[mrindex[N]];
 		end
+		// }}}
 
+		// rskid, the outgoing read skidbuffer
+		// {{{
+		// Since our various read signals are all combinatorially
+		// determined, we'll throw them into an outgoing skid buffer
+		// to register them (per spec) and to make it easier to meet
+		// timing.
 		skidbuffer #(.DW(IW+DW+1+2),
 				.OPT_LOWPOWER(OPT_LOWPOWER),
 				.OPT_OUTREG(1))
@@ -1406,16 +1819,33 @@ module	axixbar #(
 			S_AXI_RVALID[N], S_AXI_RREADY[N],
 			{ S_AXI_RID[N*IW +: IW], S_AXI_RDATA[N*DW +: DW],
 			  S_AXI_RLAST[N], S_AXI_RRESP[N*2 +: 2] });
-
+		// }}}
+	// }}}
 	end endgenerate
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
 	// Count pending transactions
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	generate for (N=0; N<NM; N=N+1)
 	begin : W7_COUNT_PENDING_WRITES
+	// {{{
 
-		reg	[LGMAXBURST-1:0]	awpending;
+		reg	[LGMAXBURST-1:0]	awpending, wpending;
 		reg				r_wdata_expected;
 
+		// awpending, and the associated flags mwempty and mwfull
+		// {{{
+		// awpending is a count of all of the AW* packets that have
+		// been forwarded to the slave, but for which the slave has
+		// yet to return a B* response.  This number can be as large
+		// as (1<<LGMAXBURST)-1.  The two associated flags, mwempty
+		// and mwfull, are there to keep us from checking awempty==0
+		// and &awempty respectively.
 		initial	awpending    = 0;
 		initial	mwempty[N]   = 1;
 		initial	mwfull[N]    = 0;
@@ -1440,32 +1870,65 @@ module	axixbar #(
 		default: begin end
 		endcase
 
+		// Just so we can access this counter elsewhere, let's make
+		// it available outside of this generate block.  (The formal
+		// section uses this.)
+		assign	w_mawpending[N] = awpending;
+		// }}}
+
+		// r_wdata_expected and wdata_expected
+		// {{{
+		// This section keeps track of whether or not we are expecting
+		// more W* data from the given burst.  It's designed to keep us
+		// from accepting new W* information before the AW* portion
+		// has been routed to the new slave.
+		//
+		// Addition: wpending.  wpending counts the number of write
+		// bursts that are pending, based upon the write channel.
+		// Bursts are counted from AWVALID & AWREADY, and decremented
+		// once we see the WVALID && WREADY signal.  Packets should
+		// not be accepted without a prior (or concurrent)
+		// AWVALID && AWREADY.
 		initial	r_wdata_expected = 0;
+		initial	wpending = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			r_wdata_expected <= 0;
+			wpending <= 0;
 		end else case ({(m_awvalid[N] && slave_awaccepts[N]),
-				(m_wvalid[N] && slave_waccepts[N])})
-		2'b01: r_wdata_expected <= !m_wlast[N];
-		2'b10: r_wdata_expected <= 1;
-		2'b11: r_wdata_expected <= r_wdata_expected || !m_wlast[N];
+				(m_wvalid[N]&&slave_waccepts[N] && m_wlast[N])})
+		2'b01: begin
+			r_wdata_expected <= (wpending > 1);
+			wpending <= wpending - 1;
+			end
+		2'b10: begin
+			wpending <= wpending + 1;
+			r_wdata_expected <= 1;
+			end
 		default: begin end
 		endcase
 
-		assign	w_mawpending[N] = awpending;
-
 		always @(*)
 			wdata_expected[N] = r_wdata_expected;
-
-
+		// }}}
+	// }}}
 	end endgenerate
 
 	generate for (N=0; N<NM; N=N+1)
 	begin : R7_COUNT_PENDING_READS
+	// {{{
 
 		reg	[LGMAXBURST-1:0]	rpending;
 
+		// rpending, and its associated mrempty and mrfull
+		// {{{
+		// rpending counts the number of read transactions that have
+		// been accepted, but for which rlast has yet to be returned.
+		// This specifically counts grants to valid slaves.  The error
+		// slave is excluded from this count.  mrempty and mrfull have
+		// analogous definitions to mwempty and mwfull, being equal to
+		// rpending == 0 and (&rpending) respectfully.
 		initial	rpending     = 0;
 		initial	mrempty[N]   = 1;
 		initial	mrfull[N]    = 0;
@@ -1491,6 +1954,16 @@ module	axixbar #(
 		default: begin end
 		endcase
 
+		assign	w_mrpending[N]  = rpending;
+		// }}}
+
+		// Read error state machine, rerr_outstanding and rerr_id
+		// {{{
+		// rerr_outstanding is the count of read *beats* that remain
+		// to be returned to a master from a non-existent slave.
+		// rerr_last is true on the last of these read beats,
+		// equivalent to rerr_outstanding == 1, and rerr_none is true
+		// when the error state machine is idle
 		initial	rerr_outstanding[N] = 0;
 		initial	rerr_last[N] = 0;
 		initial	rerr_none[N] = 1;
@@ -1516,21 +1989,24 @@ module	axixbar #(
 			rerr_outstanding[N] <= m_arlen[N] + 1;
 		end
 
+		// rerr_id is the ARID field of the currently outstanding
+		// error.  It's used when generating a read response to a
+		// non-existent slave.
 		initial	rerr_id[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN && OPT_LOWPOWER)
 			rerr_id[N] <= 0;
-		else if (m_arvalid[N] && rrequest[N][NS] && slave_raccepts[N])
+		else if (m_arvalid[N] && slave_raccepts[N])
 		begin
 			if (rrequest[N][NS] || !OPT_LOWPOWER)
+				// A low-logic definition
 				rerr_id[N] <= m_arid[N];
 			else
 				rerr_id[N] <= 0;
 		end else if (OPT_LOWPOWER && rerr_last[N]
 				&& (!rskd_valid[N] || rskd_ready[N]))
 			rerr_id[N] <= 0;
-
-		assign	w_mrpending[N]  = rpending;
+		// }}}
 
 `ifdef	FORMAL
 		always @(*)
@@ -1541,8 +2017,17 @@ module	axixbar #(
 		if (OPT_LOWPOWER && rerr_none[N])
 			assert(rerr_id[N] ==  0);
 `endif
+	// }}}
 	end endgenerate
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (Partial) Parameter validation
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	initial begin
 		if (NM == 0) begin
                         $display("At least one master must be defined");
@@ -1554,21 +2039,47 @@ module	axixbar #(
                         $stop;
                 end
         end
+	// }}}
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal property verification section
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = LGMAXBURST+9;
 
-
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Declare signals used for formal checking
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	//
 	// ...
 	//
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Initial/reset value checking
+	// {{{
 	initial	assert(NS >= 1);
 	initial	assert(NM >= 1);
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Check the arbiter signals for consistency
+	// {{{
 	generate for(N=0; N<NM; N=N+1)
 	begin : F1_CHECK_MASTER_GRANTS
-
+	// {{{
 		// Write grants
 		always @(*)
 		for(iM=0; iM<=NS; iM=iM+1)
@@ -1634,11 +2145,18 @@ module	axixbar #(
 			if (!rgrant[N][NS])
 				assert(!mrempty[N]);
 		end
+	// }}}
 	end endgenerate
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI signaling check, (incoming) master side
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	generate for(N=0; N<NM; N=N+1)
 	begin : F2_CHECK_MASTERS
-
+	// {{{
 		faxi_slave #(
 			.C_AXI_ID_WIDTH(IW),
 			.C_AXI_DATA_WIDTH(DW),
@@ -1719,13 +2237,18 @@ module	axixbar #(
 			assert(mrfull[N] == &w_mrpending[N]);
 			assert(mrempty[N] == (w_mrpending[N] == 0));
 		end
-
-
+	// }}}
 	end endgenerate
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI signaling check, (outgoing) slave side
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	generate for(M=0; M<NS; M=M+1)
 	begin : F3_CHECK_SLAVES
-
+	// {{{
 		faxi_master #(
 			.C_AXI_ID_WIDTH(IW),
 			.C_AXI_DATA_WIDTH(DW),
@@ -1800,14 +2323,104 @@ module	axixbar #(
 		if (M_AXI_ARVALID[M])
 			assert(((M_AXI_ARADDR[M*AW +:AW]^SLAVE_ADDR[M*AW +:AW])
 				& SLAVE_MASK[M*AW +: AW]) == 0);
+	// }}}
+	end endgenerate
+	// }}}
 
+	// m_axi_* convenience signals
+	// {{{
+	// ...
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// ...
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	generate for(N=0; N<NM; N=N+1)
+	begin : // ...
+	// {{{
+	// }}}
+	end endgenerate
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Double buffer checks
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	generate for(N=0; N<NM; N=N+1)
+	begin : F4_DOUBLE_BUFFER_CHECKS
+	// {{{
+	// ...
+	// }}}
+	end endgenerate
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Can every master reach every slave?
+	// Can things transition without dropping the request line(s)?
+	generate for(N=0; N<NM; N=N+1)
+	begin : F5_COVER_CONNECTIVITY_FROM_MASTER
+	// {{{
+	// ...
+	// }}}
 	end endgenerate
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Focused check: How fast can one master talk to each of the slaves?
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// ...
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Focused check: How fast can one master talk to a particular slave?
+	// We'll pick master 1 and slave 1.
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// ...
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Poor man's cover check
+	// {{{
+	// ...
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Negation check
+	// {{{
+	// Pick a particular value.  Assume the value doesn't show up on the
+	// input.  Prove it doesn't show up on the output.  This will check for
+	// ...
+	// 1. Stuck bits on the output channel
+	// 2. Cross-talk between channels
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	// ...
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Artificially constraining assumptions
-	//
+	// {{{
 	// Ideally, this section should be empty--there should be no
 	// assumptions here.  The existence of these assumptions should
 	// give you an idea of where I'm at with this project.
@@ -1844,8 +2457,7 @@ module	axixbar #(
 
 	always@(*)
 		assert(OPT_READS | OPT_WRITES);
+	// }}}
 `endif
+// }}}
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif

@@ -93,7 +93,6 @@ module	easyaxil #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
-	wire	i_clk   =  S_AXI_ACLK;
 	wire	i_reset = !S_AXI_ARESETN;
 
 	wire				axil_write_ready;
@@ -178,7 +177,7 @@ module	easyaxil #(
 	end endgenerate
 
 	initial	axil_bvalid = 0;
-	always @(posedge i_clk)
+	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		axil_bvalid <= 0;
 	else if (axil_write_ready)
@@ -227,7 +226,7 @@ module	easyaxil #(
 	end endgenerate
 
 	initial	axil_read_valid = 1'b0;
-	always @(posedge i_clk)
+	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		axil_read_valid <= 1'b0;
 	else if (axil_read_ready)
@@ -259,7 +258,7 @@ module	easyaxil #(
 	initial	r1 = 0;
 	initial	r2 = 0;
 	initial	r3 = 0;
-	always @(posedge i_clk)
+	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 	begin
 		r0 <= 0;
@@ -277,7 +276,7 @@ module	easyaxil #(
 	end
 
 	initial	axil_read_data = 0;
-	always @(posedge i_clk)
+	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && !S_AXI_ARESETN)
 		axil_read_data <= 0;
 	else if (!S_AXI_RVALID || S_AXI_RREADY)
@@ -324,7 +323,7 @@ module	easyaxil #(
 	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
-	always @(posedge i_clk)
+	always @(posedge S_AXI_ACLK)
 		f_past_valid <= 1;
 
 	////////////////////////////////////////////////////////////////////////

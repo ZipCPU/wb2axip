@@ -1,0 +1,23 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 3
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axiperf.v
+read -formal skidbuffer.v
+read -formal faxil_slave.v
+prep -top axiperf
+
+[files]
+../../rtl/axiperf.v
+../../rtl/skidbuffer.v
+faxil_slave.v

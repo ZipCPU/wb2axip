@@ -96,9 +96,8 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	reg	[DW-1:0]	dfifo		[0:(FLEN-1)];
 	reg			fifo_full, fifo_empty;
 
-	reg	[LGFIFO:0]	r_first, r_mid, r_last, r_next;
-	wire	[LGFIFO:0]	w_first_plus_one;
-	wire	[LGFIFO:0]	next_first, next_last, next_mid, fifo_fill;
+	reg	[LGFIFO:0]	r_first, r_mid, r_last;
+	wire	[LGFIFO:0]	next_first, next_last;
 	reg			wb_pending;
 	reg	[LGFIFO:0]	wb_outstanding;
 	wire	[DW-1:0]	read_data;
@@ -163,8 +162,6 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 
 	assign	next_first = r_first + 1'b1;
 	assign	next_last  = r_last + 1'b1;
-	assign	next_mid   = r_mid + 1'b1;
-	assign	fifo_fill  = (r_first - r_last);
 
 	initial	fifo_full  = 1'b0;
 	initial	fifo_empty = 1'b1;
@@ -296,8 +293,9 @@ module	axilrd2wbsp(i_clk, i_axi_reset_n,
 
 	// Make Verilator happy
 	// verilator lint_off UNUSED
-	wire	[8:0]	unused;
-	assign	unused = { i_axi_arcache, i_axi_arprot, i_axi_araddr[AXI_LSBS-1:0] };
+	wire	unused;
+	assign	unused = &{ 1'b0, i_axi_arcache, i_axi_arprot,
+			i_axi_araddr[AXI_LSBS-1:0], fifo_empty };
 	// verilator lint_on  UNUSED
 
 `ifdef	FORMAL

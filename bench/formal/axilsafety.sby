@@ -1,0 +1,38 @@
+[tasks]
+prf
+cvr    fault     opt_reset
+fault        prf
+prfr         prf opt_reset
+faultr fault prf opt_reset
+longr  fault prf opt_reset opt_long_reset
+prlong       prf opt_reset opt_long_reset
+
+[options]
+prf: mode prove
+prf: depth 23
+cvr: mode cover
+cvr: depth 32
+
+[engines]
+smtbmc
+
+[script]
+read -formal axilsafety.v
+read -formal skidbuffer.v
+read -formal faxil_slave.v
+read -formal faxil_master.v
+--pycode-begin--
+cmd = "hierarchy -top axilsafety"
+cmd += " -chparam F_OPT_FAULTLESS %d" % (0 if "fault"     in tags else 1)
+cmd += " -chparam OPT_SELF_RESET  %d" % (1 if "opt_reset" in tags else 0)
+cmd += " -chparam OPT_MIN_RESET   %d" % (16 if "opt_long_reset" in tags else 0)
+cmd += " -chparam OPT_TIMEOUT 10"
+output(cmd)
+--pycode-end--
+prep -top axilsafety
+
+[files]
+../../rtl/skidbuffer.v
+../../rtl/axilsafety.v
+faxil_slave.v
+faxil_master.v

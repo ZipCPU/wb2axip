@@ -2,10 +2,9 @@
 [*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
 [*] Fri Dec 28 02:53:33 2018
 [*]
-[dumpfile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/wbarbiter_cvr/engine_0/trace4.vcd"
+[dumpfile] "(null)"
 [dumpfile_mtime] "Fri Dec 28 02:48:56 2018"
 [dumpfile_size] 13681
-[savefile] "/home/dan/jericho/work/rnd/opencores/wb2axip/trunk/bench/formal/wbarbiter.gtkw"
 [timestart] 0
 [size] 1441 600
 [pos] -1 -1

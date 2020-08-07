@@ -1,0 +1,28 @@
+[tasks]
+prf
+bmc
+
+[options]
+prf: mode prove
+bmc: mode bmc
+bmc: depth 15
+prf: depth 5
+expect pass,fail,unknown
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal faxil_slave.v
+bmc: read -formal easyaxil_tb.sv
+read -sv mutated.v
+bmc: prep -top easyaxil_tb
+bmc: fmcombine easyaxil_tb gold uut
+prf: read -formal easyprops.sv
+prf: prep -top easyaxil
+
+[files]
+faxil_slave.v
+mutated.v
+bmc: easyaxil_tb.sv
+prf: easyprops.sv

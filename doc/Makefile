@@ -10,9 +10,6 @@
 ##	Targets include:
 ##		all		Builds all documents
 ##
-##		lgpl-3.0.pdf	Builds the LGPL license these files are released
-##					under.
-##
 ##		spec.pdf	Builds the specification for the SDSPI
 ##					controller.
 ##
@@ -48,20 +45,11 @@
 ################################################################################
 ##
 ##
-all:	lgpl
-pdf:	lgpl spec
+all:
+	echo "See the comments internal to the various RTL files for any documentation"
+
+pdf:	spec
 DSRC := src
-
-.PHONY: lgpl
-LICENSE := lgpl-3.0
-lgpl: $(LICENSE).pdf
-
-$(LICENSE).pdf: $(DSRC)/$(LICENSE).tex
-	latex $(DSRC)/$(LICENSE).tex
-	latex $(DSRC)/$(LICENSE).tex
-	dvips -q -z -t letter -P pdf -o $(LICENSE).ps $(LICENSE).dvi
-	ps2pdf -dAutoRotatePages=/All $(LICENSE).ps $(LICENSE).pdf
-	rm $(LICENSE).dvi $(LICENSE).log $(LICENSE).aux $(LICENSE).ps
 
 .PHONY: spec
 spec: spec.pdf

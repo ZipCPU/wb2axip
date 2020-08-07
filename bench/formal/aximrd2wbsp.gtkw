@@ -2,10 +2,7 @@
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
 [*] Fri Jan 25 20:03:10 2019
 [*]
-[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/tmpaximrd_prf/engine_0/trace.vcd"
-[dumpfile_mtime] "Fri Jan 25 20:00:26 2019"
-[dumpfile_size] 85655
-[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/tmpaximrd.gtkw"
+[dumpfile] "(null)"
 [timestart] 0
 [size] 1355 914
 [pos] -1 -1

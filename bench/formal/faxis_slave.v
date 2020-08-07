@@ -34,43 +34,41 @@
 //
 `default_nettype none
 //
-module	faxis_slave(i_aclk, i_aresetn,
-	i_tvalid, i_tready,
-	i_tdata, i_tstrb, i_tkeep, i_tlast, i_tid,
-	i_tdest, i_tuser,
-	f_bytecount, f_routecheck);
-	parameter	F_MAX_PACKET = 0;
-	parameter	F_MIN_PACKET = 0;
-	parameter	F_MAX_STALL  = 0;
-	parameter	C_S_AXI_DATA_WIDTH  = 32;
-	parameter	C_S_AXI_ID_WIDTH = 1;
-	parameter	C_S_AXI_ADDR_WIDTH = 1;
-	parameter	C_S_AXI_USER_WIDTH = 1;
-	parameter [0:0]	OPT_ASYNC_RESET = 1'b0;
+module	faxis_slave #(
+	parameter	F_MAX_PACKET = 0,
+	parameter	F_MIN_PACKET = 0,
+	parameter	F_MAX_STALL  = 0,
+	parameter	C_S_AXI_DATA_WIDTH  = 32,
+	parameter	C_S_AXI_ID_WIDTH = 1,
+	parameter	C_S_AXI_ADDR_WIDTH = 1,
+	parameter	C_S_AXI_USER_WIDTH = 1,
+	parameter [0:0]	OPT_ASYNC_RESET = 1'b0,
 	//
 	// F_LGDEPTH is the number of bits necessary to represent a packets
 	// length
-	parameter	F_LGDEPTH = 32;
+	parameter	F_LGDEPTH = 32,
 	//
-	localparam	AW  = C_S_AXI_ADDR_WIDTH;
-	localparam	DW  = C_S_AXI_DATA_WIDTH;
-	localparam	IDW  = C_S_AXI_ID_WIDTH;
-	localparam	UW  = C_S_AXI_USER_WIDTH;
+	localparam	AW  = C_S_AXI_ADDR_WIDTH,
+	localparam	DW  = C_S_AXI_DATA_WIDTH,
+	localparam	IDW  = C_S_AXI_ID_WIDTH,
+	localparam	UW  = C_S_AXI_USER_WIDTH
 	//
+	) (
 	//
-	input	wire			i_aclk, i_aresetn;
-	input	wire			i_tvalid;
-	input	wire			i_tready = 1'b1;
-	input	wire	[DW-1:0]	i_tdata;
-	input	wire	[DW/8-1:0]	i_tstrb = i_tkeep;
-	input	wire	[DW/8-1:0]	i_tkeep = {(DW/8){1'b1}};
-	input	wire			i_tlast;
-	input	wire	[(IDW>0?IDW:1)-1:0]	i_tid = {(IDW){1'b0}};
-	input	wire	[(AW>0?AW:1)-1:0]	i_tdest = {(AW){1'b0}};
-	input	wire	[(UW>0?UW:1)-1:0]	i_tuser = {(UW){1'b0}};
+	input	wire			i_aclk, i_aresetn,
+	input	wire			i_tvalid,
+	input	wire			i_tready = 1,
+	input	wire	[DW-1:0]	i_tdata,
+	input	wire	[DW/8-1:0]	i_tstrb = {(DW/8){1'b1}},
+	input	wire	[DW/8-1:0]	i_tkeep = {(DW/8){1'b1}},
+	input	wire			i_tlast,
+	input	wire	[(IDW>0?IDW:1)-1:0]	i_tid = {(IDW){1'b0}},
+	input	wire	[(AW>0?AW:1)-1:0]	i_tdest = {(AW){1'b0}},
+	input	wire	[(UW>0?UW:1)-1:0]	i_tuser = {(UW){1'b0}},
 	//
-	output	reg	[F_LGDEPTH-1:0]	f_bytecount;
-	(* anyconst *) output	reg	[AW+IDW-1:0]	f_routecheck;
+	output	reg	[F_LGDEPTH-1:0]	f_bytecount,
+	(* anyconst *) output	reg	[AW+IDW-1:0]	f_routecheck
+	);
 
 `define	SLAVE_ASSUME	assume
 `define	SLAVE_ASSERT	assert

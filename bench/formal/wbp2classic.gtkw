@@ -2,10 +2,9 @@
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
 [*] Wed Apr 24 17:19:47 2019
 [*]
-[dumpfile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/wbp2classic_cvr/engine_0/trace0.vcd"
+[dumpfile] "(null)"
 [dumpfile_mtime] "Wed Apr 24 17:13:31 2019"
 [dumpfile_size] 14390
-[savefile] "/home/dan/work/rnd/opencores/wb2axip/trunk/bench/formal/wbp2classic.gtkw"
 [timestart] 0
 [size] 1673 812
 [pos] -1 -213

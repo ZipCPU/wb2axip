@@ -104,6 +104,13 @@ module wbm2axilite #(
 					: ((DW ==  64) ? 6
 					: ((DW == 128) ? 7
 					: 8))));
+	//
+	// LGIFOFLN: The log (based two) of the size of our FIFO.  This is a
+	// localparam since 1) 32-bit distributed memories nearly come for
+	// free, and 2) because there is no performance gain to be had in larger
+	// memories.  2^32 entries is the perfect size for this application.
+	// Any smaller, and the core will not be able to maintain 100%
+	// throughput.
 	localparam	LGFIFOLN = 5;
 	localparam	FIFOLN = (1<<LGFIFOLN);
 

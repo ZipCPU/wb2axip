@@ -5,6 +5,7 @@ cvr
 [options]
 prf: mode prove
 prf: depth 120
+prf: expect FAIL
 cvr: mode cover
 cvr: depth 60
 
