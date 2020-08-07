@@ -333,6 +333,7 @@ module	axixbar #(
 
 	// verilator lint_off UNUSED
 	wire	[LGMAXBURST-1:0]	w_mawpending	[0:NM-1];
+	wire	[LGMAXBURST-1:0]	wlasts_pending	[0:NM-1];
 	wire	[LGMAXBURST-1:0]	w_mrpending	[0:NM-1];
 	// verilator lint_on  UNUSED
 	reg	[NM-1:0]		mwfull;
@@ -554,7 +555,7 @@ module	axixbar #(
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// 
+	//
 
 	generate for(N=0; N<NM; N=N+1)
 	begin : W1_DECODE_WRITE_REQUEST
@@ -616,12 +617,18 @@ module	axixbar #(
 		always @(*)
 		begin
 			slave_awaccepts[N] = 1'b1;
+
+			// Cannot accept/forward a packet without a bus grant
+			// This handles whether or not write data is still
+			// pending.
 			if (!mwgrant[N])
 				slave_awaccepts[N] = 1'b0;
 			if (write_qos_lockout[N])
 				slave_awaccepts[N] = 1'b0;
 			if (mwfull[N])
 				slave_awaccepts[N] = 1'b0;
+			// Don't accept a packet unless its to the same slave
+			// the grant is issued for
 			if (!wrequest[N][mwindex[N]])
 				slave_awaccepts[N] = 1'b0;
 			if (!wgrant[N][NS])
@@ -634,6 +641,9 @@ module	axixbar #(
 				// for the no-address-mapped channel if the
 				// B* channel is stalled, lest we lose the ID
 				// of the transaction
+				//
+				// !berr_valid[N] => we have to accept more
+				//	write data before we can issue BVALID
 				slave_awaccepts[N] = 1'b0;
 			end
 		end
@@ -652,7 +662,7 @@ module	axixbar #(
 			begin
 				if (!slave_wready[mwindex[N]])
 					slave_waccepts[N] = 1'b0;
-			end else if (berr_valid[N] || bskd_ready[N])
+			end else if (berr_valid[N] && !bskd_ready[N])
 				slave_waccepts[N] = 1'b0;
 		end
 		// }}}
@@ -794,6 +804,8 @@ module	axixbar #(
 				slave_raccepts[N] = 1'b0;
 			if (mrfull[N])
 				slave_raccepts[N] = 1'b0;
+			// If we aren't requesting access to the channel we've
+			// been granted access to, then we can't accept this
 			// verilator lint_off  WIDTH
 			if (!rrequest[N][mrindex[N]])
 				slave_raccepts[N] = 1'b0;
@@ -875,7 +887,7 @@ module	axixbar #(
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// 
+	//
 
 	// wrequested
 	// {{{
@@ -997,7 +1009,7 @@ module	axixbar #(
 			// The channel is available to us if 1) we want it,
 			// 2) no one else is using it, and 3) no one earlier
 			// has requested it
-			requested_channel_is_available = 
+			requested_channel_is_available =
 				|(wrequest[N][NS-1:0] & ~swgrant
 						& ~wrequested[N][NS-1:0]);
 
@@ -1076,6 +1088,8 @@ module	axixbar #(
 				// to any other channel
 				leave_channel = 1;
 			if (write_qos_lockout[N])
+				// Need to leave this channel for another higher
+				// priority request
 				leave_channel = 1;
 		end
 		// }}}
@@ -1151,7 +1165,7 @@ module	axixbar #(
 		// stay_on_channel
 		// {{{
 		// We must stay on the channel if we aren't done working with it
-		// i.e. more writes requested, more acknowledgments expected,
+		// i.e. more reads requested, more acknowledgments expected,
 		// etc.
 		always @(*)
 		begin
@@ -1180,7 +1194,7 @@ module	axixbar #(
 			// The channel is available to us if 1) we want it,
 			// 2) no one else is using it, and 3) no one earlier
 			// has requested it
-			requested_channel_is_available = 
+			requested_channel_is_available =
 				|(rrequest[N][NS-1:0] & ~srgrant
 						& ~rrequested[N][NS-1:0]);
 
@@ -1911,6 +1925,8 @@ module	axixbar #(
 
 		always @(*)
 			wdata_expected[N] = r_wdata_expected;
+
+		assign wlasts_pending[N] = wpending;
 		// }}}
 	// }}}
 	end endgenerate
