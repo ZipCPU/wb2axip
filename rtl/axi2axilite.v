@@ -1,20 +1,35 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axi2axilite.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
-// Purpose:	Convert from AXI to AXI-lite
+// Purpose:	Convert from AXI to AXI-lite with no performance loss.
 //
-// Performance: 
+// Performance:	The goal of this converter is to convert from AXI to AXI-lite
+//		while still maintaining the one-clock per transaction speed
+//	of AXI.  It currently achieves this goal.  The design needs very little
+//	configuration to be useful, but you might wish to resize the FIFOs
+//	within depending upon the length of your slave's data path.  The current
+//	FIFO length, LGFIFO=4, is sufficient to maintain full speed.  If the
+//	slave, however, can maintain full speed but requires a longer
+//	processing cycle, then you may need longer FIFOs.
+//
+//	The AXI specification does require an additional 2 clocks per
+//	transaction when using this core, so your latency will go up.
+//
+// Related:	There's a related axidouble.v core in the same repository as
+//		well.  That can be used to convert the AXI protocol to something
+//	simpler (even simpler than AXI-lite), but it can also do so for multiple
+//	downstream slaves at the same time.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,21 +49,26 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module axi2axilite #(
-	parameter integer C_AXI_ID_WIDTH	= 2,
-	parameter integer C_AXI_DATA_WIDTH	= 32,
-	parameter integer C_AXI_ADDR_WIDTH	= 6,
-	parameter	 [0:0]	OPT_WRITES	= 1,
-	parameter	 [0:0]	OPT_READS	= 1,
-	// Log (based two) of the maximum number of outstanding AXI
-	// (not AXI-lite) transactions.  If you multiply 2^LGFIFO * 256,
-	// you'll get the maximum number of outstanding AXI-lite transactions
-	parameter	LGFIFO			= 4
+		// {{{
+		parameter integer C_AXI_ID_WIDTH	= 2,
+		parameter integer C_AXI_DATA_WIDTH	= 32,
+		parameter integer C_AXI_ADDR_WIDTH	= 6,
+		parameter	 [0:0]	OPT_WRITES	= 1,
+		parameter	 [0:0]	OPT_READS	= 1,
+		// Log (based two) of the maximum number of outstanding AXI
+		// (not AXI-lite) transactions.  If you multiply 2^LGFIFO * 256,
+		// you'll get the maximum number of outstanding AXI-lite
+		// transactions
+		parameter	LGFIFO			= 4
+		// }}}
 	) (
+		// {{{
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
-		//
+		// AXI (incoming) Write address
+		// {{{
 		input	wire				S_AXI_AWVALID,
 		output	wire				S_AXI_AWREADY,
 		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
@@ -60,19 +80,24 @@ module axi2axilite #(
 		input	wire	[3:0]			S_AXI_AWCACHE,
 		input	wire	[2:0]			S_AXI_AWPROT,
 		input	wire	[3:0]			S_AXI_AWQOS,
-		//
+		// }}}
+		// AXI (incoming) Write data
+		// {{{
 		input	wire				S_AXI_WVALID,
 		output	wire				S_AXI_WREADY,
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
 		input	wire	[(C_AXI_DATA_WIDTH/8)-1:0] S_AXI_WSTRB,
 		input	wire				S_AXI_WLAST,
-		//
+		// }}}
+		// AXI (incoming) Write response
+		// {{{
 		output	wire				S_AXI_BVALID,
 		input	wire				S_AXI_BREADY,
 		output	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_BID,
 		output	wire	[1:0]			S_AXI_BRESP,
-		//
-		//
+		// }}}
+		// AXI (incoming) Read address
+		// {{{
 		input	wire				S_AXI_ARVALID,
 		output	wire				S_AXI_ARREADY,
 		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_ARID,
@@ -84,16 +109,18 @@ module axi2axilite #(
 		input	wire	[3:0]			S_AXI_ARCACHE,
 		input	wire	[2:0]			S_AXI_ARPROT,
 		input	wire	[3:0]			S_AXI_ARQOS,
-		//
+		// }}}
+		// AXI Read data and response
+		// {{{
 		output	wire				S_AXI_RVALID,
 		input	wire				S_AXI_RREADY,
 		output	wire	[C_AXI_ID_WIDTH-1:0] S_AXI_RID,
 		output	wire	[C_AXI_DATA_WIDTH-1:0] S_AXI_RDATA,
 		output	wire	[1:0]			S_AXI_RRESP,
 		output	wire				S_AXI_RLAST,
-		//
-		//
-		//
+		// }}}
+		// AXI-Lite interface
+		// {{{
 		// Write address (issued by master, acceped by Slave)
 		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
 		output	wire	[2 : 0]			M_AXI_AWPROT,
@@ -116,8 +143,12 @@ module axi2axilite #(
 		output	wire				M_AXI_RREADY,
 		input	wire	[C_AXI_DATA_WIDTH-1 : 0] M_AXI_RDATA,
 		input	wire	[1 : 0]			M_AXI_RRESP
+		// }}}
+		// }}}
 	);
 
+	// Local parameters, register, and net declarations
+	// {{{
 	localparam [1:0]	OKAY = 2'b00,
 				EXOKAY = 2'b01,
 				SLVERR = 2'b10,
@@ -126,7 +157,6 @@ module axi2axilite #(
 	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	IW = C_AXI_ID_WIDTH;
 	localparam	LSB = $clog2(C_AXI_DATA_WIDTH)-3;
-
 
 	//
 	// Write registers
@@ -212,10 +242,18 @@ module axi2axilite #(
 	wire			skidm_rvalid, skidm_rready;
 	wire	[DW-1:0]	skidm_rdata;
 	wire	[1:0]		skidm_rresp;
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	generate if (OPT_WRITES)
-	begin
-		//
+	begin : IMPLEMENT_WRITES
+		// {{{
 		// The write address channel's skid buffer
 		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
@@ -372,9 +410,9 @@ module axi2axilite #(
 		assign	S_AXI_BID    = axi_bid;
 		assign	S_AXI_BRESP  = axi_bresp;
 		assign	S_AXI_BVALID = s_axi_bvalid;
-	
-	end else begin // if (!OPT_WRITES)
-
+		// }}}
+	end else begin : NO_WRITE_SUPPORT
+		// {{{
 		assign	S_AXI_AWREADY = 0;
 		assign	S_AXI_WREADY  = 0;
 		assign	S_AXI_BID     = 0;
@@ -442,16 +480,19 @@ module axi2axilite #(
 		assign	wfifo_empty = 1;
 		assign	wfifo_count = 0;
 		assign	read_from_wrfifo = 0;
-
+		// }}}
 	end endgenerate
-
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	// Read half
+	// Read logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	generate if (OPT_READS)
-	begin
+	begin : IMPLEMENT_READS
+		// {{{
 		//
 		// S_AXI_AR* skid buffer
 		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
@@ -582,8 +623,9 @@ module axi2axilite #(
 		assign	S_AXI_RRESP  = s_axi_rresp;
 		assign	S_AXI_RLAST  = s_axi_rlast;
 		assign	S_AXI_RID    = s_axi_rid;
-
-	end else begin // if (!OPT_READS)
+		// }}}
+	end else begin : NO_READ_SUPPORT // if (!OPT_READS)
+		// {{{
 		assign	M_AXI_ARVALID= 0;
 		assign	M_AXI_ARADDR = 0;
 		assign	M_AXI_ARPROT = 0;
@@ -622,9 +664,11 @@ module axi2axilite #(
 		assign	rfifo_empty = 1;
 		assign	rfifo_full  = 0;
 		assign	rfifo_count = 0;
-
+		// }}}
 	end endgenerate
-
+	// }}}
+	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	[35-1:0]	unused;
 	assign	unused = {
@@ -633,7 +677,17 @@ module axi2axilite #(
 		S_AXI_ARLOCK, S_AXI_ARCACHE, S_AXI_ARPROT, S_AXI_ARQOS,
 		rfifo_count };
 	// Verilator lint_on  UNUSED
-
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+// The following are a subset of the formal properties used to verify this core
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = LGFIFO+1+8;
 
@@ -924,6 +978,7 @@ module axi2axilite #(
 	//
 `undef	BMC_ASSERT
 `endif
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire
