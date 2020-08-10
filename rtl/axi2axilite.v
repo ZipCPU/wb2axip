@@ -318,7 +318,7 @@ module axi2axilite #(
 		else if (M_AXI_AWVALID && M_AXI_AWREADY && axi_awlen > 0)
 			axi_awlen <= axi_awlen - 1;
 
-		axi_addr #(.AW(C_AXI_ADDR_WIDTH))
+		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
 		calcwraddr(axi_awaddr, axi_awsize, axi_awburst,
 			axi_blen, next_write_addr);
 
@@ -529,7 +529,7 @@ module axi2axilite #(
 		end else if (M_AXI_ARREADY)
 			axi_araddr <= next_read_addr;
 
-		axi_addr #(.AW(C_AXI_ADDR_WIDTH))
+		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
 			calcrdaddr(axi_araddr, axi_arsize, axi_arburst,
 			axi_rlen, next_read_addr);
 
