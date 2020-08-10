@@ -165,6 +165,8 @@ module aximwr2wbsp #(
 				&&(!total_fifo_full);
 		if (axi_wid != skid_awid && (acks_expected > 0))
 			accept_write_burst = 0;
+		if (!skid_wvalid)
+			accept_write_burst = 0;
 	end
 
 	always @(*)
