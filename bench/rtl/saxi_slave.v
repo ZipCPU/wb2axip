@@ -51,8 +51,6 @@ module saxi_slave #(
 		parameter [7:0] OPT_MAXBURST	= 8'hff,
 		// Exclusive access allowed
 		parameter [0:0] OPT_EXCLUSIVE	= 1,
-		// Support narrow bursts (default now)
-		localparam [0:0] OPT_NARROW_BURST = 1
 		// User design uses async resets -- not the default
 		parameter [0:0]	OPT_ASYNC_RESET  = 0,
 		// F_OPT_ASSUME_RESET, if set, will cause the design to
@@ -267,13 +265,8 @@ module saxi_slave #(
 	// and *assert* properties of signals coming from the slave and
 	// returning to the master.  This order will be reversed within the
 	// master, and the following two definitions help us do that.
-`ifdef	VERILATOR
-`define	ASSUME		assert
-`define	SLAVE_ASSUME	assert
-`else
 `define	ASSUME		assume
 `define	SLAVE_ASSUME	assume
-`endif
 `define	SLAVE_ASSERT	assert
 
 	// f_past_valid
@@ -358,8 +351,8 @@ module saxi_slave #(
 			!i_axi_aresetn |-> !i_axi_bvalid && !i_axi_rvalid;
 		endproperty
 
-		`SLAVE_ASSUME property(CLEAR_REQUEST_ON_RESET);
-		`SLAVE_ASSERT property(CLEAR_RETURN_ON_RESET);
+		`SLAVE_ASSUME property(ASYNC_CLEAR_REQUEST_ON_RESET);
+		`SLAVE_ASSERT property(ASYNC_CLEAR_RETURN_ON_RESET);
 		// }}}
 	end endgenerate
 	// }}}
@@ -589,7 +582,7 @@ module saxi_slave #(
 	faxi_valaddr #(.C_AXI_DATA_WIDTH(DW), .C_AXI_ADDR_WIDTH(AW),
 			.OPT_MAXBURST(OPT_MAXBURST),
 			.OPT_EXCLUSIVE(OPT_EXCLUSIVE),
-			.OPT_NARROW_BURST(OPT_NARROW_BURST))
+			.OPT_NARROW_BURST(1'b1))
 		f_wraddr_validate(i_axi_awaddr, i_axi_awlen, i_axi_awsize,
 			i_axi_awburst, i_axi_awlock,
 			1'b1, awr_aligned, valid_iwaddr);
@@ -700,29 +693,35 @@ module saxi_slave #(
 
 	// r_axi_wr_*
 	// {{{
+	initial	r_wr_pending = 0;
 	always @(posedge i_clk)
-	if (awfifo_read && !awfifo_empty)
 	begin
-		r_axi_wr_id   <= awfifo_id;
-		r_axi_wr_addr <= awfifo_addr;
-		r_axi_wr_len  <= awfifo_len;
-		r_axi_wr_burst<= awfifo_burst;
-		r_axi_wr_size <= awfifo_size;
-		r_axi_wr_lock <= awfifo_lock;
-		r_axi_wr_cache<= awfifo_cache;
-		r_axi_wr_prot <= awfifo_prot;
-		r_axi_wr_qos  <= awfifo_qos;
+		if (awfifo_read && !awfifo_empty)
+		begin
+			r_axi_wr_id   <= awfifo_id;
+			r_axi_wr_addr <= awfifo_addr;
+			r_axi_wr_len  <= awfifo_len;
+			r_axi_wr_burst<= awfifo_burst;
+			r_axi_wr_size <= awfifo_size;
+			r_axi_wr_lock <= awfifo_lock;
+			r_axi_wr_cache<= awfifo_cache;
+			r_axi_wr_prot <= awfifo_prot;
+			r_axi_wr_qos  <= awfifo_qos;
 
-		r_wr_pending <= awfifo_len + 1;
-		if (wfifo_read && !wfifo_empty)
+			r_wr_pending <= awfifo_len + 1;
+			if (wfifo_read && !wfifo_empty)
+			begin
+				r_axi_wr_addr <= next_write_addr;
+				r_wr_pending  <= awfifo_len;
+			end
+		end else if (wfifo_read && !wfifo_empty)
 		begin
 			r_axi_wr_addr <= next_write_addr;
-			r_wr_pending  <= awfifo_len;
+			r_wr_pending  <= r_wr_pending - 1;
 		end
-	end else if (wfifo_read && !wfifo_empty)
-	begin
-		r_axi_wr_addr <= next_write_addr;
-		r_wr_pending  <= r_wr_pending - 1;
+
+		if (!i_axi_aresetn)
+			r_wr_pending <= 0;
 	end
 	// }}}
 
@@ -764,6 +763,15 @@ module saxi_slave #(
 		`SLAVE_ASSUME(wstb_valid);
 	// }}}
 
+	// Check WLAST
+	`SLAVE_ASSUME property (@(posedge i_clk)
+		!wfifo_empty && r_wr_pending > 0
+		|-> ((r_wr_pending == 1) == wfifo_last));
+
+	`SLAVE_ASSUME property (@(posedge i_clk)
+		!wfifo_empty && r_wr_pending == 0 && !awfifo_empty
+		|-> ((awfifo_len == 0) == wfifo_last));
+
 	// Check BID and BRESP
 	// {{{
 	generate for(gk=0; gk<NUM_IDS; gk=gk+1)
@@ -780,8 +788,8 @@ module saxi_slave #(
 		// }}}
 
 		always @(*)
-			block_fifo_write = (wfifo_read && wfifo_last
-						&& f_axi_wr_this_id == gk);
+			block_fifo_write = (wfifo_read && !wfifo_empty
+				&& wfifo_last && f_axi_wr_this_id == gk);
 
 		always @(*)
 			block_fifo_check = (i_axi_bvalid && i_axi_bid == gk);
@@ -903,13 +911,13 @@ module saxi_slave #(
 	// allow 2^F_LGDEPTH-1 requests (or more) to be outstanding.
 	//
 	assert property (@(posedge i_clk)
-		f_axi_awr_nbursts  < {(F_LGDEPTH){1'b1}});
+		!i_axi_aresetn || f_axi_awr_nbursts  < {(F_LGDEPTH){1'b1}});
 	assert property (@(posedge i_clk)
-		f_axi_wr_pending  < 256);
+		!i_axi_aresetn || f_axi_wr_pending  <= 256);
 	assert property (@(posedge i_clk)
-		f_axi_rd_nbursts  < {(F_LGDEPTH){1'b1}});
+		!i_axi_aresetn || f_axi_rd_nbursts  < {(F_LGDEPTH){1'b1}});
 	assert property (@(posedge i_clk)
-		f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
+		!i_axi_aresetn || f_axi_rd_outstanding  < {(F_LGDEPTH){1'b1}});
 	// }}}
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -936,7 +944,7 @@ module saxi_slave #(
 	faxi_valaddr #(.C_AXI_DATA_WIDTH(DW), .C_AXI_ADDR_WIDTH(AW),
 			.OPT_MAXBURST(OPT_MAXBURST),
 			.OPT_EXCLUSIVE(OPT_EXCLUSIVE),
-			.OPT_NARROW_BURST(OPT_NARROW_BURST))
+			.OPT_NARROW_BURST(1'b1))
 		f_rdaddr_validate(i_axi_araddr, i_axi_arlen,
 			i_axi_arsize, i_axi_arburst, i_axi_arlock,
 			1'b1, ard_aligned, valid_iraddr);
@@ -1070,6 +1078,20 @@ module saxi_slave #(
 		// way.  Hence, the address should always point to the address
 		// of the next value to be read, and the r_rd_pending to the
 		// next item to be read.
+
+		initial	r_rd_pending = 0;
+		always @(posedge i_clk)
+		if (!i_axi_aresetn)
+			r_rd_pending <= 0;
+		else if (arfifo_read)
+		begin
+			r_rd_pending   = arfifo_len + 1;
+			if (arfifo_empty)
+				r_rd_pending = 0;
+		end else if (i_axi_rvalid && i_axi_rready && i_axi_rid == gk
+				&& r_rd_pending > 0)
+			r_rd_pending = r_rd_pending - 1;
+
 		always @(posedge i_clk)
 		if (arfifo_read)
 		begin
@@ -1081,16 +1103,9 @@ module saxi_slave #(
 			r_axi_rd_cache = arfifo_cache;
 			r_axi_rd_prot  = arfifo_prot;
 			r_axi_rd_qos   = arfifo_qos;
-
-			r_rd_pending   = arfifo_len + 1;
-			if (arfifo_empty)
-				r_rd_pending = 0;
 		end else if (i_axi_rvalid && i_axi_rready && i_axi_rid == gk
 				&& r_rd_pending > 0)
-		begin
-			r_rd_pending = r_rd_pending - 1;
 			r_axi_rd_addr= next_read_addr;
-		end
 		// }}}
 
 		// next_read_addr
@@ -1114,7 +1129,7 @@ module saxi_slave #(
 
 		`SLAVE_ASSERT property (@(posedge i_clk)
 			i_axi_aresetn && i_axi_rvalid && i_axi_rid == gk
-			&& !f_axi_rd_this_lock |-> i_axi_bresp != EXOKAY);
+			&& !f_axi_rd_this_lock |-> i_axi_rresp != EXOKAY);
 
 		// }}}
 	end endgenerate
@@ -1159,10 +1174,11 @@ module saxi_slave #(
 	////////////////////////////////////////////////////////////////////////
 	generate if (!OPT_EXCLUSIVE)
 	begin : EXCLUSIVE_DISALLOWED
-
+		// {{{
 		// These properties are captured above
-
+		// }}}
 	end else begin : EXCLUSIVE_ACCESS_CHECKER
+		// {{{
 
 		//
 		// 1. Exclusive access burst lengths max out at 16
@@ -1174,14 +1190,15 @@ module saxi_slave #(
 		// (4. Further read accesses on this ID are not allowed)
 		//	(NOT CHECKED)
 		//
-		always @(*)
-		if (i_axi_awvalid && i_axi_awlock)
-			`SLAVE_ASSUME(!i_axi_awcache[0]);
+		`SLAVE_ASSUME property (@(posedge i_clk)
+			i_axi_aresetn && i_axi_awvalid && i_axi_awlock
+			|-> !i_axi_awcache[0]);
 
-		always @(*)
-		if (i_axi_arvalid && i_axi_arlock)
-			`SLAVE_ASSUME(!i_axi_arcache[0]);
+		`SLAVE_ASSUME property (@(posedge i_clk)
+			i_axi_aresetn && i_axi_arvalid && i_axi_arlock
+			|-> !i_axi_arcache[0]);
 
+		// }}}
 	end endgenerate
 	// }}}
 	////////////////////////////////////////////////////////////////////////
