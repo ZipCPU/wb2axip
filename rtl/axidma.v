@@ -633,7 +633,7 @@ module	axidma #(
 	always @(posedge S_AXI_ACLK)
 	if (i_reset)
 		S_AXIL_RDATA <= 0;
-	else if (!S_AXIL_RVALID || |S_AXIL_RREADY)
+	else if (!S_AXIL_RVALID || S_AXIL_RREADY)
 	begin
 		S_AXIL_RDATA <= 0;
 		case(arskd_addr)

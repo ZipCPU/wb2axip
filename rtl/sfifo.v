@@ -12,18 +12,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Written and distributed by Gisselquist Technology, LLC
-//
+// }}}
 // This program is hereby granted to the public domain.
-//
+// {{{
 // This program is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
 // FITNESS FOR A PARTICULAR PURPOSE.
 //
 ////////////////////////////////////////////////////////////////////////////////
-// }}}
+//
 //
 `default_nettype	none
-//
+// }}}
 module sfifo #(
 		// {{{
 		parameter	BW=8,	// Byte/data width
@@ -51,6 +51,8 @@ module sfifo #(
 		// }}}
 	);
 
+	// Register/net declarations
+	// {{{
 	reg			r_full, r_empty;
 	reg	[(BW-1):0]	mem[0:(FLEN-1)];
 	reg	[LGFLEN:0]	wr_addr, rd_addr;
@@ -58,6 +60,7 @@ module sfifo #(
 
 	wire	w_wr = (i_wr && !o_full);
 	wire	w_rd = (i_rd && !o_empty);
+	// }}}
 
 	// o_fill
 	// {{{
