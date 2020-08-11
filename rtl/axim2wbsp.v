@@ -42,20 +42,21 @@
 `default_nettype	none
 //
 module axim2wbsp #(
-	parameter  C_AXI_ID_WIDTH	= 16, // The AXI id width used for R&W
+	parameter  C_AXI_ID_WIDTH	= 2, // The AXI id width used for R&W
                                              // This is an int between 1-16
 	parameter  C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
-	parameter  C_AXI_ADDR_WIDTH	= 16,	// AXI Address width
-	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
-	parameter DW			= C_AXI_DATA_WIDTH,
-	parameter AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,
+	parameter  C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
+	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3, // leave it calculated, unless AXI narrow transfers need to be supported
+	parameter DW			= C_AXI_DATA_WIDTH, // leave it calculated
+	parameter AW			= C_AXI_ADDR_WIDTH - AXI_LSBS, // leave it calculated
 	parameter  LGFIFO		= 5,
+	parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0,
 	parameter [0:0]	OPT_READONLY	= 1'b0,
 	parameter [0:0]	OPT_WRITEONLY	= 1'b0
 	) (
-	//
+	// names are matching AXI spec, therefore X_INTERFACE_INFO not needed
 	input	wire			S_AXI_ACLK,	// System clock
-	input	wire			S_AXI_ARESETN,
+	input	wire			S_AXI_ARESETN, // reset, active low
 
 	// AXI write address channel signals
 	input	wire			S_AXI_AWVALID,	// Write address valid
@@ -104,18 +105,20 @@ module axim2wbsp #(
 	output	wire			S_AXI_RLAST,    // Read last
 	output	wire [1:0]		S_AXI_RRESP,   // Read response
 
-	// We'll share the clock and the reset
-	output	wire				o_reset,
+	// Wishbone4 pipelined master. We'll share the clock and output the active-high reset
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME o_reset, POLARITY ACTIVE_HIGH" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 o_reset RST" *) output	wire				o_reset,
+
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM CYC" *) output	wire				o_wb_cyc,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STB" *) output	wire				o_wb_stb,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM WE" *) output	wire				o_wb_we,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ADR" *) output	wire [(AW-1):0]			o_wb_addr,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MOSI" *) output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM SEL" *) output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STALL" *)input	wire				i_wb_stall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STALL" *) input	wire				i_wb_stall,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ACK" *) input	wire				i_wb_ack,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MISO" *) input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ERR" *)input	wire				i_wb_err
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ERR" *) input	wire				i_wb_err
 	);
 	//
 	//
@@ -138,6 +141,7 @@ module axim2wbsp #(
 		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
+		.OPT_SWAP_ENDIANNESS(OPT_SWAP_ENDIANNESS),
 		.AXI_LSBS(AXI_LSBS),
 		.LGFIFO(LGFIFO))
 		axi_write_decoder(
@@ -196,7 +200,8 @@ module axim2wbsp #(
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.AXI_LSBS(AXI_LSBS),
-		.LGFIFO(LGFIFO))
+		.LGFIFO(LGFIFO),
+		.OPT_SWAP_ENDIANNESS(OPT_SWAP_ENDIANNESS))
 	axi_read_decoder(
 		.S_AXI_ACLK(S_AXI_ACLK), .S_AXI_ARESETN(S_AXI_ARESETN),
 		//

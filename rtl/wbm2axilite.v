@@ -51,7 +51,7 @@ module wbm2axilite #(
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ADR" *)      input	wire	[(AW-1):0]	i_wb_addr,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MOSI" *) input	wire	[(DW-1):0]	i_wb_data,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS SEL" *)      input	wire	[(DW/8-1):0]	i_wb_sel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)    output	reg			o_wb_stall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)    output	wire			o_wb_stall,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ACK" *)      output	reg			o_wb_ack,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MISO" *) output	reg	[(DW-1):0]	o_wb_data,
 	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ERR" *)      output	reg			o_wb_err,

@@ -67,9 +67,10 @@ module wbm2axisp #(
 	) (
 	// {{{
 	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME M_AXI_ACLK, ASSOCIATED_BUSIF M_AXI" *)
-	// , ASSOCIATED_RESET S_AXI_ARESETN, FREQ_HZ 80000000, PHASE 0.000" *)
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 M_AXI_ACLK CLK" *)     input	wire			i_clk,	// System clock
-	input	wire			i_reset,// Reset signal,drives AXI rst
+
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_reset, POLARITY ACTIVE_HIGH" *)	
+	(* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 i_reset RST" *)        input	wire			i_reset,// Reset signal active high, inverted drives AXI rst
 
 	// AXI write address channel signals
 	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWVALID" *)   output	reg			o_axi_awvalid,	// Write address valid
@@ -1147,3 +1148,7 @@ module wbm2axisp #(
 `endif // FORMAL
 // }}}
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

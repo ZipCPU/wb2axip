@@ -56,18 +56,18 @@ module	wbp2classic #(
 	
 	//
 	// Outgoing WB classic port master ( for convinience labelled as WB4, later use separate interface definition for WB3 classic)
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM CYC" *)      output	reg			o_scyc,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STB" *)      output	reg			o_sstb,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM WE" *)       output	reg			o_swe,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ADR" *)      output	reg	[(AW-1):0]	o_saddr,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MOSI" *) output	reg	[(DW-1):0]	o_sdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM SEL" *)      output	reg	[(DW/8-1):0]	o_ssel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ACK" *)      input	wire			i_sack,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MISO" *) input	wire	[(DW-1):0]	i_sdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ERR" *)      input	wire			i_serr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM CYC" *)      output	reg			o_scyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM STB" *)      output	reg			o_sstb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM WE" *)       output	reg			o_swe,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ADR" *)      output	reg	[(AW-1):0]	o_saddr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM DAT_MOSI" *) output	reg	[(DW-1):0]	o_sdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM SEL" *)      output	reg	[(DW/8-1):0]	o_ssel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ACK" *)      input	wire			i_sack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM DAT_MISO" *) input	wire	[(DW-1):0]	i_sdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ERR" *)      input	wire			i_serr,
 	// Extra wires, not necessarily necessary for WB/B3
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM CTI" *)      output	reg	[2:0]		o_scti,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM BTE" *)      output	reg	[1:0]		o_sbte	
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM CTI" *)      output	reg	[2:0]		o_scti,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM BTE" *)      output	reg	[1:0]		o_sbte	
 );	
 	//
 	// returned = whether we've received our return value or not.

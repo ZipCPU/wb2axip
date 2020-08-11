@@ -43,7 +43,7 @@ module aximwr2wbsp #(
 	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
 
 	parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0, // Lil to Big Endian swap
-	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
+	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3, // change it only to support narrow transfers
 	localparam AW			= C_AXI_ADDR_WIDTH-AXI_LSBS,
 	localparam DW			= C_AXI_DATA_WIDTH,
 
