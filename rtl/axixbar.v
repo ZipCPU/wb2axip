@@ -603,7 +603,7 @@ module	axixbar #(
 		// wskid, the skid buffer for the incoming W* channel
 		// {{{
 		skidbuffer #(.DW(DW+DW/8+1),
-					.OPT_OUTREG(OPT_SKID_INPUT))
+			.OPT_OUTREG(OPT_SKID_INPUT || OPT_BUFFER_DECODER))
 		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_WVALID[N], S_AXI_WREADY[N],
 			{ S_AXI_WDATA[N*DW +: DW], S_AXI_WSTRB[N*DW/8 +: DW/8],
