@@ -41,49 +41,82 @@ module wbm2axilite #(
 	localparam DW			=  C_AXI_DATA_WIDTH,// Wishbone data width
 	localparam AW			=  C_AXI_ADDR_WIDTH-2// WB addr width (log wordsize)
 	) (
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_clk, ASSOCIATED_BUSIF WBS:M_AXI" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 i_clk CLK" *)
 	input	wire			i_clk,
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_reset, POLARITY ACTIVE_HIGH" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 i_reset RST" *)
 	input	wire			i_reset,
 	//
 	// We'll share the clock and the reset
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS CYC" *)      input	wire			i_wb_cyc,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STB" *)      input	wire			i_wb_stb,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS WE" *)       input	wire			i_wb_we,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ADR" *)      input	wire	[(AW-1):0]	i_wb_addr,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MOSI" *) input	wire	[(DW-1):0]	i_wb_data,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS SEL" *)      input	wire	[(DW/8-1):0]	i_wb_sel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)    output	wire			o_wb_stall,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ACK" *)      output	reg			o_wb_ack,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MISO" *) output	reg	[(DW-1):0]	o_wb_data,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ERR" *)      output	reg			o_wb_err,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS CYC" *)
+  	input	wire			i_wb_cyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STB" *)
+	input wire			i_wb_stb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS WE" *)
+	input wire			i_wb_we,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ADR" *)
+	input wire	[(AW-1):0]	i_wb_addr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MOSI" *)
+	input wire	[(DW-1):0]	i_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS SEL" *)
+	input wire	[(DW/8-1):0]	i_wb_sel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)
+	output wire			o_wb_stall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ACK" *)
+	output reg			o_wb_ack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MISO" *)
+	output reg	[(DW-1):0]	o_wb_data,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ERR" *)
+	output reg			o_wb_err,
 	
 	//
 	// AXI write address channel signals
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWVALID" *)
 	output	reg			o_axi_awvalid,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWREADY" *)
 	input	wire			i_axi_awready,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWADDR" *)
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_awaddr,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWPROT" *)
 	output	wire	[2:0]		o_axi_awprot,
 	//
 	// AXI write data channel signals
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WVALID" *)
 	output	reg			o_axi_wvalid,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WREADY" *)
 	input	wire			i_axi_wready,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WDATA" *)
 	output	reg	[C_AXI_DATA_WIDTH-1:0]	o_axi_wdata,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WSTRB" *)
 	output	reg	[C_AXI_DATA_WIDTH/8-1:0] o_axi_wstrb,
 	//
 	// AXI write response channel signals
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BVALID" *)
 	input	wire			i_axi_bvalid,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BREADY" *)
 	output	wire			o_axi_bready,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BRESP" *)
 	input	wire [1:0]		i_axi_bresp,
 	//
 	// AXI read address channel signals
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARVALID" *)
 	output	reg			o_axi_arvalid,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARREADY" *)
 	input	wire			i_axi_arready,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARADDR" *)
 	output	reg	[C_AXI_ADDR_WIDTH-1:0]	o_axi_araddr,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI ARPROT" *)
 	output	wire	[2:0]		o_axi_arprot,
 	//
-	// AXI read data channel signals   
+	// AXI read data channel signals
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RVALID" *)
 	input	wire			i_axi_rvalid,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RREADY" *)
 	output	wire			o_axi_rready,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RDATA" *)
 	input wire [C_AXI_DATA_WIDTH-1:0] i_axi_rdata,
+	(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI RRESP" *)
 	input	wire	[1:0]		i_axi_rresp
 	);
 
