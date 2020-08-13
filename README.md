@@ -328,15 +328,20 @@ throughput capabilities.
 
   *This core has been formally verified and used in several designs.*
 
+- [AXISGDMA](rtl/axisgdma.v) is a brand new scatter-gather/vector-io based
+  DMA controller.  Give it a pointer to a table of DMA descriptors, and it
+  will issue commands to the DMA until the table is complete.
+
+  This core has not yet been verified in any manner, and is likely to still
+  contain many bugs within it until that time.  Use it at your own risk.
+
 - [AXIVCAMERA](rtl/axivcamera.v) is a AXI-based frame-buffer writer.  Given
   an AXI-stream video source, a frame start address, the number of lines in the
   image and the number of bytes per line, this core will copy one (or more)
   frames of video to memory.
 
-  This core is still very much in its draft stage.  Although it passes a bus
-  property check, it still has some known issues which might cause it to hang
-  in an actual design.  See [the source-file header](rtl/axivcamera.v) for
-  more details
+  *This core has been formally verified, and used successfully in a simulation
+  based demonstration.*
 
 - [AXIVDISPLAY](rtl/axivdisplay.v) is a AXI-based frame-buffer source.  Given
   a frame start address in memory, the number of lines in an image and the

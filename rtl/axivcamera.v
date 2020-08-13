@@ -87,11 +87,6 @@
 //	Line bytes that include a fraction of a word are rounded down and not
 //	  up.
 //
-//	Assumes the video will always be in synch.  This may be the most
-//	  problematic assumption, since I have yet to test how well this core
-//	  can acquire an image for which it isn't (yet) synchronized.  Worse,
-//	  I think the core will hang if it ever loses sync mid-collect, rather
-//	  than aborting.  This is a bug and needs to be fixed.
 // }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.

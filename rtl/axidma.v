@@ -19,7 +19,7 @@
 //		1b	Err: Ended on an error
 //		1b	Busy
 //		1b	Interrupt Enable
-//		1b	Interrupt Set
+//		1b	Interrupt Clear
 //		1b	Start
 //	1. Unused
 //	2-3. Source address, low and then high 64-bit words
@@ -447,7 +447,7 @@ module	axidma #(
 		r_abort <= (axil_write_ready && awskd_addr == CTRL_ADDR)
 			&&(wskd_strb[3] && wskd_data[31:24] == ABORT_KEY);
 
-	wire	[C_AXI_DATA_WIDTH-1:0]	newsrclo, newsrchi,
+	wire	[C_AXIL_DATA_WIDTH-1:0]	newsrclo, newsrchi,
 					newdstlo, newdsthi, newlenlo, newlenhi;
 
 	always @(*)
@@ -1373,6 +1373,8 @@ module	axidma #(
 			w_write_start = 0;
 		if (phantom_write)
 			w_write_start = 0;
+		if (M_AXI_AWVALID && !M_AXI_AWREADY)
+			w_write_start = 0;
 		if (M_AXI_WVALID && (!M_AXI_WLAST || !M_AXI_WREADY))
 			w_write_start = 0;
 		if (i_reset || r_err || r_abort || !r_busy)
@@ -1456,7 +1458,9 @@ module	axidma #(
 `else
 			readlen_w[LGLENW:8],
 `endif
-			writelen_b[ADDRLSB-1:0], readlen_b[ADDRLSB-1:0]
+			writelen_b[ADDRLSB-1:0], readlen_b[ADDRLSB-1:0],
+			read_distance_to_boundary_b[C_AXI_ADDR_WIDTH-1:ADDRLSB + LGMAXBURST],
+			read_distance_to_boundary_b[ADDRLSB-1:0]
 			};
 
 	generate if (C_AXI_ADDR_WIDTH < 2*C_AXIL_DATA_WIDTH)
