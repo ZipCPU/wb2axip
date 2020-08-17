@@ -6,7 +6,7 @@
   <spirit:version>B4</spirit:version>
   <spirit:busType spirit:vendor="opencores.org" spirit:library="bus" spirit:name="wishbone" spirit:version="B4"/>
   <spirit:ports>
-  <spirit:port>
+    <spirit:port>
       <spirit:logicalName>CYC</spirit:logicalName>
       <spirit:description>cycle in progress</spirit:description>
       <spirit:wire>
@@ -249,6 +249,7 @@
       <spirit:description>slave signals that it can not accept more transfer</spirit:description>
       <spirit:wire>
         <spirit:onMaster>
+          <spirit:presence>required</spirit:presence>
           <spirit:width>1</spirit:width>
           <spirit:direction>in</spirit:direction>
         </spirit:onMaster>
