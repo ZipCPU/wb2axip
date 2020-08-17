@@ -39,7 +39,7 @@ module	wbp2classic #(
                DW = 32
     ) (
 
-	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_clk, ASSOCIATED_BUSIF WBS:WBCM" *)
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_clk, ASSOCIATED_BUSIF S_WBP:M_WBC" *)
 	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 i_clk CLK" *)
 	input wire i_clk,
 	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_reset, POLARITY ACTIVE_HIGH" *)
@@ -47,53 +47,52 @@ module	wbp2classic #(
 	input wire i_reset,
 	//
 	// Incoming WB pipelined port WB4 slave interface
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS CYC" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP CYC" *)
 	input	wire			i_mcyc,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STB" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP STB" *)
 	input	wire			i_mstb,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS WE" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP WE" *)
 	input	wire			i_mwe,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ADR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ADR" *)
 	input	wire	[(AW-1):0]	i_maddr,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MOSI" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP DAT_MOSI" *)
 	input	wire	[(DW-1):0]	i_mdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS SEL" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP SEL" *)
 	input	wire	[(DW/8-1):0]	i_msel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS STALL" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP STALL" *)
 	output	reg			o_mstall,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ACK" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ACK" *)
 	output	reg			o_mack,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS DAT_MISO" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP DAT_MISO" *)
 	output	reg	[(DW-1):0]	o_mdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBS ERR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ERR" *)
 	output	reg			o_merr,
 	
 	// We'll share the clock and the reset
 	
-	//
 	// Outgoing WB classic port master ( for convinience labelled as WB4, later use separate interface definition for WB3 classic)
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM CYC" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC CYC" *)
 	output	reg			o_scyc,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM STB" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC STB" *)
 	output	reg			o_sstb,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM WE" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC WE" *)
 	output	reg			o_swe,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ADR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ADR" *)
 	output	reg	[(AW-1):0]	o_saddr,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM DAT_MOSI" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC DAT_MOSI" *)
 	output	reg	[(DW-1):0]	o_sdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM SEL" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC SEL" *)
 	output	reg	[(DW/8-1):0]	o_ssel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ACK" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ACK" *)
 	input	wire			i_sack,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM DAT_MISO" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC DAT_MISO" *)
 	input	wire	[(DW-1):0]	i_sdata,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM ERR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ERR" *)
 	input	wire			i_serr,
-	// Extra wires, not necessarily necessary for WB/B3
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM CTI" *)
+	// Extra wires, not necessary for WB/B3
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC CTI" *)
 	output	reg	[2:0]		o_scti,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBCM BTE" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC BTE" *)
 	output	reg	[1:0]		o_sbte	
 );	
 	//

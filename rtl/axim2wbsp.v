@@ -110,25 +110,25 @@ module axim2wbsp #(
 	(* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 o_reset RST" *)
 	output	wire				o_reset,
 
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM CYC" *) 
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP CYC" *) 
 	output	wire				o_wb_cyc,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STB" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP STB" *)
 	output	wire				o_wb_stb,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM WE" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP WE" *)
 	output	wire				o_wb_we,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ADR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP ADR" *)
 	output	wire [(AW-1):0]			o_wb_addr,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MOSI" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP DAT_MOSI" *)
 	output	wire [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM SEL" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP SEL" *)
 	output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM STALL" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP STALL" *)
 	input	wire				i_wb_stall,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ACK" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP ACK" *)
 	input	wire				i_wb_ack,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM DAT_MISO" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP DAT_MISO" *)
 	input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
-	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone4:4.0 WBM ERR" *)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 M_WBP ERR" *)
 	input	wire				i_wb_err
 	);
 	//

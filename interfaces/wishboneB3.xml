@@ -3,7 +3,7 @@
   <spirit:vendor>opencores.org</spirit:vendor>
   <spirit:library>bus</spirit:library>
   <spirit:name>wishbone</spirit:name>
-  <spirit:version>3.0</spirit:version>
+  <spirit:version>B3</spirit:version>
   <spirit:directConnection>false</spirit:directConnection>
   <spirit:isAddressable>false</spirit:isAddressable>
   <spirit:maxMasters>1</spirit:maxMasters>

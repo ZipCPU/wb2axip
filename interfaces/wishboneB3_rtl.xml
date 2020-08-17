@@ -2,9 +2,9 @@
 <spirit:abstractionDefinition xmlns:xilinx="http://www.xilinx.com" xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <spirit:vendor>opencores.org</spirit:vendor>
   <spirit:library>bus</spirit:library>
-  <spirit:name>wishbone4_rtl</spirit:name>
-  <spirit:version>4.0</spirit:version>
-  <spirit:busType spirit:vendor="opencores.org" spirit:library="bus" spirit:name="wishbone4" spirit:version="4.0"/>
+  <spirit:name>wishbone_rtl</spirit:name>
+  <spirit:version>B3</spirit:version>
+  <spirit:busType spirit:vendor="opencores.org" spirit:library="bus" spirit:name="wishbone" spirit:version="B3"/>
   <spirit:ports>
     <spirit:port>
       <spirit:logicalName>CYC</spirit:logicalName>
@@ -24,11 +24,6 @@
         </spirit:onSlave>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>addr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>STB</spirit:logicalName>
@@ -59,11 +54,6 @@
         </spirit:onSlave>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>wr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>SEL</spirit:logicalName>
@@ -75,11 +65,6 @@
         </spirit:onSlave>
         <spirit:defaultValue>65535</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>wr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>ACK</spirit:logicalName>
@@ -129,11 +114,6 @@
         </spirit:onMaster>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>rd</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>DAT_MOSI</spirit:logicalName>
@@ -145,11 +125,6 @@
         <spirit:onSlave/>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>wr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>LOCK</spirit:logicalName>
@@ -228,11 +203,6 @@
         </spirit:onSlave>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>addr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>TGC</spirit:logicalName>
@@ -245,26 +215,9 @@
       </spirit:wire>
     </spirit:port>
     <spirit:port>
-      <spirit:logicalName>STALL</spirit:logicalName>
-      <spirit:description>slave signals that it can not accept more transfer</spirit:description>
-      <spirit:wire>
-        <spirit:onMaster>
-          <spirit:width>1</spirit:width>
-          <spirit:direction>in</spirit:direction>
-        </spirit:onMaster>
-        <spirit:onSlave>
-          <spirit:width>1</spirit:width>
-        </spirit:onSlave>
-        <spirit:defaultValue>0</spirit:defaultValue>
-      </spirit:wire>
-    </spirit:port>
-    <spirit:port>
       <spirit:logicalName>CTI</spirit:logicalName>
-      <spirit:description>Cycle Type Identifier</spirit:description>
+      <spirit:description>CTI</spirit:description>
       <spirit:wire>
-        <spirit:qualifier>
-          <spirit:isAddress>true</spirit:isAddress>
-        </spirit:qualifier>
         <spirit:onMaster>
           <spirit:width>3</spirit:width>
         </spirit:onMaster>
@@ -274,19 +227,11 @@
         </spirit:onSlave>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>addr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
     <spirit:port>
       <spirit:logicalName>BTE</spirit:logicalName>
-      <spirit:description>Burst Type Extension</spirit:description>
+      <spirit:description>BTE</spirit:description>
       <spirit:wire>
-        <spirit:qualifier>
-          <spirit:isAddress>true</spirit:isAddress>
-        </spirit:qualifier>
         <spirit:onMaster>
           <spirit:width>2</spirit:width>
         </spirit:onMaster>
@@ -296,16 +241,11 @@
         </spirit:onSlave>
         <spirit:defaultValue>0</spirit:defaultValue>
       </spirit:wire>
-      <spirit:vendorExtensions>
-        <xilinx:abstractionDefinitionPortInfo>
-          <xilinx:group>addr</xilinx:group>
-        </xilinx:abstractionDefinitionPortInfo>
-      </spirit:vendorExtensions>
     </spirit:port>
   </spirit:ports>
   <spirit:vendorExtensions>
     <xilinx:abstractionDefinitionInfo>
-      <xilinx:displayName>wishbone4</xilinx:displayName>
+      <xilinx:displayName>wishbone</xilinx:displayName>
     </xilinx:abstractionDefinitionInfo>
   </spirit:vendorExtensions>
 </spirit:abstractionDefinition>
