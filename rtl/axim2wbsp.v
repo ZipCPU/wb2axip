@@ -244,7 +244,7 @@ module axim2wbsp #(
 		assign	o_wb_stb  = r_wb_stb;
 		assign	o_wb_we   = r_wb_we;
 		assign	o_wb_addr = r_wb_addr;
-		assign	o_wb_data = 32'h0;
+		assign	o_wb_data = 0;
 		assign	o_wb_sel  = 0;
 		assign	r_wb_ack  = i_wb_ack;
 		assign	r_wb_stall= i_wb_stall;

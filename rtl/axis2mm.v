@@ -1315,7 +1315,9 @@ module	axis2mm #(
 			M_AXI_BRESP[0], fifo_empty,
 			wr_none_pending, S_AXIL_ARADDR[AXILLSB-1:0],
 			S_AXIL_AWADDR[AXILLSB-1:0],
-			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
+			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
+			new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN],
+			new_widelen[AXILLSB-1:0] };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL

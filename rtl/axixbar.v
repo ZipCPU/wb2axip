@@ -408,24 +408,22 @@ module	axixbar #(
 	wire	[3-1:0]		skd_arprot			[0:NM-1];
 	wire	[4-1:0]		skd_arqos			[0:NM-1];
 
+	// Verilator lint_off UNUSED
 	reg	[NSFULL-1:0]	m_axi_awvalid;
 	reg	[NSFULL-1:0]	m_axi_awready;
-	// Verilator lint_off UNUSED
 	reg	[IW-1:0]	m_axi_awid	[0:NSFULL-1];
 	reg	[7:0]		m_axi_awlen	[0:NSFULL-1];
-	// Verilator lint_on  UNUSED
 
 	reg	[NSFULL-1:0]	m_axi_wvalid;
 	reg	[NSFULL-1:0]	m_axi_wready;
 	reg	[NSFULL-1:0]	m_axi_bvalid;
-	// Verilator lint_off UNUSED
 	reg	[NSFULL-1:0]	m_axi_bready;
 	// Verilator lint_on  UNUSED
 	reg	[1:0]		m_axi_bresp	[0:NSFULL-1];
 	reg	[IW-1:0]	m_axi_bid	[0:NSFULL-1];
 
-	reg	[NSFULL-1:0]	m_axi_arvalid;
 	// Verilator lint_off UNUSED
+	reg	[NSFULL-1:0]	m_axi_arvalid;
 	reg	[7:0]		m_axi_arlen	[0:NSFULL-1];
 	reg	[IW-1:0]	m_axi_arid	[0:NSFULL-1];
 	reg	[NSFULL-1:0]	m_axi_arready;

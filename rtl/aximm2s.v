@@ -1155,7 +1155,10 @@ module	aximm2s #(
 			M_AXI_RRESP[0], fifo_full, wskd_strb[2:0], fifo_fill,
 			ar_none_outstanding, S_AXIL_AWADDR[AXILLSB-1:0],
 			S_AXIL_ARADDR[AXILLSB-1:0],
-			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
+			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
+			new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN],
+			new_widelen[AXILLSB-1:0]
+			 };
 	// Verilator lint_on  UNUSED
 	// }}}
 `ifdef	FORMAL
