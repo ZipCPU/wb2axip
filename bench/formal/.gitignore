@@ -9,6 +9,7 @@ axi2axilite_*/
 axi_addr_miter_*/
 axidma_*/
 axil2axis_*/
+axil2apb_*/
 axildouble_*/
 axilite2axi_*/
 axilwr2wbsp_*/

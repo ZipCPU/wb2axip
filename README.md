@@ -98,7 +98,8 @@ in order, but it should be good enough for many (most?) applications.
 Currently, the project contains formal specifications for
 [Avalon](bench/formal/fav_slave.v), [Wishbone
 (classic)](bench/formal/fwbc_slave.v), [Wishbone
-(pipelined)](bench/formal/fwb_slave.v), and
+(pipelined)](bench/formal/fwb_slave.v),
+[APB](bench/formal/fapb_slave.v), and
 [AXI-lite](bench/formal/faxil_slave.v) buses.  There's also a (partial) formal
 property specification for an [AXI (full) bus](bench/formal/faxi_slave.v), but
 the one in the master branch is incomplete.  The complete set of AXI
@@ -418,6 +419,22 @@ throughput capabilities.
   respond to the bus in a protocol compliant fashion.
 
   *This core has been formally verified.*
+
+# APB
+
+There are now two APB cores in this repository:
+
+- [APBSLAVE](rtl/apbslave.v) is a demonstration APB slave.
+
+  *This core has been formally verified.*
+
+- [AXIL2APB](rtl/axil2apb.v) -- a high throughput AXI-lite to APB bridge.
+  Unlike other bridges, this one bridges to a single APB slave only.  It can
+  also maintain PSEL high across multiple bursts, achieving a maximum
+  throughput rate of 50%.
+
+  *This core has been formally verified.*
+
 
 # Licensing
 

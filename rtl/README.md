@@ -1,6 +1,7 @@
 ## Demo designs
 
 - [Demonstration AXI4-lite slave](demoaxi.v)
+- [Demonstration APB slave](apbslave.v)
 - [Demonstration AXI4(Full) slave](demofull.v)
   -- [AXI Addr](axi_addr.v) is a helper core used for calculating the "next" address in a burst sequence.  It's based upon [the algorithm discussed here](https://zipcpu.com/blog/2019/04/27/axi-addr.html).
 - [A simplified AXI-lite slave](easyaxil.v)
@@ -60,6 +61,7 @@ All three cores are supported by the (dev branch of)
 
   -- A following (optional) [arbiter](wbarbiter.v) will connect read and write sides together into the same WB bus.  Alternatively, each of the two sides can be submitted separately into a [WB Crossbar](wbxbar.v).
 
+- [AXI-Lite to APB](axil2apb.v)
 
 - [AXI4 Master to Wishbone](axim2wbsp.v)
 

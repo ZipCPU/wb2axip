@@ -62,5 +62,4 @@ as well, and don't support any of the burst signaling capabilities of Avalon.
 
 ## APB
 
-[Slave](fapb_slave.v) properties.  These haven't really been tested well,
-so your mileage with them might vary.
+[Master](fapb_master.v) and [slave](fapb_slave.v) properties.

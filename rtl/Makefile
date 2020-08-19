@@ -48,14 +48,14 @@ VERILATOR := verilator
 VFLAGS    := -MMD -O3 -Wall -Wpedantic -cc
 .DELETE_ON_ERROR:
 .PHONY: test
-test: testwb testaxi testaxil
+test: testwb testaxi testaxil testapb
 
-.PHONY: testwb testaxi testaxil
+.PHONY: testwb testaxi testaxil testapb
 
 .PHONY: axim2wbsp axim2wbsp wbm2axilite axilrd2wbsp axilwr2wbsp axlite2wbsp
 .PHONY: axixbar axilxbar wbxbar axis2mm aximm2s axidma axim2wbsp aximrd2wbsp
 .PHONY: aximwr2wbsp axixclk axiperf demoaxi demofull easyaxil sfifo skidbuffer
-.PHONY: axilsafety axisafety wbsafety axivfifo
+.PHONY: axilsafety axisafety wbsafety axivfifo axil2apb apbslave
 
 axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a    $(IVCHECK)/axim2wbsp
 axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
@@ -83,6 +83,8 @@ skidbuffer:  $(VDIRFB)/Vskidbuffer__ALL.a   $(IVCHECK)/skidbuffer
 axisafety:   $(VDIRFB)/Vaxisafety__ALL.a    $(IVCHECK)/axisafety
 axilsafety:  $(VDIRFB)/Vaxilsafety__ALL.a   $(IVCHECK)/axilsafety
 wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a     $(IVCHECK)/wbsafety
+axil2apb:    $(VDIRFB)/Vaxil2apb__ALL.a     $(IVCHECK)/axil2apb
+apbslave:    $(VDIRFB)/Vapbslave__ALL.a     $(IVCHECK)/apbslave
 
 testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
 testaxi: axim2wbsp axixbar axixclk demofull
@@ -90,6 +92,7 @@ testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
 testaxi: axis2mm aximm2s axidma axivfifo
 testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
 testaxil: skidbuffer axiperf
+testapb: axil2apb apbslave
 
 .PHONY: wbm2axisp
 wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a
@@ -247,6 +250,14 @@ $(IVCHECK)/wbsafety: wbsafety.v skidbuffer.v
 	$(IVERILOG) -g2012 $^ -o $@
 
 $(IVCHECK)/wbxbar: wbxbar.v skidbuffer.v addrdecode.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axil2apb: axil2apb.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/apbslave: apbslave.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 

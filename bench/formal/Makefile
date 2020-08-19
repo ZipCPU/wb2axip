@@ -38,12 +38,12 @@
 HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
-BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble # wbm2axisp axi2axilite axilite2axi
+BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb # wbm2axisp axi2axilite axilite2axi
 AXISTREAM := xlnxstream_2018_3
 AXISLAVES := demoaxi easyaxil axil2axis axiperf # demofull xlnxfull
 AXIMASTERS :=
 FIREWALLS := wbsafety axilsafety # axisafety
-TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS)
+TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS) apbslave
 .PHONY: $(TESTS)
 all: $(TESTS)
 RTL        := ../../rtl
@@ -61,12 +61,14 @@ XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SKIDBUFFER).v
 # Slaves
 AXIL2AXIS  := axil2axis
 AXIPERF    := axiperf
+APBSLAVE   := apbslave
 DEMOAXI    := demoaxi
 EASYAXIL   := easyaxil
 XILINXDEMO := xlnxdemo
 XLNXSTREAM := xlnxstream_2018_3
 #
 # Bridges
+AXIL2APB   := axil2apb
 WB2AXI     := wbm2axisp
 WB2LITE    := wbm2axilite
 RDLITE     := axilrd2wbsp
@@ -97,6 +99,7 @@ AXIL       := faxil_master.v faxil_slave.v
 WB         := fwb_master.v   fwb_slave.v
 WBC        := fwbc_master.v  fwbc_slave.v
 AXIS       := faxis_master.v faxis_slave.v
+APB        := fapb_master.v   fapb_slave.v
 
 .PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(AXLITE) $(WB2LITE) $(DEMOAXI)
 .PHONY: $(EASYAXIL) $(AXIPERF)
@@ -590,6 +593,25 @@ $(AXIL2AXIS)_prfsource/PASS: $(AXIL2AXISDEPS)
 $(AXIL2AXIS)_cvr/PASS: $(AXIL2AXISDEPS)
 	sby -f $(AXIL2AXIS).sby cvr
 
+.PHONY: $(APBSLAVE)
+$(APBSLAVE): $(APBSLAVE)_prf/PASS       $(APBSLAVE)_cvr/PASS
+APBSLAVEDEPS := $(APBSLAVE).sby $(RTL)/$(APBSLAVE).v $(APB)
+$(APBSLAVE)_prf/PASS: $(APBSLAVEDEPS)
+	sby -f $(APBSLAVE).sby prf
+$(APBSLAVE)_cvr/PASS: $(APBSLAVEDEPS)
+	sby -f $(APBSLAVE).sby cvr
+
+.PHONY: $(AXIL2APB)
+$(AXIL2APB): $(AXIL2APB)_prf/PASS       $(AXIL2APB)_prfskd/PASS
+$(AXIL2APB): $(AXIL2APB)_cvr/PASS
+AXIL2APBDEPS := $(AXIL2APB).sby $(RTL)/$(AXIL2APB).v $(APB)
+$(AXIL2APB)_prf/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby prf
+$(AXIL2APB)_prfskd/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby prfskd
+$(AXIL2APB)_cvr/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby cvr
+
 .PHONY: clean
 clean:
 	rm -rf  $(DEMOAXI)_*/
@@ -605,6 +627,7 @@ clean:
 	rm -rf  $(EASYAXIL)_*/
 	rm -rf  $(WBSAFETY)_*/   $(AXILSAFETY)_*/
 	rm -rf  $(AXIPERF)_*/    $(AXIL2AXIS)_*/
+	rm -rf  $(AXIL2APB)_*/   $(APBSLAVE)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/

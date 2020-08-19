@@ -35,16 +35,17 @@
 //
 `default_nettype	none
 // }}}
-module	fapb_slave #(
+module	fapb_master #(
+		// {{{
 		parameter	AW =32,	// Address width
 				DW = 32, // Data width
 		parameter F_OPT_MAXSTALL = 4,
 		// Set F_OPT_SLVERR to 1 if your slave supports PSLVERR
 		// assertion, otherwise we'll assert it remains false.
-		parameter [0:0] F_OPT_SLVERR = 1'b0
+		parameter [0:0] F_OPT_SLVERR = 1'b1
+		// }}}
 	) (
-	// PCLK, PRESETn,
-	//	PADDR, PSEL, PENABLE, PWRITE, PWDATA, PREADY, PRDATA, PSLVERR);
+		// {{{
 		input	wire			PCLK, PRESETn,
 		input	wire			PSEL,
 		input	wire			PENABLE,
@@ -52,8 +53,11 @@ module	fapb_slave #(
 		input	wire	[AW-1:0]	PADDR,
 		input	wire			PWRITE,
 		input	wire	[DW-1:0]	PWDATA,
+		input	wire	[DW/8-1:0]	PWSTRB,
+		input	wire	[2:0]		PPROT,
 		input	wire	[DW-1:0]	PRDATA, // Following from slave
 		input	wire			PSLVERR
+		// }}}
 	);
 
 `define	SLAVE_ASSUME	assert
@@ -130,8 +134,12 @@ module	fapb_slave #(
 		// Stall condition.  Nothing is allowed to change
 		`SLAVE_ASSUME($stable(PADDR));
 		`SLAVE_ASSUME($stable(PWRITE));
+		`SLAVE_ASSUME($stable(PPROT));
 		if (PWRITE)
+		begin
 			`SLAVE_ASSUME($stable(PWDATA));
+			`SLAVE_ASSUME($stable(PWSTRB));
+		end
 	end
 	// }}}
 

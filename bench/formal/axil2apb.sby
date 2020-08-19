@@ -1,0 +1,28 @@
+[tasks]
+prf
+prfskd prf opt_skidbuffer
+cvr opt_skidbuffer
+
+[options]
+prf: mode prove
+prf: depth 20
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axil2apb.v
+read -formal fapb_master.v
+read -formal faxil_slave.v
+read -formal skidbuffer.v
+opt_skidbuffer:  hierarchy -top axil2apb -chparam OPT_OUTGOING_SKIDBUFFER 1
+~opt_skidbuffer: hierarchy -top axil2apb -chparam OPT_OUTGOING_SKIDBUFFER 0
+prep -top axil2apb
+
+[files]
+../../rtl/axil2apb.v
+../../rtl/skidbuffer.v
+faxil_slave.v
+fapb_master.v

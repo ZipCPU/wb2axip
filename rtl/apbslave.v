@@ -34,11 +34,15 @@
 `default_nettype	none
 //
 module	apbslave #(
+		// {{{
 		parameter	C_APB_ADDR_WIDTH = 12,
 		parameter	C_APB_DATA_WIDTH = 32,
 		localparam	AW = C_APB_ADDR_WIDTH,
-		localparam	DW = C_APB_DATA_WIDTH
+		localparam	DW = C_APB_DATA_WIDTH,
+		localparam	APBLSB = $clog2(C_APB_DATA_WIDTH)-3
+		// }}}
 	) (
+		// {{{
 		input	wire			PCLK, PRESETn,
 		input	wire			PSEL,
 		input	wire			PENABLE,
@@ -46,14 +50,18 @@ module	apbslave #(
 		input	wire	[AW-1:0]	PADDR,
 		input	wire			PWRITE,
 		input	wire	[DW-1:0]	PWDATA,
+		input	wire	[DW/8-1:0]	PWSTRB,
+		input	wire	[2:0]		PPROT,
 		output	reg	[DW-1:0]	PRDATA,
 		output	reg			PSLVERR
+		// }}}
 	);
 
 	// Register declarations
 	// {{{
 	// Just our demonstration "memory" here
-	reg	[DW-1:0]	mem	[0:(1<<AW)-1];
+	reg	[DW-1:0]	mem	[0:(1<<(AW-APBLSB))-1];
+	integer			ik;
 	// }}}
 
 	// PREADY
@@ -72,20 +80,32 @@ module	apbslave #(
 	// {{{
 	always @(posedge PCLK)
 	if (PRESETn && PSEL && !PENABLE && PWRITE)
-		mem[PADDR] <= PWDATA;
+	begin
+		for(ik=0; ik<DW/8; ik=ik+1)
+		if (PWSTRB[ik])
+			mem[PADDR[AW-1:APBLSB]][8*ik +: 8] <= PWDATA[8*ik +: 8];
+	end
 	// }}}
 
 	// PRDATA, memory reads
 	// {{{
 	always @(posedge PCLK)
 	if (PSEL && !PENABLE && !PWRITE)
-		PRDATA <= mem[PADDR];
+		PRDATA <= mem[PADDR[AW-1:APBLSB]];
 	// }}}
 
 	// PSLVERR -- unused in this design, and so kept at zero
 	// {{{
 	always @(*)
 		PSLVERR = 1'b0;
+	// }}}
+
+	// Make Verilator happy
+	// {{{
+	// Verilator lint_off UNUSED
+	wire	unused;
+	assign	unused = &{ 1'b0, PADDR[APBLSB-1:0], PPROT };
+	// Verilator lint_on  UNUSED
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -109,7 +129,8 @@ module	apbslave #(
 	fapb_slave #(.AW(C_APB_ADDR_WIDTH), .DW(C_APB_DATA_WIDTH),
 		.F_OPT_MAXSTALL(1)
 	) fapb (PCLK, PRESETn,
-		PSEL, PENABLE, PREADY, PADDR, PWRITE, PWDATA, PRDATA, PRSLVERR);
+		PSEL, PENABLE, PREADY, PADDR, PWRITE, PWDATA, PWSTRB,
+		PPROT, PRDATA, PSLVERR);
 
 	always @(*)
 	if (PRESETn && PSEL && PENABLE)
@@ -125,21 +146,24 @@ module	apbslave #(
 	(* anyconst *)	reg [AW-1:0]	f_addr;
 	reg	[DW-1:0]		f_data;
 
-	integer	ik;
 	initial for(ik=0; ik<(1<<AW); ik=ik+1)
 		mem[ik] = 0;
 
 	initial	f_data = 0;
 	always @(posedge PCLK)
-	if (PRESETn && PSEL && !PENABLE && PWRITE && PADDR == f_addr)
-		f_data <= PWDATA;
+	if (PRESETn && PSEL && !PENABLE && PWRITE && PADDR[AW-1:APBLSB] == f_addr[AW-1:APBLSB])
+	begin
+		for(ik=0; ik<DW/8; ik=ik+1)
+		if (PWSTRB[ik])
+			f_data[ik*8 +: 8] <= PWDATA[ik*8 +: 8];
+	end
 
 	always @(posedge PCLK)
-	if (PSEL && PENABLE && PREADY && !PWRITE && PADDR == f_addr)
+	if (PSEL && PENABLE && PREADY && !PWRITE && PADDR[AW-1:APBLSB] == f_addr[AW-1:APBLSB])
 		assert(PRDATA == f_data);
 
 	always @(*)
-		assert(f_data == mem[f_addr]);
+		assert(f_data == mem[f_addr[AW-1:APBLSB]]);
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
