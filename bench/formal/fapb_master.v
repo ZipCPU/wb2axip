@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	fapb_slave.v
+// Filename: 	fapb_master.v
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
@@ -56,8 +56,8 @@ module	fapb_slave #(
 		input	wire			PSLVERR
 	);
 
-`define	SLAVE_ASSUME	assume
-`define	SLAVE_ASSERT	assert
+`define	SLAVE_ASSUME	assert
+`define	SLAVE_ASSERT	assume
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Reset

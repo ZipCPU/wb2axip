@@ -1,0 +1,21 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 4
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal apbslave.v
+read -formal fapb_slave.v
+prep -top apbslave
+
+[files]
+../../rtl/apbslave.v
+fapb_slave.v
