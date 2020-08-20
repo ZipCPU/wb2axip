@@ -124,6 +124,9 @@ module	wbxclk(i_wb_clk, i_reset,
 	wire [AW-1:0]	req_addr;
 	wire [DW-1:0]	req_data;
 	wire [DW/8-1:0]	req_sel;
+`ifdef	FORMAL
+	wire	[LGFIFO:0]	ackfifo_prefill, reqfifo_prefill;
+`endif
 	// }}}
 
 	//
@@ -161,7 +164,6 @@ module	wbxclk(i_wb_clk, i_reset,
 	// {{{
 	afifo #(
 `ifdef	FORMAL
-		.F_OPT_DATA_STB(1'b0),
 		.OPT_REGISTER_READS(0),
 `endif
 		.NFF(NFF), .LGFIFO(LGFIFO),
@@ -174,7 +176,11 @@ module	wbxclk(i_wb_clk, i_reset,
 		.i_rclk(i_xclk_clk), .i_rd_reset_n(!xck_reset),
 		.i_rd(!o_xclk_stb || !i_xclk_stall),
 		.o_rd_data({ req_stb, req_we, req_addr, req_data, req_sel }),
-		.o_rd_empty(req_fifo_empty));
+		.o_rd_empty(req_fifo_empty)
+`ifdef	FORMAL
+		, .f_fill(reqfifo_prefill)
+`endif
+	);
 	// }}}
 
 	//
@@ -276,9 +282,6 @@ module	wbxclk(i_wb_clk, i_reset,
 	// The return FIFO
 	// {{{
 	afifo #(
-`ifdef	FORMAL
-		.F_OPT_DATA_STB(1'b0),
-`endif
 		.OPT_REGISTER_READS(0),
 		.NFF(NFF), .LGFIFO(LGFIFO),
 		.WIDTH(2+DW)
@@ -290,7 +293,11 @@ module	wbxclk(i_wb_clk, i_reset,
 		.i_rclk(i_wb_clk), .i_rd_reset_n(!bus_abort),
 		.i_rd(!no_returns),
 		.o_rd_data({ ack_stb, err_stb, ret_wb_data }),
-		.o_rd_empty(no_returns));
+		.o_rd_empty(no_returns)
+`ifdef	FORMAL
+		, .f_fill(ackfifo_prefill)
+`endif
+	);
 	// }}}
 
 	//
@@ -477,10 +484,10 @@ module	wbxclk(i_wb_clk, i_reset,
 		assert(ackfifo_fill == 0 || xclk_err_state);
 
 	always @(*)
-		reqfifo_fill = reqfifo.f_fill + (o_xclk_stb ? 1:0);
+		reqfifo_fill = reqfifo_prefill + (o_xclk_stb ? 1:0);
 
 	always @(*)
-		ackfifo_fill = ackfifo.f_fill // + (no_returns ? 0:1)
+		ackfifo_fill = ackfifo_prefill // + (no_returns ? 0:1)
 			+ ((o_wb_ack || o_wb_err) ? 1:0);
 
 	always @(*)

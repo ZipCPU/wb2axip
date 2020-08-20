@@ -495,15 +495,10 @@ $(SFIFO)_cvr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
 
 .PHONY: $(AFIFO)
 $(AFIFO): $(AFIFO)_prf/PASS    $(AFIFO)_cvr/PASS
-$(AFIFO): $(AFIFO)_prfopt/PASS $(AFIFO)_cvropt/PASS
 $(AFIFO)_prf/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
 	sby -f $(AFIFO).sby prf
 $(AFIFO)_cvr/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
 	sby -f $(AFIFO).sby cvr
-$(AFIFO)_prfopt/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
-	sby -f $(AFIFO).sby prfopt
-$(AFIFO)_cvropt/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
-	sby -f $(AFIFO).sby cvropt
 
 .PHONY: $(DECODER)
 $(DECODER): $(DECODER)_prfrlp/PASS $(DECODER)_cvrrlp/PASS

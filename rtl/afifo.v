@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename:	afifo.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A basic asynchronous FIFO.
@@ -10,9 +10,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -32,49 +32,56 @@
 //
 //
 `default_nettype	none
-//
-module afifo(
-	i_wclk, i_wr_reset_n, i_wr, i_wr_data, o_wr_full,
-	i_rclk, i_rd_reset_n, i_rd, o_rd_data, o_rd_empty);
-	//
-	// LGFIFO is the log based-two of the number of entries
-	//	in the FIFO, log_2(fifo size)
-	parameter	LGFIFO = 3;
-	//
-	// WIDTH is the number of data bits in each entry
-	parameter	WIDTH  = 16;
-	//
-	// NFF is the number of flip flops used to cross clock domains.
-	// 2 is a minimum.  Some applications appreciate the better
-	parameter	NFF    = 2;
-	//
-	// This core can either write on the positive edge of the clock or the
-	// negative edge.  Set WRITE_ON_POSEDGE (the default) to write on the
-	// positive edge of the clock.
-	parameter [0:0]	WRITE_ON_POSEDGE = 1'b1;
-	//
-	// Many  logic elements can read from memory asynchronously.  This
-	// burdens any following logic.  By setting OPT_REGISTER_READS, we
-	// force all reads to be synchronous and not burdened by any logic.
-	// You can spare a clock of latency by clearing this register.
-	parameter [0:0]	OPT_REGISTER_READS = 1'b1;
-	//
-	// MSB = most significant bit of the FIFO address vector.  It's
-	// just short-hand for LGFIFO, and won't work any other way.
-	localparam	MSB = LGFIFO;
+// }}}
+module afifo #(
+		// {{{
+		// LGFIFO is the log based-two of the number of entries
+		//	in the FIFO, log_2(fifo size)
+		parameter	LGFIFO = 3,
+		//
+		// WIDTH is the number of data bits in each entry
+		parameter	WIDTH  = 16,
+		//
+		// NFF is the number of flip flops used to cross clock domains.
+		// 2 is a minimum.  Some applications appreciate the better
+		parameter	NFF    = 2,
+		//
+		// This core can either write on the positive edge of the clock
+		// or the negative edge.  Set WRITE_ON_POSEDGE (the default)
+		// to write on the positive edge of the clock.
+		parameter [0:0]	WRITE_ON_POSEDGE = 1'b1,
+		//
+		// Many  logic elements can read from memory asynchronously.
+		// This burdens any following logic.  By setting
+		// OPT_REGISTER_READS, we force all reads to be synchronous and
+		// not burdened by any logic.  You can spare a clock of latency
+		// by clearing this register.
+		parameter [0:0]	OPT_REGISTER_READS = 1'b1,
+		//
+		// MSB = most significant bit of the FIFO address vector.  It's
+		// just short-hand for LGFIFO, and won't work any other way.
+		localparam	MSB = LGFIFO
+		// }}}
+	) (
+		// {{{
+		//
+		// The (incoming) write data interface
+		input	wire			i_wclk, i_wr_reset_n, i_wr,
+		input	wire	[WIDTH-1:0]	i_wr_data,
+		output	reg			o_wr_full,
+		//
+		// The (incoming) write data interface
+		input	wire			i_rclk, i_rd_reset_n, i_rd,
+		output	reg	[WIDTH-1:0]	o_rd_data,
+		output	reg			o_rd_empty
+`ifdef	FORMAL
+		, output reg	[LGFIFO:0]	f_fill
+`endif
+		// }}}
+	);
 
-	//
-	// The (incoming) write data interface
-	input	wire			i_wclk, i_wr_reset_n, i_wr;
-	input	wire	[WIDTH-1:0]	i_wr_data;
-	output	reg			o_wr_full;
-	//
-	// The (incoming) write data interface
-	input	wire			i_rclk, i_rd_reset_n, i_rd;
-	output	reg	[WIDTH-1:0]	o_rd_data;
-	output	reg			o_rd_empty;
-
-
+	// Register/net declarations
+	// {{{
 
 	reg	[WIDTH-1:0]		mem	[(1<<LGFIFO)-1:0];
 	reg	[LGFIFO:0]		rd_addr, wr_addr,
@@ -86,8 +93,10 @@ module afifo(
 	wire				wclk;
 	reg	[WIDTH-1:0]		lcl_rd_data;
 	reg				lcl_read, lcl_rd_empty;
+	// }}}
 
-
+	// wclk - Write clock generation
+	// {{{
 	generate if (WRITE_ON_POSEDGE)
 	begin
 
@@ -98,7 +107,18 @@ module afifo(
 		assign	wclk = !i_wclk;
 
 	end endgenerate
+	// }}}
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write to and read from memory
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	// wr_addr, wgray
+	// {{{
 	assign	next_wr_addr = wr_addr + 1;
 	always @(posedge wclk or negedge i_wr_reset_n)
 	if (!i_wr_reset_n)
@@ -110,11 +130,17 @@ module afifo(
 		wr_addr <= next_wr_addr;
 		wgray   <= next_wr_addr ^ (next_wr_addr >> 1);
 	end
+	// }}}
 
+	// Write to memory
+	// {{{
 	always @(posedge wclk)
 	if (i_wr && !o_wr_full)
 		mem[wr_addr[LGFIFO-1:0]] <= i_wr_data;
+	// }}}
 
+	// rd_addr, rgray
+	// {{{
 	assign	next_rd_addr = rd_addr + 1;
 	always @(posedge i_rclk or negedge i_rd_reset_n)
 	if (!i_rd_reset_n)
@@ -126,29 +152,47 @@ module afifo(
 		rd_addr <= next_rd_addr;
 		rgray   <= next_rd_addr ^ (next_rd_addr >> 1);
 	end
+	// }}}
 
+	// Read from memory
+	// {{{
 	always @(*)
 		lcl_rd_data = mem[rd_addr[LGFIFO-1:0]];
-
+	// }}}
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cross clock domains
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// read pointer -> wr_rgray
+	// {{{
 	always @(posedge wclk or negedge i_wr_reset_n)
 	if (!i_wr_reset_n)
 		{ wr_rgray, rgray_cross } <= 0;
 	else
 		{ wr_rgray, rgray_cross } <= { rgray_cross, rgray };
+	// }}}
 
+	// write pointer -> rd_wgray
+	// {{{
 	always @(posedge i_rclk or negedge i_rd_reset_n)
 	if (!i_rd_reset_n)
 		{ rd_wgray, wgray_cross } <= 0;
 	else
 		{ rd_wgray, wgray_cross } <= { wgray_cross, wgray };
+	// }}}
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Flag generation
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 
 	always @(*)
@@ -157,9 +201,11 @@ module afifo(
 	always @(*)
 		lcl_rd_empty = (rd_wgray == rgray);
 
+	// o_rd_empty, o_rd_data
+	// {{{
 	generate if (OPT_REGISTER_READS)
 	begin
-
+		// {{{
 		always @(*)
 			lcl_read = (o_rd_empty || i_rd);
 
@@ -172,9 +218,9 @@ module afifo(
 		always @(posedge i_rclk)
 		if (lcl_read)
 			o_rd_data <= lcl_rd_data;
-			
+		// }}}
 	end else begin
-
+		// {{{
 		always @(*)
 			lcl_read = i_rd;
 
@@ -183,11 +229,22 @@ module afifo(
 
 		always @(*)
 			o_rd_data = lcl_rd_data;
-
+		// }}}
 	end endgenerate
-
-
+	// }}}
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	// Start out with some register/net/macro declarations, f_past_valid,etc
+	// {{{
 `ifdef	AFIFO
 `define	ASSERT	assert
 `define	ASSUME	assume
@@ -195,16 +252,17 @@ module afifo(
 `define	ASSERT	assert
 `define	ASSUME	assert
 `endif
-	//
-	// In the formal proof, F_OPT_DATA_STB includes a series of assumptions
-	// associated with a data strobe I/O pin--things like a discontinuous
-	// clock--just to make sure the core still works in those circumstances
-	parameter [0:0]	F_OPT_DATA_STB = 1'b1;
-
 	(* gclk *)	reg	gbl_clk;
-	reg	[LGFIFO:0]	f_fill;
 	reg			f_past_valid_gbl, f_past_valid_rd,
 				f_rd_in_reset, f_wr_in_reset;
+	reg	[WIDTH-1:0]	past_rd_data, past_wr_data;
+	reg			past_wr_reset_n, past_rd_reset_n,
+				past_rd_empty, past_wclk, past_rclk, past_rd;
+	reg	[(LGFIFO+1)*(NFF-1)-1:0]	f_wcross, f_rcross;
+	reg	[LGFIFO:0]	f_rd_waddr, f_wr_raddr;
+	reg	[LGFIFO:0]	f_rdcross_fill	[NFF-1:0];
+	reg	[LGFIFO:0]	f_wrcross_fill	[NFF-1:0];
+
 
 	initial	f_past_valid_gbl = 1'b0;
 	always @(posedge gbl_clk)
@@ -213,7 +271,14 @@ module afifo(
 	initial	f_past_valid_rd = 1'b0;
 	always @(posedge i_rclk)
 		f_past_valid_rd <= 1'b1;
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Reset checks
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	initial	f_wr_in_reset = 1'b1;
 	always @(posedge wclk or negedge i_wr_reset_n)
 	if (!i_wr_reset_n)
@@ -228,16 +293,33 @@ module afifo(
 	else
 		f_rd_in_reset <= 1'b0;
 
+	//
+	// Resets are ...
+	//	1. Asserted always initially, and ...
+	always @(*)
+	if (!f_past_valid_gbl)
+	begin
+		`ASSUME(!i_wr_reset_n);
+		`ASSUME(!i_rd_reset_n);
+	end
+
+	//	2. They only ever become active together
+	always @(*)
+	if (past_wr_reset_n && !i_wr_reset_n)
+		`ASSUME(!i_rd_reset_n);
+
+	always @(*)
+	if (past_rd_reset_n && !i_rd_reset_n)
+		`ASSUME(!i_wr_reset_n);
+
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Synchronous signal assumptions
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	reg	[WIDTH-1:0]	past_rd_data, past_wr_data;
-	reg			past_wr_reset_n, past_rd_reset_n,
-				past_rd_empty, past_wclk, past_rclk, past_rd;
 
 	always @(posedge gbl_clk)
 	begin
@@ -255,28 +337,10 @@ module afifo(
 	end
 
 	//
-	// Resets are ...
-	//	1. Asserted always initially, and ...
-	always @(*)
-	if (!f_past_valid_gbl)
-	begin
-		`ASSUME(!i_wr_reset_n);
-		`ASSUME(!i_rd_reset_n);
-	end
-
-	//	2. They only ever become active together
-	always @(*)
-	if (past_wr_reset_n && !i_wr_reset_n)
-		`ASSUME(!i_rd_reset_n);
-	always @(*)
-	if (past_rd_reset_n && !i_rd_reset_n)
-		`ASSUME(!i_wr_reset_n);
-
-
-	//
 	// Read side may be assumed to be synchronous
 	always @(*)
-	if (f_past_valid_gbl && i_rd_reset_n && (past_rclk || !i_rclk)) // if (!$rose(i_rclk))
+	if (f_past_valid_gbl && i_rd_reset_n && (past_rclk || !i_rclk))
+		// i.e. if (!$rose(i_rclk))
 		`ASSUME(i_rd == past_rd);
 
 	always @(*)
@@ -287,30 +351,11 @@ module afifo(
 		`ASSERT(lcl_rd_empty == past_rd_empty);
 	end
 
-
-	generate if (F_OPT_DATA_STB)
-	begin
-
-		always @(posedge gbl_clk)
-			`ASSUME(!o_wr_full);
-
-		always @(posedge gbl_clk)
-		if (!i_wr_reset_n)
-			`ASSUME(!i_wclk);
-
-		always @(posedge gbl_clk)
-			`ASSUME(i_wr == i_wr_reset_n);
-
-		always @(posedge gbl_clk)
-		if ($changed(i_wr_reset_n))
-			`ASSUME($stable(wclk));
-
-	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Fill checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -321,7 +366,6 @@ module afifo(
 	if (!f_wr_in_reset)
 		`ASSERT(f_fill <= { 1'b1, {(MSB){1'b0}} });
 
-
 	always @(*)
 	if (wr_addr == rd_addr)
 		`ASSERT(lcl_rd_empty);
@@ -331,13 +375,17 @@ module afifo(
 			&& wr_addr == { ~rd_addr[MSB], rd_addr[MSB-1:0] })
 		`ASSERT(o_wr_full);
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Induction checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	// f_wr_in_reset -- write logic is in its reset state
+	// {{{
 	always @(*)
 	if (f_wr_in_reset)
 	begin
@@ -351,7 +399,10 @@ module afifo(
 		`ASSERT(lcl_rd_empty);
 		`ASSERT(!o_wr_full);
 	end
+	// }}}
 
+	// f_rd_in_reset -- read logic is in its reset state
+	// {{{
 	always @(*)
 	if (f_rd_in_reset)
 	begin
@@ -361,51 +412,72 @@ module afifo(
 
 		`ASSERT(lcl_rd_empty);
 	end
+	// }}}
 
-	reg	[(LGFIFO+1)*(NFF-1)-1:0]	f_wcross, f_rcross;
-	reg	[LGFIFO:0]	f_rd_waddr, f_wr_raddr;
-
+	// f_wr_raddr -- a read address to match the gray values
+	// {{{
 	always @(posedge wclk or negedge i_wr_reset_n)
 	if (!i_wr_reset_n)
 		{ f_wr_raddr, f_rcross } <= 0;
 	else
 		{ f_wr_raddr, f_rcross } <= { f_rcross, rd_addr };
+	// }}}
 
+	// f_rd_waddr -- a write address to match the gray values
+	// {{{
 	always @(posedge i_rclk or negedge i_rd_reset_n)
 	if (!i_rd_reset_n)
 		{ f_rd_waddr, f_wcross } <= 0;
 	else
 		{ f_rd_waddr, f_wcross } <= { f_wcross, wr_addr };
+	// }}}
 
 	integer	k;
 
+	// wgray check
+	// {{{
 	always @(*)
 		`ASSERT((wr_addr ^ (wr_addr >> 1)) == wgray);
+	// }}}
 
+	// wgray_cross check
+	// {{{
 	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
 		`ASSERT((f_wcross[k*(LGFIFO+1) +: LGFIFO+1]
 			^ (f_wcross[k*(LGFIFO+1)+: LGFIFO+1]>>1))
 			== wgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);
+	// }}}
 
+	// rgray check
+	// {{{
 	always @(*)
 		`ASSERT((rd_addr ^ (rd_addr >> 1)) == rgray);
+	// }}}
 
+	// rgray_cross check
+	// {{{
 	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
 		`ASSERT((f_rcross[k*(LGFIFO+1) +: LGFIFO+1]
 			^ (f_rcross[k*(LGFIFO+1) +: LGFIFO+1]>>1))
-			== rgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);	//!
+			== rgray_cross[k*(LGFIFO+1) +: LGFIFO+1]);
+	// }}}
 
+	// wr_rgray
+	// {{{
 	always @(*)
 		`ASSERT((f_wr_raddr ^ (f_wr_raddr >> 1)) == wr_rgray);
+	// }}}
 
+	// rd_wgray
+	// {{{
 	always @(*)
 		`ASSERT((f_rd_waddr ^ (f_rd_waddr >> 1)) == rd_wgray);
+	// }}}
 
-	reg	[LGFIFO:0]	f_rdcross_fill	[NFF-1:0];
-	reg	[LGFIFO:0]	f_wrcross_fill	[NFF-1:0];
-
+	// f_rdcross_fill
+	// {{{
 	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
 		f_rdcross_fill[k] = f_wcross[k*(LGFIFO+1) +: LGFIFO+1]
@@ -423,9 +495,10 @@ module afifo(
 		`ASSERT(f_rdcross_fill[k] <= f_rdcross_fill[k-1]);
 	always @(*)
 		`ASSERT(f_rdcross_fill[0] <= f_fill);
+	// }}}
 
-	//
-	//
+	// f_wrcross_fill
+	// {{{
 	always @(*)
 	for(k=0; k<NFF-1; k=k+1)
 		f_wrcross_fill[k] = wr_addr -
@@ -443,13 +516,31 @@ module afifo(
 		`ASSERT(f_wrcross_fill[k] >= f_wrcross_fill[k-1]);
 	always @(*)
 		`ASSERT(f_wrcross_fill[0] >= f_fill);
+	// }}}
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	// Sample check
-	//
+	// Clock generation
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// Here's the challenge: if we use $past with any of our clocks, such
+	// as to determine stability or any such, the proof takes forever, and
+	// we need to guarantee a minimum number of transitions within the
+	// depth of the proof.  If, on the other hand, we build our own $past
+	// primitives--we can then finish much faster and be successful on
+	// any depth of proof.
+
+	// pre_xclk is what the clock will become on the next global clock edge.
+	// By using it here, we can check things @(*) instead of
+	// @(posedge gbl_clk).  Further, we can check $rose(pre_xclk) (or $fell)
+	// and essentially check things @(*) but while using @(global_clk).
+	// In other words, we can transition on @(posedge gbl_clk), but stay
+	// in sync with the data--rather than being behind by a clock.
+	// now_xclk is what the clock is currently.
 	//
 	(* anyseq *)	reg	pre_wclk, pre_rclk;
 			reg	now_wclk, now_rclk;
@@ -468,13 +559,27 @@ module afifo(
 	always @(posedge gbl_clk)
 		assume(i_rclk == $past(pre_rclk));
 
+	// Assume both clocks start idle
+	// {{{
 	always @(*)
 	if (!f_past_valid_gbl)
 	begin
 		assume(!pre_wclk && !wclk);
 		assume(!pre_rclk && !i_rclk);
 	end
+	// }}}
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Formal contract check --- the twin write test
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	// Tracking register declarations
+	// {{{
 			reg	[WIDTH-1:0]	f_first, f_next;
 	(* anyconst *)	reg	[LGFIFO:0]	f_addr;
 			reg	[LGFIFO:0]	f_next_addr;
@@ -484,7 +589,10 @@ module afifo(
 
 	always @(*)
 		f_next_addr = f_addr + 1;
+	// }}}
 
+	// distance_to*, *_in_fifo
+	// {{{
 	always @(*)
 	begin
 		f_to_first = f_addr - rd_addr;
@@ -498,6 +606,7 @@ module afifo(
 
 		//
 		// Check the second item
+		//
 
 		f_to_next  = f_next_addr - rd_addr;
 		f_next_in_fifo = 1'b1;
@@ -506,9 +615,11 @@ module afifo(
 
 		if (mem[f_next_addr] != f_next)
 			f_next_in_fifo = 1'b0;
-
 	end
+	// }}}
 
+	// f_state -- generate our state variable
+	// {{{
 	initial	f_state = 0;
 	always @(posedge gbl_clk)
 	if (!i_wr_reset_n)
@@ -531,8 +642,10 @@ module afifo(
 	2'b11: if ($rose(pre_rclk) && lcl_read && !lcl_rd_empty && rd_addr == f_next_addr)
 		f_state <= 2'b00;
 	endcase
+	// }}}
 		
-
+	// f_state invariants
+	// {{{
 	always @(*)
 	if (i_wr_reset_n) case(f_state)
 	2'b00: begin end
@@ -556,6 +669,7 @@ module afifo(
 			`ASSERT(lcl_rd_data == f_next);
 		end
 	endcase
+	// }}}
 
 	generate if (OPT_REGISTER_READS)
 	begin
@@ -581,14 +695,16 @@ module afifo(
 		end
 
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	reg	cvr_full;
+
 
 	always @(*)
 	if (i_wr_reset_n && i_rd_reset_n)
@@ -604,48 +720,23 @@ module afifo(
 		cover(i_rd && !o_rd_empty);
 	end
 
-	generate if (!F_OPT_DATA_STB)
-	begin : COVER_FULL
-
-		reg	cvr_full;
-
-		initial	cvr_full = 1'b0;
-		always @(posedge gbl_clk)
-		if (!i_wr_reset_n)
-			cvr_full <= 1'b0;
-		else if (o_wr_full)
-			cvr_full <= 1'b1;
+	initial	cvr_full = 1'b0;
+	always @(posedge gbl_clk)
+	if (!i_wr_reset_n)
+		cvr_full <= 1'b0;
+	else if (o_wr_full)
+		cvr_full <= 1'b1;
 
 
-		always @(*)
-		if (f_past_valid_gbl)
-		begin
-			cover(o_wr_full);
-			cover(o_rd_empty && cvr_full);
-			cover(o_rd_empty && f_fill == 0 && cvr_full);
-		end
+	always @(*)
+	if (f_past_valid_gbl)
+	begin
+		cover(o_wr_full);
+		cover(o_rd_empty && cvr_full);
+		cover(o_rd_empty && f_fill == 0 && cvr_full);
+	end
 
-	end else begin : COVER_NEARLY_FULL
-
-		reg	cvr_nearly_full;
-
-		initial	cvr_nearly_full = 1'b0;
-		always @(posedge gbl_clk)
-		if (!i_wr_reset_n)
-			cvr_nearly_full <= 1'b0;
-		else if (f_fill == { 1'b0, {(LGFIFO){1'b1} }})
-			cvr_nearly_full <= 1'b1;
-
-
-		always @(*)
-		if (f_past_valid_gbl)
-		begin
-			cover(f_fill == { 1'b0, {(LGFIFO){1'b1} }});
-			cover(cvr_nearly_full && i_wr_reset_n);
-			cover(o_rd_empty && cvr_nearly_full);
-			cover(o_rd_empty && f_fill == 0 && cvr_nearly_full);
-		end
-
-	end endgenerate
+	// }}}
 `endif
+// }}}
 endmodule
