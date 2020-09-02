@@ -1,0 +1,209 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Fri Aug 28 23:47:05 2020
+[*]
+[dumpfile_mtime] "Fri Aug 28 22:59:36 2020"
+[dumpfile_size] 11128
+[timestart] 0
+[size] 1587 600
+[pos] -1 -1
+*-4.628906 50 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axisgfsm.
+[sst_width] 196
+[signals_width] 174
+[sst_expanded] 1
+[sst_vpaned_height] 155
+@28
+axisgfsm.S_AXI_ACLK
+axisgfsm.S_AXI_ARESETN
+axisgfsm.i_start
+axisgfsm.i_abort
+axisgfsm.o_busy
+axisgfsm.dma_err
+@800200
+-Prefetch
+@28
+axisgfsm.o_pf_clear_cache
+axisgfsm.o_new_pc
+@22
+axisgfsm.o_pf_pc[29:0]
+@28
+[color] 3
+axisgfsm.i_pf_valid
+[color] 2
+axisgfsm.o_pf_ready
+@22
+[color] 3
+axisgfsm.i_pf_insn[31:0]
+[color] 3
+axisgfsm.o_pf_pc[29:0]
+@28
+[color] 3
+axisgfsm.i_pf_illegal
+@1000200
+-Prefetch
+@23
+axisgfsm.o_tbl_addr[29:0]
+@22
+axisgfsm.f_pc[29:0]
+@800200
+-DMA Control
+@22
+axisgfsm.f_tbladdr[29:0]
+@28
+axisgfsm.o_dmac_wvalid
+axisgfsm.i_dmac_wready
+@22
+axisgfsm.o_dmac_waddr[4:0]
+axisgfsm.o_dmac_wdata[31:0]
+axisgfsm.o_dmac_wstrb[3:0]
+axisgfsm.i_dmac_rdata[31:0]
+@1000200
+-DMA Control
+@22
+axisgfsm.SMALL_ADDRESS_SPACE.f_dma_seq[5:0]
+@c00022
+axisgfsm.f_tblentry[95:0]
+@28
+(0)axisgfsm.f_tblentry[95:0]
+(1)axisgfsm.f_tblentry[95:0]
+(2)axisgfsm.f_tblentry[95:0]
+(3)axisgfsm.f_tblentry[95:0]
+(4)axisgfsm.f_tblentry[95:0]
+(5)axisgfsm.f_tblentry[95:0]
+(6)axisgfsm.f_tblentry[95:0]
+(7)axisgfsm.f_tblentry[95:0]
+(8)axisgfsm.f_tblentry[95:0]
+(9)axisgfsm.f_tblentry[95:0]
+(10)axisgfsm.f_tblentry[95:0]
+(11)axisgfsm.f_tblentry[95:0]
+(12)axisgfsm.f_tblentry[95:0]
+(13)axisgfsm.f_tblentry[95:0]
+(14)axisgfsm.f_tblentry[95:0]
+(15)axisgfsm.f_tblentry[95:0]
+(16)axisgfsm.f_tblentry[95:0]
+(17)axisgfsm.f_tblentry[95:0]
+(18)axisgfsm.f_tblentry[95:0]
+(19)axisgfsm.f_tblentry[95:0]
+(20)axisgfsm.f_tblentry[95:0]
+(21)axisgfsm.f_tblentry[95:0]
+(22)axisgfsm.f_tblentry[95:0]
+(23)axisgfsm.f_tblentry[95:0]
+(24)axisgfsm.f_tblentry[95:0]
+(25)axisgfsm.f_tblentry[95:0]
+(26)axisgfsm.f_tblentry[95:0]
+(27)axisgfsm.f_tblentry[95:0]
+(28)axisgfsm.f_tblentry[95:0]
+(29)axisgfsm.f_tblentry[95:0]
+(30)axisgfsm.f_tblentry[95:0]
+(31)axisgfsm.f_tblentry[95:0]
+(32)axisgfsm.f_tblentry[95:0]
+(33)axisgfsm.f_tblentry[95:0]
+(34)axisgfsm.f_tblentry[95:0]
+(35)axisgfsm.f_tblentry[95:0]
+(36)axisgfsm.f_tblentry[95:0]
+(37)axisgfsm.f_tblentry[95:0]
+(38)axisgfsm.f_tblentry[95:0]
+(39)axisgfsm.f_tblentry[95:0]
+(40)axisgfsm.f_tblentry[95:0]
+(41)axisgfsm.f_tblentry[95:0]
+(42)axisgfsm.f_tblentry[95:0]
+(43)axisgfsm.f_tblentry[95:0]
+(44)axisgfsm.f_tblentry[95:0]
+(45)axisgfsm.f_tblentry[95:0]
+(46)axisgfsm.f_tblentry[95:0]
+(47)axisgfsm.f_tblentry[95:0]
+(48)axisgfsm.f_tblentry[95:0]
+(49)axisgfsm.f_tblentry[95:0]
+(50)axisgfsm.f_tblentry[95:0]
+(51)axisgfsm.f_tblentry[95:0]
+(52)axisgfsm.f_tblentry[95:0]
+(53)axisgfsm.f_tblentry[95:0]
+(54)axisgfsm.f_tblentry[95:0]
+(55)axisgfsm.f_tblentry[95:0]
+(56)axisgfsm.f_tblentry[95:0]
+(57)axisgfsm.f_tblentry[95:0]
+(58)axisgfsm.f_tblentry[95:0]
+(59)axisgfsm.f_tblentry[95:0]
+(60)axisgfsm.f_tblentry[95:0]
+(61)axisgfsm.f_tblentry[95:0]
+(62)axisgfsm.f_tblentry[95:0]
+(63)axisgfsm.f_tblentry[95:0]
+(64)axisgfsm.f_tblentry[95:0]
+(65)axisgfsm.f_tblentry[95:0]
+(66)axisgfsm.f_tblentry[95:0]
+(67)axisgfsm.f_tblentry[95:0]
+(68)axisgfsm.f_tblentry[95:0]
+(69)axisgfsm.f_tblentry[95:0]
+(70)axisgfsm.f_tblentry[95:0]
+(71)axisgfsm.f_tblentry[95:0]
+(72)axisgfsm.f_tblentry[95:0]
+(73)axisgfsm.f_tblentry[95:0]
+(74)axisgfsm.f_tblentry[95:0]
+(75)axisgfsm.f_tblentry[95:0]
+(76)axisgfsm.f_tblentry[95:0]
+(77)axisgfsm.f_tblentry[95:0]
+(78)axisgfsm.f_tblentry[95:0]
+(79)axisgfsm.f_tblentry[95:0]
+(80)axisgfsm.f_tblentry[95:0]
+(81)axisgfsm.f_tblentry[95:0]
+(82)axisgfsm.f_tblentry[95:0]
+(83)axisgfsm.f_tblentry[95:0]
+(84)axisgfsm.f_tblentry[95:0]
+(85)axisgfsm.f_tblentry[95:0]
+(86)axisgfsm.f_tblentry[95:0]
+(87)axisgfsm.f_tblentry[95:0]
+(88)axisgfsm.f_tblentry[95:0]
+(89)axisgfsm.f_tblentry[95:0]
+(90)axisgfsm.f_tblentry[95:0]
+(91)axisgfsm.f_tblentry[95:0]
+(92)axisgfsm.f_tblentry[95:0]
+(93)axisgfsm.f_tblentry[95:0]
+(94)axisgfsm.f_tblentry[95:0]
+(95)axisgfsm.f_tblentry[95:0]
+@1401200
+-group_end
+@28
+axisgfsm.f_dma_busy
+axisgfsm.dma_abort
+axisgfsm.dma_busy
+axisgfsm.dma_done
+axisgfsm.dma_err
+axisgfsm.o_busy
+axisgfsm.o_done
+axisgfsm.o_err
+axisgfsm.o_int
+axisgfsm.f_dma_complete
+axisgfsm.i_dma_complete
+@200
+-
+@28
+axisgfsm.sgstate[2:0]
+@200
+-
+@28
+axisgfsm.f_dma_busy
+axisgfsm.f_dma_complete
+axisgfsm.f_past_valid
+axisgfsm.i_dma_complete
+axisgfsm.i_pf_illegal
+@22
+axisgfsm.i_pf_insn[31:0]
+@28
+axisgfsm.i_pf_valid
+@c00028
+axisgfsm.i_prot[2:0]
+@28
+(0)axisgfsm.i_prot[2:0]
+(1)axisgfsm.i_prot[2:0]
+(2)axisgfsm.i_prot[2:0]
+@1401200
+-group_end
+@22
+axisgfsm.i_qos[3:0]
+axisgfsm.r_pf_pc[59:0]
+@28
+axisgfsm.tbl_int_enable
+axisgfsm.tbl_last
+[pattern_trace] 1
+[pattern_trace] 0

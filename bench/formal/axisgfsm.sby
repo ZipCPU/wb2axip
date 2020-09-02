@@ -1,0 +1,27 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 20
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axisgfsm.v
+read -formal faxil_master.v
+# --pycode-begin--
+# cmd = "hierarchy -top easyaxil"
+# cmd += " -chparam OPT_SKIDBUFFER %d" % (1 if "opt_skidbuffer" in tags else 0)
+# cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+# output(cmd);
+# --pycode-end--
+prep -top axisgfsm
+
+[files]
+../../rtl/axisgfsm.v
+faxil_master.v

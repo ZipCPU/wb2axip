@@ -276,7 +276,7 @@ module	axisgdma #(
 
 	reg	[3:0]		r_qos;
 	reg	[2:0]		r_prot;
-	reg			w_start;
+	reg			r_start;
 	wire			r_done, r_busy;
 
 	wire				awskd_valid;
@@ -429,15 +429,19 @@ module	axisgdma #(
 		S_AXIL_BRESP = AXI_OKAY;
 	// }}}
 
-	// w_start
+	// r_start
 	// {{{
-	always @(*)
-	begin
-		w_start = !r_busy && axil_write_ready && wskd_strb[0]
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		r_start <= 1'b0;
+	else begin
+		r_start <= !r_busy && axil_write_ready && wskd_strb[0]
 				&& wskd_data[CTRL_START_BIT]
 				&& (awskd_addr == CTRL_ADDR);
-		if (r_err && (!wskd_strb[0] || !wskd_data[CTRL_ERR_BIT]))
-			w_start = 0;
+		if (r_err && !wskd_data[CTRL_ERR_BIT])
+			r_start <= 0;
+		if (r_abort && !wskd_data[CTRL_ABORT_BIT])
+			r_start <= 0;
 	end
 	// }}}
 
@@ -922,7 +926,7 @@ module	axisgdma #(
 		.S_AXI_ARESETN(S_AXI_ARESETN),
 		// Control interface
 		// {{{
-		.i_start(w_start),
+		.i_start(r_start),
 		.i_abort(r_abort),
 		.i_tbl_addr(r_tbl_addr),
 		.i_qos(r_qos),
