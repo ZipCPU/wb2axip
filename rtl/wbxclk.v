@@ -1,13 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	rtl/wbxclk.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	To cross clock domains with a (pipelined) wishbone bus.
-// {{{
 //
-//	Challenges:
+// Challenges:
 //	1. Wishbone has no capacity for back pressure.  That means that we'll
 //		need to be careful not to issue more STB requests than ACKs
 //		that will fit in the return buffer.
@@ -28,16 +27,16 @@
 //		need to know when it is (properly) lowered downstream.  This
 //		can be done by passing a synchronous CYC drop request through
 //		the pipeline in addition to the bus aborts above.
-// }}}
 //
 //	Status:
-//		Doesn't yet pass a bounded formal test, much less induction.
+//		Formally verified against a set of bus properties, not yet
+//		used in any real or simulated designs
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2020, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
@@ -60,45 +59,42 @@
 //
 `default_nettype	none
 // }}}
-module	wbxclk(i_wb_clk, i_reset,
-		// The input bus
-		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
-			o_wb_stall, o_wb_ack, o_wb_data, o_wb_err,
-		// The delayed bus
-		i_xclk_clk,
-		o_xclk_cyc, o_xclk_stb, o_xclk_we,
-			o_xclk_addr, o_xclk_data, o_xclk_sel,
-			i_xclk_ack, i_xclk_stall, i_xclk_data, i_xclk_err);
-	// {{{
-	parameter	AW=32, DW=32, DELAY_STALL = 0, LGFIFO = 5;
-	parameter [(LGFIFO-1):0]	THRESHOLD = {{(LGFIFO-4){1'b0}},4'h8};
-
-	input	wire			i_wb_clk, i_reset;
-	// Input/master bus
-	input	wire			i_wb_cyc, i_wb_stb, i_wb_we;
-	input	wire	[(AW-1):0]	i_wb_addr;
-	input	wire	[(DW-1):0]	i_wb_data;
-	input	wire	[(DW/8-1):0]	i_wb_sel;
-	output	reg			o_wb_ack;
-	output	wire			o_wb_stall;
-	output	reg	[(DW-1):0]	o_wb_data;
-	output	reg			o_wb_err;
-	// Delayed bus
-	input	wire			i_xclk_clk;
-	output	reg			o_xclk_cyc;
-	output	reg			o_xclk_stb;
-	output	reg			o_xclk_we;
-	output	reg	[(AW-1):0]	o_xclk_addr;
-	output	reg	[(DW-1):0]	o_xclk_data;
-	output	reg	[(DW/8-1):0]	o_xclk_sel;
-	input	wire			i_xclk_ack;
-	input	wire			i_xclk_stall;
-	input	wire	[(DW-1):0]	i_xclk_data;
-	input	wire			i_xclk_err;
-
-	localparam	NFF = 2;
-	localparam	FIFOLN    = (1<<LGFIFO);
-	// }}}
+module	wbxclk #(
+		// {{{
+		parameter	AW=32,
+				DW=32,
+				DELAY_STALL = 0,
+				LGFIFO = 5,
+		parameter [(LGFIFO-1):0] THRESHOLD = {{(LGFIFO-4){1'b0}},4'h8},
+		localparam	NFF = 2,
+		localparam	FIFOLN    = (1<<LGFIFO)
+		// }}}
+	) (
+		// {{{
+		input	wire			i_wb_clk, i_reset,
+		// Input/master bus
+		input	wire			i_wb_cyc, i_wb_stb, i_wb_we,
+		input	wire	[(AW-1):0]	i_wb_addr,
+		input	wire	[(DW-1):0]	i_wb_data,
+		input	wire	[(DW/8-1):0]	i_wb_sel,
+		output	wire			o_wb_stall,
+		output	reg			o_wb_ack,
+		output	reg	[(DW-1):0]	o_wb_data,
+		output	reg			o_wb_err,
+		// Delayed bus
+		input	wire			i_xclk_clk,
+		output	reg			o_xclk_cyc,
+		output	reg			o_xclk_stb,
+		output	reg			o_xclk_we,
+		output	reg	[(AW-1):0]	o_xclk_addr,
+		output	reg	[(DW-1):0]	o_xclk_data,
+		output	reg	[(DW/8-1):0]	o_xclk_sel,
+		input	wire			i_xclk_stall,
+		input	wire			i_xclk_ack,
+		input	wire	[(DW-1):0]	i_xclk_data,
+		input	wire			i_xclk_err
+		// }}}
+	);
 
 	//
 	// Declare our signals
@@ -321,7 +317,18 @@ module	wbxclk(i_wb_clk, i_reset,
 	assign	unused = &{ 1'b0, req_fifo_stall, ign_ackfifo_stall };
 	// Verilator lint_on UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	// Register/net/macro declarations
+	// {{{
 `ifdef	BMC
 `define	BMC_ASSERT	assert
 `else
@@ -333,11 +340,11 @@ module	wbxclk(i_wb_clk, i_reset,
 	wire	[LGFIFO:0]	fwb_nreqs, fwb_nacks, fwb_outstanding;
 	wire	[LGFIFO:0]	fxck_nreqs, fxck_nacks, fxck_outstanding;
 	reg	[LGFIFO:0]	ackfifo_fill, reqfifo_fill;
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Assume a clock
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -370,6 +377,7 @@ module	wbxclk(i_wb_clk, i_reset,
 		assume(i_xclk_clk == fxck_count[3]);
 	end
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// ....
@@ -453,7 +461,6 @@ module	wbxclk(i_wb_clk, i_reset,
 		assume(past_xclk_err   == i_xclk_err);
 	end
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Wishbone bus property checks
@@ -463,8 +470,7 @@ module	wbxclk(i_wb_clk, i_reset,
 	//
 	fwb_slave #(.AW(AW), .DW(DW),
 		.F_LGDEPTH(LGFIFO+1), .F_OPT_DISCONTINUOUS(1)
-	)
-	slv(i_wb_clk, i_reset,
+	) slv(i_wb_clk, i_reset,
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
 		o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
 		fwb_nreqs, fwb_nacks, fwb_outstanding);
@@ -478,7 +484,12 @@ module	wbxclk(i_wb_clk, i_reset,
 		i_xclk_ack, i_xclk_stall, i_xclk_data, i_xclk_err,
 		fxck_nreqs, fxck_nacks, fxck_outstanding);
 	// }}}
-
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (Random/unsorted) properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	always @(*)
 	if (reqfifo_fill != (o_xclk_stb ? 1:0) && !req_stb)
 		assert(ackfifo_fill == 0 || xclk_err_state);
@@ -698,10 +709,11 @@ module	wbxclk(i_wb_clk, i_reset,
 	if (fxck_outstanding > 0 || o_xclk_stb)
 		assert(!ign_ackfifo_stall);
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Sub properties for the REQ FIFO
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -730,11 +742,11 @@ module	wbxclk(i_wb_clk, i_reset,
 		`BMC_ASSERT(!req_stb || req_we == o_xclk_we
 			|| fxck_outstanding == 0);
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Sub properties for the ACK FIFO
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -749,11 +761,11 @@ module	wbxclk(i_wb_clk, i_reset,
 			`BMC_ASSERT(!err_stb);
 	end
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -810,13 +822,18 @@ module	wbxclk(i_wb_clk, i_reset,
 			&& !bus_abort && fwb_count != fxck_count
 			&& fwb_step != fxck_step);
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Simplifying (careless) assumptions
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	// None (at present)
+
+	// }}}
 `endif
+// }}}
 endmodule
