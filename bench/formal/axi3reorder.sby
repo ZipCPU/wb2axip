@@ -1,0 +1,42 @@
+[tasks]
+bmcsreg		bmc opt_sreg
+bmcfifo		bmc
+bmcsreglp	bmc opt_sreg opt_lowpower
+bmcfifolp	bmc          opt_lowpower
+bmcsreglat	bmc opt_sreg              opt_low_latency
+bmcfifolat	bmc                       opt_low_latency
+bmcsreglatlp	bmc opt_sreg opt_lowpower opt_low_latency
+bmcfifolatlp	bmc          opt_lowpower opt_low_latency
+cvrsreg		cvr opt_sreg
+cvrfifo		cvr
+cvrsreglp	cvr opt_sreg opt_lowpower
+cvrfifolp	cvr          opt_lowpower
+cvrsreg		cvr opt_sreg              opt_low_latency
+cvrfifo		cvr                       opt_low_latency
+cvrsreglp	cvr opt_sreg opt_lowpower opt_low_latency
+cvrfifolp	cvr          opt_lowpower opt_low_latency
+
+[options]
+bmc: mode bmc
+bmc: depth 40
+
+[engines]
+# smtbmc
+smtbmc boolector
+
+[script]
+read -formal sfifo.v
+read -formal axi3reorder.v
+--pycode-begin--
+cmd = "hierarchy -top axi3reorder -chparam DW 8 -chparam OPT_LGWFIFO 2"
+cmd += " -chparam C_AXI_ID_WIDTH 2"
+cmd += " -chparam OPT_METHOD      %d" % (1 if "opt_sreg" in tags else 2)
+cmd += " -chparam OPT_LOWPOWER    %d" % (1 if "opt_lowpower" in tags else 0)
+cmd += " -chparam OPT_LOW_LATENCY %d" % (1 if "opt_low_latency" in tags else 0)
+output(cmd)
+--pycode-end--
+prep -top axi3reorder
+
+[files]
+../../rtl/sfifo.v
+../../rtl/axi3reorder.v
