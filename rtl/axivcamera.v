@@ -156,8 +156,14 @@ module	axivcamera #(
 		// AXI_ID is the ID we will use for all of our AXI transactions
 		parameter	AXI_ID = 0,
 		//
-		// OPT_IGNORE_TUSER
-		parameter [0:0]	OPT_IGNORE_TUSER = 0
+		// OPT_IGNORE_HLAST
+		parameter [0:0]	OPT_IGNORE_HLAST = 0,
+		//
+		// OPT_TUSER_IS_SOF.  Xilinx and I chose different encodings.
+		// I encode TLAST == VLAST, and TUSER == HLAST (optional).
+		// Xilinx likes TLAST == HLAST and TUSER == SOF (start of frame)
+		// Set OPT_TUSER_IS_SOF to use Xilinx's encoding
+		parameter [0:0]	OPT_TUSER_IS_SOF = 0
 		// }}}
 	) (
 		// {{{
@@ -623,6 +629,61 @@ module	axivcamera #(
 	//
 	//
 
+	reg	S_AXIS_SOF, S_AXIS_HLAST, S_AXIS_VLAST;
+	generate if (OPT_TUSER_IS_SOF)
+	begin : XILINX_SOF_LOCK
+		reg	[15:0]	axis_line;
+		reg		axis_last_line;
+
+		always @(*)
+			S_AXIS_HLAST = S_AXIS_TLAST;
+
+		always @(*)
+			S_AXIS_SOF = S_AXIS_TUSER;
+
+		//  Generate S_AXIS_VLAST from S_AXIS_SOF
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			axis_line <= 0;
+		else if (S_AXIS_TVALID && S_AXIS_TREADY)
+		begin
+			if (S_AXIS_SOF)
+				axis_line <= 0;
+			else if (S_AXIS_HLAST)
+				axis_line <= axis_line + 1;
+		end
+
+		always @(posedge S_AXI_ACLK)
+			axis_last_line <= (axis_line+1 >= cfg_frame_lines);
+
+		always @(*)
+			S_AXIS_VLAST = axis_last_line && S_AXIS_HLAST;
+
+	end else begin : VLAST_LOCK
+
+		always @(*)
+			S_AXIS_VLAST = S_AXIS_TLAST;
+
+		always @(*)
+			S_AXIS_HLAST = S_AXIS_TUSER;
+
+		/*
+		initial	S_AXIS_SOF = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			S_AXIS_SOF <= 1'b0;
+		else if (S_AXIS_TVALID && S_AXIS_TREADY)
+			S_AXIS_SOF <= S_AXIS_VLAST;
+		*/
+		always @(*)
+			S_AXIS_SOF = 1'b0;
+
+		// Verilator lint_off UNUSED
+		wire	unused_sof;
+		assign	unused_sof = &{ 1'b0, S_AXIS_SOF };
+		// Verilator lint_on  UNUSED
+	end endgenerate
+
 	// Read/write signaling, lost_sync detection
 	// {{{
 	assign	reset_fifo = (!cfg_active || r_stopped || lost_sync);
@@ -638,7 +699,7 @@ module	axivcamera #(
 		if (!S_AXI_ARESETN || !cfg_active || r_stopped)
 			lost_sync <= 0;
 		else if (M_AXI_WVALID && M_AXI_WREADY
-				&&((!OPT_IGNORE_TUSER&&(wr_hlast != fifo_hlast))
+				&&((!OPT_IGNORE_HLAST&&(wr_hlast != fifo_hlast))
 				|| (!wr_hlast && fifo_vlast)
 				|| (wr_vlast && wr_hlast && !fifo_vlast)))
 			// Here is where we might possibly notice we've lost sync
@@ -679,8 +740,8 @@ module	axivcamera #(
 
 		sfifo #(.BW(C_AXI_DATA_WIDTH+2), .LGFLEN(LGFIFO))
 		sfifo(i_clk, reset_fifo,
-			write_to_fifo, { S_AXIS_TLAST,
-				(!OPT_IGNORE_TUSER && S_AXIS_TUSER),write_data},
+			write_to_fifo, { S_AXIS_VLAST,
+				(!OPT_IGNORE_HLAST && S_AXIS_HLAST),write_data},
 				fifo_full, fifo_fill,
 			read_from_fifo, { fifo_vlast, fifo_hlast,
 				fifo_data }, fifo_empty);
@@ -693,8 +754,8 @@ module	axivcamera #(
 		assign	fifo_full  = M_AXI_WVALID && !M_AXI_WREADY;
 		assign	fifo_fill  = 0;
 		assign	fifo_empty = !S_AXIS_TVALID;
-		assign	fifo_vlast = S_AXIS_TLAST;
-		assign	fifo_hlast = (!OPT_IGNORE_TUSER && S_AXIS_TUSER);
+		assign	fifo_vlast = S_AXIS_VLAST;
+		assign	fifo_hlast = (!OPT_IGNORE_HLAST && S_AXIS_HLAST);
 
 		assign	fifo_data = write_data;
 		// }}}
@@ -925,7 +986,7 @@ module	axivcamera #(
 	else if (r_stopped)
 	begin
 		// Synchronize on the last pixel of an incoming frame
-		if (cfg_active && S_AXIS_TVALID && S_AXIS_TLAST)
+		if (cfg_active && S_AXIS_TVALID && S_AXIS_VLAST)
 			r_stopped <= soft_reset;
 	end else if ((soft_reset || lost_sync) && aw_none_outstanding
 				&& !M_AXI_AWVALID && !M_AXI_WVALID)
@@ -968,7 +1029,7 @@ module	axivcamera #(
 			start_burst = 0;
 
 		// If the user wants us to stop, then stop
-		if (soft_reset || !cfg_active || r_stopped || lost_sync)
+		if (soft_reset || !cfg_active || r_stopped)
 			start_burst  = 0;
 	end
 	// }}}

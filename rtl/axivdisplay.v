@@ -9,7 +9,8 @@
 //		buffer.  The result of this core is an AXI stream having the
 //	word size of the memory interface in the first place.  TLAST is set
 //	based upon the end of the frame, and TUSER based upon the end of the
-//	line.
+//	line.  An option exists to use Xilinx's encoding instead where TLAST
+//	is the end of the line and TUSER is the first pixel word of the frame.
 //
 //	This core is in many ways similar to the AXI MM2S core, but with some
 //	key differences: The AXI MM2S core generates a single transfer.  This
@@ -156,7 +157,14 @@ module	axivdisplay #(
 		parameter	LGFIFO = OPT_LGMAXBURST+1,
 		//
 		// AXI_ID is the ID we will use for all of our AXI transactions
-		parameter	AXI_ID = 0
+		parameter	AXI_ID = 0,
+		//
+		// OPT_TUSER_IS_SOF.  Xilinx and I chose different stream
+		// encodings.  I encode TLAST== VLAST and
+		// TUSER == (optional) HLAST.  Xilinx chose TLAST == HLAST
+		// and TUSER == SOF(start of frame).  Set OPT_TUSER_IS_SOF to
+		// use Xilinx's encoding.
+		parameter [0:0]	OPT_TUSER_IS_SOF = 0
 		// }}}
 	) (
 		// {{{
@@ -168,8 +176,8 @@ module	axivdisplay #(
 		output	wire					M_AXIS_TVALID,
 		input	wire					M_AXIS_TREADY,
 		output	wire	[C_AXI_DATA_WIDTH-1:0]		M_AXIS_TDATA,
-		output	wire	/* VLAST */			M_AXIS_TLAST,
-		output	wire	/* HLAST */			M_AXIS_TUSER,
+		output	wire	/* VLAST or HLAST */		M_AXIS_TLAST,
+		output	wire	/* HLAST or SOF */		M_AXIS_TUSER,
 		// }}}
 		//
 		// The control interface
@@ -323,6 +331,7 @@ module	axivdisplay #(
 	reg	[C_AXI_ADDR_WIDTH:0]	f_rd_line_addr, f_rd_addr;
 `endif
 
+	wire	M_AXIS_VLAST, M_AXIS_HLAST;
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////
@@ -642,12 +651,11 @@ module	axivdisplay #(
 		assign	M_AXIS_TVALID  = !fifo_empty;
 		assign	read_from_fifo = M_AXIS_TVALID && M_AXIS_TREADY;
 
-
 		sfifo #(.BW(C_AXI_DATA_WIDTH+2), .LGFLEN(LGFIFO))
 		sfifo(i_clk, reset_fifo,
 			write_to_fifo, { vlast && hlast, hlast, write_data },
 				fifo_full, fifo_fill,
-			read_from_fifo, { M_AXIS_TLAST, M_AXIS_TUSER,
+			read_from_fifo, { M_AXIS_VLAST, M_AXIS_HLAST,
 				M_AXIS_TDATA }, fifo_empty);
 
 		assign no_fifo_space_available = (fifo_space_available < (1<<LGMAXBURST));
@@ -659,13 +667,38 @@ module	axivdisplay #(
 		assign	fifo_empty = !M_AXIS_TVALID;
 		assign	M_AXIS_TVALID = write_to_fifo;
 
-		assign	M_AXIS_TLAST = vlast && hlast;
-		assign	M_AXIS_TUSER = hlast;
+		assign	M_AXIS_VLAST = vlast && hlast;
+		assign	M_AXIS_HLAST = hlast;
 		assign	M_AXIS_TDATA = M_AXI_RDATA;
 
 		assign no_fifo_space_available = (ar_bursts_outstanding >= 3);
 		// }}}
 	end endgenerate
+	// }}}
+
+	// Switch between TLAST/TUSER encodings if necessary
+	// {{{
+	generate if (OPT_TUSER_IS_SOF)
+	begin : XILINX_ENCODING
+
+		reg	SOF;
+
+		initial	SOF = 1'b1;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN || r_stopped)
+			SOF <= 1'b1;
+		else if (M_AXIS_TVALID && M_AXIS_TREADY)
+			SOF <= M_AXIS_VLAST;
+
+		assign	M_AXIS_TLAST = M_AXIS_HLAST;
+		assign	M_AXIS_TUSER = SOF;
+
+	end else begin : VLAST_EQUALS_TLAST
+
+		assign	M_AXIS_TLAST = M_AXIS_VLAST;
+		assign	M_AXIS_TUSER = M_AXIS_HLAST;
+	end endgenerate
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
