@@ -67,7 +67,9 @@ module axi2axilite #(
 		// {{{
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
-		// AXI (incoming) Write address
+		// AXI4 slave interface
+		// {{{
+		// Write address channel
 		// {{{
 		input	wire				S_AXI_AWVALID,
 		output	wire				S_AXI_AWREADY,
@@ -81,7 +83,7 @@ module axi2axilite #(
 		input	wire	[2:0]			S_AXI_AWPROT,
 		input	wire	[3:0]			S_AXI_AWQOS,
 		// }}}
-		// AXI (incoming) Write data
+		// Write data channel
 		// {{{
 		input	wire				S_AXI_WVALID,
 		output	wire				S_AXI_WREADY,
@@ -89,14 +91,14 @@ module axi2axilite #(
 		input	wire	[(C_AXI_DATA_WIDTH/8)-1:0] S_AXI_WSTRB,
 		input	wire				S_AXI_WLAST,
 		// }}}
-		// AXI (incoming) Write response
+		// Write return channel
 		// {{{
 		output	wire				S_AXI_BVALID,
 		input	wire				S_AXI_BREADY,
 		output	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_BID,
 		output	wire	[1:0]			S_AXI_BRESP,
 		// }}}
-		// AXI (incoming) Read address
+		// Read address channel
 		// {{{
 		input	wire				S_AXI_ARVALID,
 		output	wire				S_AXI_ARREADY,
@@ -110,7 +112,7 @@ module axi2axilite #(
 		input	wire	[2:0]			S_AXI_ARPROT,
 		input	wire	[3:0]			S_AXI_ARQOS,
 		// }}}
-		// AXI Read data and response
+		// Read data channel
 		// {{{
 		output	wire				S_AXI_RVALID,
 		input	wire				S_AXI_RREADY,
@@ -119,9 +121,11 @@ module axi2axilite #(
 		output	wire	[1:0]			S_AXI_RRESP,
 		output	wire				S_AXI_RLAST,
 		// }}}
-		// AXI-Lite interface
+		// }}}
+		// AXI-lite master interface
 		// {{{
-		// Write address (issued by master, acceped by Slave)
+		// AXI-lite Write interface
+		// {{{
 		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
 		output	wire	[2 : 0]			M_AXI_AWPROT,
 		output	wire				M_AXI_AWVALID,
@@ -133,7 +137,9 @@ module axi2axilite #(
 		input	wire	[1 : 0]			M_AXI_BRESP,
 		input	wire				M_AXI_BVALID,
 		output	wire				M_AXI_BREADY,
-		//
+		// }}}
+		// AXI-lite read interface
+		// {{{
 		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
 		output	wire	[2:0]			M_AXI_ARPROT,
 		output	wire				M_AXI_ARVALID,
@@ -143,6 +149,7 @@ module axi2axilite #(
 		output	wire				M_AXI_RREADY,
 		input	wire	[C_AXI_DATA_WIDTH-1 : 0] M_AXI_RDATA,
 		input	wire	[1 : 0]			M_AXI_RRESP
+		// }}}
 		// }}}
 		// }}}
 	);
@@ -243,7 +250,6 @@ module axi2axilite #(
 	wire	[DW-1:0]	skidm_rdata;
 	wire	[1:0]		skidm_rresp;
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write logic
@@ -255,6 +261,7 @@ module axi2axilite #(
 	begin : IMPLEMENT_WRITES
 		// {{{
 		// The write address channel's skid buffer
+		// {{{
 		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_AWVALID, S_AXI_AWREADY,
@@ -263,27 +270,36 @@ module axi2axilite #(
 			skids_awvalid, skids_awready,
 			{ skids_awid, skids_awaddr, skids_awlen, skids_awsize,
 				skids_awburst });
+		// }}}
 		//
 		// The write data channel's skid buffer (S_AXI_W*)
+		// {{{
 		skidbuffer #(.DW(DW+DW/8+1), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_WVALID, S_AXI_WREADY,
 			{ S_AXI_WDATA, S_AXI_WSTRB, S_AXI_WLAST },
 			skids_wvalid, skids_wready,
 			{ skids_wdata, skids_wstrb, skids_wlast });
+		// }}}
 		//
 		// The downstream AXI-lite write data (M_AXI_W*) skid buffer
+		// {{{
 		skidbuffer #(.DW(DW+DW/8), .OPT_LOWPOWER(0), .OPT_OUTREG(1))
 		mwskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			skidm_wvalid, skidm_wready, { skidm_wdata, skidm_wstrb },
-			M_AXI_WVALID, M_AXI_WREADY, { M_AXI_WDATA, M_AXI_WSTRB });
+			M_AXI_WVALID,M_AXI_WREADY,{ M_AXI_WDATA, M_AXI_WSTRB });
+		// }}}
 		//
 		// The downstream AXI-lite response (M_AXI_B*) skid buffer
+		// {{{
 		skidbuffer #(.DW(2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		bskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			M_AXI_BVALID, M_AXI_BREADY, { M_AXI_BRESP },
 			skidm_bvalid, skidm_bready, { skidm_bresp });
+		// }}}
 
+		// m_axi_awvalid
+		// {{{
 		initial	m_axi_awvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -294,11 +310,18 @@ module axi2axilite #(
 			m_axi_awvalid <= 0;
 
 		assign	M_AXI_AWVALID = m_axi_awvalid;
+		// }}}
+
+		// skids_awready
+		// {{{
 		assign	skids_awready = (!M_AXI_AWVALID
 				|| ((axi_awlen == 0)&&M_AXI_AWREADY))
 				&& !wfifo_full
 				&&(!s_axi_wready || (skids_wvalid && skids_wlast && skids_wready));
+		// }}}
 
+		// Address processing
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (skids_awvalid && skids_awready)
 		begin
@@ -308,7 +331,10 @@ module axi2axilite #(
 			axi_awsize <= skids_awsize;
 		end else if (M_AXI_AWVALID && M_AXI_AWREADY)
 			axi_awaddr <= next_write_addr;
+		// }}}
 
+		// axi_awlen
+		// {{{
 		initial	axi_awlen = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -317,12 +343,19 @@ module axi2axilite #(
 			axi_awlen <= skids_awlen;
 		else if (M_AXI_AWVALID && M_AXI_AWREADY && axi_awlen > 0)
 			axi_awlen <= axi_awlen - 1;
+		// }}}
 
+		// axi_addr
+		// {{{
 		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
 		calcwraddr(axi_awaddr, axi_awsize, axi_awburst,
 			axi_blen, next_write_addr);
+		// }}}
 
-		// We really don't need to do anything special to the write channel.
+		// s_axi_wready
+		// {{{
+		// We really don't need to do anything special to the write
+		// channel.
 		initial	s_axi_wready = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -331,8 +364,10 @@ module axi2axilite #(
 			s_axi_wready <= 1;
 		else if (skids_wvalid && skids_wready && skids_wlast)
 			s_axi_wready <= 0;
+		// }}}
 
-
+		// skidm*, and read_from_wrfifo
+		// {{{
 		assign	skidm_wdata  = skids_wdata;
 		assign	skidm_wstrb  = skids_wstrb;
 		assign	skidm_wvalid = skids_wvalid && s_axi_wready;
@@ -340,16 +375,23 @@ module axi2axilite #(
 
 		assign	read_from_wrfifo = (bcounts <= 1)&&(!wfifo_empty)
 			    &&(skidm_bvalid && skidm_bready);
+		// }}}
 
 		// BFIFO
-		sfifo	#(.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO))
-			bidlnfifo(S_AXI_ACLK, !S_AXI_ARESETN,
-				skids_awvalid && skids_awready,
-				{ skids_awid, skids_awlen },
-				wfifo_full, wfifo_count,
-				read_from_wrfifo,
-				{ wfifo_bid, wfifo_bcount }, wfifo_empty);
+		// {{{
+		sfifo	#(
+			.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO)
+		) bidlnfifo(
+			S_AXI_ACLK, !S_AXI_ARESETN,
+			skids_awvalid && skids_awready,
+			{ skids_awid, skids_awlen },
+			wfifo_full, wfifo_count,
+			read_from_wrfifo,
+			{ wfifo_bid, wfifo_bcount }, wfifo_empty);
+		// }}}
 
+		// bcounts
+		// {{{
 		// Return counts
 		initial	bcounts = 0;
 		always @(posedge S_AXI_ACLK)
@@ -360,7 +402,10 @@ module axi2axilite #(
 			bcounts <= wfifo_bcount + bcounts;
 		end else if (skidm_bvalid && skidm_bready)
 			bcounts <= bcounts - 1;
+		// }}}
 
+		// bid
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (read_from_wrfifo)
 			bid <= wfifo_bid;
@@ -368,7 +413,10 @@ module axi2axilite #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_BVALID || S_AXI_BREADY)
 			axi_bid <= (read_from_wrfifo && bcounts==0) ? wfifo_bid : bid;
+		// }}}
 
+		// s_axi_bvalid
+		// {{{
 		initial	s_axi_bvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -378,7 +426,10 @@ module axi2axilite #(
 				||((bcounts == 0) && (!wfifo_empty) && (wfifo_bcount == 0));
 		else if (S_AXI_BREADY)
 			s_axi_bvalid <= 0;
+		// }}}
 
+		// axi_bresp
+		// {{{
 		initial	axi_bresp = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -400,16 +451,22 @@ module axi2axilite #(
 			4'b1111: axi_bresp <= skidm_bresp;
 			endcase
 		end
+		// /}}}
 
+		// M_AXI_AW*
+		// {{{
 		assign	M_AXI_AWVALID= m_axi_awvalid;
 		assign	M_AXI_AWADDR = axi_awaddr;
 		assign	M_AXI_AWPROT = 0;
+		// }}}
 
-
+		// skidm_bready, S_AXI_B*
+		// {{{
 		assign	skidm_bready = ((bcounts > 0)||(!wfifo_empty))&&(!S_AXI_BVALID | S_AXI_BREADY);
 		assign	S_AXI_BID    = axi_bid;
 		assign	S_AXI_BRESP  = axi_bresp;
 		assign	S_AXI_BVALID = s_axi_bvalid;
+		// }}}
 		// }}}
 	end else begin : NO_WRITE_SUPPORT
 		// {{{
@@ -495,6 +552,7 @@ module axi2axilite #(
 		// {{{
 		//
 		// S_AXI_AR* skid buffer
+		// {{{
 		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_ARVALID, S_AXI_ARREADY,
@@ -503,13 +561,16 @@ module axi2axilite #(
 			skids_arvalid, skids_arready,
 			{ skids_arid, skids_araddr, skids_arlen, skids_arsize,
 				skids_arburst });
-		//
+		// }}}
 		// M_AXI_R* skid buffer
+		// {{{
 		skidbuffer #(.DW(DW+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
 		rskid(S_AXI_ACLK, !S_AXI_ARESETN,
-			M_AXI_RVALID, M_AXI_RREADY, { M_AXI_RDATA, M_AXI_RRESP },
-			skidm_rvalid, skidm_rready, { skidm_rdata, skidm_rresp });
-
+			M_AXI_RVALID, M_AXI_RREADY,{ M_AXI_RDATA, M_AXI_RRESP },
+			skidm_rvalid,skidm_rready,{ skidm_rdata, skidm_rresp });
+		// }}}
+		// m_axi_arvalid
+		// {{{
 		initial	m_axi_arvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -518,7 +579,10 @@ module axi2axilite #(
 			m_axi_arvalid <= 1;
 		else if (M_AXI_ARREADY && axi_arlen == 0)
 			m_axi_arvalid <= 0;
+		// }}}
 
+		// Read address processing
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (skids_arvalid && skids_arready)
 		begin
@@ -532,8 +596,10 @@ module axi2axilite #(
 		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
 			calcrdaddr(axi_araddr, axi_arsize, axi_arburst,
 			axi_rlen, next_read_addr);
+		// }}}
 
-
+		// axi_arlen, Read length processing
+		// {{{
 		initial	axi_arlen = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -542,6 +608,7 @@ module axi2axilite #(
 			axi_arlen <= skids_arlen;
 		else if (M_AXI_ARVALID && M_AXI_ARREADY && axi_arlen > 0)
 			axi_arlen <= axi_arlen - 1;
+		// }}}
 
 		assign	skids_arready = (!M_AXI_ARVALID ||
 				((axi_arlen == 0) && M_AXI_ARREADY))
@@ -550,6 +617,8 @@ module axi2axilite #(
 		assign	read_from_rdfifo = skidm_rvalid && skidm_rready
 					&& (rcounts <= 1) && !rfifo_empty;
 
+		// Read ID FIFO
+		// {{{
 		sfifo	#(.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO))
 		ridlnfifo(S_AXI_ACLK, !S_AXI_ARESETN,
 			skids_arvalid && skids_arready,
@@ -557,10 +626,12 @@ module axi2axilite #(
 			rfifo_full, rfifo_count,
 			read_from_rdfifo,
 			{ rfifo_rid, rfifo_rcount }, rfifo_empty);
-
+		// }}}
 
 		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY);
 
+		// s_axi_rvalid
+		// {{{
 		initial	s_axi_rvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -569,7 +640,10 @@ module axi2axilite #(
 			s_axi_rvalid <= 1;
 		else if (S_AXI_RREADY)
 			s_axi_rvalid <= 0;
+		// }}}
 
+		// s_axi_rresp, s_axi_rdata
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (skidm_rvalid && skidm_rready)
 		begin
@@ -580,8 +654,10 @@ module axi2axilite #(
 			s_axi_rresp <= 0;
 			s_axi_rdata <= 0;
 		end
+		// }}}
 
-		// Return counts
+		// rcounts, Return counts
+		// {{{
 		initial	rcounts = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -590,12 +666,18 @@ module axi2axilite #(
 			rcounts <= rfifo_rcount + rcounts;
 		else if (skidm_rvalid && skidm_rready)
 			rcounts <= rcounts - 1;
+		// }}}
 
+		// rid
+		// {{{
 		initial	rid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (read_from_rdfifo)
 			rid <= rfifo_rid;
+		// }}}
 
+		// s_axi_rlast
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_RVALID || S_AXI_RREADY)
 		begin
@@ -608,21 +690,31 @@ module axi2axilite #(
 			if (rcounts == 1)
 				s_axi_rlast <= 1;
 		end
+		// }}}
 
+		// s_axi_rid
+		// {{{
 		initial	s_axi_rid = 0;
 		always @(posedge S_AXI_ACLK)
 		if ((S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
 				||(!S_AXI_RVALID && rcounts == 0))
 			s_axi_rid <= (read_from_rdfifo)&&(rcounts == 0)?rfifo_rid : rid;
+		// }}}
 
+		// M_AXI_AR*
+		// {{{
 		assign	M_AXI_ARVALID= m_axi_arvalid;
 		assign	M_AXI_ARADDR = axi_araddr;
 		assign	M_AXI_ARPROT = 0;
+		// }}}
+		// S_AXI_R*
+		// {{{
 		assign	S_AXI_RVALID = s_axi_rvalid;
 		assign	S_AXI_RDATA  = s_axi_rdata;
 		assign	S_AXI_RRESP  = s_axi_rresp;
 		assign	S_AXI_RLAST  = s_axi_rlast;
 		assign	S_AXI_RID    = s_axi_rid;
+		// }}}
 		// }}}
 	end else begin : NO_READ_SUPPORT // if (!OPT_READS)
 		// {{{
@@ -697,9 +789,11 @@ module axi2axilite #(
 
 	////////////////////////////////////////////////////////////////////////
 	//
-	//	AXI channel properties
-	//
+	// AXI channel properties
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	faxi_slave #(.C_AXI_ID_WIDTH(IW),
 			.C_AXI_DATA_WIDTH(DW),
 			.C_AXI_ADDR_WIDTH(AW),
@@ -758,13 +852,14 @@ module axi2axilite #(
 			//
 			// ...
 			);
-			
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	//	AXI-lite properties
-	//
+	// AXI-lite properties
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	faxil_master #(.C_AXI_DATA_WIDTH(DW), .C_AXI_ADDR_WIDTH(AW),
 			.F_OPT_NO_RESET(1),
 			.F_AXI_MAXWAIT(5),
@@ -806,7 +901,7 @@ module axi2axilite #(
 			.f_axi_rd_outstanding(faxil_rd_outstanding),
 			.f_axi_wr_outstanding(faxil_wr_outstanding),
 			.f_axi_awr_outstanding(faxil_awr_outstanding));
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Assume that the two write channels stay within an appropriate
@@ -820,6 +915,8 @@ module axi2axilite #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write induction properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	// These are extra properties necessary to pass write induction
 	//
@@ -851,10 +948,12 @@ module axi2axilite #(
 	always @(posedge S_AXI_ACLK)
 	if (skids_awvalid && skids_awready)
 		f_awid = skids_awid;
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read induction properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
@@ -880,10 +979,12 @@ module axi2axilite #(
 	//
 	// ...
 	//
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Select only write or only read operation
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	generate if (!OPT_WRITES)
@@ -911,19 +1012,17 @@ module axi2axilite #(
 		end
 
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover statements, to show performance
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 	generate if (OPT_WRITES)
 	begin
-		//////
-		//
-		//////
+		// {{{
 		reg	[3:0]	cvr_write_count, cvr_write_count_simple;
 
 		initial	cvr_write_count = 0;
@@ -944,13 +1043,12 @@ module axi2axilite #(
 			cover(cvr_write_count_simple > 6 && /* ... */ !S_AXI_BVALID);
 		always @(*)
 			cover(cvr_write_count > 2 && /* ... */ !S_AXI_BVALID);
+		// }}}
 	end endgenerate
 
 	generate if (OPT_READS)
 	begin
-		//////
-		//
-		//////
+		// {{{
 		reg	[3:0]	cvr_read_count, cvr_read_count_simple;
 
 		initial	cvr_read_count_simple = 0;
@@ -971,15 +1069,17 @@ module axi2axilite #(
 			cover(cvr_read_count_simple > 6 && /* ... */ !S_AXI_RVALID);
 		always @(*)
 			cover(cvr_read_count > 2 && /* ... */ !S_AXI_RVALID);
+		// }}}
 	end endgenerate
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// ...
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
+	// }}}
 `undef	BMC_ASSERT
 `endif
 // }}}
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif
