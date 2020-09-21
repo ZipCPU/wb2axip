@@ -38,8 +38,6 @@ All three cores are supported by the (dev branch of)
 - [AXIVCAMERA](axivcamera.v).  Writes a video stream to a memory frame buffer.
 - [AXIVDISPLAY](axivdisplay.v).  Reads a frame buffer from memory to generate
   a continuous AXI-stream video source output.
-- AXIVCAMERA.  (Coming soon) Accepts an AXI-stream pixel source and writes 
-  the pixels to memory.
 
 - [Synchronous FIFO](sfifo.v)
 - [Synchronous FIFO with threshold](sfifothresh.v)
