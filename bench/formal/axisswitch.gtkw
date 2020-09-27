@@ -1,0 +1,81 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Thu Aug 27 22:04:38 2020
+[*]
+[dumpfile] "(null)"
+[size] 1303 600
+[pos] -1 -1
+*-4.190785 35 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 198
+[sst_expanded] 1
+[sst_vpaned_height] 155
+@28
+axisswitch.S_AXI_ACLK
+axisswitch.S_AXI_ARESETN
+@800200
+-Outgoing stream
+@28
+axisswitch.M_AXIS_TVALID
+axisswitch.M_AXIS_TREADY
+@22
+axisswitch.M_AXIS_TDATA[31:0]
+@28
+axisswitch.M_AXIS_TLAST
+@1000200
+-Outgoing stream
+@800200
+-Incoming streams
+@22
+axisswitch.S_AXIS_TVALID[3:0]
+axisswitch.S_AXIS_TREADY[3:0]
+axisswitch.S_AXIS_TDATA[127:0]
+axisswitch.S_AXIS_TLAST[3:0]
+@1000200
+-Incoming streams
+@c00201
+-AXI-Lite control
+@28
+axisswitch.S_AXI_AWVALID
+axisswitch.S_AXI_AWREADY
+@200
+-
+@28
+axisswitch.S_AXI_WVALID
+axisswitch.S_AXI_WREADY
+@22
+axisswitch.S_AXI_WDATA[31:0]
+axisswitch.S_AXI_WSTRB[3:0]
+@28
+axisswitch.S_AXI_BREADY
+axisswitch.S_AXI_BVALID
+@200
+-
+@28
+axisswitch.S_AXI_ARVALID
+axisswitch.S_AXI_ARREADY
+@200
+-
+@28
+axisswitch.S_AXI_RVALID
+axisswitch.S_AXI_RREADY
+@22
+axisswitch.S_AXI_RDATA[31:0]
+@1401201
+-AXI-Lite control
+@22
+axisswitch.skd_valid[3:0]
+axisswitch.skd_switch_ready[3:0]
+@28
+axisswitch.r_index[1:0]
+axisswitch.switch_index[1:0]
+axisswitch.f_const_index[1:0]
+axisswitch.f_this_index[1:0]
+@22
+axisswitch.f_count[3:0]
+axisswitch.f_recount[3:0]
+@28
+axisswitch.f_accepts
+axisswitch.f_delivers
+[pattern_trace] 1
+[pattern_trace] 0

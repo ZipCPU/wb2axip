@@ -1,0 +1,72 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sat Sep 26 21:22:11 2020
+[*]
+[timestart] 0
+[size] 1468 599
+[pos] -1 -1
+*-6.594141 56 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axissafety.
+[sst_width] 196
+[signals_width] 206
+[sst_expanded] 1
+[sst_vpaned_height] 155
+@28
+axissafety.S_AXI_ACLK
+axissafety.S_AXI_ARESETN
+@800200
+-Incoming slave
+@28
+axissafety.S_AXIS_TVALID
+axissafety.S_AXIS_TREADY
+@22
+axissafety.S_AXIS_TDATA[7:0]
+@28
+axissafety.S_AXIS_TLAST
+axissafety.S_AXIS_TUSER
+@1000200
+-Incoming slave
+@c00200
+-Skid buffer
+@28
+axissafety.skd_valid
+axissafety.skd_ready
+@22
+axissafety.skd_data[7:0]
+@28
+axissafety.skd_last
+axissafety.skd_user
+axissafety.skdr_valid
+@1401200
+-Skid buffer
+@800200
+-Outgoing master
+@28
+axissafety.M_AXIS_TVALID
+axissafety.M_AXIS_TREADY
+@22
+axissafety.M_AXIS_TDATA[7:0]
+@28
+axissafety.M_AXIS_TLAST
+axissafety.M_AXIS_TUSER
+@1000200
+-Outgoing master
+@28
+axissafety.m_end_of_packet
+@c00200
+-Faults
+@28
+axissafety.r_stalled
+axissafety.change_fault
+axissafety.packet_fault
+axissafety.stall_fault
+axissafety.o_fault
+@1401200
+-Faults
+@28
+axissafety.fm_packet_counter[2:0]
+axissafety.fs_packet_counter[2:0]
+axissafety.m_packet_count[2:0]
+axissafety.s_packet_counter[2:0]
+[pattern_trace] 1
+[pattern_trace] 0

@@ -1,0 +1,18 @@
+[tasks]
+prf
+
+[options]
+prf: mode prove
+prf: depth 3
+# cvr: mode cover
+# cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axisrandom.v
+prep -top axisrandom
+
+[files]
+../../rtl/axisrandom.v

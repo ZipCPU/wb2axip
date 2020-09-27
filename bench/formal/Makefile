@@ -39,10 +39,10 @@ HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb # wbm2axisp axi2axilite axilite2axi
-AXISTREAM := xlnxstream_2018_3
+AXISTREAM := xlnxstream_2018_3 axisswitch.v axisrandom.v
 AXISLAVES := demoaxi easyaxil axil2axis axiperf # demofull xlnxfull
 AXIMASTERS :=
-FIREWALLS := wbsafety axilsafety # axisafety
+FIREWALLS := wbsafety axilsafety axissafety # axisafety
 TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS) apbslave
 .PHONY: $(TESTS)
 all: $(TESTS)
@@ -65,7 +65,12 @@ APBSLAVE   := apbslave
 DEMOAXI    := demoaxi
 EASYAXIL   := easyaxil
 XILINXDEMO := xlnxdemo
+#
+# AXI Stream cores
 XLNXSTREAM := xlnxstream_2018_3
+AXISRANDOM := axisrandom
+AXISSWITCH := axisswitch
+AXISSWITCH := axisswitch
 #
 # Bridges
 AXIL2APB   := axil2apb
@@ -93,6 +98,7 @@ WBXBAR4x1  := wbxbar4x1
 # Firewalls
 WBSAFETY   := wbsafety
 AXILSAFETY := axilsafety
+AXISSAFETY := axissafety
 #
 # Bus property sets
 AXIL       := faxil_master.v faxil_slave.v
@@ -607,6 +613,72 @@ $(AXIL2APB)_prfskd/PASS: $(AXIL2APBDEPS)
 $(AXIL2APB)_cvr/PASS: $(AXIL2APBDEPS)
 	sby -f $(AXIL2APB).sby cvr
 
+.PHONY: $(AXISRANDOM)
+$(AXISRANDOM): $(AXISRANDOM)_prf/PASS
+$(AXISRANDOM)_prf/PASS: $(AXISRANDOM).sby $(RTL)/$(AXISRANDOM).v
+	sby -f $(AXISRANDOM).sby prf
+
+.PHONY: $(AXISSWITCH)
+$(AXISSWITCH): $(AXISSWITCH)_prf/PASS
+$(AXISSWITCH)_prf/PASS: $(AXISSWITCH).sby $(RTL)/$(AXISSWITCH).v
+	sby -f $(AXISSWITCH).sby prf
+
+.PHONY: $(AXISSAFETY)
+$(AXISSAFETY): $(AXISSAFETY)_prf/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfr/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfrpkt/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfpkt/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfs/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfrs/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfrpkts/PASS
+$(AXISSAFETY): $(AXISSAFETY)_prfpkts/PASS
+$(AXISSAFETY): $(AXISSAFETY)_fault/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultr/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultrpkt/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultpkt/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faults/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultrs/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultrpkts/PASS
+$(AXISSAFETY): $(AXISSAFETY)_faultpkts/PASS
+$(AXISSAFETY): $(AXISSAFETY)_cvr/PASS
+$(AXISSAFETY): $(AXISSAFETY)_cvrnopkt/PASS
+$(AXISSAFETY)_prf/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prf
+$(AXISSAFETY)_prfr/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfr
+$(AXISSAFETY)_prfrpkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfrpkt
+$(AXISSAFETY)_prfpkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfpkt
+$(AXISSAFETY)_prfs/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfs
+$(AXISSAFETY)_prfrs/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfrs
+$(AXISSAFETY)_prfrpkts/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfrpkts
+$(AXISSAFETY)_prfpkts/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby prfpkts
+$(AXISSAFETY)_fault/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby fault
+$(AXISSAFETY)_faultr/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultr
+$(AXISSAFETY)_faultrpkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultrpkt
+$(AXISSAFETY)_faultpkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultpkt
+$(AXISSAFETY)_faults/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faults
+$(AXISSAFETY)_faultrs/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultrs
+$(AXISSAFETY)_faultrpkts/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultrpkts
+$(AXISSAFETY)_faultpkts/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby faultpkts
+$(AXISSAFETY)_cvr/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby cvr
+$(AXISSAFETY)_cvrnopkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
+	sby -f $(AXISSAFETY).sby cvrnopkt
+
 .PHONY: clean
 clean:
 	rm -rf  $(DEMOAXI)_*/
@@ -623,6 +695,7 @@ clean:
 	rm -rf  $(WBSAFETY)_*/   $(AXILSAFETY)_*/
 	rm -rf  $(AXIPERF)_*/    $(AXIL2AXIS)_*/
 	rm -rf  $(AXIL2APB)_*/   $(APBSLAVE)_*/
+	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/

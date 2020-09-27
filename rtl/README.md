@@ -81,10 +81,14 @@ All three cores are supported by the (dev branch of)
   through the bridge, this solution works quite well--achieving full (nearly
   100%) bus throughput when loaded.
 
-- [AXI3 to AXI4](axi32axi.v).  This is a work in progress core, still missing
-  it's AXI4 to AXI3 sister bridge.  That one will be more difficult, since it
-  will need to break apart large AXI4 burst requests into smaller AXI3 bursts,
-  sort of like the [AXI4 to AXI4-lite bridge](axi2axilite.v) does.
+- [AXI3 to AXI4](axi32axi.v).  See the internal documentation of the
+  [AXI3 write deinterleaver](axi3reorder.v) for the details of the write
+  deinterleaving algorithm.
+
+- The AXI4 to AXI3 bridge is still missing.
+  This will be more difficult than its [AXI3 to AXI4 sister](axi32axi.v) above,
+  since it will need to break apart large AXI4 burst requests into smaller AXI3
+  bursts, sort of like the [AXI4 to AXI4-lite bridge](axi2axilite.v) does.
 
 ## AXI Simplifiers
 
@@ -121,6 +125,8 @@ the rest of the design for additional testing.
 - [AXI-lite](axilsafety.v)
 
 - [AXI4](axisafety.v)
+
+- [AXI-stream](axissafety.v)
 
 - [Wishbone](wbsafety.v)
 

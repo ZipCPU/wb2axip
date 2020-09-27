@@ -90,8 +90,8 @@ I'm now in the process of adding AXI3 bridges to this repository.  These
 will be necessary for working with the Zynq chips, and others, that are still
 using AXI3.  While the work is ongoing, I do have an [AXI3 to
 AXI4](rtl/axi32axi.v) bridge available that's undergoing testing.  The bridge
-isn't fully general purpose, since it assumes the W\* channel will remain
-in order, but it should be good enough for many (most?) applications.
+supports two algorithms for `W*` reordering, and should be suitable for most
+applications.
 
 # Formal Verification
 
@@ -116,6 +116,65 @@ AXI-lite](http://zipcpu.com/formal/2018/12/28/axilite.html) and
 You can find the Xilinx cores referenced in those articles
 [here](bench/formal/xlnxdemo.v) and [here](bench/formal/xlnxfull_2018_3.v) for
 reference, for those who wish to repeat or examine my proofs.
+
+# Firewalls
+
+A [firewall](https://zipcpu.com/formal/2020/05/16/firewall.html)
+is a guarantor: given an interface, of which only one side is trusted, the
+[firewall](https://zipcpu.com/formal/2020/05/16/firewall.html)
+guarantees the other side can trust the interface.  More than that, a
+[firewall](https://zipcpu.com/formal/2020/05/16/firewall.html) can be used
+to trigger an in-circuit logic analyzer: if ever the interface rules are
+violated, the [firewall](https://zipcpu.com/formal/2020/05/16/firewall.html)
+will set an ouput fault indicator, which can then be used to trigger the logic
+analyzer.  On top of that, the
+[firewalls](https://zipcpu.com/formal/2020/05/16/firewall.html) below are also
+built with an optional reset, allowing the design to safely return to
+functionality after triggering.  In many cases, this requires resetting the
+downstream (untrusted) component.
+
+- [AXILSAFETY](rtl/axilsafety.v) is a bus fault isolator AXI-lite translator,
+  sometimes called a firewall, designed to support a connection to a trusted
+  AXI-lite master, and an untrusted AXI-lite slave.  Should the slave attempt
+  to return an illegal response, or perhaps a response beyond the user
+  parameterized timeouts, then the untrusted slave will be "disconnected" from
+  the bus, and a bus error will be returned for both the errant transaction
+  and any following.
+
+  [AXILSAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
+  detected, the slave is reset and then allowed to return to the bus
+  infrastructure again until its next fault.
+
+  *This core has been formally verified.*
+
+- [AXISAFETY](rtl/axisafety.v) is a bus fault isolator/firewall very similar
+  to the [AXILSAFETY](rtl/axilsafety.v) bus fault isolator above with many of
+  the same options.  The difference is that the [AXISAFETY](rtl/axisafety.v)
+  core works with the full AXI4 specification, whereas the
+  [AXILSAFETY](rtl/axilsafety.v) core works only with AXI4-lite.
+
+  As with the [AXILSAFETY](rtl/axilsafety.v) example, the [AXISAFETY](rtl/axisafety.v)
+  firewall also has a mode where, once a fault has been detected, the slave is
+  reset and allowed to return to the bus infrastructure until its next fault.
+  Unliike the [AXILSAFETY](rtl/axilsafety.v) example, this one will only ever
+  process a single AXI4 burst at a time.
+
+  *This core has been formally verified.*
+
+- [AXISSAFETY](rtl/axissafety.v) is a firewall for the AXI stream protocol.
+  It guarantees the stream protocol, and optionally that the incoming stream
+  will never be stalled for too long a period or that all packets downstream
+  have the same length.
+
+  *This core has been formally verified.*
+
+- [WBSAFETY](rtl/wbsafety.v) is a bus fault isolator/firewall, very similar
+  to the [AXILSAFETY](rtl/axilsafety.v) firewall above, only for the Wishbone
+  bus.  Unlike many vendor firewall implementations, this one is able to reset
+  the downstream core following any error without impacting it's ability to
+  respond to the bus in a protocol compliant fashion.
+
+  *This core has been formally verified.*
 
 # Cross-bars and AXI demonstrators
 
@@ -239,6 +298,14 @@ throughput capabilities.
 
   *This core has been formally verified.*
 
+- [AXISSWITCH](rtl/axisswitch.v) is a quick switch for AXI streams.  Given
+  `N` stream inputs, select from among them to produce a stream output.
+   Guarantees that the switch takes place at packet boundaries.  Provides an
+   AXI-lite interface for controlling which AXI stream gets forwarded
+   downstream.
+
+  *This core has been formally verified.*
+
 - [EASYAXIL](rtl/easyaxil.v) is a [second demonstration AXI-lite slave core,
   only this time re-engineered to look and feel
   simpler](https://zipcpu.com/blog/2020/03/08/easyaxil.html) than the
@@ -267,34 +334,6 @@ throughput capabilities.
   allow it.
 
   *This core has been formally verified and used in several designs.*
-
-- [AXILSAFETY](rtl/axilsafety.v) is a bus fault isolator AXI-lite translator,
-  sometimes called a firewall, designed to support a connection to a trusted
-  AXI-lite master, and an untrusted AXI-lite slave.  Should the slave attempt
-  to return an illegal response, or perhaps a response beyond the user
-  parameterized timeouts, then the untrusted slave will be "disconnected" from
-  the bus, and a bus error will be returned for both the errant transaction
-  and any following.
-
-  [AXILSAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
-  detected, the slave is reset and then allowed to return to the bus
-  infrastructure again until its next fault.
-
-  *This core has been formally verified.*
-
-- [AXISAFETY](rtl/axisafety.v) is a bus fault isolator/firewall very similar
-  to the [AXILSAFETY](rtl/axilsafety.v) bus fault isolator above with many of
-  the same options.  The difference is that the [AXISAFETY](rtl/axisafety.v)
-  core works with the full AXI4 specification, whereas the
-  [AXILSAFETY](rtl/axilsafety.v) core works only with AXI4-lite.
-
-  As with the [AXILSAFETY](rtl/axilsafety.v) example, the [AXISAFETY](rtl/axisafety.v)
-  firewall also has a mode where, once a fault has been detected, the slave is
-  reset and allowed to return to the bus infrastructure until its next fault.
-  Unliike the [AXILSAFETY](rtl/axilsafety.v) example, this one will only ever
-  process a single AXI4 burst at a time.
-
-  *This core has been formally verified.*
 
 - [AXI2AXILITE](rtl/axi2axilite.v) converts incoming AXI4 (full) requests
   for an AXI-lite slave.  This conversion is fully pipelined, and capable of
@@ -412,13 +451,8 @@ throughput capabilities.
   applied to each of the AXI channels.  The asynchronous FIFOs have been
   formally verified,
 
-- [WBSAFETY](rtl/wbsafety.v) is a bus fault isolator/firewall, very similar
-  to the [AXILSAFETY](rtl/axilsafety.v) firewall above, only for the Wishbone
-  bus.  Unlike many vendor firewall implementations, this one is able to reset
-  the downstream core following any error without impacting it's ability to
-  respond to the bus in a protocol compliant fashion.
-
-  *This core has been formally verified.*
+- [AXISRANDOM](rtl/axisrandom.v) is a quick AXI stream source generating random
+  numbers via a linear feedback shift register.
 
 # APB
 

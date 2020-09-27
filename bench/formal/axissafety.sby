@@ -1,0 +1,43 @@
+[tasks]
+prf
+prfr               prf opt_reset
+prfrpkt            prf opt_reset opt_packet
+prfpkt             prf           opt_packet
+prfs               prf                      opt_mxstall
+prfrs              prf opt_reset            opt_mxstall
+prfrpkts           prf opt_reset opt_packet opt_mxstall
+prfpkts            prf           opt_packet opt_mxstall
+fault              prf
+faultr       fault prf opt_reset
+faultrpkt    fault prf opt_reset opt_packet
+faultpkt     fault prf           opt_packet
+faults       fault prf                      opt_mxstall
+faultrs      fault prf opt_reset            opt_mxstall
+faultrpkts   fault prf opt_reset opt_packet opt_mxstall
+faultpkts    fault prf           opt_packet opt_mxstall
+cvr          fault     opt_reset opt_packet opt_mxstall
+cvrnopkt cvr fault     opt_reset            opt_mxstall
+
+[options]
+prf: mode prove
+prf: depth 4
+cvr: mode cover
+cvr: depth 32
+
+[engines]
+smtbmc
+
+[script]
+read -formal axissafety.v
+--pycode-begin--
+cmd = "hierarchy -top axissafety"
+cmd += " -chparam F_OPT_FAULTLESS   %d" % ( 0 if "fault"       in tags else 1)
+cmd += " -chparam OPT_SELF_RESET    %d" % ( 1 if "opt_reset"   in tags else 0)
+cmd += " -chparam OPT_PACKET_LENGTH %d" % ( 5 if "opt_packet"  in tags else 0)
+cmd += " -chparam OPT_MAX_STALL     %d" % (10 if "opt_mxstall" in tags else 0)
+output(cmd)
+--pycode-end--
+prep -top axissafety
+
+[files]
+../../rtl/axissafety.v

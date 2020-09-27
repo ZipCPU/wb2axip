@@ -5,7 +5,7 @@
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Bridge from an AXI3 slave to an AXI4 master
-//
+// {{{
 //	The goal here is to support as high a bus speed as possible, maintain
 //	burst support (if possible) and (more important) allow bus requests
 //	coming from the ARM within either the Zynq or one of Intel's SOC chips
@@ -34,9 +34,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -56,15 +56,23 @@
 //
 //
 `default_nettype none
-//
-//
+// }}}
 module	axi32axi #(
+		// {{{
 		parameter	C_AXI_ID_WIDTH = 1,
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
+		parameter	OPT_REORDER_METHOD = 0,
+		parameter [0:0]	OPT_LOWPOWER = 0,
+		parameter [0:0]	OPT_LOW_LATENCY = 0,
+		parameter	WID_LGAWFIFO = 3,
+		parameter	WID_LGWFIFO = 3,
 		//
-		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3
+		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3,
+		localparam	IW=C_AXI_ID_WIDTH
+		// }}}
 	) (
+		// {{{
 		input	wire				S_AXI_ACLK,
 		input	wire				S_AXI_ARESETN,
 		//
@@ -161,27 +169,43 @@ module	axi32axi #(
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire				M_AXI_RLAST,
 		input	wire	[1:0]			M_AXI_RRESP
+		// }}}
 	);
 
+	// Register/net declarations
+	// {{{
 	reg	[3:0]	axi4_awcache, axi4_arcache;
 	reg		axi4_awlock, axi4_arlock;
+	wire		awskd_ready;
+	wire		wid_reorder_awready;
+	wire [IW-1:0]	reordered_wid;
+	// }}}
 
+	// Write cache remapping
+	// {{{
 	always @(*)
 	case(S_AXI_AWCACHE)
 	4'b1010: axi4_awcache = 4'b1110;
 	4'b1011: axi4_awcache = 4'b1111;
 	default: axi4_awcache = S_AXI_AWCACHE;
 	endcase
+	// }}}
 
+	// AWLOCK
+	// {{{
 	always @(*)
 		axi4_awlock = S_AXI_AWLOCK[0];
+	// }}}
 
+	// AW Skid buffer
+	// {{{
 	skidbuffer #(
 		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
 		.OPT_OUTREG(1'b1)
 	) awskid (
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
-		.i_valid(S_AXI_AWVALID), .o_ready(S_AXI_AWREADY),
+		.i_valid(S_AXI_AWVALID && wid_reorder_awready),
+			.o_ready(awskd_ready),
 			.i_data({ S_AXI_AWID, S_AXI_AWADDR,  S_AXI_AWLEN,
 				S_AXI_AWSIZE, S_AXI_AWBURST, axi4_awlock,
 				axi4_awcache,  S_AXI_AWPROT,  S_AXI_AWQOS }),
@@ -190,23 +214,73 @@ module	axi32axi #(
 				M_AXI_AWSIZE,  M_AXI_AWBURST, M_AXI_AWLOCK,
 				M_AXI_AWCACHE, M_AXI_AWPROT,  M_AXI_AWQOS })
 	);
+	assign	M_AXI_AWLEN[7:4] = 4'h0;
+	assign	S_AXI_AWREADY = awskd_ready && wid_reorder_awready;
+	// }}}
 
+	// Handle write channel de-interleaving
+	// {{{
+	axi3reorder #(
+		// {{{
+		.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
+		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
+		.OPT_METHOD(OPT_REORDER_METHOD),
+		.OPT_LOWPOWER(OPT_LOWPOWER),
+		.OPT_LOW_LATENCY(OPT_LOW_LATENCY),
+		.LGAWFIFO(WID_LGAWFIFO),
+		.LGWFIFO(WID_LGWFIFO),
+		// }}}
+	) widreorder (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK), .S_AXI_ARESETN(S_AXI_ARESETN),
+		// Incoming Write address ID
+		.S_AXI3_AWVALID(S_AXI_AWVALID),
+			.S_AXI3_AWREADY(wid_reorder_awready),
+			.S_AXI3_AWID(S_AXI_AWID),
+		// Incoming Write data info
+		.S_AXI3_WVALID(S_AXI_WVALID),
+			.S_AXI3_WREADY(S_AXI_WREADY),
+			.S_AXI3_WID(S_AXI_WID),
+			.S_AXI3_WDATA(S_AXI_WDATA),
+			.S_AXI3_WSTRB(S_AXI_WSTRB),
+			.S_AXI3_WLAST(S_AXI_WLAST),
+		// Outgoing write data channel
+		.M_AXI_WVALID(M_AXI_WVALID),
+			.M_AXI_WREADY(M_AXI_WREADY),
+			.M_AXI_WID(reordered_wid),
+			.M_AXI_WDATA(M_AXI_WDATA),
+			.M_AXI_WSTRB(M_AXI_WSTRB),
+			.M_AXI_WLAST(M_AXI_WLAST)
+	);
+	// }}}
+	// }}}
 
+	// Forward the B* channel return
+	// {{{
 	assign	S_AXI_BVALID = M_AXI_BVALID;
 	assign	M_AXI_BREADY = S_AXI_BREADY;
 	assign	S_AXI_BID    = M_AXI_BID;
 	assign	S_AXI_BRESP  = M_AXI_BRESP;
+	// }}}
 
+	// Read cache remapping
+	// {{{
 	always @(*)
 	case(S_AXI_ARCACHE)
 	4'b0110: axi4_arcache = 4'b1110;
 	4'b0111: axi4_arcache = 4'b1111;
 	default: axi4_arcache = S_AXI_ARCACHE;
 	endcase
+	// }}}
 
+	// ARLOCK
+	// {{{
 	always @(*)
 		axi4_arlock = S_AXI_ARLOCK[0];
+	// }}}
 
+	// AR Skid buffer
+	// {{{
 	skidbuffer #(
 		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
 		.OPT_OUTREG(1'b1)
@@ -221,19 +295,24 @@ module	axi32axi #(
 				M_AXI_ARSIZE,  M_AXI_ARBURST, M_AXI_ARLOCK,
 				M_AXI_ARCACHE, M_AXI_ARPROT,  M_AXI_ARQOS })
 	);
+	// }}}
 
 	assign	M_AXI_ARLEN[7:4] = 4'h0;
 
+	// Forward the R* channel return
+	// {{{
 	assign	S_AXI_RVALID = M_AXI_RVALID;
 	assign	M_AXI_RREADY = S_AXI_RREADY;
 	assign	S_AXI_RID    = M_AXI_RID;
 	assign	S_AXI_RDATA  = M_AXI_RDATA;
 	assign	S_AXI_RLAST  = M_AXI_RLAST;
 	assign	S_AXI_RRESP  = M_AXI_RRESP;
+	// }}}
 
 	// Verilator lint_off UNUSED
 	wire	unused;
-	assign	unused = &{ 1'b0, S_AXI_WID, S_AXI_AWLOCK[1], S_AXI_ARLOCK[1] };
+	assign	unused = &{ 1'b0, S_AXI_AWLOCK[1], S_AXI_ARLOCK[1],
+			reordered_wid };
 	// Verilator lint_on UNUSED
 
 ////////////////////////////////////////////////////////////////////////////////

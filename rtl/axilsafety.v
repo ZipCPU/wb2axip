@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axilsafety.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A AXI-Lite bus fault isolator.  This core will isolate any
@@ -38,9 +38,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -60,8 +60,9 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module axilsafety #(
+	// {{{
 	parameter	C_AXI_ADDR_WIDTH = 28,
 	parameter	C_AXI_DATA_WIDTH = 32,
 	parameter	OPT_TIMEOUT = 12,
@@ -77,7 +78,9 @@ module axilsafety #(
 	parameter [0:0] F_OPT_READS  = 1'b1,
 	parameter [0:0]	F_OPT_FAULTLESS = 1'b1
 `endif
+	// }}}
 	) (
+		// {{{
 		output	reg	o_write_fault,
 		output	reg	o_read_fault,
 		//
@@ -134,8 +137,11 @@ module axilsafety #(
 		output	reg			M_AXI_RREADY,
 		input	wire	[DW-1:0]	M_AXI_RDATA,
 		input	wire	[1:0]		M_AXI_RRESP
+		// }}}
 	);
-	//
+
+	// localparam, wire, and register declarations
+	// {{{
 	localparam	OPT_LOWPOWER = 1'b0;
 	localparam	OKAY = 2'b00,
 			EXOKAY = 2'b01,
@@ -185,29 +191,33 @@ module axilsafety #(
 				r_stall_counter, w_ack_timer, r_ack_timer;
 	reg 			aw_stall_limit, w_stall_limit, r_stall_limit,
 				w_ack_limit, r_ack_limit;
-
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
 	//
 	// Write address channel
-	//
+	// {{{
 
 	skidbuffer #(.DW(AW+3)
+		// {{{
 `ifdef	FORMAL
 		, .OPT_PASSTHROUGH(1'b1)
 `endif
+		// }}}
 	) awskd(S_AXI_ACLK, !S_AXI_ARESETN,
+		// {{{
 		S_AXI_AWVALID, S_AXI_AWREADY, { S_AXI_AWPROT, S_AXI_AWADDR },
 		awskd_valid, awskd_ready, { awskd_prot, awskd_addr});
+		// }}}
 
-	//
+	// awskd_ready
+	// {{{
 	// awskd_ready is the critical piece here, since it determines when
 	// we accept a packet from the skid buffer.
 	//
@@ -222,16 +232,20 @@ module axilsafety #(
 		// Otherwise, we accept if ever our counters aren't about to
 		// overflow, and there's a place downstream to accept it
 		awskd_ready = (!M_AXI_AWVALID || M_AXI_AWREADY)&& (!aw_full);
+	// }}}
 
-
+	// M_AXI_AWVALID
+	// {{{
 	initial	M_AXI_AWVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN)
 		M_AXI_AWVALID <= 1'b0;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
 		M_AXI_AWVALID <= awskd_valid && awskd_ready && !o_write_fault;
+	// }}}
 
-
+	// M_AXI_AWADDR, M_AXI_AWPROT
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && (!M_AXI_ARESETN || o_write_fault))
 	begin
@@ -242,20 +256,27 @@ module axilsafety #(
 		M_AXI_AWADDR <= awskd_addr;
 		M_AXI_AWPROT <= awskd_prot;
 	end
+	// }}}
+	// }}}
 
 	//
 	// Write data channel
-	//
+	// {{{
 
 	skidbuffer #(.DW(DW+DW/8)
+		// {{{
 `ifdef	FORMAL
 		, .OPT_PASSTHROUGH(1'b1)
 `endif
+		// }}}
 	) wskd(S_AXI_ACLK, !S_AXI_ARESETN,
+		// {{{
 		S_AXI_WVALID, S_AXI_WREADY, { S_AXI_WDATA, S_AXI_WSTRB },
 		wskd_valid, wskd_ready, { wskd_data, wskd_strb});
+		// }}}
 
-	//
+	// wskd_ready
+	// {{{
 	// As with awskd_ready, this logic is the critical key.
 	//
 	always @(*)
@@ -264,14 +285,20 @@ module axilsafety #(
 			|| ((w_zero)&&(!S_AXI_BVALID || S_AXI_BREADY));
 	else
 		wskd_ready = (!M_AXI_WVALID || M_AXI_WREADY) && (!w_full);
+	// }}}
 
+	// M_AXI_WVALID
+	// {{{
 	initial	M_AXI_WVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN)
 		M_AXI_WVALID <= 1'b0;
 	else if (!M_AXI_WVALID || M_AXI_WREADY)
 		M_AXI_WVALID <= wskd_valid && wskd_ready && !o_write_fault;
+	// }}}
 
+	// M_AXI_WDATA, M_AXI_WSTRB
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && (!M_AXI_ARESETN || o_write_fault))
 	begin
@@ -282,11 +309,15 @@ module axilsafety #(
 		M_AXI_WDATA <= wskd_data;
 		M_AXI_WSTRB <= (o_write_fault) ? 0 : wskd_strb;
 	end
+	// }}}
+	// }}}
 
 	//
 	// Write return channel
-	//
+	// {{{
 
+	// bskd_valid, M_AXI_BREADY, bskd_resp
+	// {{{
 `ifdef	FORMAL
 	assign	bskd_valid = M_AXI_BVALID;
 	assign	M_AXI_BREADY= bskd_ready;
@@ -297,13 +328,19 @@ module axilsafety #(
 		M_AXI_BVALID, M_AXI_BREADY, M_AXI_BRESP,
 		bskd_valid, bskd_ready,  bskd_resp);
 `endif
+	// }}}
 
+	// bskd_ready
+	// {{{
 	always @(*)
 	if (o_write_fault)
 		bskd_ready = 1'b1;
 	else
 		bskd_ready = (!S_AXI_BVALID || S_AXI_BREADY);
+	// }}}
 
+	// S_AXI_BVALID
+	// {{{
 	initial	S_AXI_BVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -316,26 +353,37 @@ module axilsafety #(
 			S_AXI_BVALID <= (!downstream_aw_zero)
 				&&(!downstream_w_zero)&&(bskd_valid);
 	end
+	// }}}
 
+	// last_bvalid
+	// {{{
 	initial	last_bvalid = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!M_AXI_ARESETN || o_write_fault)
 		last_bvalid <= 1'b0;
 	else
 		last_bvalid <= (M_AXI_BVALID && !M_AXI_BREADY);
+	// }}}
 
+	// last_bdata
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (M_AXI_BVALID)
 		last_bdata <= M_AXI_BRESP;
+	// }}}
 
+	// last_bchanged
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_write_fault)
 		last_bchanged <= 1'b0;
 	else
 		last_bchanged <= (last_bvalid && (!M_AXI_BVALID
 					|| last_bdata != M_AXI_BRESP));
+	// }}}
 
-
+	// S_AXI_BRESP
+	// {{{
 	initial	S_AXI_BRESP = OKAY;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_BVALID || S_AXI_BREADY)
@@ -347,40 +395,54 @@ module axilsafety #(
 		else
 			S_AXI_BRESP <= bskd_resp;
 	end
-
+	// }}}
+	// }}}
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
 	//
 	// Read address channel
-	//
+	// {{{
 
 	skidbuffer #(.DW(AW+3)
+		// {{{
 `ifdef	FORMAL
 		, .OPT_PASSTHROUGH(1'b1)
 `endif
+		// }}}
 	) arskd(S_AXI_ACLK, !S_AXI_ARESETN,
+		// {{{
 		S_AXI_ARVALID, S_AXI_ARREADY, { S_AXI_ARPROT, S_AXI_ARADDR },
 		arskd_valid, arskd_ready,  { arskd_prot, arskd_addr });
+		// }}}
 
+	// arskd_ready
+	// {{{
 	always @(*)
 	if (!M_AXI_ARESETN || o_read_fault)
 		arskd_ready =((r_zero)&&(!S_AXI_RVALID || S_AXI_RREADY));
 	else
 		arskd_ready = (!M_AXI_ARVALID || M_AXI_ARREADY) && (!r_full);
+	// }}}
 
+	// M_AXI_ARVALID
+	// {{{
 	initial	M_AXI_ARVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN)
 		M_AXI_ARVALID <= 1'b0;
 	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
 		M_AXI_ARVALID <= arskd_valid && arskd_ready && !o_read_fault;
+	// }}}
 
+	// M_AXI_ARADDR, M_AXI_ARPROT
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (OPT_LOWPOWER && (!M_AXI_ARESETN || o_read_fault))
 	begin
@@ -391,11 +453,15 @@ module axilsafety #(
 		M_AXI_ARADDR <= arskd_addr;
 		M_AXI_ARPROT <= arskd_prot;
 	end
+	// }}}
+	// }}}
 
 	//
 	// Read data channel
-	//
+	// {{{
 
+	// rskd_valid, rskd_resp, rskd_data skid buffer
+	// {{{
 `ifdef	FORMAL
 	assign	rskd_valid = M_AXI_RVALID;
 	assign	M_AXI_RREADY = rskd_ready;
@@ -406,13 +472,19 @@ module axilsafety #(
 		M_AXI_RVALID, M_AXI_RREADY, { M_AXI_RRESP, M_AXI_RDATA },
 		rskd_valid, rskd_ready,  { rskd_resp, rskd_data });
 `endif
+	// ?}}}
 
+	// rskd_ready
+	// {{{
 	always @(*)
 	if (o_read_fault)
 		rskd_ready = 1;
 	else
 		rskd_ready = (!S_AXI_RVALID || S_AXI_RREADY);
+	// }}}
 
+	// S_AXI_RVALID
+	// {{{
 	initial	S_AXI_RVALID = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -425,7 +497,10 @@ module axilsafety #(
 		else
 			S_AXI_RVALID <= (!downstream_r_zero)&&(rskd_valid);
 	end
+	// }}}
 
+	// S_AXI_RDATA, S_AXI_RRESP
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
@@ -440,37 +515,47 @@ module axilsafety #(
 		else if (!downstream_r_zero)
 			S_AXI_RRESP <= rskd_resp;
 	end
+	// }}}
 
+	// last_rvalid
+	// {{{
 	initial	last_rvalid = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
 		last_rvalid <= 1'b0;
 	else
 		last_rvalid <= (M_AXI_RVALID && !M_AXI_RREADY);
+	// }}}
 
+	// last_rdata
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (M_AXI_RVALID)
 		last_rdata <= { M_AXI_RRESP, M_AXI_RDATA };
+	// }}}
 
+	// last_rchanged
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || !M_AXI_ARESETN || o_read_fault)
 		last_rchanged <= 1'b0;
 	else
 		last_rchanged <= (last_rvalid && (!M_AXI_RVALID
 			|| last_rdata != { M_AXI_RRESP, M_AXI_RDATA }));
-
+	// }}}
+	// }}}
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Usage counters
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
-
 	//
 	// Write address channel
-	//
+	// {{{
 
 	initial	aw_count = 0;
 	initial	aw_zero  = 1;
@@ -494,11 +579,11 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	//
 	// Write data channel
-	//
-
+	// {{{
 	initial	w_count = 0;
 	initial	w_zero  = 1;
 	initial	w_full  = 0;
@@ -521,7 +606,10 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
+	// aw_w_greater, w_aw_greater
+	// {{{
 	initial	aw_w_greater = 0;
 	initial	w_aw_greater = 0;
 	always @(posedge S_AXI_ACLK)
@@ -541,11 +629,12 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
-
+	// }}}
 	//
 	// Read channel
-	//
+	// {{{
 
+	// r_count, r_zero, r_full
 	initial	r_count = 0;
 	initial	r_zero  = 1;
 	initial	r_full  = 0;
@@ -568,10 +657,11 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	//
 	// Downstream write address channel
-	//
+	// {{{
 
 	initial	downstream_aw_count = 0;
 	initial	downstream_aw_zero = 1;
@@ -591,11 +681,11 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	//
 	// Downstream write data channel
-	//
-
+	// {{{
 	initial	downstream_w_count = 0;
 	initial	downstream_w_zero  = 1;
 	always @(posedge S_AXI_ACLK)
@@ -614,10 +704,11 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	//
 	// Downstream read channel
-	//
+	// {{{
 
 	initial	downstream_r_count = 0;
 	initial	downstream_r_zero  = 1;
@@ -637,11 +728,12 @@ module axilsafety #(
 		end
 	default: begin end
 	endcase
-
+	// }}}
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Timeout checking
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -652,7 +744,7 @@ module axilsafety #(
 
 	//
 	// Write address stall counter
-	//
+	// {{{
 	initial	aw_stall_counter = 0;
 	initial	aw_stall_limit   = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -673,11 +765,11 @@ module axilsafety #(
 		aw_stall_counter <= aw_stall_counter + 1;
 		aw_stall_limit   <= (aw_stall_counter+1 >= OPT_TIMEOUT);
 	end
+	// }}}
 
 	//
 	// Write data stall counter
-	//
-
+	// {{{
 	initial	w_stall_counter = 0;
 	initial	w_stall_limit   = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -698,11 +790,11 @@ module axilsafety #(
 		w_stall_counter <= w_stall_counter + 1;
 		w_stall_limit   <= (w_stall_counter + 1 >= OPT_TIMEOUT);
 	end
+	// }}}
 
 	//
 	// Write acknowledgment delay counter
-	//
-
+	// {{{
 	initial w_ack_timer = 0;
 	initial	w_ack_limit = 0;
 	always @(posedge S_AXI_ACLK)
@@ -719,11 +811,11 @@ module axilsafety #(
 		w_ack_timer <= w_ack_timer + 1;
 		w_ack_limit <= (w_ack_timer + 1 >= OPT_TIMEOUT);
 	end
+	// }}}
 
 	//
 	// Read request stall counter
-	//
-
+	// {{{
 	initial r_stall_counter = 0;
 	initial	r_stall_limit   = 0;
 	always @(posedge S_AXI_ACLK)
@@ -739,11 +831,11 @@ module axilsafety #(
 		r_stall_counter <= r_stall_counter + 1;
 		r_stall_limit   <= (r_stall_counter + 1 >= OPT_TIMEOUT);
 	end
+	// }}}
 
 	//
 	// Read acknowledgement delay counter
-	//
-
+	// {{{
 	initial r_ack_timer = 0;
 	initial	r_ack_limit = 0;
 	always @(posedge S_AXI_ACLK)
@@ -759,18 +851,19 @@ module axilsafety #(
 		r_ack_timer <= r_ack_timer + 1;
 		r_ack_limit <= (r_ack_timer + 1 >= OPT_TIMEOUT);
 	end
-
+	// }}}
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Fault detection
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
 	//
 	// Determine if a write fault has taken place
-	//
+	// {{{
 	initial	o_write_fault =1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -805,7 +898,10 @@ module axilsafety #(
 		if (last_bchanged)
 			o_write_fault <= 1'b1;
 	end
+	// }}}
 
+	// o_read_fault
+	// {{{
 	initial	o_read_fault =1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -837,13 +933,24 @@ module axilsafety #(
 		if (last_rchanged)
 			o_read_fault <= 1'b1;
 	end
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Self reset handling
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	generate if (OPT_SELF_RESET)
 	begin : SELF_RESET_GENERATION
+		// {{{
 		reg		min_reset;
 
 		if (OPT_MIN_RESET > 1)
 		begin : MIN_RESET
+			// {{{
 			reg	[$clog2(OPT_MIN_RESET+1):0]	reset_counter;
 
 			//
@@ -873,14 +980,16 @@ module axilsafety #(
 			always @(*)
 				assert(min_reset == (reset_counter == 0));
 `endif
+			// }}}
 		end else begin
-
+			// {{{
 			always @(*)
 				min_reset = 1'b1;
-
+			// }}}
 		end
 
-		//
+		// M_AXI_ARESETN
+		// {{{
 		// Reset the downstream bus on either a write or a read fault.
 		// Once the bus returns to idle, and any minimum reset durations
 		// have been achieved, then release the downstream from reset.
@@ -894,27 +1003,29 @@ module axilsafety #(
 		else if (aw_zero && w_zero && r_zero && min_reset
 			&& !awskd_valid && !wskd_valid && !arskd_valid)
 			M_AXI_ARESETN <= 1'b1;
-
+		// }}}
+		// }}}
 	end else begin : SAME_RESET
-
+		// {{{
 		//
 		// The downstream reset equals the upstream reset
 		//
 		always @(*)
 			M_AXI_ARESETN = S_AXI_ARESETN;
-
+		// }}}
 	end endgenerate
-
+	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal property section
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	// {{{
 	//
 	// The following proof comes in several parts.
 	//
@@ -936,10 +1047,13 @@ module axilsafety #(
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)
 		f_past_valid <= 1;
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Upstream master Bus properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	always @(*)
 	if (!f_past_valid)
@@ -949,6 +1063,7 @@ module axilsafety #(
 	end
 
 	faxil_slave #(
+		// {{{
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_OPT_ASSUME_RESET(1'b1),
@@ -960,7 +1075,9 @@ module axilsafety #(
 		//
 		.F_AXI_MAXWAIT((F_OPT_FAULTLESS) ? (2*OPT_TIMEOUT+2) : 0),
 		.F_AXI_MAXDELAY(2*OPT_TIMEOUT+3)
+		// }}}
 	) axils (
+		// {{{
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
@@ -993,10 +1110,43 @@ module axilsafety #(
 		.f_axi_awr_outstanding(faxils_awr_outstanding),
 		.f_axi_wr_outstanding(faxils_wr_outstanding),
 		.f_axi_rd_outstanding(faxils_rd_outstanding)
+		// }}}
 	);
 
 	always @(*)
+	if (!F_OPT_WRITES)
 	begin
+		// {{{
+		assume(!S_AXI_AWVALID);
+		assume(!S_AXI_WVALID);
+		assert(aw_count == 0);
+		assert(w_count == 0);
+		assert(!M_AXI_AWVALID);
+		assert(!M_AXI_WVALID);
+		// }}}
+	end
+
+	always @(*)
+	if (!F_OPT_READS)
+	begin
+		// {{{
+		assume(!S_AXI_ARVALID);
+		assert(r_count == 0);
+		assert(!S_AXI_RVALID);
+		assert(!M_AXI_ARVALID);
+		// }}}
+	end
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// General Induction properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+
+	always @(*)
+	begin
+		// {{{
 		assert(aw_zero == (aw_count  == 0));
 		assert(w_zero  == (w_count   == 0));
 		assert(r_zero  == (r_count   == 0));
@@ -1029,40 +1179,25 @@ module axilsafety #(
 
 		assert(aw_w_greater == (aw_count > w_count));
 		assert(w_aw_greater == (w_count > aw_count));
+		// }}}
 	end
-
-	always @(*)
-	if (!F_OPT_WRITES)
-	begin
-		assume(!S_AXI_AWVALID);
-		assume(!S_AXI_WVALID);
-		assert(aw_count == 0);
-		assert(w_count == 0);
-		assert(!M_AXI_AWVALID);
-		assert(!M_AXI_WVALID);
-	end
-
-	always @(*)
-	if (!F_OPT_READS)
-	begin
-		assume(!S_AXI_ARVALID);
-		assert(r_count == 0);
-		assert(!S_AXI_RVALID);
-		assert(!M_AXI_ARVALID);
-	end
-
+	// }}}
 	generate if (F_OPT_FAULTLESS)
 	begin : ASSUME_FAULTLESS
+		// {{{
 		////////////////////////////////////////////////////////////////
 		//
 		// Assume the downstream core is protocol compliant, and
 		// prove that o_fault stays low.
+		// {{{
+		////////////////////////////////////////////////////////////////
 		//
 		wire	[LGDEPTH:0]	faxilm_awr_outstanding,
 					faxilm_wr_outstanding,
 					faxilm_rd_outstanding;
 
 		faxil_master #(
+			// {{{
 			.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 			.F_OPT_NO_RESET((OPT_MIN_RESET == 0) ? 1:0),
@@ -1070,7 +1205,9 @@ module axilsafety #(
 			.F_AXI_MAXRSTALL(4),
 			.F_AXI_MAXDELAY(OPT_TIMEOUT),
 			.F_LGDEPTH(LGDEPTH+1)
+			// }}}
 		) axilm (
+			// {{{
 			.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(M_AXI_ARESETN && S_AXI_ARESETN),
 			//
@@ -1103,18 +1240,24 @@ module axilsafety #(
 			.f_axi_awr_outstanding(faxilm_awr_outstanding),
 			.f_axi_wr_outstanding(faxilm_wr_outstanding),
 			.f_axi_rd_outstanding(faxilm_rd_outstanding)
+			// }}}
 		);
 
 		//
 		// Here's the big proof
+		// {{{
 		always @(*)
 			assert(!o_write_fault);
 		always @(*)
 			assert(!o_read_fault);
-
+		// }}}
+		// }}}
 		////////////////////////////////////////////////////////////////
 		//
 		// The following properties are necessary for passing induction
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
 		//
 		always @(*)
 		begin
@@ -1161,13 +1304,19 @@ module axilsafety #(
 		if (M_AXI_ARESETN && S_AXI_ARESETN && !o_read_fault)
 			assert(f_axi_arstall == r_stall_counter);
 `endif
+		// }}}
+		// }}}
 	end else begin : WILD_DOWNSTREAM
-
+		// {{{
 		////////////////////////////////////////////////////////////////
 		//
 		// cover() checks, checks that only make sense if faults are
 		// possible
 		//
+
+		reg		write_faulted, read_faulted, faulted;
+		reg	[3:0]	cvr_writes, cvr_reads;
+
 
 		if (OPT_SELF_RESET)
 		begin
@@ -1175,10 +1324,10 @@ module axilsafety #(
 			//
 			// Prove that we can actually reset the downstream
 			// bus/core as desired
+			// {{{
+			////////////////////////////////////////////////////////
 			//
-			reg		write_faulted, read_faulted, faulted;
-			reg	[3:0]	cvr_writes, cvr_reads;
-
+			//
 			initial	write_faulted = 0;
 			always @(posedge S_AXI_ACLK)
 			if (!S_AXI_ARESETN)
@@ -1233,9 +1382,12 @@ module axilsafety #(
 
 			always @(*)
 				cover(cvr_reads > 5);
+			// }}}
 		end
 
+		// }}}
 	end endgenerate
 
 `endif
+// }}}
 endmodule

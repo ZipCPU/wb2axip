@@ -1,0 +1,29 @@
+[tasks]
+prf
+# cvr
+
+[options]
+prf: mode prove
+prf: depth 3
+# cvr: mode cover
+# cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal axisswitch.v
+read -formal skidbuffer.v
+read -formal faxil_slave.v
+# --pycode-begin--
+# cmd = "hierarchy -top easyaxil"
+# cmd += " -chparam OPT_SKIDBUFFER %d" % (1 if "opt_skidbuffer" in tags else 0)
+# cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
+# output(cmd);
+# --pycode-end--
+prep -top axisswitch
+
+[files]
+../../rtl/axisswitch.v
+../../rtl/skidbuffer.v
+faxil_slave.v
