@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	faxil_slave.v (Formal properties of an AXI lite slave)
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:
@@ -10,9 +10,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2018-2020, Gisselquist Technology, LLC
-//
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -32,8 +32,9 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module faxil_slave #(
+	// {{{
 	parameter  C_AXI_DATA_WIDTH	= 32,// Fixed, width of the AXI R&W data
 	parameter  C_AXI_ADDR_WIDTH	= 28,// AXI Address width (log wordsize)
 	// F_OPT_XILINX, Certain Xilinx cores impose additional rules upon AXI
@@ -87,6 +88,7 @@ module faxil_slave #(
 	//
 	localparam DW			= C_AXI_DATA_WIDTH,
 	localparam AW			= C_AXI_ADDR_WIDTH
+	// }}}
 	) (
 	input	wire			i_clk,	// System clock
 	input	wire			i_axi_reset_n,
@@ -322,7 +324,8 @@ module faxil_slave #(
 		end
 
 		// Write data channel
-		if ((f_past_valid)&&($past(i_axi_wvalid && !i_axi_wready)))
+		if ((f_past_valid && (!F_OPT_ASYNC_RESET || i_axi_reset_n))
+				&&($past(i_axi_wvalid && !i_axi_wready)))
 		begin
 			`SLAVE_ASSUME(i_axi_wvalid);
 			`SLAVE_ASSUME($stable(i_axi_wstrb));
@@ -330,20 +333,23 @@ module faxil_slave #(
 		end
 
 		// Incoming Read address channel
-		if ((f_past_valid)&&($past(i_axi_arvalid && !i_axi_arready)))
+		if ((f_past_valid && (!F_OPT_ASYNC_RESET || i_axi_reset_n))
+			&&($past(i_axi_arvalid && !i_axi_arready)))
 		begin
 			`SLAVE_ASSUME(i_axi_arvalid);
 			`SLAVE_ASSUME($stable(i_axi_araddr));
 		end
 
-		if ((f_past_valid)&&($past(i_axi_rvalid && !i_axi_rready)))
+		if ((f_past_valid && (!F_OPT_ASYNC_RESET || i_axi_reset_n))
+			&&($past(i_axi_rvalid && !i_axi_rready)))
 		begin
 			`SLAVE_ASSERT(i_axi_rvalid);
 			`SLAVE_ASSERT($stable(i_axi_rresp));
 			`SLAVE_ASSERT($stable(i_axi_rdata));
 		end
 
-		if ((f_past_valid)&&($past(i_axi_bvalid && !i_axi_bready)))
+		if ((f_past_valid && (!F_OPT_ASYNC_RESET || i_axi_reset_n))
+			&&($past(i_axi_bvalid && !i_axi_bready)))
 		begin
 			`SLAVE_ASSERT(i_axi_bvalid);
 			`SLAVE_ASSERT($stable(i_axi_bresp));
@@ -750,20 +756,24 @@ module faxil_slave #(
 	//
 	// AXI write response channel
 	//
-	always @(posedge i_clk)
-	if (!F_OPT_READ_ONLY)
-		// Make sure we can get a write acknowledgment
-		cover((i_axi_bvalid)&&(i_axi_bready));
+	generate if (!F_OPT_READ_ONLY)
+	begin
+		always @(posedge i_clk)
+			// Make sure we can get a write acknowledgment
+			cover((i_axi_bvalid)&&(i_axi_bready));
+	end endgenerate
 
 	//
 	// AXI read response channel
 	//
-	always @(posedge i_clk)
-	if (!F_OPT_WRITE_ONLY)
-		// Make sure we can get a response from the read channel
-		cover((i_axi_rvalid)&&(i_axi_rready));
+	generate if (!F_OPT_WRITE_ONLY)
+	begin
+		always @(posedge i_clk)
+			// Make sure we can get a response from the read channel
+			cover((i_axi_rvalid)&&(i_axi_rready));
+	end endgenerate
 
-	generate if (!F_OPT_WRITE_ONLY && F_OPT_COVER_BURST > 0)
+	generate if (!F_OPT_READ_ONLY && F_OPT_COVER_BURST > 0)
 	begin : COVER_WRITE_BURSTS
 
 		reg	[31:0]	cvr_writes;
@@ -781,7 +791,7 @@ module faxil_slave #(
 
 	end endgenerate
 
-	generate if (!F_OPT_READ_ONLY && F_OPT_COVER_BURST > 0)
+	generate if (!F_OPT_WRITE_ONLY && F_OPT_COVER_BURST > 0)
 	begin : COVER_READ_BURSTS
 
 		reg	[31:0]	cvr_reads;
