@@ -63,6 +63,7 @@ module	axi32axi #(
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
 		parameter	OPT_REORDER_METHOD = 0,
+		parameter [0:0]	OPT_TRANSFORM_AXCACHE = 1,
 		parameter [0:0]	OPT_LOWPOWER = 0,
 		parameter [0:0]	OPT_LOW_LATENCY = 0,
 		parameter	WID_LGAWFIFO = 3,
@@ -199,23 +200,49 @@ module	axi32axi #(
 
 	// AW Skid buffer
 	// {{{
-	skidbuffer #(
-		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
-		.OPT_OUTREG(1'b1)
-	) awskid (
-		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
-		.i_valid(S_AXI_AWVALID && wid_reorder_awready),
-			.o_ready(awskd_ready),
-			.i_data({ S_AXI_AWID, S_AXI_AWADDR,  S_AXI_AWLEN,
-				S_AXI_AWSIZE, S_AXI_AWBURST, axi4_awlock,
-				axi4_awcache,  S_AXI_AWPROT,  S_AXI_AWQOS }),
-		.o_valid(M_AXI_AWVALID), .i_ready(M_AXI_AWREADY),
-			.o_data({ M_AXI_AWID,  M_AXI_AWADDR,  M_AXI_AWLEN[3:0],
-				M_AXI_AWSIZE,  M_AXI_AWBURST, M_AXI_AWLOCK,
-				M_AXI_AWCACHE, M_AXI_AWPROT,  M_AXI_AWQOS })
-	);
-	assign	M_AXI_AWLEN[7:4] = 4'h0;
-	assign	S_AXI_AWREADY = awskd_ready && wid_reorder_awready;
+	generate if (OPT_TRANSFORM_AXCACHE)
+	begin
+		// {{{
+		skidbuffer #(
+			.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH
+					+ 4 + 3 + 2 + 1+4+3+4),
+			.OPT_OUTREG(1'b1)
+		) awskid (
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_valid(S_AXI_AWVALID && wid_reorder_awready),
+				.o_ready(awskd_ready),
+				.i_data({ S_AXI_AWID, S_AXI_AWADDR, S_AXI_AWLEN,
+					S_AXI_AWSIZE, S_AXI_AWBURST,axi4_awlock,
+					axi4_awcache, S_AXI_AWPROT, S_AXI_AWQOS
+					}),
+			.o_valid(M_AXI_AWVALID), .i_ready(M_AXI_AWREADY),
+				.o_data({ M_AXI_AWID, M_AXI_AWADDR,
+							 M_AXI_AWLEN[3:0],
+					M_AXI_AWSIZE,M_AXI_AWBURST,M_AXI_AWLOCK,
+					M_AXI_AWCACHE,M_AXI_AWPROT, M_AXI_AWQOS
+					})
+		);
+
+		assign	M_AXI_AWLEN[7:4] = 4'h0;
+		assign	S_AXI_AWREADY = awskd_ready && wid_reorder_awready;
+		// }}}
+	end else begin
+		// {{{
+		assign	M_AXI_AWVALID = S_AXI_AWVALID && wid_reorder_awready;
+		assign	S_AXI_AWREADY = M_AXI_AWREADY;
+		assign	M_AXI_AWID    = S_AXI_AWID;
+		assign	M_AXI_AWADDR  = S_AXI_AWADDR;
+		assign	M_AXI_AWLEN   = { 4'h0, S_AXI_AWLEN };
+		assign	M_AXI_AWSIZE  = S_AXI_AWSIZE;
+		assign	M_AXI_AWBURST = S_AXI_AWBURST;
+		assign	M_AXI_AWLOCK  = axi4_awlock;
+		assign	M_AXI_AWCACHE = axi4_awcache;
+		assign	M_AXI_AWPROT  = S_AXI_AWPROT;
+		assign	M_AXI_AWQOS   = S_AXI_AWQOS;
+
+		assign	awskd_ready = 1;
+		// }}}
+	end endgenerate
 	// }}}
 
 	// Handle write channel de-interleaving
@@ -234,7 +261,7 @@ module	axi32axi #(
 		// {{{
 		.S_AXI_ACLK(S_AXI_ACLK), .S_AXI_ARESETN(S_AXI_ARESETN),
 		// Incoming Write address ID
-		.S_AXI3_AWVALID(S_AXI_AWVALID),
+		.S_AXI3_AWVALID(S_AXI_AWVALID && S_AXI_AWREADY),
 			.S_AXI3_AWREADY(wid_reorder_awready),
 			.S_AXI3_AWID(S_AXI_AWID),
 		// Incoming Write data info
@@ -251,8 +278,8 @@ module	axi32axi #(
 			.M_AXI_WDATA(M_AXI_WDATA),
 			.M_AXI_WSTRB(M_AXI_WSTRB),
 			.M_AXI_WLAST(M_AXI_WLAST)
+		// }}}
 	);
-	// }}}
 	// }}}
 
 	// Forward the B* channel return
@@ -281,23 +308,43 @@ module	axi32axi #(
 
 	// AR Skid buffer
 	// {{{
-	skidbuffer #(
-		.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH + 4 + 3 + 2 + 1+4+3+4),
-		.OPT_OUTREG(1'b1)
-	) arskid (
-		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
-		.i_valid(S_AXI_ARVALID), .o_ready(S_AXI_ARREADY),
-			.i_data({ S_AXI_ARID, S_AXI_ARADDR,  S_AXI_ARLEN,
-				S_AXI_ARSIZE, S_AXI_ARBURST, axi4_arlock,
-				axi4_arcache,  S_AXI_ARPROT,  S_AXI_ARQOS }),
-		.o_valid(M_AXI_ARVALID), .i_ready(M_AXI_ARREADY),
-			.o_data({ M_AXI_ARID,  M_AXI_ARADDR,  M_AXI_ARLEN[3:0],
-				M_AXI_ARSIZE,  M_AXI_ARBURST, M_AXI_ARLOCK,
-				M_AXI_ARCACHE, M_AXI_ARPROT,  M_AXI_ARQOS })
-	);
-	// }}}
+	generate if (OPT_TRANSFORM_AXCACHE)
+	begin
+		// {{{
+		skidbuffer #(
+			.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH
+					+ 4 + 3 + 2 + 1+4+3+4),
+			.OPT_OUTREG(1'b1)
+		) arskid (
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_valid(S_AXI_ARVALID), .o_ready(S_AXI_ARREADY),
+				.i_data({ S_AXI_ARID, S_AXI_ARADDR,  S_AXI_ARLEN,
+					S_AXI_ARSIZE, S_AXI_ARBURST, axi4_arlock,
+					axi4_arcache,  S_AXI_ARPROT,  S_AXI_ARQOS }),
+			.o_valid(M_AXI_ARVALID), .i_ready(M_AXI_ARREADY),
+				.o_data({ M_AXI_ARID,  M_AXI_ARADDR,  M_AXI_ARLEN[3:0],
+					M_AXI_ARSIZE,  M_AXI_ARBURST, M_AXI_ARLOCK,
+					M_AXI_ARCACHE, M_AXI_ARPROT,  M_AXI_ARQOS })
+		);
 
-	assign	M_AXI_ARLEN[7:4] = 4'h0;
+		assign	M_AXI_ARLEN[7:4] = 4'h0;
+		// }}}
+	end else begin
+		// {{{
+		assign	M_AXI_ARVALID = S_AXI_ARVALID;
+		assign	S_AXI_ARREADY = M_AXI_ARREADY;
+		assign	M_AXI_ARID    = S_AXI_ARID;
+		assign	M_AXI_ARADDR  = S_AXI_ARADDR;
+		assign	M_AXI_ARLEN   = { 4'h0, S_AXI_ARLEN };
+		assign	M_AXI_ARSIZE  = S_AXI_ARSIZE;
+		assign	M_AXI_ARBURST = S_AXI_ARBURST;
+		assign	M_AXI_ARLOCK  = axi4_arlock;
+		assign	M_AXI_ARCACHE = axi4_arcache;
+		assign	M_AXI_ARPROT  = S_AXI_ARPROT;
+		assign	M_AXI_ARQOS   = S_AXI_ARQOS;
+		// }}}
+	end endgenerate
+	// }}}
 
 	// Forward the R* channel return
 	// {{{
