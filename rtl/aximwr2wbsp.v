@@ -571,3 +571,7 @@ module aximwr2wbsp #(
 		cover(cvr_wrid_bursts == 4);
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

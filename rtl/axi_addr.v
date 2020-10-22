@@ -238,3 +238,7 @@ module	axi_addr #(
 	// Verilator lint_on UNUSED
 	// }}}
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

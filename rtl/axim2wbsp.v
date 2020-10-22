@@ -281,3 +281,7 @@ module axim2wbsp #(
 `ifdef	FORMAL
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

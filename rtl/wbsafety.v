@@ -523,3 +523,7 @@ module wbsafety(i_clk, i_reset,
 
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

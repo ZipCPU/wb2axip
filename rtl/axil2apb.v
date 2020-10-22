@@ -718,3 +718,7 @@ module	axil2apb #(
 `endif
 // }}}
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

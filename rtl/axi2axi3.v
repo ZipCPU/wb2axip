@@ -891,3 +891,7 @@ module	axi2axi3 #(
 //
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

@@ -1437,3 +1437,7 @@ module	axivdisplay #(
 	// }}}
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

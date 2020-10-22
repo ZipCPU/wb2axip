@@ -375,3 +375,7 @@ module	axilfetch #(
 	// Formal properties for this module are maintained elsewhere
 `endif
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

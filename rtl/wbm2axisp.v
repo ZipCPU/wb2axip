@@ -1145,3 +1145,7 @@ module wbm2axisp #(
 `endif // FORMAL
 // }}}
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif

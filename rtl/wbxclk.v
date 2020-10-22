@@ -837,3 +837,7 @@ module	wbxclk #(
 `endif
 // }}}
 endmodule
+
+`ifndef YOSYS
+`default_nettype wire
+`endif
