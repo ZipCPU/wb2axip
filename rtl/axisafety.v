@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axisafety.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Given that 1) AXI interfaces can be difficult to write and to
@@ -120,7 +120,7 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2019-2020, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
@@ -142,12 +142,12 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module axisafety #(
 	// {{{
 	parameter C_S_AXI_ID_WIDTH	= 1,
 	parameter C_S_AXI_DATA_WIDTH	= 32,
-	parameter C_S_AXI_ADDR_WIDTH	= 6,
+	parameter C_S_AXI_ADDR_WIDTH	= 16,
 	parameter [0:0] OPT_SELF_RESET  = 0,
 	//
 	// I use the following abbreviations, IW, DW, and AW, to simplify
@@ -163,7 +163,7 @@ module axisafety #(
 	parameter	OPT_TIMEOUT = 20
 	// }}}
 	) (
-		//
+		// {{{
 		output	reg	o_read_fault,
 		output	reg	o_write_fault,
 		// User ports ends
@@ -273,6 +273,7 @@ module axisafety #(
 		output	wire			M_AXI_RREADY
 		// }}}
 		// }}}
+		// }}}
 	);
 
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
@@ -356,13 +357,17 @@ module axisafety #(
 	reg		m_wempty, m_wlastctr;
 	reg		waddr_valid, raddr_valid;
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write channel processing
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// Write address processing
+	// {{{
+	// S_AXI_AWREADY
 	// {{{
 	initial	S_AXI_AWREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
@@ -374,7 +379,10 @@ module axisafety #(
 		S_AXI_AWREADY <= 1;
 	else if (!S_AXI_AWREADY)
 		S_AXI_AWREADY <= !S_AXI_AWREADY && S_AXI_BVALID && S_AXI_BREADY;
+	// }}}
 
+	// waddr_valid
+	// {{{
 	generate if (OPT_SELF_RESET)
 	begin
 		initial	waddr_valid = 0;
@@ -389,8 +397,10 @@ module axisafety #(
 		always @(*)
 			waddr_valid = !S_AXI_AWREADY;
 	end endgenerate
+	// }}}
 
-	//
+	// r_aw*
+	// {{{
 	// Double buffer for the AW* channel
 	//
 	initial	r_awvalid = 0;
@@ -414,8 +424,10 @@ module axisafety #(
 		if (!S_AXI_ARESETN)
 			r_awvalid <= 0;
 	end
+	// }}}
 
-	//
+	// m_aw*
+	// {{{
 	// Second half of the AW* double-buffer.  The m_* terms reference
 	// either the value in the double buffer (assuming one is in there),
 	// or the incoming value (if the double buffer is empty)
@@ -445,8 +457,10 @@ module axisafety #(
 		m_awprot  = S_AXI_AWPROT;
 		m_awqos   = S_AXI_AWQOS;
 	end
+	// }}}
 
-	//
+	// M_AXI_AW*
+	// {{{
 	// Set the output AW* channel outputs--but only on no fault
 	//
 	initial	M_AXI_AWVALID = 0;
@@ -474,8 +488,11 @@ module axisafety #(
 		if (!M_AXI_ARESETN)
 			M_AXI_AWVALID <= 0;
 	end
+	// }}}
+	// }}}
 
-	//
+	// s_wbursts
+	// {{{
 	// Count write bursts outstanding from the standpoint of
 	// the incoming (slave) channel
 	//
@@ -493,8 +510,10 @@ module axisafety #(
 		s_wbursts <= 1;
 	else if (S_AXI_BVALID && S_AXI_BREADY)
 		s_wbursts <= 0;
+	// }}}
 
-	//
+	// wfifo_id, wfifo_lock
+	// {{{
 	// Keep track of the ID of the last transaction.  Since we only
 	// ever have one write transaction outstanding, this will need to be
 	// the ID of the returned value.
@@ -502,11 +521,15 @@ module axisafety #(
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_AWREADY && S_AXI_AWVALID)
 	begin
+		// {{{
 		wfifo_id   <= S_AXI_AWID;
 		wfifo_lock <= S_AXI_AWLOCK;
+		// }}}
 	end
+	// }}}
 
-	//
+	// m_wpending, m_wempty, m_wlastctr
+	// {{{
 	// m_wpending counts the number of (remaining) write data values that
 	// need to be sent to the slave.  It counts this number with respect
 	// to the *SLAVE*, not the master.  When m_wpending == 1, WLAST shall
@@ -520,13 +543,17 @@ module axisafety #(
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || o_write_fault)
 	begin
+		// {{{
 		m_wpending <= 0;
 		m_wempty   <= 1;
 		m_wlastctr <= 0;
+		// }}}
 	end else if (M_AXI_AWVALID && M_AXI_AWREADY)
 	begin
+		// {{{
 		if (M_AXI_WVALID && M_AXI_WREADY)
 		begin
+			// {{{
 			// Accepting AW* and W* packets on the same
 			// clock
 			if (m_wpending == 0)
@@ -543,21 +570,31 @@ module axisafety #(
 				m_wempty   <= 0;
 				m_wlastctr <= (M_AXI_AWLEN == 0);
 			end
+			// }}}
 		end else begin
+			// {{{
 			m_wpending <= M_AXI_AWLEN+1;
 			m_wempty   <= 0;
 			m_wlastctr <= (M_AXI_AWLEN == 0);
+			// }}}
 		end
+		// }}}
 	end else if (M_AXI_WVALID && M_AXI_WREADY && (!m_wempty))
 	begin
+		// {{{
 		// The AW* channel is idle, and we just accepted a value
 		// on the W* channel
 		m_wpending <= m_wpending - 1;
 		m_wempty   <= (m_wpending <= 1);
 		m_wlastctr <= (m_wpending == 2);
+		// }}}
 	end
+	// }}}
 
-	//
+	// Write data processing
+	// {{{
+	// S_AXI_WREADY
+	// {{{
 	// The S_AXI_WREADY or write channel stall signal
 	//
 	// For this core, we idle at zero (stalled) until an AW* packet
@@ -569,6 +606,7 @@ module axisafety #(
 		S_AXI_WREADY <= 0;
 	else if (S_AXI_WVALID && S_AXI_WREADY)
 	begin
+		// {{{
 		if (S_AXI_WLAST)
 			S_AXI_WREADY <= 0;
 		else if (o_write_fault)
@@ -577,13 +615,16 @@ module axisafety #(
 			S_AXI_WREADY <= 1;
 		else
 			S_AXI_WREADY <= 0;
+		// }}}
 	end else if ((s_wbursts == 0)&&(waddr_valid)
 				&&(o_write_fault || M_AXI_WREADY))
 		S_AXI_WREADY <= 1;
 	else if (S_AXI_AWVALID && S_AXI_AWREADY)
 		S_AXI_WREADY <= 1;
+	// }}}
 
-	//
+	// r_w*
+	// {{{
 	// Double buffer for the write channel
 	//
 	// As before, the r_* values contain the values in the double
@@ -595,15 +636,19 @@ module axisafety #(
 		r_wvalid <= 0;
 	else if (!r_wvalid)
 	begin
+		// {{{
 		r_wvalid <= (S_AXI_WVALID && S_AXI_WREADY
 				&& M_AXI_WVALID && !M_AXI_WREADY);
 		r_wdata <= S_AXI_WDATA;
 		r_wstrb <= S_AXI_WSTRB;
 		r_wlast <= S_AXI_WLAST;
+		// }}}
 	end else if (o_write_fault || M_AXI_WREADY || !M_AXI_ARESETN)
 		r_wvalid <= 0;
+	// }}}
 
-	//
+	// m_w*
+	// {{{
 	// Here's the result of our double buffer
 	//
 	// m_* references the value within the double buffer in the case that
@@ -614,28 +659,40 @@ module axisafety #(
 	always @(*)
 	if (o_write_fault)
 	begin
+		// {{{
 		m_wvalid = !m_wempty;
 		m_wlast  = m_wlastctr;
 		m_wstrb  = 0;
+		// }}}
 	end else if (r_wvalid)
 	begin
+		// {{{
 		m_wvalid = 1;
 		m_wstrb  = r_wstrb;
 		m_wlast  = r_wlast;
+		// }}}
 	end else begin
+		// {{{
 		m_wvalid = S_AXI_WVALID && S_AXI_WREADY;
 		m_wstrb  = S_AXI_WSTRB;
 		m_wlast  = S_AXI_WLAST;
+		// }}}
 	end
+	// }}}
 
+	// m_wdata
+	// {{{
 	// The logic for the DATA output of the double buffer doesn't
 	// matter so much in the case of o_write_fault
 	always @(*)
 	if (r_wvalid)
 		m_wdata = r_wdata;
 	else
-		m_wdata = M_AXI_WDATA;
+		m_wdata = S_AXI_WDATA;
+	// }}}
 
+	// M_AXI_W*
+	// {{{
 	// Set the downstream write channel values
 	//
 	// As per AXI spec, these values *must* be registered.  Note that our
@@ -656,8 +713,13 @@ module axisafety #(
 		if (!M_AXI_ARESETN)
 			M_AXI_WVALID <= 0;
 	end
+	// }}}
+	// }}}
 
-	//
+	// Write fault detection
+	// {{{
+	// write_timer
+	// {{{
 	// The write timer
 	//
 	// The counter counts up to saturation.  It is reset any time
@@ -676,8 +738,10 @@ module axisafety #(
 		write_timer <= 0;
 	else if (!(&write_timer))
 		write_timer <= write_timer + 1;
+	// }}}
 
-	//
+	// write_timeout
+	// {{{
 	// Write timeout detector
 	//
 	// If the write_timer reaches the OPT_TIMEOUT, then the write_timeout
@@ -693,8 +757,10 @@ module axisafety #(
 		write_timeout <= write_timeout;
 	else if (write_timer >= OPT_TIMEOUT)
 		write_timeout <= 1;
+	// }}}
 
-	//
+	// faulty_write_return
+	// {{{
 	// fault_write_return
 	//
 	// This combinational logic is used to catch an invalid return, and
@@ -735,10 +801,10 @@ module axisafety #(
 				faulty_write_return = 1;
 		end
 	end
+	// }}}
 
-	//
 	// o_write_fault
-	//
+	// {{{
 	// On a write fault, we're going to disconnect the write port from
 	// the slave, and return errors on each write connect.  o_write_fault
 	// is our signal determining if the write channel is disconnected.
@@ -758,9 +824,13 @@ module axisafety #(
 		// Accepting the write data prior to the write address
 		// is a fault
 		o_write_fault <= 1;
+	// }}}
+	// }}}
 
-
-	//
+	// Write return generation
+	// {{{
+	// m_b*
+	// {{{
 	// Since we only ever allow a single write burst at a time, we don't
 	// need to double buffer the return channel.  Hence, we'll set our
 	// return channel based upon the incoming values alone.  Note that
@@ -780,8 +850,10 @@ module axisafety #(
 		m_bid    = wfifo_id;
 		m_bresp  = M_AXI_BRESP;
 	end
+	// }}}
 
-	//
+	// S_AXI_B*
+	// {{{
 	// We'll *never* stall the slaves BREADY channel
 	//
 	// If the slave returns the response we are expecting, then S_AXI_BVALID
@@ -816,14 +888,23 @@ module axisafety #(
 	end
 	// }}}
 
+	// }}}
+
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read channel processing
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
+
+	//
 	// Read address channel
+	// {{{
+
+	// S_AXI_ARREADY
+	// {{{
 	initial	S_AXI_ARREADY = (OPT_SELF_RESET) ? 0:1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -834,14 +915,19 @@ module axisafety #(
 		S_AXI_ARREADY <= 1;
 	else if (!S_AXI_ARREADY)
 		S_AXI_ARREADY <= (S_AXI_RVALID && S_AXI_RLAST && S_AXI_RREADY);
+	// }}}
 
+	// raddr_valid
+	// {{{
 	always @(*)
 	if (OPT_SELF_RESET)
 		raddr_valid = !rfifo_empty;
 	else
 		raddr_valid = !S_AXI_ARREADY;
+	// }}}
 
-	//
+	// r_ar*
+	// {{{
 	// Double buffer the values associated with any read address request
 	//
 	initial	r_arvalid = 0;
@@ -865,8 +951,10 @@ module axisafety #(
 		if (!M_AXI_ARESETN)
 			r_arvalid <= 0;
 	end
+	// }}}
 
-	//
+	// m_ar*
+	// {{{
 	always @(*)
 	if (r_arvalid)
 	begin
@@ -892,8 +980,10 @@ module axisafety #(
 		m_arprot  = S_AXI_ARPROT;
 		m_arqos   = S_AXI_ARQOS;
 	end
+	// }}}
 
-	//
+	// M_AXI_AR*
+	// {{{
 	// Set the downstream values according to the transaction we've just
 	// received.
 	//
@@ -922,15 +1012,16 @@ module axisafety #(
 		if (!M_AXI_ARESETN)
 			M_AXI_ARVALID <= 0;
 	end
+	// }}}
+
+	// }}}
 
 	//
-	// Read return/acknowledgment processing
-	//
+	// Read fault detection
+	// {{{
 
-	//
-	// Start with read fault determination
-	//
-
+	// read_timer
+	// {{{
 	// First step: a timer.  The timer starts as soon as the S_AXI_ARVALID
 	// is accepted.  Once that happens, rfifo_empty will no longer be true.
 	// The count is reset any time the slave produces a value for us to
@@ -945,7 +1036,10 @@ module axisafety #(
 		read_timer <= 0;
 	else if (!(&read_timer))
 		read_timer <= read_timer + 1;
+	// }}}
 
+	// read_timeout
+	// {{{
 	// Once the counter > OPT_TIMEOUT, we have a timeout condition.
 	// We'll detect this one clock earlier below.  If we ever enter
 	// a read time out condition, we'll set the read fault.  The read
@@ -960,10 +1054,11 @@ module axisafety #(
 		read_timeout <= read_timeout;
 	else if (read_timer == OPT_TIMEOUT)
 		read_timeout <= 1;
+	// }}}
 
 	//
 	// faulty_read_return
-	//
+	// {{{
 	// To avoid returning a fault from the slave, it is important to
 	// determine within a single clock period whether or not the slaves
 	// return value is at fault or not.  That's the purpose of the code
@@ -990,7 +1085,10 @@ module axisafety #(
 				faulty_read_return = 1;
 		end
 	end
+	// }}}
 
+	// o_read_fault
+	// {{{
 	initial	o_read_fault = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_fault)
@@ -1006,9 +1104,16 @@ module axisafety #(
 			// yet, and a value is returned
 			o_read_fault <= 1;
 	end
+	// }}}
 
+	// }}}
 
 	//
+	// Read return/acknowledgment processing
+	// {{{
+
+	// r_rvalid
+	// {{{
 	// Step one, set/create the read return double buffer.  If r_rvalid
 	// is true, there's a valid value in the double buffer location.
 	//
@@ -1018,7 +1123,7 @@ module axisafety #(
 		r_rvalid <= 0;
 	else if (!r_rvalid)
 	begin
-		//
+		// {{{
 		// Refuse to set the double-buffer valid on any fault.
 		// That will also keep (below) M_AXI_RREADY high--so that
 		// following the fault the slave might still (pretend) to
@@ -1034,12 +1139,15 @@ module axisafety #(
 		// stall and so need to accept here.
 		r_rvalid <= M_AXI_RVALID && M_AXI_RREADY
 				&& (S_AXI_RVALID && !S_AXI_RREADY);
+		// }}}
 	end else if (S_AXI_RREADY)
 		// Once the up-stream read-channel clears, we can always
 		// clear the double buffer
 		r_rvalid <= 0;
+	// }}}
 
-	//
+	// r_rresp, r_rdata
+	// {{{
 	// Here's the actual values kept whenever r_rvalid is true.  This is
 	// the double buffer.  Notice that r_rid and r_last are generated
 	// locally, so not recorded here.
@@ -1050,12 +1158,17 @@ module axisafety #(
 		r_rresp  <= M_AXI_RRESP;
 		r_rdata  <= M_AXI_RDATA;
 	end
+	// }}}
 
+	// M_AXI_RREADY
+	// {{{
 	// Stall the downstream channel any time there's something in the
 	// double buffer.  In spite of the ! here, this is a registered value.
 	assign M_AXI_RREADY = !r_rvalid;
+	// }}}
 
-	//
+	// rfifo_id, rfifo_lock
+	// {{{
 	// Copy the ID for later comparisons on the return
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARVALID && S_AXI_ARREADY)
@@ -1063,8 +1176,10 @@ module axisafety #(
 		rfifo_id   <= S_AXI_ARID;
 		rfifo_lock <= S_AXI_ARLOCK;
 	end
+	// }}}
 
-	//
+	// rfifo_[counter|empty|last|penultimate
+	// {{{
 	// Count the number of outstanding read elements.  This is the number
 	// of read returns we still expect--from the upstream perspective.  The
 	// downstream perspective will be off by both what's waiting for
@@ -1097,14 +1212,16 @@ module axisafety #(
 			rfifo_penultimate <= (rfifo_counter == 3);
 		end
 	end
+	// }}}
 
-	//
+	// m_rvalid, m_rresp
+	// {{{
 	// Determine values to send back and return
 	//
 	// This data set includes all the return values, even though only
 	// RRESP and RVALID are set in this block.
 	always @(*)
-	if (o_read_fault)
+	if (o_read_fault || (!M_AXI_ARESETN && OPT_SELF_RESET))
 	begin
 		m_rvalid = !rfifo_empty;
 		if (S_AXI_RVALID && rfifo_last)
@@ -1118,13 +1235,18 @@ module axisafety #(
 		m_rvalid = M_AXI_RVALID && raddr_valid && !faulty_read_return;
 		m_rresp  = M_AXI_RRESP;
 	end
+	// }}}
 
-	//
+	// m_rid
+	// {{{
 	// We've stored the ID locally, so that our response will never be in
 	// error
 	always @(*)
 		m_rid = rfifo_id;
+	// }}}
 
+	// m_rlast
+	// {{{
 	// Ideally, we'd want to say m_rlast = rfifo_last.  However, we might
 	// have a value in S_AXI_RVALID already.  In that case, the last
 	// value can only be true if we are one further away from the end.
@@ -1136,7 +1258,10 @@ module axisafety #(
 		m_rlast = rfifo_penultimate;
 	else
 		m_rlast = (rfifo_last);
+	// }}}
 
+	// m_rdata
+	// {{{
 	// In the case of a fault, rdata is a don't care.  Therefore we can
 	// always set it based upon the values returned from the slave.
 	always @(*)
@@ -1144,8 +1269,10 @@ module axisafety #(
 		m_rdata = r_rdata;
 	else
 		m_rdata = M_AXI_RDATA;
+	// }}}
 
-	//
+	// S_AXI_R*
+	// {{{
 	// Record our return data values
 	//
 	// These are the values from either the slave, the double buffer,
@@ -1170,18 +1297,27 @@ module axisafety #(
 	end
 	// }}}
 
+	// }}}
+
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Self-reset
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	generate if (OPT_SELF_RESET)
 	begin
+		// {{{
+		// Declarations
+		// {{{
 		reg	[4:0]	reset_counter;
 		reg		reset_timeout, r_clear_fault;
+		// }}}
 
+		// M_AXI_ARESETN
+		// {{{
 		initial	M_AXI_ARESETN = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1190,17 +1326,23 @@ module axisafety #(
 			M_AXI_ARESETN <= 1;
 		else if (o_read_fault || o_write_fault)
 			M_AXI_ARESETN <= 0;
+		// }}}
 
+		// reset_counter
+		// {{{
 		initial	reset_counter = 0;
 		always @(posedge S_AXI_ACLK)
 		if (M_AXI_ARESETN)
 			reset_counter <= 0;
 		else if (!reset_timeout)
 			reset_counter <= reset_counter+1;
+		// }}}
 
 		always @(*)
 			reset_timeout <= reset_counter[4];
 
+		// r_clear_fault
+		// {{{
 		initial	r_clear_fault <= 1;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1213,7 +1355,10 @@ module axisafety #(
 			r_clear_fault <= 0;
 		else
 			r_clear_fault <= 1;
+		// }}}
 
+		// clear_fault
+		// {{{
 		always @(*)
 		if (S_AXI_AWVALID || S_AXI_ARVALID)
 			clear_fault = 0;
@@ -1221,27 +1366,36 @@ module axisafety #(
 			clear_fault = 0;
 		else
 			clear_fault = r_clear_fault;
-	
-	end else begin
+		// }}}
 
+		// }}}
+	end else begin
+		// {{{
 		always @(*)
 			M_AXI_ARESETN = S_AXI_ARESETN;
 		always @(*)
 			clear_fault = 0;
-
+		// }}}
 	end endgenerate
 	// }}}
-	//
-	//
 
 	// Make Verilator happy
 	// {{{
 	// Verilator lint_off UNUSED
-	wire	[20:0]	unused;
-	assign	unused = 0;
+	wire	unused;
+	assign	unused = &{ 1'b0 };
 	// Verilator lint_on  UNUSED
 	// }}}
 // Add user logic here
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	// {{{
 	// Below are just some of the formal properties used to verify
@@ -1806,15 +1960,77 @@ module axisafety #(
 	// ...
 	//
 
-	////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Never path check
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	(* anyconst *) reg [C_S_AXI_ADDR_WIDTH-1:0]	fc_never_write_addr,
+							fc_never_read_addr;
+	(* anyconst *) reg [C_S_AXI_DATA_WIDTH + C_S_AXI_DATA_WIDTH/8-1:0]
+							fc_never_write_data;
+	(* anyconst *) reg [C_S_AXI_DATA_WIDTH-1:0]	fc_never_read_data;
+
+	// Write address
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && S_AXI_AWVALID)
+		assume(S_AXI_AWADDR != fc_never_write_addr);
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && !o_write_fault && M_AXI_ARESETN && M_AXI_AWVALID)
+		assert(M_AXI_AWADDR != fc_never_write_addr);
+	// }}}
+
+	// Write data
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && S_AXI_WVALID)
+		assume({ S_AXI_WDATA, S_AXI_WSTRB } != fc_never_write_data);
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && !o_write_fault && M_AXI_ARESETN && M_AXI_WVALID)
+		assert({ M_AXI_WDATA, M_AXI_WSTRB } != fc_never_write_data);
+	// }}}
+
+	// Read address
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && S_AXI_ARVALID)
+		assume(S_AXI_ARADDR != fc_never_read_addr);
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && r_arvalid)
+		assume(r_araddr != fc_never_read_addr);
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && !o_read_fault && M_AXI_ARESETN && M_AXI_ARVALID)
+		assert(M_AXI_ARADDR != fc_never_read_addr);
+	// }}}
+
+	// Read data
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && M_AXI_ARESETN && M_AXI_RVALID)
+		assume(M_AXI_RDATA != fc_never_read_data);
+
+	always @(posedge S_AXI_ACLK)
+	if (S_AXI_ARESETN && S_AXI_RVALID && S_AXI_RRESP != SLAVE_ERROR)
+		assert(S_AXI_RDATA != fc_never_read_data);
+	// }}}
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	// We'll use these to determine the best performance this core
 	// can achieve
 	//
-	////////////////////////////////////////////////////////////////
-
 	reg	[4:0]	f_dbl_rd_count, f_dbl_wr_count;
 
 	initial	f_dbl_wr_count = 0;
@@ -1860,9 +2076,9 @@ module axisafety #(
 		cover(!S_AXI_ARESETN && (f_dbl_rd_count > 3)
 			&& (f_axi_rd_nbursts == 0)
 			&& !S_AXI_ARVALID && !S_AXI_RVALID);
-
+	// }}}
 `endif
-// User logic ends
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire
