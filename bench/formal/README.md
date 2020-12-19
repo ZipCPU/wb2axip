@@ -28,6 +28,10 @@ dropped the retry signal from the standard.
 [Master](faxil_master.v) and [Slave](faxil_slave.v) properties.  These may
 be the easiest AXI4-lite property sets to use.
 
+There's also a [register data checking](faxil_register.v) property set, for
+use when checking that the value of a simple AXI-lite register is properly
+handled.
+
 ## AXI4
 
 These properties are kept in a separate repository.  You can see some of what
