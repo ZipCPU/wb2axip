@@ -27,6 +27,7 @@ yosys -ql mutate.log mutate.ys
 ## run formal property check
 ln -s ../../test_fm.sby    .
 ln -s ../../faxil_slave.v  .
+ln -s ../../faxil_register.v  .
 ln -s ../../easyprops.sv .
 
 sby -f test_fm.sby prf

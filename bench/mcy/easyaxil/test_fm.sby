@@ -14,6 +14,7 @@ smtbmc boolector
 
 [script]
 read -formal faxil_slave.v
+read -formal faxil_register.v
 bmc: read -formal easyaxil_tb.sv
 read -sv mutated.v
 bmc: prep -top easyaxil_tb
@@ -22,6 +23,7 @@ prf: read -formal easyprops.sv
 prf: prep -top easyaxil
 
 [files]
+faxil_register.v
 faxil_slave.v
 mutated.v
 bmc: easyaxil_tb.sv

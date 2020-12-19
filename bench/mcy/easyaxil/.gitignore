@@ -3,5 +3,6 @@ quickcheck
 tasks
 *.tgz
 faxil_slave.v
+faxil_register.v
 easyaxil.v
 notes.txt

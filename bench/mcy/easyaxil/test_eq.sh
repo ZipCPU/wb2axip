@@ -25,6 +25,7 @@ yosys -ql mutate.log mutate.ys
 ## run formal property check
 ln -s ../../test_eq.sv     .
 ln -s ../../test_fm.sby    .
+ln -s ../../faxil_register.v  .
 ln -s ../../faxil_slave.v  .
 ln -s ../../easyaxil_tb.sv .
 # sed -e '1,$s/easyaxil/goldenaxil/' < ../../easyaxil.v > goldenaxil.v

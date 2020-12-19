@@ -118,7 +118,7 @@ module	easyprops #(
 		.F_LGDEPTH(F_AXIL_LGDEPTH),
 		.F_AXI_MAXWAIT(3),
 		.F_AXI_MAXDELAY(3),
-		.F_AXI_MAXRSTALL(3),
+		.F_AXI_MAXRSTALL(5),
 		.F_OPT_COVER_BURST(4)
 		// }}}
 	) faxil(
@@ -174,19 +174,6 @@ module	easyprops #(
 		assert(faxil_rd_outstanding == (S_AXI_RVALID ? 1:0));
 	end
 
-	always @(posedge S_AXI_ACLK)
-	if (f_past_valid && $past(S_AXI_ARESETN
-			&& axil_read_ready))
-	begin
-		assert(S_AXI_RVALID);
-		case($past(arskd_addr))
-		0: assert(S_AXI_RDATA == $past(r0));
-		1: assert(S_AXI_RDATA == $past(r1));
-		2: assert(S_AXI_RDATA == $past(r2));
-		3: assert(S_AXI_RDATA == $past(r3));
-		endcase
-	end
-
 	//
 	// Check that our low-power only logic works by verifying that anytime
 	// S_AXI_RVALID is inactive, then the outgoing data is also zero.
@@ -194,7 +181,108 @@ module	easyprops #(
 	always @(*)
 	if (OPT_LOWPOWER && !S_AXI_RVALID)
 		assert(S_AXI_RDATA == 0);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Register return checking
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+`define	CHECK_REGISTERS
+`ifdef	CHECK_REGISTERS
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(0)
+		// }}}
+	) fr0 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r0)
+		// }}}
+	);
 
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(4)
+		// }}}
+	) fr1 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r1)
+		// }}}
+	);
+
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(8)
+		// }}}
+	) fr2 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r2)
+		// }}}
+	);
+
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(12)
+		// }}}
+	) fr3 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r3)
+		// }}}
+	);
+`endif
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -209,67 +297,6 @@ module	easyprops #(
 	// application specific here
 
 	// }}}
-	// }}}
-
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Round #1 -- double check writes to registers
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	(* anyconst *)	reg[3:0]	f_addr;
-	reg [7:0]	f_byte, f_rbyte;
-
-	generate if (OPT_SKIDBUFFER)
-	begin
-		initial	f_byte = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			f_byte <= 0;
-		else if (axil_write_ready)
-		begin
-			if (awskd_addr == f_addr[3:2]
-					&& wskd_strb[f_addr[1:0]])
-				f_byte <= S_AXI_WDATA >> (8*f_addr[1:0]);
-		end
-
-	end else begin
-	
-		initial	f_byte = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			f_byte <= 0;
-		else if (S_AXI_AWVALID && S_AXI_WVALID && S_AXI_AWREADY && S_AXI_WREADY)
-		begin
-			if (S_AXI_AWADDR[3:2] == f_addr[3:2]
-					&& S_AXI_WSTRB[f_addr[1:0]])
-				f_byte <= S_AXI_WDATA >> (8*f_addr[1:0]);
-		end
-
-	end endgenerate
-
-	always @(*)
-	case(f_addr[3:2])
-	2'b00: f_rbyte = (r0 >> (8*f_addr[1:0]));
-	2'b01: f_rbyte = (r1 >> (8*f_addr[1:0]));
-	2'b10: f_rbyte = (r2 >> (8*f_addr[1:0]));
-	2'b11: f_rbyte = (r3 >> (8*f_addr[1:0]));
-	endcase
-
-	always @(*)
-		assert(f_byte == f_rbyte);
-
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Round #2 -- double check ?WREADY signaling
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	// ???
 `endif
 endmodule
 
