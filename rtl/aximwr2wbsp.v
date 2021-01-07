@@ -41,8 +41,9 @@ module aximwr2wbsp #(
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
+
 	parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0, // Lil to Big Endian swap
-	localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
+	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3, // change it only to support narrow transfers
 	localparam AW			= C_AXI_ADDR_WIDTH-AXI_LSBS,
 	localparam DW			= C_AXI_DATA_WIDTH,
 
@@ -571,3 +572,7 @@ module aximwr2wbsp #(
 		cover(cvr_wrid_bursts == 4);
 `endif
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

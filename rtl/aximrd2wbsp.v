@@ -51,7 +51,8 @@ module	aximrd2wbsp #(
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
-	parameter AW			= 26,	// AXI Address width
+	parameter AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3, // change it only to support narrow transfers
+	parameter AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,	// AXI Address width
 	parameter LGFIFO                =  3,
 	parameter [0:0] OPT_SWAP_ENDIANNESS = 0
 	// parameter	WBMODE		= "B4PIPELINE"
@@ -601,3 +602,7 @@ module	aximrd2wbsp #(
 
 `endif
 endmodule
+`ifndef YOSYS
+`default_nettype wire
+`endif
+

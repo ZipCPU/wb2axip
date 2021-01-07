@@ -34,38 +34,67 @@
 //
 `default_nettype	none
 //
-module	wbp2classic(i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			o_mstall, o_mack, o_mdata, o_merr,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-			i_sack, i_sdata, i_serr,
-			o_scti, o_sbte);
-	parameter	AW = 12,
-			DW = 32;
-	//
-	input	wire	i_clk, i_reset;
-	//
-	// Incoming WB pipelined port
-	input	wire			i_mcyc, i_mstb, i_mwe;
-	input	wire	[AW-1:0]	i_maddr;
-	input	wire	[DW-1:0]	i_mdata;
-	input	wire	[DW/8-1:0]	i_msel;
-	output	reg			o_mstall, o_mack;
-	output	reg	[DW-1:0]	o_mdata;
-	output	reg			o_merr;
-	//
-	// Outgoing WB classic port
-	output	reg			o_scyc, o_sstb, o_swe;
-	output	reg	[AW-1:0]	o_saddr;
-	output	reg	[DW-1:0]	o_sdata;
-	output	reg	[DW/8-1:0]	o_ssel;
-	input	wire			i_sack;
-	input	wire	[DW-1:0]	i_sdata;
-	input	wire			i_serr;
-	// Extra wires, not necessarily necessary for WB/B3
-	output	reg	[2:0]		o_scti;
-	output	reg	[1:0]		o_sbte;
+module	wbp2classic #(
+	parameter  AW = 12,
+               DW = 32
+    ) (
 
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_clk, ASSOCIATED_BUSIF S_WBP:M_WBC" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 i_clk CLK" *)
+	input wire i_clk,
+	(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME i_reset, POLARITY ACTIVE_HIGH" *)
+	(* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 i_reset RST" *)
+	input wire i_reset,
+	//
+	// Incoming WB pipelined port WB4 slave interface
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP CYC" *)
+	input	wire			i_mcyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP STB" *)
+	input	wire			i_mstb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP WE" *)
+	input	wire			i_mwe,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ADR" *)
+	input	wire	[(AW-1):0]	i_maddr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP DAT_MOSI" *)
+	input	wire	[(DW-1):0]	i_mdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP SEL" *)
+	input	wire	[(DW/8-1):0]	i_msel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP STALL" *)
+	output	reg			o_mstall,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ACK" *)
+	output	reg			o_mack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP DAT_MISO" *)
+	output	reg	[(DW-1):0]	o_mdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B4 S_WBP ERR" *)
+	output	reg			o_merr,
+	
+	// We'll share the clock and the reset
+	
+	// Outgoing WB classic port master ( for convinience labelled as WB4, later use separate interface definition for WB3 classic)
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC CYC" *)
+	output	reg			o_scyc,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC STB" *)
+	output	reg			o_sstb,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC WE" *)
+	output	reg			o_swe,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ADR" *)
+	output	reg	[(AW-1):0]	o_saddr,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC DAT_MOSI" *)
+	output	reg	[(DW-1):0]	o_sdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC SEL" *)
+	output	reg	[(DW/8-1):0]	o_ssel,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ACK" *)
+	input	wire			i_sack,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC DAT_MISO" *)
+	input	wire	[(DW-1):0]	i_sdata,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC ERR" *)
+	input	wire			i_serr,
+	// Extra wires, not necessary for WB/B3
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC CTI" *)
+	output	reg	[2:0]		o_scti,
+	(* X_INTERFACE_INFO = "opencores.org:bus:wishbone:B3 M_WBC BTE" *)
+	output	reg	[1:0]		o_sbte	
+);	
 	//
 	// returned = whether we've received our return value or not.
 	reg	returned;
