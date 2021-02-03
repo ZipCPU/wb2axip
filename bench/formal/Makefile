@@ -276,11 +276,11 @@ $(AXILUPSZ): $(AXILUPSZ)_cvr/PASS
 AXILUPSZDEPS := $(AXILUPSZ).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
 		$(RTL)/$(AXILUPSZ).v $(AXIL)
 $(AXILUPSZ)_prf/PASS: $(AXILUPSZDEPS)
-	sby -f $(AXIL2AXIS).sby prf
+	sby -f $(AXILUPSZ).sby prf
 $(AXILUPSZ)_prflpu/PASS: $(AXILUPSZDEPS)
-	sby -f $(AXIL2AXIS).sby prfz
+	sby -f $(AXILUPSZ).sby prfz
 $(AXILUPSZ)_prflps/PASS: $(AXILUPSZDEPS)
-	sby -f $(AXIL2AXIS).sby cvr
+	sby -f $(AXILUPSZ).sby cvr
 ## }}}
 
 ## }}}
@@ -762,7 +762,7 @@ $(AXILSAFETY): $(AXILSAFETY)_prf/PASS    $(AXILSAFETY)_prfr/PASS
 $(AXILSAFETY): $(AXILSAFETY)_fault/PASS  $(AXILSAFETY)_faultr/PASS
 $(AXILSAFETY): $(AXILSAFETY)_prlong/PASS $(AXILSAFETY)_longr/PASS
 $(AXILSAFETY): $(AXILSAFETY)_cvr/PASS   $(SKIDBUFFER)
-AXILSAFETYDEP := $(AXILSAFETY).sby $(RTL)/$(AXILSAFETY).v $(RTL)/$(SKIDBUFFER).v $(WB)
+AXILSAFETYDEP := $(AXILSAFETY).sby $(RTL)/$(AXILSAFETY).v $(RTL)/$(SKIDBUFFER).v $(AXIL)
 $(AXILSAFETY)_prf/PASS: $(AXILSAFETYDEP)
 	sby -f $(AXILSAFETY).sby prf
 $(AXILSAFETY)_prfr/PASS: $(AXILSAFETYDEP)
