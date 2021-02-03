@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename:	fwbc_master.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This file describes the rules of a wishbone *classic*
@@ -15,9 +15,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -37,31 +37,31 @@
 //
 //
 `default_nettype none
-//
-module	fwbc_master(i_clk, i_reset,
-		// The Wishbone bus
-		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
-			i_wb_cti, i_wb_bte,
-			i_wb_ack, i_wb_idata, i_wb_err, i_wb_rty);
-	parameter		AW=32, DW=32;
-	parameter		F_MAX_DELAY = 4;
-	parameter	[0:0]	OPT_BUS_ABORT = 0;
-	localparam	DLYBITS= $clog2(F_MAX_DELAY+1);
-	//
-	input	wire			i_clk, i_reset;
-	// Input/master bus
-	input	wire			i_wb_cyc, i_wb_stb, i_wb_we;
-	input	wire	[(AW-1):0]	i_wb_addr;
-	input	wire	[(DW-1):0]	i_wb_data;
-	input	wire	[(DW/8-1):0]	i_wb_sel;
-	input	wire	[2:0]		i_wb_cti;
-	input	wire	[1:0]		i_wb_bte;
-	//
-	input	wire			i_wb_ack;
-	input	wire	[(DW-1):0]	i_wb_idata;
-	input	wire			i_wb_err;
-	input	wire			i_wb_rty;
-	//
+// }}}
+module	fwbc_master #(
+		// {{{
+		parameter		AW=32, DW=32,
+		parameter		F_MAX_DELAY = 4,
+		parameter	[0:0]	OPT_BUS_ABORT = 0,
+		localparam	DLYBITS= $clog2(F_MAX_DELAY+1)
+		// }}}
+	) (
+		// {{{
+		input	wire			i_clk, i_reset,
+		// Wishbone bus
+		input	wire			i_wb_cyc, i_wb_stb, i_wb_we,
+		input	wire	[(AW-1):0]	i_wb_addr,
+		input	wire	[(DW-1):0]	i_wb_data,
+		input	wire	[(DW/8-1):0]	i_wb_sel,
+		input	wire	[2:0]		i_wb_cti,
+		input	wire	[1:0]		i_wb_bte,
+		//
+		input	wire			i_wb_ack,
+		input	wire	[(DW-1):0]	i_wb_idata,
+		input	wire			i_wb_err,
+		input	wire			i_wb_rty
+		// }}}
+	);
 
 `define	SLAVE_ASSUME	assert
 `define	SLAVE_ASSERT	assume
@@ -88,18 +88,23 @@ module	fwbc_master(i_clk, i_reset,
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_clk)
 		f_past_valid <= 1'b1;
-	always @(*)
-	if (!f_past_valid)
-		`SLAVE_ASSUME(i_reset);
-	//
+
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Assertions regarding the initial (and reset) state
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
-	//
 	// Assume we start from a reset condition
+	// {{{
 	initial assert(i_reset);
+	always @(*)
+	if (!f_past_valid)
+		`SLAVE_ASSUME(i_reset);
+	// }}}
+
 	initial `SLAVE_ASSUME(!i_wb_cyc);
 	initial `SLAVE_ASSUME(!i_wb_stb);
 	//
@@ -117,26 +122,25 @@ module	fwbc_master(i_clk, i_reset,
 		`SLAVE_ASSERT(!i_wb_err);
 		`SLAVE_ASSERT(!i_wb_rty);
 	end
-
-	//
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Bus requests
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
-
-	// This core only supports classic CTIs.  Burst types are therefore
-	// irrelevant and ignored.
-	always @(*)
-	if (i_wb_stb)
-		`SLAVE_ASSUME(i_wb_cti == 3'b0);
 
 	// STB can only be true if CYC is also true
+	// {{{
 	always @(*)
 	if (i_wb_stb)
 		`SLAVE_ASSUME(i_wb_cyc);
+	// }}}
 
 	// If a request was both outstanding and stalled on the last clock,
 	// then nothing should change on this clock regarding it.
+	// {{{
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))
 			&&($past(i_wb_stb))&&(i_wb_cyc)
@@ -144,7 +148,7 @@ module	fwbc_master(i_clk, i_reset,
 		`SLAVE_ASSUME(i_wb_stb);
 
 	always @(posedge i_clk)
-	if ((f_past_valid)&&(!$past(i_reset))
+	if ((f_past_valid)&&(!$past(i_reset) && i_wb_cyc)
 			&&($past(i_wb_stb))&&!$past(i_wb_ack|i_wb_err|i_wb_rty))
 	begin
 		`SLAVE_ASSUME(i_wb_stb);
@@ -156,15 +160,19 @@ module	fwbc_master(i_clk, i_reset,
 		if (i_wb_we)
 			`SLAVE_ASSUME($stable(i_wb_data));
 	end
-
-	//
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Bus responses
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
 	// If STB (or CYC) was low on the last two clock cycles, then both
 	// ACK and ERR should be low on this clock cycle.
+	// {{{
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_wb_stb))&&(!i_wb_stb))
 	begin
@@ -178,10 +186,10 @@ module	fwbc_master(i_clk, i_reset,
 		`SLAVE_ASSERT(!i_wb_err);
 		`SLAVE_ASSERT(!i_wb_rty);
 	end
+	// }}}
 
-	//
 	// OPT_BUS_ABORT
-	//
+	// {{{
 	// If CYC is dropped, this will abort the transaction in
 	// progress.  Not all busses support this option, and it's
 	// not specifically called out in the spec.  Therefore, we'll
@@ -192,8 +200,18 @@ module	fwbc_master(i_clk, i_reset,
 		&& $past(i_wb_stb && !(i_wb_ack|i_wb_err|i_wb_rty)))
 		`SLAVE_ASSUME(i_wb_stb);
 
-	//
+	always @(posedge i_clk)
+	if (!OPT_BUS_ABORT && f_past_valid && !$past(i_reset)
+		&& $past(i_wb_stb) && !$past(i_wb_ack | i_wb_err | i_wb_rty))
+		`SLAVE_ASSUME(i_wb_cyc);
+
+	always @(posedge i_clk)
+	if (OPT_BUS_ABORT && f_past_valid && $past(i_wb_cyc && i_wb_err))
+		`SLAVE_ASSUME(!i_wb_cyc);
+	// }}}
+
 	// No more than one of ACK, ERR or RTY may ever be true at a given time
+	// {{{
 	always @(*)
 	begin
 		if (i_wb_ack)
@@ -201,26 +219,37 @@ module	fwbc_master(i_clk, i_reset,
 		else if (i_wb_err)
 			`SLAVE_ASSERT(!i_wb_rty);
 	end
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Burst address checking
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
+	// Possible cycle types
 	localparam [2:0]	C_CLASSIC = 3'b000;
 	localparam [2:0]	C_FIXED   = 3'b001;
 	localparam [2:0]	C_INCR    = 3'b010;
 	localparam [2:0]	C_EOB     = 3'b111;
+
+	// Possible burst types
 	localparam [1:0]	B_LINEAR = 2'b00;
 	localparam [1:0]	B_WRAP4  = 2'b01;
 	localparam [1:0]	B_WRAP8  = 2'b10;
 	localparam [1:0]	B_WRAP16 = 2'b11;
 
-	// Burst address checking
 	always @(*)
 	if (i_wb_stb)
 	begin
 		// Several designations are reserved.  Using those
 		// designations is "illegal".
-		assert(i_wb_cti != 3'b011);
-		assert(i_wb_cti != 3'b100);
-		assert(i_wb_cti != 3'b101);
-		assert(i_wb_cti != 3'b110);
+		`SLAVE_ASSUME(i_wb_cti != 3'b011);
+		`SLAVE_ASSUME(i_wb_cti != 3'b100);
+		`SLAVE_ASSUME(i_wb_cti != 3'b101);
+		`SLAVE_ASSUME(i_wb_cti != 3'b110);
 	end
 
 	always @(posedge i_clk)
@@ -231,34 +260,42 @@ module	fwbc_master(i_clk, i_reset,
 		&& $past(i_wb_stb)&&($past(i_wb_err|i_wb_rty|i_wb_ack))
 		&&($past(i_wb_cti != C_CLASSIC))&&($past(i_wb_cti != C_EOB)))
 	begin
-		assert(i_wb_stb);
+		`SLAVE_ASSUME(i_wb_stb);
 		if ($past(i_wb_cti) == C_FIXED)
 		begin
-			assert($stable(i_wb_addr));
-			assert((i_wb_cti == C_FIXED || i_wb_cti == C_EOB));
+			`SLAVE_ASSUME($stable(i_wb_addr));
+			`SLAVE_ASSUME((i_wb_cti == C_FIXED || i_wb_cti == C_EOB));
 		end else if ($past(i_wb_cti == C_INCR))
 		begin
-			assert($stable(i_wb_bte));
+			`SLAVE_ASSUME($stable(i_wb_bte));
 			case(i_wb_bte)
-			B_LINEAR: assert(i_wb_addr == next_addr);
+			B_LINEAR: `SLAVE_ASSUME(i_wb_addr == next_addr);
 			B_WRAP4: begin
 				// 4-beat wrap burst
-				assert(i_wb_addr[1:0] == next_addr[1:0]);
-				assert($stable(i_wb_addr[AW-1:2]));
+				`SLAVE_ASSUME(i_wb_addr[1:0] == next_addr[1:0]);
+				`SLAVE_ASSUME($stable(i_wb_addr[AW-1:2]));
 				end
 			B_WRAP8: begin
 				// 8-beat wrap burst
-				assert(i_wb_addr[2:0] == next_addr[2:0]);
-				assert($stable(i_wb_addr[AW-1:3]));
+				`SLAVE_ASSUME(i_wb_addr[2:0] == next_addr[2:0]);
+				`SLAVE_ASSUME($stable(i_wb_addr[AW-1:3]));
 				end
 			B_WRAP16: begin
 				// 16-beat wrap burst
-				assert(i_wb_addr[3:0] == next_addr[3:0]);
-				assert($stable(i_wb_addr[AW-1:4]));
+				`SLAVE_ASSUME(i_wb_addr[3:0] == next_addr[3:0]);
+				`SLAVE_ASSUME($stable(i_wb_addr[AW-1:4]));
 				end
 			endcase
 		end
 	end
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Guarantee a return (if possible)
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	generate if (F_MAX_DELAY > 0)
 	begin : DELAYCOUNT
@@ -280,11 +317,11 @@ module	fwbc_master(i_clk, i_reset,
 		if (i_wb_cyc)
 			`SLAVE_ASSERT(f_stall_count < F_MAX_DELAY);
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Some basic cover properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	reg	[3:0]	ack_count;
@@ -294,13 +331,13 @@ module	fwbc_master(i_clk, i_reset,
 	if (i_reset || !i_wb_cyc)
 		ack_count <= 0;
 	else if (f_past_valid && i_wb_ack)
-		ack_count <= ack_count + 1;
+		ack_count <= ack_count + 1'b1;
 
 	always @(*)
 		cover(!i_wb_cyc && ack_count > 4);
 	always @(*)
 		cover(!i_wb_cyc && ack_count > 3);
-
+	// }}}
 endmodule
 //
 // Lest some other module want to use these macros, we undefine them here

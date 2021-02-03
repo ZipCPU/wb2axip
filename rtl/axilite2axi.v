@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axilite2axi.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	
@@ -10,9 +10,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -30,86 +30,94 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype none
-//
+// }}}
 module axilite2axi #(
-	parameter	C_AXI_ID_WIDTH	= 4,
-			C_AXI_ADDR_WIDTH= 32,
-			C_AXI_DATA_WIDTH= 32,
-	parameter [C_AXI_ID_WIDTH-1:0]	C_AXI_WRITE_ID = 0,
-					C_AXI_READ_ID = 0,
-	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		// {{{
+		parameter	C_AXI_ID_WIDTH	= 4,
+				C_AXI_ADDR_WIDTH= 32,
+				C_AXI_DATA_WIDTH= 32,
+		parameter [C_AXI_ID_WIDTH-1:0]	C_AXI_WRITE_ID = 0,
+						C_AXI_READ_ID = 0,
+		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		// }}}
 	) (
-	input	wire				ACLK,
-	input	wire				ARESETN,
-	// Slave write signals
-	input	wire				S_AXI_AWVALID,
-	output	wire				S_AXI_AWREADY,
-	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
-	input	wire	[3-1:0]			S_AXI_AWPROT,
-	// Slave write data signals
-	input	wire				S_AXI_WVALID,
-	output	wire				S_AXI_WREADY,
-	input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
-	input	wire	[C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,
-	// Slave return write response
-	output	wire				S_AXI_BVALID,
-	input	wire				S_AXI_BREADY,
-	output	wire	[2-1:0]			S_AXI_BRESP,
-	// Slave read signals
-	input	wire				S_AXI_ARVALID,
-	output	wire				S_AXI_ARREADY,
-	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,
-	input	wire	[3-1:0]			S_AXI_ARPROT,
-	// Slave read data signals
-	output	wire				S_AXI_RVALID,
-	input	wire				S_AXI_RREADY,
-	output	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
-	output	wire	[2-1:0]			S_AXI_RRESP,
-	//
-	// Master interface write address
-	output	wire				M_AXI_AWVALID,
-	input	wire				M_AXI_AWREADY,
-	output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
-	output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
-	output	wire	[8-1:0]			M_AXI_AWLEN,
-	output	wire	[3-1:0]			M_AXI_AWSIZE,
-	output	wire	[2-1:0]			M_AXI_AWBURST,
-	output	wire				M_AXI_AWLOCK,
-	output	wire	[4-1:0]			M_AXI_AWCACHE,
-	output	wire	[3-1:0]			M_AXI_AWPROT,
-	output	wire	[4-1:0]			M_AXI_AWQOS,
-	// Master write data
-	output	wire				M_AXI_WVALID,
-	input	wire				M_AXI_WREADY,
-	output	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
-	output	wire	[C_AXI_DATA_WIDTH/8-1:0] M_AXI_WSTRB,
-	output	wire				M_AXI_WLAST,
-	// Master write response
-	input	wire				M_AXI_BVALID,
-	output	wire				M_AXI_BREADY,
-	input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_BID,
-	input	wire	[1:0]			M_AXI_BRESP,
-	// Master interface read address
-	output	wire				M_AXI_ARVALID,
-	input	wire				M_AXI_ARREADY,
-	output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_ARID,
-	output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
-	output	wire	[8-1:0]			M_AXI_ARLEN,
-	output	wire	[3-1:0]			M_AXI_ARSIZE,
-	output	wire	[2-1:0]			M_AXI_ARBURST,
-	output	wire				M_AXI_ARLOCK,
-	output	wire	[4-1:0]			M_AXI_ARCACHE,
-	output	wire	[3-1:0]			M_AXI_ARPROT,
-	output	wire	[4-1:0]			M_AXI_ARQOS,
-	// Master interface read data return
-	input	wire				M_AXI_RVALID,
-	output	wire				M_AXI_RREADY,
-	input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_RID,
-	input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
-	input	wire				M_AXI_RLAST,
-	input	wire	[2-1:0]			M_AXI_RRESP
+		// {{{
+		input	wire				ACLK,
+		input	wire				ARESETN,
+		// Slave AXI interface
+		// {{{
+		// Slave write signals
+		input	wire				S_AXI_AWVALID,
+		output	wire				S_AXI_AWREADY,
+		input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
+		input	wire	[3-1:0]			S_AXI_AWPROT,
+		// Slave write data signals
+		input	wire				S_AXI_WVALID,
+		output	wire				S_AXI_WREADY,
+		input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
+		input	wire	[C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,
+		// Slave return write response
+		output	wire				S_AXI_BVALID,
+		input	wire				S_AXI_BREADY,
+		output	wire	[2-1:0]			S_AXI_BRESP,
+		// Slave read signals
+		input	wire				S_AXI_ARVALID,
+		output	wire				S_AXI_ARREADY,
+		input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_ARADDR,
+		input	wire	[3-1:0]			S_AXI_ARPROT,
+		// Slave read data signals
+		output	wire				S_AXI_RVALID,
+		input	wire				S_AXI_RREADY,
+		output	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
+		output	wire	[2-1:0]			S_AXI_RRESP,
+		// }}}
+		// Master AXI interface
+		// {{{
+		// Master interface write address
+		output	wire				M_AXI_AWVALID,
+		input	wire				M_AXI_AWREADY,
+		output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
+		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
+		output	wire	[8-1:0]			M_AXI_AWLEN,
+		output	wire	[3-1:0]			M_AXI_AWSIZE,
+		output	wire	[2-1:0]			M_AXI_AWBURST,
+		output	wire				M_AXI_AWLOCK,
+		output	wire	[4-1:0]			M_AXI_AWCACHE,
+		output	wire	[3-1:0]			M_AXI_AWPROT,
+		output	wire	[4-1:0]			M_AXI_AWQOS,
+		// Master write data
+		output	wire				M_AXI_WVALID,
+		input	wire				M_AXI_WREADY,
+		output	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
+		output	wire	[C_AXI_DATA_WIDTH/8-1:0] M_AXI_WSTRB,
+		output	wire				M_AXI_WLAST,
+		// Master write response
+		input	wire				M_AXI_BVALID,
+		output	wire				M_AXI_BREADY,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_BID,
+		input	wire	[1:0]			M_AXI_BRESP,
+		// Master interface read address
+		output	wire				M_AXI_ARVALID,
+		input	wire				M_AXI_ARREADY,
+		output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_ARID,
+		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
+		output	wire	[8-1:0]			M_AXI_ARLEN,
+		output	wire	[3-1:0]			M_AXI_ARSIZE,
+		output	wire	[2-1:0]			M_AXI_ARBURST,
+		output	wire				M_AXI_ARLOCK,
+		output	wire	[4-1:0]			M_AXI_ARCACHE,
+		output	wire	[3-1:0]			M_AXI_ARPROT,
+		output	wire	[4-1:0]			M_AXI_ARQOS,
+		// Master interface read data return
+		input	wire				M_AXI_RVALID,
+		output	wire				M_AXI_RREADY,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_RID,
+		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
+		input	wire				M_AXI_RLAST,
+		input	wire	[2-1:0]			M_AXI_RRESP
+		// }}}
+		// }}}
 	);
 
 	assign	M_AXI_AWID    = C_AXI_WRITE_ID;

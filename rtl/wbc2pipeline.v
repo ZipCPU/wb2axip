@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbc2pipeline.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Takes a WB classic connection from a master, and converts it
@@ -14,9 +14,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -36,81 +36,105 @@
 //
 //
 `default_nettype	none
-//
-module	wbc2pipeline(i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			o_mack, o_mdata, o_merr,
-			i_mcti, i_mbte,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-			i_sstall, i_sack, i_sdata, i_serr);
-	parameter	AW = 12,
-			DW = 32;
-	//
-	input	wire			i_clk, i_reset;
-	//
-	// Incoming WB classic port
-	input	wire			i_mcyc, i_mstb, i_mwe;
-	input	wire	[AW-1:0]	i_maddr;
-	input	wire	[DW-1:0]	i_mdata;
-	input	wire	[DW/8-1:0]	i_msel;
-	output	reg			o_mack;
-	output	reg	[DW-1:0]	o_mdata;
-	output	reg			o_merr;
-	input	wire	[3-1:0]		i_mcti;
-	input	wire	[2-1:0]		i_mbte;
-	//
-	// Outgoing WB pipelined port
-	output	reg			o_scyc, o_sstb, o_swe;
-	output	reg	[AW-1:0]	o_saddr;
-	output	reg	[DW-1:0]	o_sdata;
-	output	reg	[DW/8-1:0]	o_ssel;
-	input	wire			i_sstall;
-	input	wire			i_sack;
-	input	wire	[DW-1:0]	i_sdata;
-	input	wire			i_serr;
+// }}}
+module	wbc2pipeline #(
+		// {{{
+		parameter	AW = 12,
+				DW = 32
+		// }}}
+	) (
+		// {{{
+		//
+		input	wire			i_clk, i_reset,
+		//
+		// Incoming WB classic port
+		input	wire			i_scyc, i_sstb, i_swe,
+		input	wire	[AW-1:0]	i_saddr,
+		input	wire	[DW-1:0]	i_sdata,
+		input	wire	[DW/8-1:0]	i_ssel,
+		output	reg			o_sack,
+		output	reg	[DW-1:0]	o_sdata,
+		output	reg			o_serr,
+		input	wire	[3-1:0]		i_scti,
+		input	wire	[2-1:0]		i_sbte,
+		//
+		// Outgoing WB pipelined port
+		output	reg			o_mcyc, o_mstb, o_mwe,
+		output	reg	[AW-1:0]	o_maddr,
+		output	reg	[DW-1:0]	o_mdata,
+		output	reg	[DW/8-1:0]	o_msel,
+		input	wire			i_mstall,
+		input	wire			i_mack,
+		input	wire	[DW-1:0]	i_mdata,
+		input	wire			i_merr
+		// }}}
+	);
 
 	reg	last_stb;
 
+	// last_stb
+	// {{{
 	initial	last_stb = 0;
 	always @(posedge i_clk)
-	if (i_reset || !i_mstb || o_mack || o_merr)
+	if (i_reset || !i_sstb || o_sack || o_serr)
 		last_stb <= 0;
-	else if (!i_sstall)
+	else if (!i_mstall)
 		last_stb <= 1;
+	// }}}
 
+	// Combinatorial assignments to the downstream port
+	// {{{
 	always @(*)
 	begin
-		o_scyc  = i_mcyc && (!o_merr);
-		o_sstb  = i_mstb & !last_stb && (!o_merr);
-		o_swe   = i_mwe;
-		o_saddr = i_maddr;
-		o_sdata = i_mdata;
-		o_ssel  = i_msel;
+		o_mcyc  = i_scyc && (!o_serr);
+		o_mstb  = i_sstb & !last_stb && (!o_serr);
+		o_mwe   = i_swe;
+		o_maddr = i_saddr;
+		o_mdata = i_sdata;
+		o_msel  = i_ssel;
 	end
-	
-	initial	o_mack = 0;
-	initial	o_merr = 0;
+	// }}}
+
+	// o_sack, o_serr
+	// {{{
+	initial	o_sack = 0;
+	initial	o_serr = 0;
 	always @(posedge i_clk)
-	if (i_reset || !i_mstb || o_mack || o_merr)
+	if (i_reset || !i_sstb || o_sack || o_serr)
 	begin
-		o_mack <= 0;
-		o_merr <= 0;
+		o_sack <= 0;
+		o_serr <= 0;
 	end else begin
-		if (i_sack)
-			o_mack <= 1;
-		if (i_serr)
-			o_merr <= 1;
+		if (i_mack)
+			o_sack <= 1;
+		if (i_merr)
+			o_serr <= 1;
 	end
+	// }}}
 
+	// o_sdata
+	// {{{
 	always @(posedge i_clk)
-	if (i_sack)
-		o_mdata <= i_sdata;
+	if (i_mack)
+		o_sdata <= i_mdata;
+	// }}}
 
-
+	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	[4:0]	unused;
-	assign	unused = { i_mcti, i_mbte };
+	assign	unused = { i_scti, i_sbte };
 	// Verilator lint_on  UNUSED
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -131,23 +155,33 @@ module	wbc2pipeline(i_clk, i_reset,
 	if (!f_past_valid)
 		assume(i_reset);
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Upstream Wishbone classic slave properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	fwbc_slave #(.AW(AW), .DW(DW)) incoming (i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			i_mcti, i_mbte,
-			o_mack, o_mdata, o_merr, 1'b0);
-
+		i_scyc, i_sstb, i_swe, i_saddr, i_sdata, i_ssel,
+			i_scti, i_sbte,
+			o_sack, o_sdata, o_serr, 1'b0);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Downstream Wishbone pipeline slave properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	fwb_master #(.AW(AW), .DW(DW),
 			.F_MAX_STALL(3),
 			.F_MAX_ACK_DELAY(3),
 			.F_LGDEPTH(1)) pipelined (i_clk, i_reset,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-			i_sack, i_sstall, i_sdata, i_serr,
+		o_mcyc, o_mstb, o_mwe, o_maddr, o_mdata, o_msel,
+			i_mack, i_mstall, i_mdata, i_merr,
 			f_nreqs, f_nacks, f_outstanding);
-
-//	always @(*)
-//	if (f_outstanding)
-//		assert(returned);
+	// }}}
 `endif
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire

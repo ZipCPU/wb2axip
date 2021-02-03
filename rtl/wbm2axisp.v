@@ -24,7 +24,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2016-2020, Gisselquist Technology, LLC
+// Copyright (C) 2016-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -138,7 +138,7 @@ module wbm2axisp #(
 	//
 	localparam	LG_AXI_DW	= $clog2(C_AXI_DATA_WIDTH);
 	localparam	LG_WB_DW	= $clog2(DW);
-	localparam	FIFOLN = (1<<LGFIFO);
+	// localparam	FIFOLN = (1<<LGFIFO);
 	localparam	SUBW = LG_AXI_DW-LG_WB_DW;
 
 	// The various address widths must be properly related.  We'll insist

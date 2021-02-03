@@ -37,7 +37,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -161,6 +161,7 @@ module	wbxclk #(
 	afifo #(
 `ifdef	FORMAL
 		.OPT_REGISTER_READS(0),
+		.F_OPT_DATA_STB(1'b0),
 `endif
 		.NFF(NFF), .LGFIFO(LGFIFO),
 		.WIDTH(2+AW+DW+(DW/8))
@@ -281,6 +282,9 @@ module	wbxclk #(
 		.OPT_REGISTER_READS(0),
 		.NFF(NFF), .LGFIFO(LGFIFO),
 		.WIDTH(2+DW)
+`ifdef	FORMAL
+		, .F_OPT_DATA_STB(1'b0)
+`endif
 	) ackfifo(.i_wclk(i_xclk_clk), .i_wr_reset_n(!xck_reset),
 		.i_wr(o_xclk_cyc && ( i_xclk_ack || i_xclk_err )),
 		.i_wr_data({ i_xclk_ack, i_xclk_err, i_xclk_data }),
@@ -468,21 +472,35 @@ module	wbxclk #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	fwb_slave #(.AW(AW), .DW(DW),
+	fwb_slave #(
+		// {{{
+		.AW(AW), .DW(DW),
 		.F_LGDEPTH(LGFIFO+1), .F_OPT_DISCONTINUOUS(1)
-	) slv(i_wb_clk, i_reset,
+		// }}}
+	) slv(
+		// {{{
+		i_wb_clk, i_reset,
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
 		o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
-		fwb_nreqs, fwb_nacks, fwb_outstanding);
+		fwb_nreqs, fwb_nacks, fwb_outstanding
+		// }}}
+	);
 
-	fwb_master #(.AW(AW), .DW(DW),
+	fwb_master #(
+		// {{{
+		.AW(AW), .DW(DW),
 		.F_LGDEPTH(LGFIFO+1), .F_OPT_DISCONTINUOUS(1),
 		.F_MAX_STALL(4),
 		.F_MAX_ACK_DELAY(7)
-	) xclkwb(i_xclk_clk, xck_reset,
+		// }}}
+	) xclkwb(
+		// {{{
+		i_xclk_clk, xck_reset,
 		o_xclk_cyc, o_xclk_stb, o_xclk_we, o_xclk_addr, o_xclk_data, o_xclk_sel,
 		i_xclk_ack, i_xclk_stall, i_xclk_data, i_xclk_err,
-		fxck_nreqs, fxck_nacks, fxck_outstanding);
+		fxck_nreqs, fxck_nacks, fxck_outstanding
+		// }}}
+	);
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//

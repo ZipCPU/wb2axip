@@ -16,20 +16,18 @@ cvr: depth 40
 smtbmc
 
 [script]
-read -formal easyaxil.v
+read -formal axilempty.v
 opt_skidbuffer: read -formal skidbuffer.v
-read -formal faxil_register.v
 read -formal faxil_slave.v
 --pycode-begin--
-cmd = "hierarchy -top easyaxil"
+cmd = "hierarchy -top axilempty"
 cmd += " -chparam OPT_SKIDBUFFER %d" % (1 if "opt_skidbuffer" in tags else 0)
 cmd += " -chparam OPT_LOWPOWER %d" % (1 if "opt_lowpower" in tags else 0)
 output(cmd);
 --pycode-end--
-prep -top easyaxil
+prep -top axilempty
 
 [files]
-../../rtl/easyaxil.v
+../../rtl/axilempty.v
 opt_skidbuffer: ../../rtl/skidbuffer.v
 faxil_slave.v
-faxil_register.v

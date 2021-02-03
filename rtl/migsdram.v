@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	migsdram.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This file isn't really a part of the synthesis implementation 
@@ -21,9 +21,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2015-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2015-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -43,7 +43,7 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module	migsdram(i_clk, i_clk_200mhz, o_sys_clk, i_rst, o_sys_reset,
 	// Wishbone components
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,

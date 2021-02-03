@@ -21,7 +21,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -47,7 +47,7 @@ module	axi_addr #(
 		// {{{
 		parameter	AW = 32,
 				DW = 32,
-		parameter [0:0]	OPT_AXI3 = 1'b0,
+		// parameter [0:0]	OPT_AXI3 = 1'b0,
 		localparam	LENB = 8
 		// }}}
 	) (
@@ -64,8 +64,8 @@ module	axi_addr #(
 	// {{{
 	localparam		DSZ = $clog2(DW)-3;
 	localparam [1:0]	FIXED     = 2'b00;
-	localparam [1:0]	INCREMENT = 2'b01;
-	localparam [1:0]	WRAP      = 2'b10;
+	// localparam [1:0]	INCREMENT = 2'b01;
+	// localparam [1:0]	WRAP      = 2'b10;
 
 	reg	[AW-1:0]	wrap_mask, increment;
 	// }}}
@@ -233,7 +233,7 @@ module	axi_addr #(
 	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
-	assign	unused = (LENB <= 4) ? {1'b0, i_len[0] }
+	assign	unused = (LENB <= 4) ? &{1'b0, i_len[0] }
 				: &{ 1'b0, i_len[LENB-1:4], i_len[0] };
 	// Verilator lint_on UNUSED
 	// }}}

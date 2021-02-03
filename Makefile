@@ -1,7 +1,7 @@
 ################################################################################
 ##
 ## Filename:	Makefile
-##
+## {{{
 ## Project:	Pipelined Wishbone to AXI converter
 ##
 ## Purpose:	A master project makefile.  It tries to build all targets
@@ -13,9 +13,9 @@
 ##		Gisselquist Technology, LLC
 ##
 ################################################################################
-##
-## Copyright (C) 2015-2020, Gisselquist Technology, LLC
-##
+## }}}
+## Copyright (C) 2015-2021, Gisselquist Technology, LLC
+## {{{
 ## This file is part of the WB2AXIP project.
 ##
 ## The WB2AXIP project contains free software and gateware, licensed under the
@@ -33,7 +33,7 @@
 ##
 ################################################################################
 ##
-##
+## }}}
 .PHONY: all
 all:	archive rtl formal
 # all:	verilated sw bench bit
@@ -45,26 +45,35 @@ NOTES := `find . -name "*.txt"` `find . -name "*.html"`
 YYMMDD:=`date +%Y%m%d`
 
 .PHONY: archive
+## {{{
 archive:
 	tar --transform s,^,$(YYMMDD)-wb2axi/, -chjf $(YYMMDD)-wb2axi.tjz $(BENCH) $(RTL) $(NOTES)
+## }}}
 
-.PHONY: verilated
+.PHONY: verilated rtl
+## {{{
 verilated:
 	cd rtl ; $(MAKE) --no-print-directory
 
-.PHONY: rtl
 rtl: verilated
+## }}}
 
 .PHONY: bench
+## {{{
 bench: rtl
 	cd bench/cpp ; $(MAKE) --no-print-directory
+## }}}
 
 .PHONY: formal
+## {{{
 formal:
 	$(MAKE) --no-print-directory -C bench/formal
+## }}}
 
 .PHONY: doc
+## {{{
 doc:
 	cd doc ; $(MAKE) --no-print-directory
+## }}}
 
 

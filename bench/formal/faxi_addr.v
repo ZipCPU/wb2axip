@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	faxi_addr.v
-//
+// {{{
 // Project:	Pipelined Wishbone to AXI converter
 //
 // Purpose:	The AXI (full) standard has some rather complicated addressing
@@ -18,9 +18,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This program is free software (firmware): you can redistribute it and/or
 // modify it under the terms of  the GNU General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or (at
@@ -45,7 +45,7 @@
 //
 `default_nettype none
 //
-//
+// }}}
 module	faxi_addr(i_last_addr,
 		i_size,
 		i_burst,
@@ -127,7 +127,7 @@ module	faxi_addr(i_last_addr,
 		begin
 			// WRAP!
 			o_next_addr[AW-1:0] = (i_last_addr & ~wrap_mask)
-					| (o_next_addr & wrap_mask);;
+					| (o_next_addr & wrap_mask);
 		end
 	end
 

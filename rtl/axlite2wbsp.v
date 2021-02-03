@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axlite2wbsp.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Take an AXI lite input, and convert it into WB.
@@ -15,9 +15,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2016-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2016-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -37,7 +37,7 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module axlite2wbsp( i_clk, i_axi_reset_n,
 	//
 	o_axi_awready, i_axi_awaddr, i_axi_awcache, i_axi_awprot,i_axi_awvalid,

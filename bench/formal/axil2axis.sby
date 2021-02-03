@@ -8,7 +8,7 @@ cvr           opt_sink opt_src opt_timeout
 
 [options]
 prf: mode prove
-prf: depth 12
+prf: depth 6
 cvr: mode cover
 cvr: depth 40
 

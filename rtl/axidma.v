@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axidma.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	To move memory from one location to another, at high speed.
@@ -39,9 +39,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -62,8 +62,9 @@
 //
 `default_nettype	none
 // `define			AXI3
-//
+// }}}
 module	axidma #(
+		// {{{
 		parameter	C_AXI_ID_WIDTH = 1,
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
@@ -136,7 +137,9 @@ module	axidma #(
 		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3,
 		localparam	AXILLSB= $clog2(C_AXIL_DATA_WIDTH)-3,
 		localparam	LGLENW= LGLEN-ADDRLSB
+		// }}}
 	) (
+		// {{{
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
 		//
@@ -223,10 +226,12 @@ module	axidma #(
 		input	wire				M_AXI_RLAST,
 		input	wire	[1:0]			M_AXI_RRESP,
 		//
-		output	reg				o_int);
+		output	reg				o_int
+		// }}}
+	);
 
 	localparam	[2:0]	CTRL_ADDR   = 3'b000,
-				UNUSED_ADDR = 3'b001,
+				// UNUSED_ADDR = 3'b001,
 				SRCLO_ADDR  = 3'b010,
 				SRCHI_ADDR  = 3'b011,
 				DSTLO_ADDR  = 3'b100,
@@ -778,8 +783,8 @@ module	axidma #(
 	end else if (phantom_read)
 	begin
 		readlen_w <= reads_remaining_w - (M_AXI_ARLEN+1);
-		if (reads_remaining_w - (M_AXI_ARLEN+1) > (1<<LGMAXBURST))
-			readlen_w <= (1<<LGMAXBURST);
+		if (reads_remaining_w - (M_AXI_ARLEN+1) > MAXBURST)
+			readlen_w <= MAXBURST;
 	end
 	// Verilator lint_on WIDTH
 
@@ -790,7 +795,7 @@ module	axidma #(
 			w_start_read = 0;
 		if (!OPT_WRAPMEM && read_address[C_AXI_ADDR_WIDTH])
 			w_start_read = 0;
-		if (fifo_space_available < (1<<LGMAXBURST))
+		if (fifo_space_available < MAXBURST)
 			w_start_read = 0;
 		if (M_AXI_ARVALID && !M_AXI_ARREADY)
 			w_start_read = 0;
@@ -1299,7 +1304,7 @@ module	axidma #(
 	begin
 		first_write_burst <= 1'b1;
 		if (|writelen_b[LGLEN:ADDRLSB+LGMAXBURST])
-			first_write_len_w <= (1<<LGMAXBURST);
+			first_write_len_w <= MAXBURST;
 		else
 			first_write_len_w <= { 1'b0,
 				writelen_b[ADDRLSB +: LGMAXBURST] };
@@ -1319,7 +1324,7 @@ module	axidma #(
 	if (first_write_burst)
 		write_burst_length = first_write_len_w;
 	else begin
-		write_burst_length = (1<<LGMAXBURST);
+		write_burst_length = MAXBURST;
 
 		if (!multiple_write_bursts_remaining
 			&& (write_burst_length[ADDRLSB +: LGMAXBURST]

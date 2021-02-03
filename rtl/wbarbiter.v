@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbarbiter.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This is a priority bus arbiter.  It allows two separate wishbone
@@ -33,9 +33,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2015-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2015-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -57,56 +57,55 @@
 `default_nettype	none
 //
 `define	WBA_ALTERNATING
-//
-module	wbarbiter(i_clk, i_reset,
-	// Bus A -- the priority bus
-	i_a_cyc, i_a_stb, i_a_we, i_a_adr, i_a_dat, i_a_sel,
-		o_a_ack, o_a_stall, o_a_err,
-	// Bus B
-	i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
-		o_b_ack, o_b_stall, o_b_err,
-	// Combined/arbitrated bus
-	o_cyc, o_stb, o_we, o_adr, o_dat, o_sel, i_ack, i_stall, i_err
+// }}}
+module	wbarbiter #(
+		// {{{
+		parameter		DW=32, AW=32,
+		parameter		SCHEME="ALTERNATING",
+		parameter [0:0]		OPT_ZERO_ON_IDLE = 1'b0,
+		parameter [31:0]	F_MAX_STALL = 3,
+		parameter [31:0]	F_MAX_ACK_DELAY = 3,
+		parameter [31:0]	F_LGDEPTH=3
+		// }}}
+	) (
+		// {{{
+		input	wire			i_clk, i_reset,
+		// Bus A
+		// {{{
+		input	wire			i_a_cyc, i_a_stb, i_a_we,
+		input	wire	[(AW-1):0]	i_a_adr,
+		input	wire	[(DW-1):0]	i_a_dat,
+		input	wire	[(DW/8-1):0]	i_a_sel,
+		output	wire			o_a_ack, o_a_stall, o_a_err,
+		// }}}
+		// Bus B
+		// {{{
+		input	wire			i_b_cyc, i_b_stb, i_b_we,
+		input	wire	[(AW-1):0]	i_b_adr,
+		input	wire	[(DW-1):0]	i_b_dat,
+		input	wire	[(DW/8-1):0]	i_b_sel,
+		output	wire			o_b_ack, o_b_stall, o_b_err,
+		// }}}
+		// Combined/arbitrated bus
+		// {{{
+		output	wire			o_cyc, o_stb, o_we,
+		output	wire	[(AW-1):0]	o_adr,
+		output	wire	[(DW-1):0]	o_dat,
+		output	wire	[(DW/8-1):0]	o_sel,
+		input	wire			i_ack, i_stall, i_err
+		// }}}
 `ifdef	FORMAL
-	,
-	f_a_nreqs, f_a_nacks, f_a_outstanding,
-	f_b_nreqs, f_b_nacks, f_b_outstanding,
-	f_nreqs,   f_nacks,   f_outstanding
-`endif
-	);
-	parameter			DW=32, AW=32;
-	parameter			SCHEME="ALTERNATING";
-	parameter	[0:0]		OPT_ZERO_ON_IDLE = 1'b0;
-	parameter			F_MAX_STALL = 3;
-	parameter			F_MAX_ACK_DELAY = 3;
-	parameter			F_LGDEPTH=3;
-
-	//
-	input	wire			i_clk, i_reset;
-	// Bus A
-	input	wire			i_a_cyc, i_a_stb, i_a_we;
-	input	wire	[(AW-1):0]	i_a_adr;
-	input	wire	[(DW-1):0]	i_a_dat;
-	input	wire	[(DW/8-1):0]	i_a_sel;
-	output	wire			o_a_ack, o_a_stall, o_a_err;
-	// Bus B
-	input	wire			i_b_cyc, i_b_stb, i_b_we;
-	input	wire	[(AW-1):0]	i_b_adr;
-	input	wire	[(DW-1):0]	i_b_dat;
-	input	wire	[(DW/8-1):0]	i_b_sel;
-	output	wire			o_b_ack, o_b_stall, o_b_err;
-	//
-	output	wire			o_cyc, o_stb, o_we;
-	output	wire	[(AW-1):0]	o_adr;
-	output	wire	[(DW-1):0]	o_dat;
-	output	wire	[(DW/8-1):0]	o_sel;
-	input	wire			i_ack, i_stall, i_err;
-	//
-`ifdef	FORMAL
-	output	wire	[(F_LGDEPTH-1):0] f_nreqs, f_nacks, f_outstanding,
+		// {{{
+		,
+		output	wire	[(F_LGDEPTH-1):0]
+			f_nreqs, f_nacks, f_outstanding,
 			f_a_nreqs, f_a_nacks, f_a_outstanding,
-			f_b_nreqs, f_b_nacks, f_b_outstanding;
+			f_b_nreqs, f_b_nacks, f_b_outstanding
+		// }}}
 `endif
+		// }}}
+	);
+	//
 
 	// Go high immediately (new cycle) if ...
 	//	Previous cycle was low and *someone* is requesting a bus cycle
@@ -176,7 +175,8 @@ module	wbarbiter(i_clk, i_reset,
 	assign o_we  = (r_a_owner) ? i_a_we  : i_b_we;
 
 	generate if (OPT_ZERO_ON_IDLE)
-	begin
+	begin : ZERO_IDLE
+		// {{{
 		//
 		// OPT_ZERO_ON_IDLE will use up more logic and may even slow
 		// down the master clock if set.  However, it may also reduce
@@ -196,8 +196,9 @@ module	wbarbiter(i_clk, i_reset,
 		assign o_b_stall = (o_cyc)&&(!r_a_owner) ? i_stall : 1'b1;
 		assign o_a_err   = (o_cyc)&&( r_a_owner) ? i_err : 1'b0;
 		assign o_b_err   = (o_cyc)&&(!r_a_owner) ? i_err : 1'b0;
-	end else begin
-
+		// }}}
+	end else begin : LOW_LOGIC
+		// {{{
 		assign o_stb = (r_a_owner) ? i_a_stb : i_b_stb;
 		assign o_adr = (r_a_owner) ? i_a_adr : i_b_adr;
 		assign o_dat = (r_a_owner) ? i_a_dat : i_b_dat;
@@ -218,13 +219,17 @@ module	wbarbiter(i_clk, i_reset,
 		//
 		assign	o_a_err = ( r_a_owner) ? i_err : 1'b0;
 		assign	o_b_err = (!r_a_owner) ? i_err : 1'b0;
+		// }}}
 	end endgenerate
 
 	// Make Verilator happy
+	// {{{
 	// verilator lint_off UNUSED
 	wire	unused;
-	assign	unused = i_reset;
+	assign	unused = &{ 1'b0, i_reset, F_LGDEPTH, F_MAX_STALL,
+					F_MAX_ACK_DELAY };
 	// verilator lint_on  UNUSED
+	// }}}
 
 `ifdef	FORMAL
 

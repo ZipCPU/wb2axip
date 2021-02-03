@@ -13,7 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -42,7 +42,8 @@ module	fapb_slave #(
 		parameter F_OPT_MAXSTALL = 4,
 		// Set F_OPT_SLVERR to 1 if your slave supports PSLVERR
 		// assertion, otherwise we'll assert it remains false.
-		parameter [0:0] F_OPT_SLVERR = 1'b0
+		parameter [0:0] F_OPT_SLVERR = 1'b0,
+		parameter [0:0]	F_OPT_ASYNC_RESET = 1'b0
 		// }}}
 	) (
 		// {{{
@@ -88,7 +89,7 @@ module	fapb_slave #(
 	// PSEL
 	// {{{
 	always @(posedge PCLK)
-	if (!f_past_valid || !$past(PRESETn))
+	if (!f_past_valid || !$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 		`SLAVE_ASSUME(!PSEL);
 	else if ($past(PSEL) && !$past(PENABLE && PREADY))
 		`SLAVE_ASSUME(PSEL);
@@ -98,7 +99,7 @@ module	fapb_slave #(
 	// PENABLE
 	// {{{
 	always @(posedge PCLK)
-	if (!f_past_valid || !$past(PRESETn))
+	if (!f_past_valid || !$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 		`SLAVE_ASSUME(!PENABLE);
 	else if (PSEL)
 	begin
@@ -126,7 +127,7 @@ module	fapb_slave #(
 	// PADDR, PWRITE, and PWDATA need to hold while stalled
 	// {{{
 	always @(posedge PCLK)
-	if ((!f_past_valid)||(!$past(PRESETn)))
+	if ((!f_past_valid)||!$past(PRESETn)||(F_OPT_ASYNC_RESET && !PRESETn))
 	begin
 		`SLAVE_ASSERT(!PREADY);
 	end else if ($past(PSEL) && (!$past(PENABLE) || !$past(PREADY)))

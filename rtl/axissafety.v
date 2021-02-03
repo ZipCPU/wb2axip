@@ -50,7 +50,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -525,7 +525,7 @@ module	axissafety #(
 
 		// f_packet_counter
 		// {{{
-		generate if (OPT_PACKET_LENGTH != 0)
+		if (OPT_PACKET_LENGTH != 0)
 		begin
 			// {{{
 			reg	[LGPKTLEN-1:0]	fs_packet_counter;
@@ -559,12 +559,12 @@ module	axissafety #(
 			if (S_AXI_ARESETN && S_AXIS_TVALID)
 				assume(S_AXIS_TLAST == (fs_packet_counter == OPT_PACKET_LENGTH-1));
 			// }}}
-		end endgenerate
+		end
 		// }}}
 
 		// f_stall_count
 		// {{{
-		generate if (OPT_MAX_STALL != 0)
+		if (OPT_MAX_STALL != 0)
 		begin
 		// {{{
 			reg	[LGSTALLCOUNT-1:0]	f_stall_count;
@@ -585,7 +585,7 @@ module	axissafety #(
 			always @(*)
 				assume(f_stall_count <= OPT_MAX_STALL);
 		// }}}
-		end endgenerate
+		end
 		// }}}
 
 		always @(*)

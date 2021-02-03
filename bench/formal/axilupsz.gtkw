@@ -1,0 +1,190 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Wed Feb  3 21:06:28 2021
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1870 987
+[pos] -1 -1
+*-5.010530 34 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axilupsz.
+[treeopen] axilupsz.axil_slave.
+[sst_width] 329
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 266
+@28
+axilupsz.S_AXI_ACLK
+axilupsz.S_AXI_ARESETN
+@200
+-
+@800200
+-Slave
+@28
+[color] 3
+axilupsz.S_AXIL_AWVALID
+[color] 2
+axilupsz.S_AXIL_AWREADY
+[color] 3
+axilupsz.S_AXIL_AWPROT[2:0]
+@22
+[color] 3
+axilupsz.S_AXIL_AWADDR[31:0]
+@200
+-
+@28
+[color] 3
+axilupsz.S_AXIL_WVALID
+[color] 2
+axilupsz.S_AXIL_WREADY
+@22
+[color] 3
+axilupsz.S_AXIL_WDATA[31:0]
+[color] 3
+axilupsz.S_AXIL_WSTRB[3:0]
+@200
+-
+@28
+[color] 2
+axilupsz.S_AXIL_BVALID
+[color] 3
+axilupsz.S_AXIL_BREADY
+[color] 2
+axilupsz.S_AXIL_BRESP[1:0]
+@200
+-
+@28
+[color] 3
+axilupsz.S_AXIL_ARVALID
+[color] 2
+axilupsz.S_AXIL_ARREADY
+@22
+[color] 3
+axilupsz.S_AXIL_ARADDR[31:0]
+@28
+[color] 3
+axilupsz.S_AXIL_ARPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilupsz.S_AXIL_RVALID
+[color] 3
+axilupsz.S_AXIL_RREADY
+@22
+[color] 2
+axilupsz.S_AXIL_RDATA[31:0]
+@28
+[color] 2
+axilupsz.S_AXIL_RRESP[1:0]
+@1000200
+-Slave
+@28
+axilupsz.wskd_valid
+axilupsz.wskd_ready
+axilupsz.rskd_ready
+@200
+-
+@22
+axilupsz.rskd_data[63:0]
+@28
+axilupsz.rskd_valid
+axilupsz.rskd_ready
+axilupsz.rskd_resp[1:0]
+@c00022
+axilupsz.rfifo_fill[5:0]
+@28
+(0)axilupsz.rfifo_fill[5:0]
+(1)axilupsz.rfifo_fill[5:0]
+(2)axilupsz.rfifo_fill[5:0]
+(3)axilupsz.rfifo_fill[5:0]
+(4)axilupsz.rfifo_fill[5:0]
+(5)axilupsz.rfifo_fill[5:0]
+@1401200
+-group_end
+@800200
+-Master
+@28
+[color] 2
+axilupsz.M_AXIL_AWVALID
+[color] 3
+axilupsz.M_AXIL_AWREADY
+@22
+[color] 2
+axilupsz.M_AXIL_AWADDR[31:0]
+@28
+[color] 2
+axilupsz.M_AXIL_AWPROT[2:0]
+@200
+-
+@28
+[color] 2
+axilupsz.M_AXIL_WVALID
+[color] 3
+axilupsz.M_AXIL_WREADY
+@22
+[color] 2
+axilupsz.M_AXIL_WDATA[63:0]
+[color] 2
+axilupsz.M_AXIL_WSTRB[7:0]
+@200
+-
+@28
+[color] 3
+axilupsz.M_AXIL_BVALID
+[color] 2
+axilupsz.M_AXIL_BREADY
+[color] 3
+axilupsz.M_AXIL_BRESP[1:0]
+@200
+-
+@28
+[color] 2
+axilupsz.M_AXIL_ARVALID
+[color] 3
+axilupsz.M_AXIL_ARREADY
+@22
+[color] 2
+axilupsz.M_AXIL_ARADDR[31:0]
+@28
+[color] 2
+axilupsz.M_AXIL_ARPROT[2:0]
+@200
+-
+@28
+[color] 3
+axilupsz.M_AXIL_RVALID
+[color] 2
+axilupsz.M_AXIL_RREADY
+@22
+[color] 3
+axilupsz.M_AXIL_RDATA[63:0]
+@28
+[color] 3
+axilupsz.M_AXIL_RRESP[1:0]
+@1000200
+-Master
+@28
+[color] 2
+axilupsz.rfifo_full
+@200
+-
+@23
+axilupsz.fslv_awr_outstanding[6:0]
+@22
+axilupsz.fslv_wr_outstanding[6:0]
+axilupsz.fslv_rd_outstanding[6:0]
+@200
+-
+@22
+axilupsz.fmst_awr_outstanding[6:0]
+axilupsz.fmst_rd_outstanding[6:0]
+axilupsz.fmst_wr_outstanding[6:0]
+@200
+-
+@22
+axilupsz.axil_slave.CHECK_STALL_COUNT.f_axi_awstall[4:0]
+axilupsz.axil_slave.CHECK_STALL_COUNT.f_axi_wstall[4:0]
+axilupsz.axil_slave.CHECK_STALL_COUNT.f_axi_arstall[4:0]
+[pattern_trace] 1
+[pattern_trace] 0

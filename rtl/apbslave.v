@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -146,8 +146,13 @@ module	apbslave #(
 	(* anyconst *)	reg [AW-1:0]	f_addr;
 	reg	[DW-1:0]		f_data;
 
+`ifndef	FORMAL
 	initial for(ik=0; ik<(1<<AW); ik=ik+1)
 		mem[ik] = 0;
+`endif
+	always @(*)
+	if (!PRESETn)
+		assume(mem[f_addr[AW-1:APBLSB]] == f_data);
 
 	initial	f_data = 0;
 	always @(posedge PCLK)
@@ -207,6 +212,14 @@ module	apbslave #(
 			cvr_seq[1] <= 1'b1;
 		if (cvr_seq[1] && PRDATA == 32'h0)
 			cvr_seq[2] <= 1'b1;
+	end
+
+	always @(*)
+	if (PRESETn)
+	begin
+		cover(cvr_seq[0]);
+		cover(cvr_seq[1]);
+		cover(cvr_seq[2]);
 	end
 
 	always @(*)

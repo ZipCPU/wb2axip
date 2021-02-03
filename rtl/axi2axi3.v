@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axi2axi3.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Bridge from an AXI4 slave to an AXI3 master
@@ -27,9 +27,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -49,15 +49,18 @@
 //
 //
 `default_nettype none
-//
+// }}}
 //
 module	axi2axi3 #(
+		// {{{
 		parameter	C_AXI_ID_WIDTH = 1,
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
 		//
 		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3
+		// }}}
 	) (
+		// {{{
 		input	wire				S_AXI_ACLK,
 		input	wire				S_AXI_ARESETN,
 		//
@@ -154,6 +157,7 @@ module	axi2axi3 #(
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire				M_AXI_RLAST,
 		input	wire	[1:0]			M_AXI_RRESP
+		// }}}
 	);
 
 	localparam	[0:0]	OPT_LOWPOWER = 1'b0;

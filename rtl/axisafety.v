@@ -121,8 +121,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -277,7 +277,6 @@ module axisafety #(
 	);
 
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
-	localparam	LSB = $clog2(DW)-3;
 	localparam	EXOKAY = 2'b01;
 	localparam	SLAVE_ERROR = 2'b10;
 	//
@@ -1386,7 +1385,6 @@ module axisafety #(
 	assign	unused = &{ 1'b0 };
 	// Verilator lint_on  UNUSED
 	// }}}
-// Add user logic here
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axixclk.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Cross AXI clock domains
@@ -12,9 +12,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,22 +34,24 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module axixclk #(
-	parameter integer C_S_AXI_ID_WIDTH	= 2,
-	parameter integer C_S_AXI_DATA_WIDTH	= 32,
-	parameter integer C_S_AXI_ADDR_WIDTH	= 6,
-	// Some useful short-hand definitions
-	localparam	AW = C_S_AXI_ADDR_WIDTH,
-	localparam	DW = C_S_AXI_DATA_WIDTH,
-	localparam	IW = C_S_AXI_ID_WIDTH,
-	localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3,
-	//
-	parameter [0:0]	OPT_WRITE_ONLY = 1'b0,
-	parameter [0:0]	OPT_READ_ONLY = 1'b0,
-	parameter	XCLOCK_FFS = 2,
-	parameter	LGFIFO = 5
+		// {{{
+		parameter integer C_S_AXI_ID_WIDTH	= 2,
+		parameter integer C_S_AXI_DATA_WIDTH	= 32,
+		parameter integer C_S_AXI_ADDR_WIDTH	= 6,
+		// Some useful short-hand definitions
+		// localparam	AW = C_S_AXI_ADDR_WIDTH,
+		// localparam	DW = C_S_AXI_DATA_WIDTH,
+		// localparam	IW = C_S_AXI_ID_WIDTH,
+		//
+		parameter [0:0]	OPT_WRITE_ONLY = 1'b0,
+		parameter [0:0]	OPT_READ_ONLY = 1'b0,
+		parameter	XCLOCK_FFS = 2,
+		parameter	LGFIFO = 5
+		// }}}
 	) (
+		// {{{
 		// Users to add ports here
 
 		// User ports ends
@@ -147,6 +149,7 @@ module axixclk #(
 		input	wire				M_AXI_RLAST,
 		input	wire				M_AXI_RVALID,
 		output	wire				M_AXI_RREADY
+		// }}}
 	);
 
 	reg	[2:0]	mreset;

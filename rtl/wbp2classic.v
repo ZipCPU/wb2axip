@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbp2classic.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Takes a WB pipelined connection from a master, and converts it
@@ -11,9 +11,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -33,100 +33,116 @@
 //
 //
 `default_nettype	none
-//
-module	wbp2classic(i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			o_mstall, o_mack, o_mdata, o_merr,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-			i_sack, i_sdata, i_serr,
-			o_scti, o_sbte);
-	parameter	AW = 12,
-			DW = 32;
-	//
-	input	wire	i_clk, i_reset;
-	//
-	// Incoming WB pipelined port
-	input	wire			i_mcyc, i_mstb, i_mwe;
-	input	wire	[AW-1:0]	i_maddr;
-	input	wire	[DW-1:0]	i_mdata;
-	input	wire	[DW/8-1:0]	i_msel;
-	output	reg			o_mstall, o_mack;
-	output	reg	[DW-1:0]	o_mdata;
-	output	reg			o_merr;
-	//
-	// Outgoing WB classic port
-	output	reg			o_scyc, o_sstb, o_swe;
-	output	reg	[AW-1:0]	o_saddr;
-	output	reg	[DW-1:0]	o_sdata;
-	output	reg	[DW/8-1:0]	o_ssel;
-	input	wire			i_sack;
-	input	wire	[DW-1:0]	i_sdata;
-	input	wire			i_serr;
-	// Extra wires, not necessarily necessary for WB/B3
-	output	reg	[2:0]		o_scti;
-	output	reg	[1:0]		o_sbte;
+// }}}
+module	wbp2classic #(
+		// {{{
+		parameter	AW = 12,
+				DW = 32
+		// }}}
+	) (
+		// {{{
+		input	wire			i_clk, i_reset,
+		//
+		// Incoming WB pipelined port
+		input	wire			i_scyc, i_sstb, i_swe,
+		input	wire	[AW-1:0]	i_saddr,
+		input	wire	[DW-1:0]	i_sdata,
+		input	wire	[DW/8-1:0]	i_ssel,
+		output	reg			o_sstall, o_sack,
+		output	reg	[DW-1:0]	o_sdata,
+		output	reg			o_serr,
+		//
+		// Outgoing WB classic port
+		output	reg			o_mcyc, o_mstb, o_mwe,
+		output	reg	[AW-1:0]	o_maddr,
+		output	reg	[DW-1:0]	o_mdata,
+		output	reg	[DW/8-1:0]	o_msel,
+		input	wire			i_mack,
+		input	wire	[DW-1:0]	i_mdata,
+		input	wire			i_merr,
+		// Extra wires, not necessarily necessary for WB/B3
+		output	reg	[2:0]		o_mcti,
+		output	reg	[1:0]		o_mbte
+		// }}}
+	);
 
 	//
 	// returned = whether we've received our return value or not.
 	reg	returned;
 
+	// Combinatorial values forwarded downstream
+	// {{{
 	always @(*)
 	begin
-		o_scyc  = i_mcyc;
-		o_sstb  = i_mstb && !returned;
-		o_swe   = i_mwe;
-		o_saddr = i_maddr;
-		o_sdata = i_mdata;
-		o_ssel  = i_msel;
+		o_mcyc  = i_scyc;
+		o_mstb  = i_sstb && !returned;
+		o_mwe   = i_swe;
+		o_maddr = i_saddr;
+		o_mdata = i_sdata;
+		o_msel  = i_ssel;
 
 		// Cycle type indicator: Classic
-		o_scti = 3'b000;
+		o_mcti = 3'b000;
 		// Burst type indicator--ignored for single transaction cycle
 		// types, such as the classic type above
-		o_sbte = 2'b00; // Linear burst
+		o_mbte = 2'b00; // Linear burst
 	end
+	// }}}
 
+	// returned
+	// {{{
 	initial	returned = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 		returned <= 0;
-	else if (!i_mstb || returned)
+	else if (!i_sstb || returned)
 		returned <= 0;
-	else if (i_sack || i_serr)
+	else if (i_mack || i_merr)
 		returned <= 1;
+	// }}}
 
+	// o_sstall
+	// {{{
 	always @(*)
-		o_mstall = !returned;
+		o_sstall = !returned;
+	// }}}
 
-	initial	o_mack = 0;
-	initial	o_merr = 0;
+	// o_sack, o_serr
+	// {{{
+	initial	o_sack = 0;
+	initial	o_serr = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
-		o_mack <= 0;
-		o_merr <= 0;
+		o_sack <= 0;
+		o_serr <= 0;
 	end else begin
-		o_mack <= (i_mcyc) && i_sack;
-		o_merr <= (i_mcyc) && i_serr;
+		o_sack <= (i_scyc) && i_mack;
+		o_serr <= (i_scyc) && i_merr;
 	end
+	// }}}
 
+	// o_mdata
+	// {{{
 	always @(posedge i_clk)
-	if (i_sack || i_serr)
-		o_mdata <= i_sdata;
-
-
+	if (i_mack || i_merr)
+		o_sdata <= i_mdata;
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
 	localparam	F_LGDEPTH = 1;
+	reg	f_past_valid;
+	reg	f_ongoing;
 	reg	[F_LGDEPTH-1:0]	f_nreqs, f_nacks, f_outstanding;
 
-	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge i_clk)
 		f_past_valid = 1;
@@ -135,29 +151,47 @@ module	wbp2classic(i_clk, i_reset,
 	if (!f_past_valid)
 		assume(i_reset);
 
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Upstream Wishbone pipeline slave properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
 	fwb_slave #(.AW(AW), .DW(DW),
 			.F_MAX_STALL(4),
 			.F_MAX_ACK_DELAY(15),
 			.F_LGDEPTH(1)) incoming (i_clk, i_reset,
-		i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-			o_mack, o_mstall, o_mdata, o_merr,
+		i_scyc, i_sstb, i_swe, i_saddr, i_sdata, i_ssel,
+			o_sack, o_sstall, o_sdata, o_serr,
 			f_nreqs, f_nacks, f_outstanding);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Downstream Wishbone classic master properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	fwbc_master #(.AW(AW), .DW(DW), .F_MAX_DELAY(3))
 	classic (i_clk, i_reset,
-		o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel, o_scti, o_sbte,
-			i_sack, i_sdata, i_serr, 1'b0);
+		o_mcyc, o_mstb, o_mwe, o_maddr, o_mdata, o_msel, o_mcti, o_mbte,
+			i_mack, i_mdata, i_merr, 1'b0);
+
+	// }}}
 
 	//
 	// Disallow bus aborts
-	reg	f_ongoing;
 	always @(posedge i_clk)
-		f_ongoing <= (!i_reset && i_mstb && !(o_mack | o_merr));
+		f_ongoing <= (!i_reset && i_sstb && !(o_sack | o_serr));
 
 	always @(*)
 	if (f_ongoing)
-		assume(i_mstb);
+		assume(i_sstb);
 `endif
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire

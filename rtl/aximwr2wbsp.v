@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	aximwr2wbsp.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Convert the three AXI4 write channels to a single wishbone
@@ -12,9 +12,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2015-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2015-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,62 +34,71 @@
 //
 //
 `default_nettype	none
-//
-//
+// }}}
 module aximwr2wbsp #(
-	parameter C_AXI_ID_WIDTH	= 6, // The AXI id width used for R&W
-                                             // This is an int between 1-16
-	parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
-	parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
-	parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0, // Lil to Big Endian swap
-	localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
-	localparam AW			= C_AXI_ADDR_WIDTH-AXI_LSBS,
-	localparam DW			= C_AXI_DATA_WIDTH,
+		// {{{
+		parameter C_AXI_ID_WIDTH	= 6,
+		parameter C_AXI_DATA_WIDTH	= 32,
+		parameter C_AXI_ADDR_WIDTH	= 28,
+		parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b1,
+		localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
+		localparam AW			= C_AXI_ADDR_WIDTH-AXI_LSBS,
+		localparam DW			= C_AXI_DATA_WIDTH,
 
-	parameter LGFIFO                =  5
+		parameter LGFIFO                =  5
+		// }}}
 	) (
-	input	wire			S_AXI_ACLK,	// System clock
-	input	wire			S_AXI_ARESETN,
+		// {{{
+		input	wire			S_AXI_ACLK,	// System clock
+		input	wire			S_AXI_ARESETN,
+		// Incoming AXI bus connections
+		// {{{
+		// AXI write address channel signals
+		input	wire			S_AXI_AWVALID,
+		output	wire			S_AXI_AWREADY,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
+		input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
+		input	wire	[7:0]		S_AXI_AWLEN,
+		input	wire	[2:0]		S_AXI_AWSIZE,
+		input	wire	[1:0]		S_AXI_AWBURST,
+		input	wire	[0:0]		S_AXI_AWLOCK,
+		input	wire	[3:0]		S_AXI_AWCACHE,
+		input	wire	[2:0]		S_AXI_AWPROT,
+		input	wire	[3:0]		S_AXI_AWQOS,
 
-// AXI write address channel signals
-	input	wire			S_AXI_AWVALID,	// Write address valid
-	output	wire			S_AXI_AWREADY, // Slave is ready to accept
-	input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,	// Write ID
-	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,	// Write address
-	input	wire	[7:0]		S_AXI_AWLEN,	// Write Burst Length
-	input	wire	[2:0]		S_AXI_AWSIZE,	// Write Burst size
-	input	wire	[1:0]		S_AXI_AWBURST,	// Write Burst type
-	input	wire	[0:0]		S_AXI_AWLOCK,	// Write lock type
-	input	wire	[3:0]		S_AXI_AWCACHE,	// Write Cache type
-	input	wire	[2:0]		S_AXI_AWPROT,	// Write Protection type
-	input	wire	[3:0]		S_AXI_AWQOS,	// Write Quality of Svc
-  
-// AXI write data channel signals
-	input	wire			S_AXI_WVALID,	// Write valid
-	output	wire			S_AXI_WREADY,  // Write data ready
-	input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,	// Write data
-	input	wire	[C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,	// Write strobes
-	input	wire			S_AXI_WLAST,	// Last write transaction   
-  
-// AXI write response channel signals
-	output	wire			S_AXI_BVALID,  // Write reponse valid
-	input	wire			S_AXI_BREADY,  // Response ready
-	output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,	// Response ID
-	output	wire [1:0]		S_AXI_BRESP,	// Write response
-  
-	// We'll share the clock and the reset
-	output	reg			o_wb_cyc,
-	output	reg			o_wb_stb,
-	output	reg [(AW-1):0]		o_wb_addr,
-	output	reg [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
-	output	reg [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
-	input	wire			i_wb_stall,
-	input	wire			i_wb_ack,
-	// input	[(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
-	input	wire			i_wb_err
-);
+		// AXI write data channel signals
+		input	wire			S_AXI_WVALID,
+		output	wire			S_AXI_WREADY,
+		input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI_WDATA,
+		input	wire	[C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,
+		input	wire			S_AXI_WLAST,
 
-	wire	w_reset;
+		// AXI write response channel signals
+		output	wire			S_AXI_BVALID,
+		input	wire			S_AXI_BREADY,
+		output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,
+		output	wire [1:0]		S_AXI_BRESP,
+		// }}}
+		// Downstream wishbone bus
+		// {{{
+		// We'll share the clock and the reset
+		output	reg			o_wb_cyc,
+		output	reg			o_wb_stb,
+		output	reg [(AW-1):0]		o_wb_addr,
+		output	reg [(C_AXI_DATA_WIDTH-1):0]	o_wb_data,
+		output	reg [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
+		input	wire			i_wb_stall,
+		input	wire			i_wb_ack,
+		// input [(C_AXI_DATA_WIDTH-1):0] i_wb_data,
+		input	wire			i_wb_err
+		// }}}
+
+		// }}}
+	);
+
+	// Register/net declarations
+	// {{{
+	wire			w_reset;
 
 	wire			skid_awvalid;
 	reg			accept_write_burst;
@@ -135,10 +144,21 @@ module aximwr2wbsp #(
 	wire			bid_fifo_full, bid_fifo_empty;
 	wire	[LGFIFO:0]	bid_fifo_fill;
 
+	reg	[8:0]	next_acklen;
+	reg	[1:0]	next_acklow;
 
 	assign	w_reset = (S_AXI_ARESETN == 1'b0);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Skid buffers--all incoming signals go throug skid buffers
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
-	// Step 1: a pair of skid buffers
+	// write address skid buffer
+	// {{{
 	skidbuffer #(
 		.OPT_OUTREG(0),
 		.DW(C_AXI_ADDR_WIDTH+C_AXI_ID_WIDTH+8+3+2))
@@ -148,8 +168,14 @@ module aximwr2wbsp #(
 		skid_awvalid, accept_write_burst,
 		{ skid_awid, skid_awaddr, skid_awlen,
 			skid_awsize, skid_awburst });
+	// }}}
 
+	// write channel skid buffer
+	// {{{
 	skidbuffer #(
+`ifdef	FORMAL
+		.OPT_PASSTHROUGH(1'b1),
+`endif
 		.OPT_OUTREG(0),
 		.DW(C_AXI_DATA_WIDTH + C_AXI_DATA_WIDTH/8+1))
 	wskid(S_AXI_ACLK, !S_AXI_ARESETN,
@@ -157,7 +183,10 @@ module aximwr2wbsp #(
 		{ S_AXI_WDATA, S_AXI_WSTRB, S_AXI_WLAST },
 		skid_wvalid, skid_wready,
 		{ skid_wdata, skid_wstrb, skid_wlast });
+	// }}}
 
+	// accept_write_burst
+	// {{{
 	always @(*)
 	begin
 		accept_write_burst = (skid_awready)&&(!o_wb_stb || !i_wb_stall)
@@ -168,12 +197,17 @@ module aximwr2wbsp #(
 		if (!skid_wvalid)
 			accept_write_burst = 0;
 	end
+	// }}}
 
+	// skid_wready
+	// {{{
 	always @(*)
 		skid_wready = (!o_wb_stb || !i_wb_stall || err_state)
 			&&(!skid_awready || accept_write_burst);
+	// }}}
 
-
+	// skid_awready
+	// {{{
 	initial	skid_awready = 1'b1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -182,8 +216,19 @@ module aximwr2wbsp #(
 		skid_awready <= (skid_awlen == 0)&&(skid_wvalid)&&(skid_wlast);
 	else if (skid_wvalid && skid_wready && skid_wlast)
 		skid_awready <= 1'b1;
+	// }}}
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Burst unwinding
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
+	// axi_w*, wlen -- properties of the currently active burst
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (accept_write_burst)
 	begin
@@ -199,10 +244,25 @@ module aximwr2wbsp #(
 		if (!skid_awready)
 			wlen <= wlen - 1;
 	end
+	// }}}
 
+	// next_addr
+	// {{{
 	axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
 	next_write_addr(axi_waddr, axi_wsize, axi_wburst, axi_wlen, next_addr);
+	// }}}
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Issue the Wishbone request
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	// o_wb_cyc, o_wb_stb
+	// {{{
 	initial	{ o_wb_cyc, o_wb_stb } = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || err_state || (o_wb_cyc && i_wb_err))
@@ -219,10 +279,13 @@ module aximwr2wbsp #(
 		if (o_wb_cyc && last_ack && i_wb_ack && !skid_awvalid)
 			o_wb_cyc <= 0;
 	end
-		
+	// }}}
+
 	always @(*)
 		o_wb_addr = axi_waddr[C_AXI_ADDR_WIDTH-1:AXI_LSBS];
-	
+
+	// o_wb_data, o_wb_sel
+	// {{{
 	generate if (OPT_SWAP_ENDIANNESS)
 	begin : SWAP_ENDIANNESS
 		integer	ik;
@@ -248,8 +311,19 @@ module aximwr2wbsp #(
 		end
 
 	end endgenerate
+	// }}}
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// FIFO usage tracking
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
+	// writes_expected
+	// {{{
 	initial	writes_expected = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -261,8 +335,10 @@ module aximwr2wbsp #(
 	2'b10:	writes_expected <= writes_expected + 1;
 	default: begin end
 	endcase
+	// }}}
 
-
+	// acks_expected
+	// {{{
 	initial	acks_expected = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || i_wb_err || err_state)
@@ -274,7 +350,10 @@ module aximwr2wbsp #(
 	2'b11:	acks_expected <= acks_expected +  {{(LGFIFO){1'b0}},skid_awlen};
 	default: begin end
 	endcase
+	// }}}
 
+	// last_ack
+	// {{{
 	initial	last_ack = 1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || i_wb_err || err_state)
@@ -287,6 +366,10 @@ module aximwr2wbsp #(
 	default: begin end
 	endcase
 
+	// }}}
+
+	// total_fifo_fill
+	// {{{
 	initial	total_fifo_fill = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -296,17 +379,34 @@ module aximwr2wbsp #(
 	2'b10: total_fifo_fill <= total_fifo_fill + 1;
 	default: begin end
 	endcase
+	// }}}
 
+	// total_fifo_full
+	// {{{
 	always @(*)
 		total_fifo_full = total_fifo_fill[LGFIFO];
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Return channel
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
+	// wb_ack_fifo
+	// {{{
 	sfifo #(.BW(8), .LGFLEN(LGFIFO),
 		.OPT_ASYNC_READ(1'b1))
 	wb_ack_fifo(S_AXI_ACLK, !S_AXI_ARESETN,
 		accept_write_burst, skid_awlen,
 		wb_ack_fifo_full, wb_ack_fifo_fill,
 		read_ack_fifo, fifo_ack_ln, wb_ack_fifo_empty);
+	// }}}
 
+	// read_ack_fifo
+	// {{{
 	always @(*)
 	begin
 		read_ack_fifo = ack_last && (i_wb_ack || i_wb_err);
@@ -315,18 +415,24 @@ module aximwr2wbsp #(
 		if (wb_ack_fifo_empty)
 			read_ack_fifo = 1'b0;
 	end
+	// }}}
 
-	reg	[8:0]	next_acklen;
-	reg	[1:0]	next_acklow;
-
+	// next_acklen
+	// {{{
 	always @(*)
 		next_acklen = fifo_ack_ln + ((acklen[0] ? 1:0)
 				+ ((i_wb_ack|i_wb_err)? 0:1));
+	// }}}
 
+	// next_acklow
+	// {{{
 	always @(*)
 		next_acklow = fifo_ack_ln[0] + ((acklen[0] ? 1:0)
 				+ ((i_wb_ack|i_wb_err)? 0:1));
+	// }}}
 
+	// acklen, ack_last, ack_empty
+	// {{{
 	initial	acklen    = 0;
 	initial	ack_last  = 0;
 	initial	ack_empty = 1;
@@ -349,14 +455,20 @@ module aximwr2wbsp #(
 		ack_last <= (acklen == 2);
 		ack_empty <= ack_last;
 	end
+	// }}}
 
+	// ack_err
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (read_ack_fifo)
 	begin
 		ack_err <= (wb_ack_fifo_empty) || err_state || i_wb_err;
 	end else if (i_wb_ack || i_wb_err || err_state)
 		ack_err <= ack_err || (i_wb_err || err_state);
+	// }}}
 
+	// err_state
+	// {{{
 	initial	err_state = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -366,7 +478,10 @@ module aximwr2wbsp #(
 	else if ((total_fifo_fill == bid_fifo_fill)
 		&&(total_fifo_fill == err_fifo_fill))
 		err_state <= 0;
+	// }}}
 
+	// err_fifo_write
+	// {{{
 	initial	err_fifo_write = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -377,25 +492,33 @@ module aximwr2wbsp #(
 		err_fifo_write <= (i_wb_ack || i_wb_err || err_state);
 	else
 		err_fifo_write <= 1'b0;
+	// }}}
 
+	// bid_fifo - Keep track of BID's
+	// {{{
 	sfifo #(.BW(C_AXI_ID_WIDTH), .LGFLEN(LGFIFO))
 	bid_fifo(S_AXI_ACLK, !S_AXI_ARESETN,
 		skid_wvalid && skid_wready && skid_wlast,
 			(total_fifo_fill == bid_fifo_fill) ? skid_awid:axi_wid,
 		bid_fifo_full, bid_fifo_fill,
 		S_AXI_BVALID & S_AXI_BREADY, S_AXI_BID, bid_fifo_empty);
+	// }}}
 
+	// err_fifo - Keep track of error returns
+	// {{{
 	sfifo #(.BW(1), .LGFLEN(LGFIFO))
 	err_fifo(S_AXI_ACLK, !S_AXI_ARESETN,
 		err_fifo_write, { ack_err || i_wb_err },
 		err_fifo_full, err_fifo_fill,
 		S_AXI_BVALID & S_AXI_BREADY, S_AXI_BRESP[1], err_fifo_empty);
+	// }}}
 
 	assign	S_AXI_BVALID = !bid_fifo_empty && !err_fifo_empty;
 	assign	S_AXI_BRESP[0]= 1'b0;
-
+	// }}}
 
 	// Make Verilator happy
+	// {{{
 	// verilator lint_on  UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXI_AWBURST, S_AXI_AWSIZE,
@@ -406,7 +529,16 @@ module aximwr2wbsp #(
 			w_reset
 			};
 	// verilator lint_off UNUSED
-
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal property section
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -416,6 +548,10 @@ module aximwr2wbsp #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+	// Formal only register/wire/parameter definitions
+	// {{{
+	localparam	F_LGDEPTH = (LGFIFO>8) ? LGFIFO+1 : 10,
+			F_LGRDFIFO = 72; // 9*F_LGFIFO;
 	reg	f_past_valid;
 	initial	f_past_valid = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -424,30 +560,55 @@ module aximwr2wbsp #(
 	localparam	F_LGDEPTH = (LGFIFO>8) ? LGFIFO+1 : 10, F_LGRDFIFO = 72; // 9*F_LGFIFO;
 	wire	[(F_LGDEPTH-1):0]
 			fwb_nreqs, fwb_nacks, fwb_outstanding;
+
 	//
 	// ...
 	//
 
+	////////////////////////////////////////////////////////////////////////
 	//
-	fwb_master #(.AW(AW), .DW(C_AXI_DATA_WIDTH), .F_MAX_STALL(2),
+	// Wishbone properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	fwb_master #(
+		// {{{
+		.AW(AW), .DW(C_AXI_DATA_WIDTH), .F_MAX_STALL(2),
 		.F_MAX_ACK_DELAY(3), .F_LGDEPTH(F_LGDEPTH),
-		.F_OPT_DISCONTINUOUS(1))
-		fwb(S_AXI_ACLK, w_reset,
-			o_wb_cyc, o_wb_stb, 1'b1, o_wb_addr, o_wb_data, o_wb_sel,
-			i_wb_ack, i_wb_stall, {(DW){1'b0}}, i_wb_err,
-			fwb_nreqs, fwb_nacks, fwb_outstanding);
+		.F_OPT_DISCONTINUOUS(1)
+		// }}}
+	) fwb(S_AXI_ACLK, w_reset,
+		// {{{
+		o_wb_cyc, o_wb_stb, 1'b1, o_wb_addr, o_wb_data, o_wb_sel,
+		i_wb_ack, i_wb_stall, {(DW){1'b0}}, i_wb_err,
+		fwb_nreqs, fwb_nacks, fwb_outstanding
+		// }}}
+	);
 
 	//
 	// ...
 	//
 
-	faxi_slave	#(.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI bus properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	faxi_slave	#(
+			// {{{
+			.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_AXI_MAXSTALL(0),
-			.F_AXI_MAXDELAY(0))
-		faxi(.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
+			.F_AXI_MAXDELAY(0)
+			// }}}
+	) faxi(.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
+			// {{{
 			.i_axi_awready(S_AXI_AWREADY),
 			.i_axi_awid(   S_AXI_AWID),
 			.i_axi_awaddr( S_AXI_AWADDR),
@@ -494,7 +655,9 @@ module aximwr2wbsp #(
 			//
 			);
 
-	(* anyconst *)	reg	never_err;
+
+	// never_err control(s)
+	// {{{
 	always @(*)
 	if (never_err)
 	begin
@@ -508,17 +671,26 @@ module aximwr2wbsp #(
 			assert(!S_AXI_BRESP[1]);
 		assert(!S_AXI_BRESP[0]);
 	end
+	// }}}
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	reg [3:0]	cvr_writes, cvr_write_bursts, cvr_wrid_bursts;
-	reg [C_AXI_ID_WIDTH-1:0]	cvr_write_id;
 
+	// Cover registers
+	// {{{
+	reg [3:0]			cvr_writes, cvr_write_bursts,
+					cvr_wrid_bursts;
+	reg [C_AXI_ID_WIDTH-1:0]	cvr_write_id;
+	// }}}
+
+	// cvr_writes
+	// {{{
 	initial	cvr_writes = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -528,7 +700,10 @@ module aximwr2wbsp #(
 	else if (S_AXI_BVALID && S_AXI_BREADY && !cvr_writes[3]
 			&& cvr_writes > 0)
 		cvr_writes <= cvr_writes + 1;
+	// }}}
 
+	// cvr_write_bursts
+	// {{{
 	initial	cvr_write_bursts = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -540,14 +715,20 @@ module aximwr2wbsp #(
 	else if (S_AXI_BVALID && S_AXI_BREADY
 			&& !cvr_write_bursts[3] && cvr_write_bursts > 0)
 		cvr_write_bursts <= cvr_write_bursts + 1;
+	// }}}
 
+	// cvr_write_id
+	// {{{
 	initial	cvr_write_id = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		cvr_write_id <= 1;
 	else if (S_AXI_BVALID && S_AXI_BREADY)
 		cvr_write_id <= cvr_write_id + 1;
+	// }}}
 
+	// cvr_wrid_bursts
+	// {{{
 	initial	cvr_wrid_bursts = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -560,14 +741,12 @@ module aximwr2wbsp #(
 			&& S_AXI_BID == cvr_write_id
 			&& !cvr_wrid_bursts[3] && cvr_wrid_bursts > 0)
 		cvr_wrid_bursts <= cvr_wrid_bursts + 1;
+	// }}}
 
-	always @(*)
-		cover(cvr_writes == 4);
-
-	always @(*)
-		cover(cvr_write_bursts == 4);
-
-	always @(*)
-		cover(cvr_wrid_bursts == 4);
+	always @(*) cover(cvr_writes == 4);
+	always @(*) cover(cvr_write_bursts == 4);
+	always @(*) cover(cvr_wrid_bursts == 4);
+	// }}}
 `endif
+// }}}
 endmodule

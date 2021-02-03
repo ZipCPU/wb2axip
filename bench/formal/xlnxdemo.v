@@ -39,7 +39,10 @@ module xlnxdemo #
 		// Width of S_AXI data bus
 		parameter integer C_S_AXI_DATA_WIDTH	= 32,
 		// Width of S_AXI address bus
-		parameter integer C_S_AXI_ADDR_WIDTH	= 7
+		parameter integer C_S_AXI_ADDR_WIDTH	= 7,
+`ifdef	FORMAL
+		parameter [0:0] OPT_ASSUME_NO_ERRORS = 1'b0
+`endif
 	)
 	(
 		// Users to add ports here
@@ -850,6 +853,7 @@ module xlnxdemo #
 	//     above will pass.  This is why I call the design "crippled".
 	//
 	// First a write check
+	/*
 	always @(posedge S_AXI_ACLK)
 		cover( ((S_AXI_BVALID)&&(S_AXI_BREADY))
 			&&($past((S_AXI_BVALID)&&(S_AXI_BREADY),1))
@@ -862,6 +866,7 @@ module xlnxdemo #
 			&&($past((S_AXI_RVALID)&&(S_AXI_RREADY),1))
 			&&($past((S_AXI_RVALID)&&(S_AXI_RREADY),2))
 			&&($past((S_AXI_RVALID)&&(S_AXI_RREADY),3)));
+	*/
 
 	// Now let's spend some time to develop a more complicated read
 	// trace, showing the capabilities of the core.  We'll avoid the
@@ -1091,13 +1096,13 @@ module xlnxdemo #
 	// If you uncomment the following two lines, the design will work as
 	// intended.  Only ... the bus now has more requirements to it.
 	//
-	// always @(posedge S_AXI_ACLK)
-	// if ($past(S_AXI_ARESETN))
-	//	assume((S_AXI_RREADY)&&(S_AXI_BREADY));
+	always @(posedge S_AXI_ACLK)
+	if (OPT_ASSUME_NO_ERRORS && $past(S_AXI_ARESETN))
+		assume((S_AXI_RREADY)&&(S_AXI_BREADY));
 
 	// verilator lint_off UNUSED
-	wire	[9:0]	unused;
-	assign	unused = { S_AXI_ARPROT, S_AXI_AWPROT,
+	wire	unused;
+	assign	unused = &{ 1'b0, S_AXI_ARPROT, S_AXI_AWPROT,
 	       axi_awaddr[1:0], axi_araddr[1:0]	};
 	// verilator lint_on UNUSED
 endmodule

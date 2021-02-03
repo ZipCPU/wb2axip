@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbxbar.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A Configurable wishbone cross-bar interconnect, conforming
@@ -51,9 +51,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -73,102 +73,111 @@
 //
 //
 `default_nettype none
-//
-module	wbxbar(i_clk, i_reset,
-	i_mcyc, i_mstb, i_mwe, i_maddr, i_mdata, i_msel,
-		o_mstall, o_mack, o_mdata, o_merr,
-	o_scyc, o_sstb, o_swe, o_saddr, o_sdata, o_ssel,
-		i_sstall, i_sack, i_sdata, i_serr);
-	parameter	NM = 4, NS=8;
-	parameter	AW = 32, DW=32;
-	parameter	[NS*AW-1:0]	SLAVE_ADDR = {
-				{ 3'b111, {(AW-3){1'b0}}},
-				{ 3'b110, {(AW-3){1'b0}}},
-				{ 3'b101, {(AW-3){1'b0}}},
-				{ 3'b100, {(AW-3){1'b0}}},
-				{ 3'b011, {(AW-3){1'b0}}},
-				{ 3'b010, {(AW-3){1'b0}}},
-				{ 4'b0010, {(AW-4){1'b0}}},
-				{ 4'b0000, {(AW-4){1'b0}}} };
-	parameter	[NS*AW-1:0]	SLAVE_MASK = (NS <= 1) ? 0
-		: { {(NS-2){ 3'b111, {(AW-3){1'b0}}}},
-			{(2){ 4'b1111, {(AW-4){1'b0}} }} };
+// }}}
+module	wbxbar #(
+		// i_sstall, i_sack, i_sdata, i_serr);
+		// {{{
+		parameter	NM = 4, NS=8,
+		parameter	AW = 32, DW=32,
+		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
+				{ 3'b111, {(AW-3){1'b0}} },
+				{ 3'b110, {(AW-3){1'b0}} },
+				{ 3'b101, {(AW-3){1'b0}} },
+				{ 3'b100, {(AW-3){1'b0}} },
+				{ 3'b011, {(AW-3){1'b0}} },
+				{ 3'b010, {(AW-3){1'b0}} },
+				{ 4'b0010, {(AW-4){1'b0}} },
+				{ 4'b0000, {(AW-4){1'b0}} } },
+		parameter	[NS*AW-1:0]	SLAVE_MASK = (NS <= 1) ? 0
+			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
+				{(2){ 4'b1111, {(AW-4){1'b0}} }} },
+		//
+		// LGMAXBURST is the log_2 of the length of the longest burst
+		// that might be seen.  It's used to set the size of the
+		// internal counters that are used to make certain that the
+		// cross bar doesn't switch while still waiting on a response.
+		parameter	LGMAXBURST=6,
+		//
+		// OPT_TIMEOUT is used to help recover from a misbehaving slave.
+		// If set, this value will determine the number of clock cycles
+		// to wait for a misbehaving slave before returning a bus error.
+		// Alternatively, if set to zero, this functionality will be
+		// removed.
+		parameter	OPT_TIMEOUT = 0, // 1023;
+		//
+		// If OPT_TIMEOUT is set, then OPT_STARVATION_TIMEOUT may also
+		// be set.  The starvation timeout adds to the bus error timeout
+		// generation the possibility that a master will wait
+		// OPT_TIMEOUT counts without receiving the bus.  This may be
+		// the case, for example, if one bus master is consuming a
+		// peripheral to such an extent that there's no time/room for
+		// another bus master to use it.  In that case, when the timeout
+		// runs out, the waiting bus master will be given a bus error.
+		parameter [0:0]	OPT_STARVATION_TIMEOUT = 1'b0
+						&& (OPT_TIMEOUT > 0),
+		//
+		// TIMEOUT_WIDTH is the number of bits in counter used to check
+		// on a timeout.
+		localparam	TIMEOUT_WIDTH = $clog2(OPT_TIMEOUT),
+		//
+		// OPT_DBLBUFFER is used to register all of the outputs, and
+		// thus avoid adding additional combinational latency through
+		// the core that might require a slower clock speed.
+		parameter [0:0]	OPT_DBLBUFFER = 1'b0,
+		//
+		// OPT_LOWPOWER adds logic to try to force unused values to
+		// zero, rather than to allow a variety of logic optimizations
+		// that could be used to reduce the logic count of the device.
+		// Hence, OPT_LOWPOWER will use more logic, but it won't drive
+		// bus wires unless there's a value to drive onto them.
+		parameter [0:0]	OPT_LOWPOWER = 1'b1,
+		//
+		// LGNM is the log (base two) of the number of bus masters
+		// connecting to this crossbar
+		localparam	LGNM = (NM>1) ? $clog2(NM) : 1,
+		//
+		// LGNM is the log (base two) of the number of slaves plus one
+		// come out of the system.  The extra "plus one" is used for a
+		// pseudo slave representing the case where the given address
+		// doesn't connect to any of the slaves.  This address will
+		// generate a bus error.
+		localparam	LGNS = $clog2(NS+1)
+		// }}}
+	) (
+		// {{{
+		input	wire			i_clk, i_reset,
+		//
+		// Here are the bus inputs from each of the WB bus masters
+		input	wire	[NM-1:0]	i_mcyc, i_mstb, i_mwe,
+		input	wire	[NM*AW-1:0]	i_maddr,
+		input	wire	[NM*DW-1:0]	i_mdata,
+		input	wire	[NM*DW/8-1:0]	i_msel,
+		//
+		// .... and their return data
+		output	reg	[NM-1:0]	o_mstall, o_mack,
+		output	reg	[NM*DW-1:0]	o_mdata,
+		output	reg	[NM-1:0]	o_merr,
+		//
+		//
+		// Here are the output ports, used to control each of the
+		// various slave ports that we are connected to
+		output	reg	[NS-1:0]	o_scyc, o_sstb, o_swe,
+		output	reg	[NS*AW-1:0]	o_saddr,
+		output	reg	[NS*DW-1:0]	o_sdata,
+		output	reg	[NS*DW/8-1:0]	o_ssel,
+		//
+		// ... and their return data back to us.
+		input	wire	[NS-1:0]	i_sstall, i_sack,
+		input	wire	[NS*DW-1:0]	i_sdata,
+		input	wire	[NS-1:0]	i_serr
+		// }}}
+	);
 	//
-	// LGMAXBURST is the log_2 of the length of the longest burst that
-	// might be seen.  It's used to set the size of the internal
-	// counters that are used to make certain that the cross bar doesn't
-	// switch while still waiting on a response.
-	parameter	LGMAXBURST=6;
 	//
-	// OPT_TIMEOUT is used to help recover from a misbehaving slave.  If
-	// set, this value will determine the number of clock cycles to wait
-	// for a misbehaving slave before returning a bus error.  Alternatively,
-	// if set to zero, this functionality will be removed.
-	parameter	OPT_TIMEOUT = 0; // 1023;
+	////////////////////////////////////////////////////////////////////////
 	//
-	// If OPT_TIMEOUT is set, then OPT_STARVATION_TIMEOUT may also be set.
-	// The starvation timeout adds to the bus error timeout generation
-	// the possibility that a master will wait OPT_TIMEOUT counts without
-	// receiving the bus.  This may be the case, for example, if one
-	// bus master is consuming a peripheral to such an extent that there's
-	// no time/room for another bus master to use it.  In that case, when
-	// the timeout runs out, the waiting bus master will be given a bus
-	// error.
-	parameter [0:0]	OPT_STARVATION_TIMEOUT = 1'b0 && (OPT_TIMEOUT > 0);
-	//
-	// TIMEOUT_WIDTH is the number of bits in counter used to check on a
-	// timeout.
-	localparam	TIMEOUT_WIDTH = $clog2(OPT_TIMEOUT);
-	//
-	// OPT_DBLBUFFER is used to register all of the outputs, and thus
-	// avoid adding additional combinational latency through the core
-	// that might require a slower clock speed.
-	parameter [0:0]	OPT_DBLBUFFER = 1'b0;
-	//
-	// OPT_LOWPOWER adds logic to try to force unused values to zero,
-	// rather than to allow a variety of logic optimizations that could
-	// be used to reduce the logic count of the device.  Hence, OPT_LOWPOWER
-	// will use more logic, but it won't drive bus wires unless there's a
-	// value to drive onto them.
-	parameter [0:0]	OPT_LOWPOWER = 1'b1;
-	//
-	// LGNM is the log (base two) of the number of bus masters connecting
-	// to this crossbar
-	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
-	//
-	// LGNM is the log (base two) of the number of slaves plus one come
-	// out of the system.  The extra "plus one" is used for a pseudo slave
-	// representing the case where the given address doesn't connect to
-	// any of the slaves.  This address will generate a bus error.
-	localparam	LGNS = $clog2(NS+1);
-	//
-	//
-	input	wire			i_clk, i_reset;
-	//
-	// Here are the bus inputs from each of the WB bus masters
-	input	wire	[NM-1:0]	i_mcyc, i_mstb, i_mwe;
-	input	wire	[NM*AW-1:0]	i_maddr;
-	input	wire	[NM*DW-1:0]	i_mdata;
-	input	wire	[NM*DW/8-1:0]	i_msel;
-	//
-	// .... and their return data
-	output	reg	[NM-1:0]	o_mstall, o_mack, o_merr;
-	output	reg	[NM*DW-1:0]	o_mdata;
-	//
-	//
-	// Here are the output ports, used to control each of the various
-	// slave ports that we are connected to
-	output	reg	[NS-1:0]	o_scyc, o_sstb, o_swe;
-	output	reg	[NS*AW-1:0]	o_saddr;
-	output	reg	[NS*DW-1:0]	o_sdata;
-	output	reg	[NS*DW/8-1:0]	o_ssel;
-	//
-	// ... and their return data back to us.
-	input	wire	[NS-1:0]	i_sstall, i_sack, i_serr;
-	input	wire	[NS*DW-1:0]	i_sdata;
-	//
-	//
-
+	// Register declarations
+	// {{{
 	// At one time I used o_macc and o_sacc to put into the outgoing
 	// trace file, just enough logic to tell me if a transaction was
 	// taking place on the given clock.
@@ -213,12 +222,23 @@ module	wbxbar(i_clk, i_reset,
 	reg	[NSFULL-1:0]	s_err;
 	wire	[NM-1:0]	dcd_stb;
 
-	localparam [0:0]	OPT_BUFFER_DECODER = (NS != 1 || SLAVE_MASK != 0);
+	localparam [0:0]	OPT_BUFFER_DECODER=(NS != 1 || SLAVE_MASK != 0);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Incoming signal arbitration
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	genvar	N, M;
 	integer	iN, iM;
 	generate for(N=0; N<NM; N=N+1)
 	begin : DECODE_REQUEST
+		// {{{
+		// Register declarations
+		// {{{
 		wire			skd_stb, skd_stall;
 		wire			skd_we;
 		wire	[AW-1:0]	skd_addr;
@@ -226,9 +246,10 @@ module	wbxbar(i_clk, i_reset,
 		wire	[DW/8-1:0]	skd_sel;
 		wire	[NS:0]		decoded;
 		wire			iskd_ready;
+		// }}}
 
 		skidbuffer #(
-			//
+			// {{{
 			// Can't run OPT_LOWPOWER here, less we mess up the
 			// consistency in skd_we following
 			//
@@ -237,18 +258,21 @@ module	wbxbar(i_clk, i_reset,
 `ifdef	FORMAL
 			.OPT_PASSTHROUGH(1),
 `endif
-			.OPT_OUTREG(0))
-		iskid(i_clk, i_reset || !i_mcyc[N], i_mstb[N], iskd_ready,
+			.OPT_OUTREG(0)
+			// }}}
+		) iskid (i_clk, i_reset || !i_mcyc[N], i_mstb[N], iskd_ready,
+			// {{{
 			{ i_mwe[N], i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
 					i_msel[N*DW/8 +: DW/8] },
 			skd_stb, !skd_stall,
 				{ skd_we, skd_addr, skd_data, skd_sel });
+		// }}}
 
 		always @(*)
 			o_mstall[N] = !iskd_ready;
 
 		addrdecode #(
-			//
+			// {{{
 			// Can't run OPT_LOWPOWER here, less we mess up the
 			// consistency in m_we following
 			//
@@ -257,10 +281,13 @@ module	wbxbar(i_clk, i_reset,
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
 			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+			// }}}
 		) adcd(i_clk, i_reset, skd_stb && i_mcyc[N], skd_stall,
+			// {{{
 			skd_addr, { skd_we, skd_data, skd_sel },
 			dcd_stb[N], (m_stall[N]&&i_mcyc[N]),decoded, m_addr[N],
 				{ m_we[N], m_data[N], m_sel[N] });
+		// }}}
 
 		assign	request[N] = (m_cyc[N] && dcd_stb[N]) ? decoded : 0;
 
@@ -271,9 +298,10 @@ module	wbxbar(i_clk, i_reset,
 			m_stb[N] = 1'b0;
 		else
 			m_stb[N] = i_mcyc[N] && dcd_stb[N];
-
+		// }}}
 	end for(N=NM; N<NMFULL; N=N+1)
-	begin
+	begin : UNUSED_MASTER_SIGNALS
+		// {{{
 		// in case NM isn't one less than a power of two, complete
 		// the set
 		always @(*)
@@ -287,9 +315,11 @@ module	wbxbar(i_clk, i_reset,
 		assign	m_addr[N] = 0;
 		assign	m_data[N] = 0;
 		assign	m_sel[N]  = 0;
-
+		// }}}
 	end endgenerate
 
+	// requested
+	// {{{
 	always @(*)
 	begin
 		for(iM=0; iM<NS; iM=iM+1)
@@ -314,13 +344,18 @@ module	wbxbar(i_clk, i_reset,
 			end
 		end
 	end
+	// }}}
 
 	generate for(M=0; M<NS; M=M+1)
 	begin : SLAVE_GRANT
-
+		// {{{
 `define	REGISTERED_SGRANT
 `ifdef	REGISTERED_SGRANT
+		// {{{
 		reg	drop_sgrant;
+
+		// drop_sgrant
+		// {{{
 		always @(*)
 		begin
 			drop_sgrant = !m_cyc[sindex[M]];
@@ -332,7 +367,10 @@ module	wbxbar(i_clk, i_reset,
 			if (i_reset)
 				drop_sgrant = 1;
 		end
+		// }}}
 
+		// sgrant
+		// {{{
 		initial	sgrant[M] = 0;
 		always @(posedge i_clk)
 		begin
@@ -343,7 +381,12 @@ module	wbxbar(i_clk, i_reset,
 			if (drop_sgrant)
 				sgrant[M] <= 0;
 		end
+		// }}}
+		// }}}
 `else
+		// {{{
+		// sgrant
+		// {{{
 		always @(*)
 		begin
 			sgrant[M] = 0;
@@ -351,6 +394,8 @@ module	wbxbar(i_clk, i_reset,
 				if (grant[iN][M])
 					sgrant[M] = 1;
 		end
+		// }}}
+		// }}}
 `endif
 
 		always @(*)
@@ -361,9 +406,11 @@ module	wbxbar(i_clk, i_reset,
 			s_ack[M]   = o_scyc[M] && i_sack[M];
 		always @(*)
 			s_err[M]   = o_scyc[M] && i_serr[M];
-	end for(M=NS; M<NSFULL; M=M+1)
-	begin
 
+		// }}}
+	end for(M=NS; M<NSFULL; M=M+1)
+	begin : UNUSED_SLAVE_SIGNALS
+		// {{{
 		always @(*)
 			s_data[M]  = 0;
 		always @(*)
@@ -373,7 +420,7 @@ module	wbxbar(i_clk, i_reset,
 		always @(*)
 			s_err[M]   = 1;
 		// always @(*) sgrant[M]  = 0;
-
+		// }}}
 	end endgenerate
 
 	//
@@ -381,6 +428,10 @@ module	wbxbar(i_clk, i_reset,
 	// channel
 	generate for(N=0; N<NM; N=N+1)
 	begin : ARBITRATE_REQUESTS
+		// {{{
+
+		// Register declarations
+		// {{{
 		reg	[NS:0]		regrant;
 		reg	[LGNS-1:0]	reindex;
 
@@ -421,7 +472,10 @@ module	wbxbar(i_clk, i_reset,
 		//
 		reg	stay_on_channel;
 		reg	requested_channel_is_available;
+		// }}}
 
+		// stay_on_channel
+		// {{{
 		always @(*)
 		begin
 			stay_on_channel = |(request[N] & grant[N]);
@@ -429,11 +483,14 @@ module	wbxbar(i_clk, i_reset,
 			if (mgrant[N] && !mempty[N])
 				stay_on_channel = 1;
 		end
+		// }}}
 
+		// requested_channel_is_available
+		// {{{
 		always @(*)
 		begin
 			requested_channel_is_available =
-			|(request[N][NS-1:0] & ~sgrant & ~requested[N][NS-1:0]);
+			|(request[N][NS-1:0]& ~sgrant & ~requested[N][NS-1:0]);
 
 			if (request[N][NS])
 				requested_channel_is_available = 1;
@@ -441,7 +498,10 @@ module	wbxbar(i_clk, i_reset,
 			if (NM < 2)
 				requested_channel_is_available = m_stb[N];
 		end
+		// }}}
 
+		// grant, mgrant
+		// {{{
 		initial	grant[N] = 0;
 		initial	mgrant[N] = 0;
 		always @(posedge i_clk)
@@ -461,10 +521,11 @@ module	wbxbar(i_clk, i_reset,
 				grant[N]  <= 0;
 			end
 		end
+		// }}}
 
 		if (NS == 1)
-		begin
-
+		begin : MINDEX_ONE_SLAVE
+			// {{{
 			always @(*)
 				mindex[N] = 0;
 
@@ -473,11 +534,12 @@ module	wbxbar(i_clk, i_reset,
 
 			always @(*)
 				reindex = 0;
-
-		end else begin
+			// }}}
+		end else begin : MINDEX_MULTIPLE_SLAVES
+			// {{{
 `define	NEW_MINDEX_CODE
 `ifdef	NEW_MINDEX_CODE
-
+			// {{{
 			always @(*)
 			begin
 				regrant = 0;
@@ -514,7 +576,9 @@ module	wbxbar(i_clk, i_reset,
 
 			always @(posedge i_clk)
 				mindex[N] <= reindex;
+			// }}}
 `else
+			// {{{
 			always @(posedge i_clk)
 			if (!mgrant[N] || mempty[N])
 			begin
@@ -535,15 +599,17 @@ module	wbxbar(i_clk, i_reset,
 					end
 				end
 			end
+			// }}}
 `endif // NEW_MINDEX_CODE
+			// }}}
 		end
-
+		// }}}
 	end for (N=NM; N<NMFULL; N=N+1)
-	begin
-
+	begin : UNUSED_MINDEXES
+		// {{{
 		always @(*)
 			mindex[N] = 0;
-
+		// }}}
 	end endgenerate
 
 	// Calculate sindex.  sindex[M] (indexed by slave ID)
@@ -551,20 +617,21 @@ module	wbxbar(i_clk, i_reset,
 	// faster/cheaper logic on the return path, since we can now use
 	// a fully populated LUT rather than a priority based return scheme
 	generate for(M=0; M<NS; M=M+1)
-	begin
-
+	begin : GEN_SINDEX
+		// {{{
 		if (NM <= 1)
-		begin
-
+		begin : SINDEX_SINGLE_MASTER
+			// {{{
 			// If there will only ever be one master, then we
 			// can assume all slave indexes point to that master
 			always @(*)
 				sindex[M] = 0;
-
+			// }}}
 		end else begin : SINDEX_MORE_THAN_ONE_MASTER
-
+			// {{{
 `define	NEW_SINDEX_CODE
 `ifdef	NEW_SINDEX_CODE
+			// {{{
 			reg	[NM-1:0]	regrant;
 			reg	[LGNM-1:0]	reindex;
 
@@ -602,7 +669,9 @@ module	wbxbar(i_clk, i_reset,
 
 			always @(posedge i_clk)
 				sindex[M] <= reindex;
+			// }}}
 `else
+			// {{{
 			always @(posedge i_clk)
 			for (iN=0; iN<NM; iN=iN+1)
 			begin
@@ -615,11 +684,14 @@ module	wbxbar(i_clk, i_reset,
 						sindex[M] <= iN;
 				end
 			end
+			// }}}
 `endif
+			// }}}
 		end
-
+		// }}}
 	end for(M=NS; M<NSFULL; M=M+1)
-	begin
+	begin : UNUSED_SINDEXES
+		// {{{
 		// Assign the unused slave indexes to zero
 		//
 		// Remember, to full out a full 2^something set of slaves,
@@ -627,17 +699,24 @@ module	wbxbar(i_clk, i_reset,
 
 		always @(*)
 			sindex[M] = 0;
-
+		// }}}
 	end endgenerate
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Assign outputs to the slaves
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	//
-	// Assign outputs to the slaves, part one
+	// Part one
 	//
 	// In this part, we assign the difficult outputs: o_scyc and o_sstb
 	generate for(M=0; M<NS; M=M+1)
-	begin
-
+	begin : GEN_CYC_STB
+		// {{{
 		initial	o_scyc[M] = 0;
 		initial	o_sstb[M] = 0;
 		always @(posedge i_clk)
@@ -667,15 +746,17 @@ module	wbxbar(i_clk, i_reset,
 				o_sstb[M] <= 1'b0;
 			end
 		end
+		// }}}
 	end endgenerate
 
 	//
-	// Assign outputs to the slaves, part two
+	// Part two
 	//
 	// These are the easy(er) outputs, since there are fewer properties
 	// riding on them
 	generate if ((NM == 1) && (!OPT_LOWPOWER))
-	begin
+	begin : ONE_MASTER
+		// {{{
 		reg			r_swe;
 		reg	[AW-1:0]	r_saddr;
 		reg	[DW-1:0]	r_sdata;
@@ -720,9 +801,10 @@ module	wbxbar(i_clk, i_reset,
 			o_sdata[M*DW +: DW] = r_sdata[DW-1:0];
 			o_ssel[M*DW/8+:DW/8]= r_ssel[DW/8-1:0];
 		end
-
+		// }}}
 	end else for(M=0; M<NS; M=M+1)
-	begin
+	begin : GEN_DOWNSTREAM
+		// {{{
 		always @(posedge i_clk)
 		begin
 			if (OPT_LOWPOWER && !sgrant[M])
@@ -742,13 +824,19 @@ module	wbxbar(i_clk, i_reset,
 			end
 
 		end
+		// }}}
 	end endgenerate
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Assign return values to the masters
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	generate if (OPT_DBLBUFFER)
 	begin : DOUBLE_BUFFERRED_STALL
-
+		// {{{
 		reg	[NM-1:0]	r_mack, r_merr;
 
 		for(N=0; N<NM; N=N+1)
@@ -806,10 +894,10 @@ module	wbxbar(i_clk, i_reset,
 				o_merr[N] = 1'b0;
 
 		end
-
+		// }}}
 	end else if (NS == 1) // && !OPT_DBLBUFFER
 	begin : SINGLE_SLAVE
-
+		// {{{
 		for(N=0; N<NM; N=N+1)
 		begin
 			always @(*)
@@ -845,8 +933,9 @@ module	wbxbar(i_clk, i_reset,
 				end
 			end
 		end
-
+		// }}}
 	end else begin : SINGLE_BUFFER_STALL
+		// {{{
 		for(N=0; N<NM; N=N+1)
 		begin
 			// initial	o_mstall[N] = 0;
@@ -883,14 +972,14 @@ module	wbxbar(i_clk, i_reset,
 				end
 			end
 		end
-
+		// }}}
 	end endgenerate
 
 	//
 	// Count the pending transactions per master
 	generate for(N=0; N<NM; N=N+1)
 	begin : COUNT_PENDING_TRANSACTIONS
-
+		// {{{
 		reg	[LGMAXBURST-1:0]	lclpending;
 		initial	lclpending  = 0;
 		initial	mempty[N]    = 1;
@@ -920,12 +1009,12 @@ module	wbxbar(i_clk, i_reset,
 		endcase
 
 		assign w_mpending[N] = lclpending;
-
+		// }}}
 	end endgenerate
 
 	generate if (OPT_TIMEOUT > 0)
 	begin : CHECK_TIMEOUT
-
+		// {{{
 		for(N=0; N<NM; N=N+1)
 		begin
 
@@ -948,15 +1037,23 @@ module	wbxbar(i_clk, i_reset,
 				timed_out[N] <= (deadlock_timer <= 1);
 			end
 		end
-
-	end else begin
-
+		// }}}
+	end else begin : NO_TIMEOUT
+		// {{{
 		always @(*)
 			timed_out = 0;
-
+		// }}}
 	end endgenerate
-
-	initial	begin
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Parameter consistency check
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	initial	begin : PARAMETER_CONSISTENCY_CHECK
+		// {{{
 		if (NM == 0)
 		begin
 			$display("ERROR: At least one master must be defined");
@@ -975,9 +1072,21 @@ module	wbxbar(i_clk, i_reset,
 			$display("  Without a timeout, the starvation timeout will not work");
 			$stop;
 		end
+		// }}}
 	end
-
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties used to verify the core
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	// Register declarations
+	// {{{
 	localparam	F_MAX_DELAY = 4;
 	localparam	F_LGDEPTH = LGMAXBURST;
 	//
@@ -994,7 +1103,7 @@ module	wbxbar(i_clk, i_reset,
 	wire	[F_LGDEPTH-1:0]	f_sreqs		[0:NS-1];
 	wire	[F_LGDEPTH-1:0]	f_sacks		[0:NS-1];
 	wire	[F_LGDEPTH-1:0]	f_soutstanding	[0:NS-1];
-
+	// }}}
 
 	initial	assert(!OPT_STARVATION_TIMEOUT || OPT_TIMEOUT > 0);
 
@@ -1007,7 +1116,8 @@ module	wbxbar(i_clk, i_reset,
 		assume(i_reset);
 
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : GRANT_CHECKING
+		// {{{
 		always @(*)
 		if (f_past_valid)
 		for(iN=N+1; iN<NM; iN=iN+1)
@@ -1042,13 +1152,13 @@ module	wbxbar(i_clk, i_reset,
 
 			assert(checkgrant == mgrant[N]);
 		end
-
+		// }}}
 	end endgenerate
 
 	// Double check the grant mechanism and its dependent variables
 	generate for(N=0; N<NM; N=N+1)
 	begin : CHECK_GRANTS
-
+		// {{{
 		for(M=0; M<NS; M=M+1)
 		begin
 			always @(*)
@@ -1060,10 +1170,12 @@ module	wbxbar(i_clk, i_reset,
 				assert(sindex[M] == N);
 			end
 		end
+		// }}}
 	end endgenerate
 
 	generate for(M=0; M<NS; M=M+1)
 	begin : CHECK_SGRANT
+		// {{{
 		reg	f_sgrant;
 
 		always @(*)
@@ -1080,11 +1192,13 @@ module	wbxbar(i_clk, i_reset,
 
 		always @(*)
 			assert(sgrant[M] == f_sgrant);
+		// }}}
 	end endgenerate
 
 	// Double check the timeout flags for consistency
 	generate for(N=0; N<NM; N=N+1)
-	begin
+	begin : CHECK_TIMEOUT
+		// {{{
 		always @(*)
 		if (f_past_valid)
 		begin
@@ -1092,10 +1206,11 @@ module	wbxbar(i_clk, i_reset,
 			assert(mnearfull[N]==(&w_mpending[N][LGMAXBURST-1:1]));
 			assert(mfull[N] == (&w_mpending[N]));
 		end
+		// }}}
 	end endgenerate
 
 `ifdef	VERIFIC
-	//
+	// {{{
 	// The Verific parser is currently broken, and doesn't allow
 	// initial assumes or asserts.  The following lines get us around that
 	//
@@ -1123,19 +1238,22 @@ module	wbxbar(i_clk, i_reset,
 			assume(mgrant[N] == 0);
 		end
 	end endgenerate
+	// }}}
 `endif
 
 	////////////////////////////////////////////////////////////////////////
 	//
-	//	BUS CHECK
+	// BUS CHECK
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	// Verify that every channel, whether master or slave, follows the rules
 	// of the WB road.
 	//
-	////////////////////////////////////////////////////////////////////////
 	generate for(N=0; N<NM; N=N+1)
 	begin : WB_SLAVE_CHECK
-
+		// {{{
 		fwb_slave #(
 			.AW(AW), .DW(DW),
 			.F_LGDEPTH(LGMAXBURST),
@@ -1159,10 +1277,12 @@ module	wbxbar(i_clk, i_reset,
 		always @(posedge i_clk)
 		if (f_past_valid && $past(!i_reset && i_mstb[N] && o_mstall[N]))
 			assume($stable(i_mdata[N*DW +: DW]));
+		// }}}
 	end endgenerate
 
 	generate for(M=0; M<NS; M=M+1)
 	begin : WB_MASTER_CHECK
+		// {{{
 		fwb_master #(
 			.AW(AW), .DW(DW),
 			.F_LGDEPTH(LGMAXBURST),
@@ -1174,14 +1294,19 @@ module	wbxbar(i_clk, i_reset,
 				o_ssel[M*(DW/8) +: (DW/8)],
 			i_sack[M], i_sstall[M], s_data[M], i_serr[M],
 			f_sreqs[M], f_sacks[M], f_soutstanding[M]);
+		// }}}
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
+	// Correlate outstanding numbers
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	generate for(N=0; N<NM; N=N+1)
 	begin : CHECK_OUTSTANDING
-
+		// {{{
 		always @(*)
 		if (mfull[N])
 			assert(m_stall[N]);
@@ -1242,22 +1367,27 @@ module	wbxbar(i_clk, i_reset,
 			if (dcd_stb[N])
 				assert(i_mwe[N] == m_we[N]);
 		end
-
+		// }}}
 	end endgenerate
 
 	generate for(M=0; M<NS; M=M+1)
-	begin
+	begin : ASSERT_NOT_CYC_WO_GRANT
+		// {{{
 		always @(posedge i_clk)
 		if (!$past(sgrant[M]))
 			assert(!o_scyc[M]);
+		// }}}
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	//	CONTRACT SECTION
+	// CONTRACT SECTION
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	// Here's the contract, in two parts:
-	//
+	// {{{
 	//	1. Should ever a master (any master) wish to read from a slave
 	//		(any slave), he should be able to read a known value
 	//		from that slave (any value) from any arbitrary address
@@ -1276,7 +1406,7 @@ module	wbxbar(i_clk, i_reset,
 	//	special_value	is an arbitrary value (at least during
 	//		induction) representing the current value within the
 	//		slave at the given address
-	//
+	// }}}
 	//
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1310,6 +1440,7 @@ module	wbxbar(i_clk, i_reset,
 
 	generate if (NS > 1)
 	begin : DOUBLE_ADDRESS_CHECK
+		// {{{
 		//
 		// Check that no slave address has been assigned twice.
 		// This check only needs to be done once at the beginning
@@ -1330,7 +1461,7 @@ module	wbxbar(i_clk, i_reset,
 				end
 			end
 		end
-
+		// }}}
 	end endgenerate
 	//
 	// Let's assume this slave will acknowledge any request on the next
@@ -1351,6 +1482,7 @@ module	wbxbar(i_clk, i_reset,
 	always @(posedge i_clk)
 	if (special_slave < NS)
 	begin
+		// {{{
 		if ($past(o_sstb[special_slave] && !i_sstall[special_slave]))
 		begin
 			assume(i_sack[special_slave]);
@@ -1374,6 +1506,7 @@ module	wbxbar(i_clk, i_reset,
 			if (o_ssel[special_slave * DW/8 + iM])
 				special_value[iM*8 +: 8] <= o_sdata[special_slave * DW + iM*8 +: 8];
 		end
+		// }}}
 	end
 
 	//
@@ -1460,7 +1593,6 @@ module	wbxbar(i_clk, i_reset,
 
 	always @(*)
 		cover(i_mcyc[special_master] && f_read_ack);
-
 
 	//
 	// Let's try a write assertion now.  Specifically, on any request to
@@ -1560,12 +1692,14 @@ module	wbxbar(i_clk, i_reset,
 
 	always @(*)
 		cover(i_mcyc[special_master] && f_write_ack);
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	// (draft) full connectivity check
-	//
+	// COVER: Full connectivity check
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	reg	[NM-1:0]	f_m_ackd;
 	reg	[NS-1:0]	f_s_ackd;
 	reg			f_cvr_aborted;
@@ -1630,8 +1764,9 @@ module	wbxbar(i_clk, i_reset,
 			cover(!f_cvr_aborted && (&f_s_ackd[NS-1:0]));
 
 	end endgenerate
-
+	// }}}
 `endif
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire

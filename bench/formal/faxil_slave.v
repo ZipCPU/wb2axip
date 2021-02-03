@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2018-2020, Gisselquist Technology, LLC
+// Copyright (C) 2018-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -90,6 +90,7 @@ module faxil_slave #(
 	localparam AW			= C_AXI_ADDR_WIDTH
 	// }}}
 	) (
+	// {{{
 	input	wire			i_clk,	// System clock
 	input	wire			i_axi_reset_n,
 
@@ -127,6 +128,7 @@ module faxil_slave #(
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_rd_outstanding,
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_wr_outstanding,
 	output	reg	[(F_LGDEPTH-1):0]	f_axi_awr_outstanding
+	// }}}
 );
 
 	localparam	MAX_SLAVE_TIMEOUT = (F_AXI_MAXWAIT > F_AXI_MAXDELAY)
@@ -176,8 +178,9 @@ module faxil_slave #(
 	//
 	// Insist that the reset signal start out asserted (negative), and
 	// remain so for 16 clocks.
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
 	generate if (F_OPT_ASSUME_RESET)
 	begin : ASSUME_INITIAL_RESET
 		always @(*)
@@ -255,7 +258,7 @@ module faxil_slave #(
 			`SLAVE_ASSERT(!i_axi_rvalid);
 		end
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	//

@@ -16,7 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -35,10 +35,9 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-// }}}
 //
 `default_nettype none
-//
+// }}}
 module	axilempty #(
 		// {{{
 		//
@@ -119,6 +118,12 @@ module	axilempty #(
 			.o_valid(awskd_valid), .i_ready(axil_write_ready),
 			.o_data(awskd_unused));
 
+`ifdef	FORMAL
+	always @(*)
+	if (awskd_valid)
+		assert(awskd_unused == 0);
+`endif
+
 		skidbuffer #(.OPT_OUTREG(0), .OPT_LOWPOWER(OPT_LOWPOWER),
 				.DW(1))
 		axilwskid(//
@@ -127,6 +132,11 @@ module	axilempty #(
 			.i_data({ 1'b0 }),
 			.o_valid(wskd_valid), .i_ready(axil_write_ready),
 			.o_data(wskd_unused));
+`ifdef	FORMAL
+	always @(*)
+	if (wskd_valid)
+		assert(wskd_unused == 0);
+`endif
 
 		assign	axil_write_ready = awskd_valid && wskd_valid
 				&& (!S_AXI_BVALID || S_AXI_BREADY);
@@ -180,7 +190,7 @@ module	axilempty #(
 
 		skidbuffer #(.OPT_OUTREG(0),
 				.OPT_LOWPOWER(OPT_LOWPOWER),
-				.DW(C_AXI_ADDR_WIDTH-ADDRLSB))
+				.DW(1))
 		axilarskid(//
 			.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 			.i_valid(S_AXI_ARVALID), .o_ready(S_AXI_ARREADY),
@@ -190,6 +200,12 @@ module	axilempty #(
 
 		assign	axil_read_ready = arskd_valid
 				&& (!axil_read_valid || S_AXI_RREADY);
+
+`ifdef	FORMAL
+	always @(*)
+	if (arskd_valid)
+		assert(arskd_unused == 0);
+`endif
 
 		// Verilator lint_off UNUSED
 		wire	unused;

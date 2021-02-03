@@ -27,7 +27,7 @@
 // }}}
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -82,10 +82,6 @@ module	axivfifo #(
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
-		// The number of beats in this maximum burst size is
-		// automatically determined from LGMAXBURST, and so its
-		// forced to be a power of two this way.
-		localparam	MAXBURST=(1<<LGMAXBURST),
 		//
 		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
 		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
@@ -862,6 +858,11 @@ module	axivfifo #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	// The number of beats in the maximum burst size is
+	// automatically determined from LGMAXBURST, and so its
+	// forced to be a power of two this way.
+	localparam	MAXBURST=(1<<LGMAXBURST);
 
 	faxi_master #(
 		// {{{

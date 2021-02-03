@@ -5,6 +5,7 @@
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Measure the performance of a high speed AXI interface.  The
+// {{{
 //		following monitor requires connecting to both an AXI-lite slave
 //	interface, as well as a second AXI interface as a monitor.  The AXI
 //	monitor interface is read only, and (ideally) shouldn't be corrupted by
@@ -242,7 +243,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -276,7 +277,6 @@ module	axiperf #(
 		parameter	C_AXI_DATA_WIDTH = 32,
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_ID_WIDTH = 4,
-		parameter [0:0]	OPT_SKIDBUFFER = 1'b0,
 		parameter [0:0]	OPT_LOWPOWER = 0,
 		parameter	LGCNT = 32,
 		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3

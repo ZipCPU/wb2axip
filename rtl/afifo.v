@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -61,6 +61,16 @@ module afifo #(
 		// MSB = most significant bit of the FIFO address vector.  It's
 		// just short-hand for LGFIFO, and won't work any other way.
 		localparam	MSB = LGFIFO
+`ifdef	FORMAL
+		// F_OPT_DATA_STB
+		// {{{
+		// In the formal proof, F_OPT_DATA_STB includes a series of
+		// assumptions associated with a data strobe I/O pin--things
+		// like a discontinuous clock--just to make sure the core still
+		// works in those circumstances
+		, parameter [0:0]	F_OPT_DATA_STB = 1'b1
+		// }}}
+`endif
 		// }}}
 	) (
 		// {{{
@@ -82,7 +92,6 @@ module afifo #(
 
 	// Register/net declarations
 	// {{{
-
 	reg	[WIDTH-1:0]		mem	[(1<<LGFIFO)-1:0];
 	reg	[LGFIFO:0]		rd_addr, wr_addr,
 					rd_wgray, wr_rgray;
@@ -252,6 +261,7 @@ module afifo #(
 `define	ASSERT	assert
 `define	ASSUME	assert
 `endif
+
 	(* gclk *)	reg	gbl_clk;
 	reg			f_past_valid_gbl, f_past_valid_rd,
 				f_rd_in_reset, f_wr_in_reset;
@@ -351,6 +361,25 @@ module afifo #(
 		`ASSERT(lcl_rd_empty == past_rd_empty);
 	end
 
+
+	generate if (F_OPT_DATA_STB)
+	begin
+
+		always @(posedge gbl_clk)
+			`ASSUME(!o_wr_full);
+
+		always @(posedge gbl_clk)
+		if (!i_wr_reset_n)
+			`ASSUME(!i_wclk);
+
+		always @(posedge gbl_clk)
+			`ASSUME(i_wr == i_wr_reset_n);
+
+		always @(posedge gbl_clk)
+		if ($changed(i_wr_reset_n))
+			`ASSUME($stable(wclk));
+
+	end endgenerate
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -703,9 +732,9 @@ module afifo #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	reg	cvr_full;
 
-
+	// Prove that we can read and write the FIFO
+	// {{{
 	always @(*)
 	if (i_wr_reset_n && i_rd_reset_n)
 	begin
@@ -719,23 +748,53 @@ module afifo #(
 		cover(i_rd);
 		cover(i_rd && !o_rd_empty);
 	end
+	// }}}
 
-	initial	cvr_full = 1'b0;
-	always @(posedge gbl_clk)
-	if (!i_wr_reset_n)
-		cvr_full <= 1'b0;
-	else if (o_wr_full)
-		cvr_full <= 1'b1;
+`ifdef	AFIFO
+	generate if (!F_OPT_DATA_STB)
+	begin : COVER_FULL
+		// {{{
+		reg	cvr_full;
+
+		initial	cvr_full = 1'b0;
+		always @(posedge gbl_clk)
+		if (!i_wr_reset_n)
+			cvr_full <= 1'b0;
+		else if (o_wr_full)
+			cvr_full <= 1'b1;
 
 
-	always @(*)
-	if (f_past_valid_gbl)
-	begin
-		cover(o_wr_full);
-		cover(o_rd_empty && cvr_full);
-		cover(o_rd_empty && f_fill == 0 && cvr_full);
-	end
+		always @(*)
+		if (f_past_valid_gbl && i_wr_reset_n)
+		begin
+			cover(o_wr_full);
+			cover(o_rd_empty && cvr_full);
+			cover(o_rd_empty && f_fill == 0 && cvr_full);
+		end
+		// }}}
+	end else begin : COVER_NEARLY_FULL
+		// {{{
+		reg	cvr_nearly_full;
 
+		initial	cvr_nearly_full = 1'b0;
+		always @(posedge gbl_clk)
+		if (!i_wr_reset_n)
+			cvr_nearly_full <= 1'b0;
+		else if (f_fill == { 1'b0, {(LGFIFO){1'b1} }})
+			cvr_nearly_full <= 1'b1;
+
+
+		always @(*)
+		if (f_past_valid_gbl && i_wr_reset_n)
+		begin
+			cover(f_fill == { 1'b0, {(LGFIFO){1'b1} }});
+			cover(cvr_nearly_full && i_wr_reset_n);
+			cover(o_rd_empty && cvr_nearly_full);
+			cover(o_rd_empty && f_fill == 0 && cvr_nearly_full);
+		end
+		// }}}
+	end endgenerate
+`endif
 	// }}}
 `endif
 // }}}

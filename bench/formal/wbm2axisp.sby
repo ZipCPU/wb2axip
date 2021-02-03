@@ -1,18 +1,33 @@
 [tasks]
-cvr
-prfx8		prf
-prfx16		prf
-prfe32		prf
-prfx32		prf
-prfx64		prf
-prfx128		prf
-prfx256		prf
-prfx512		prf
-prfx1024	prf
+cvr		cvrw32x32 wb32 axi32
+prfx8		prf wb8   axi8
+prfx16		prf wb8   axi16
+prfw16x32	prf wb16  axi32
+cvrw16x32	cvr wb16  axi32
+prfe32		prf wb8   axi32
+prfx32		prf wb32  axi32
+prfx64		prf wb32  axi64
+prfx128		prf wb32  axi128
+prfx256		prf wb32  axi256
+prfx512		prf wb32  axi512
+prfx1024	prf wb32  axi1024
+cvrle		cvr opt_little_endian cvrw32x32 wb32 axi32
+prfx8le		prf opt_little_endian wb8  axi8
+prfx16le	prf opt_little_endian wb8  axi16
+prfw16x32le	prf opt_little_endian wb16 axi32
+cvrw16x32le	cvr opt_little_endian wb16 axi32
+prfe32le	prf opt_little_endian wb8  axi32
+prfx32le	prf opt_little_endian wb32 axi32
+prfx64le	prf opt_little_endian wb32 axi64
+prfx128le	prf opt_little_endian wb32 axi128
+prfx256le	prf opt_little_endian wb32 axi256
+prfx512le	prf opt_little_endian wb32 axi512
+prfx1024le	prf opt_little_endian wb32 axi1024
 
 [options]
 prf: mode prove
-prf: depth 15
+# prf: depth 3
+prf: depth 8
 cvr: mode cover
 cvr: depth 48
 
@@ -27,16 +42,34 @@ read -formal -D WBM2AXISP faxi_addr.v
 read -formal -D WBM2AXISP faxi_wstrb.v
 read -formal -D WBM2AXISP faxi_valaddr.v
 read -formal -D WBM2AXISP fwb_slave.v
-prfx8:    hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH    8 -chparam C_AXI_ADDR_WIDTH 20
-prfx16:   hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   16 -chparam C_AXI_ADDR_WIDTH 20
-prfe32:   hierarchy -top wbm2axisp -chparam DW  8 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 20
-prfx32:   hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 22
-prfx64:   hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   64 -chparam C_AXI_ADDR_WIDTH 22
-prfx128:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  128 -chparam C_AXI_ADDR_WIDTH 22
-prfx256:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  256 -chparam C_AXI_ADDR_WIDTH 22
-prfx512:  hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH  512 -chparam C_AXI_ADDR_WIDTH 22
-prfx1024: hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH 1024 -chparam C_AXI_ADDR_WIDTH 22
-cvr:      hierarchy -top wbm2axisp -chparam DW 32 -chparam AW 20 -chparam C_AXI_DATA_WIDTH   32 -chparam C_AXI_ADDR_WIDTH 22
+--pycode-begin--
+cmd = "hierarchy -top wbm2axisp"
+cmd += " -chparam C_AXI_ADDR_WIDTH 21"
+cmd += " -chparam OPT_LITTLE_ENDIAN %d" % (1 if "opt_little_endian" in tags else 0)
+if ("wb8" in tags):
+	cmd += " -chparam DW  8 -chparam AW 21"
+elif ("wb16" in tags):
+	cmd += " -chparam DW 16 -chparam AW 20"
+else:
+	cmd += " -chparam DW 32 -chparam AW 19"
+if ("axi8" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH  8"
+elif ("axi16" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH   16"
+elif ("axi32" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH   32"
+elif ("axi64" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH   64"
+elif ("axi128" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH  128"
+elif ("axi256" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH  256"
+elif ("axi512" in tags):
+	cmd += " -chparam C_AXI_DATA_WIDTH  512"
+else:
+	cmd += " -chparam C_AXI_DATA_WIDTH 1024"
+output(cmd)
+--pycode-end--
 #
 prep -top wbm2axisp
 

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	faxi_slave.v (Formal properties of an AXI4 (full) slave)
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This file contains a subset of the formal properties which I've
@@ -12,9 +12,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2017-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2017-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,8 +34,9 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module faxi_slave #(
+		// {{{
 	parameter C_AXI_ID_WIDTH	= 3, // The AXI id width used for R&W
                                              // This is an int between 1-16
 	parameter C_AXI_DATA_WIDTH	= 128,// Width of the AXI R&W data
@@ -61,7 +62,9 @@ module faxi_slave #(
 	localparam IW			= C_AXI_ID_WIDTH,
 	localparam DW			= C_AXI_DATA_WIDTH,
 	localparam AW			= C_AXI_ADDR_WIDTH
+		// }}}
 	) (
+		// {{{
 	input	wire			i_clk,	// System clock
 	input	wire			i_axi_reset_n,
 
@@ -117,6 +120,7 @@ module faxi_slave #(
 	output	reg	[F_LGDEPTH-1:0]		f_axi_rd_nbursts,
 	output	reg	[F_LGDEPTH-1:0]		f_axi_rd_outstanding,
 	// ...
+	// }}}
 );
 
 //*****************************************************************************

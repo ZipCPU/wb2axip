@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbsafety.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A WB bus fault isolator.  This core will isolate any downstream
@@ -36,9 +36,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -58,50 +58,54 @@
 //
 //
 `default_nettype	none
-//
-module wbsafety(i_clk, i_reset,
+// }}}
+module wbsafety #(
+		// {{{
+		parameter	AW = 28, DW = 32,
+		parameter	OPT_TIMEOUT = 12,
+		parameter	MAX_DEPTH = (OPT_TIMEOUT),
+		localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1),
+		localparam	LGDEPTH   = $clog2(MAX_DEPTH+1),
+		parameter [0:0]	OPT_SELF_RESET = 1'b1,
+		parameter [0:0]	F_OPT_FAULTLESS = 1'b1
+		// }}}
+	) (
+		// {{{
+		input	wire	i_clk, i_reset,
 		//
 		// The incoming WB interface from the (trusted) master
+		// {{{
 		// This interface is guaranteed to follow the protocol.
-		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
-			o_wb_stall, o_wb_ack, o_wb_idata, o_wb_err,
+		input	wire			i_wb_cyc, i_wb_stb, i_wb_we,
+		input	wire	[AW-1:0]	i_wb_addr,
+		input	wire	[DW-1:0]	i_wb_data,
+		input	wire	[DW/8-1:0]	i_wb_sel,
+		output	reg			o_wb_stall, o_wb_ack,
+		output	reg	[DW-1:0]	o_wb_idata,
+		output	reg			o_wb_err,
+		// }}}
 		//
 		// The outgoing interface to the untrusted slave
+		// {{{
 		// This interface may or may not follow the WB protocol
-		o_reset, o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data,
-			o_wb_sel,
-		i_wb_stall, i_wb_ack, i_wb_idata, i_wb_err,
+		output	reg			o_reset,
+		output	reg			o_wb_cyc, o_wb_stb, o_wb_we,
+		output	reg	[AW-1:0]	o_wb_addr,
+		output	reg	[DW-1:0]	o_wb_data,
+		output	reg	[DW/8-1:0]	o_wb_sel,
+		input	wire			i_wb_stall, i_wb_ack,
+		input	wire	[DW-1:0]	i_wb_idata,
+		input	wire			i_wb_err,
+		// }}}
 		//
 		// The fault signal, indicating the downstream slave was
 		// misbehaving
-		o_fault);
-	parameter	AW = 28, DW = 32;
-	parameter	OPT_TIMEOUT = 12;
-	parameter	MAX_DEPTH = (OPT_TIMEOUT);
-	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
-	localparam	LGDEPTH   = $clog2(MAX_DEPTH+1);
-	parameter [0:0]	OPT_SELF_RESET = 1'b1;
-	parameter [0:0]	F_OPT_FAULTLESS = 1'b1;
-	//
-	input	wire	i_clk, i_reset;
-	//
-	input	wire			i_wb_cyc, i_wb_stb, i_wb_we;
-	input	wire	[AW-1:0]	i_wb_addr;
-	input	wire	[DW-1:0]	i_wb_data;
-	input	wire	[DW/8-1:0]	i_wb_sel;
-	output	reg			o_wb_ack, o_wb_err, o_wb_stall;
-	output	reg	[DW-1:0]	o_wb_idata;
-	//
-	output	reg			o_reset;
-	output	reg			o_wb_cyc, o_wb_stb, o_wb_we;
-	output	reg	[AW-1:0]	o_wb_addr;
-	output	reg	[DW-1:0]	o_wb_data;
-	output	reg	[DW/8-1:0]	o_wb_sel;
-	input	wire			i_wb_ack, i_wb_err, i_wb_stall;
-	input	wire	[DW-1:0]	i_wb_idata;
-	//
-	output	reg			o_fault;
+		output	reg			o_fault
+		// }}}
+	);
 
+	// Declarations
+	// {{{
 	reg			none_expected;
 	reg	[LGDEPTH-1:0]	expected_returns;
 	reg	[LGTIMEOUT-1:0]	stall_timer, wait_timer;
@@ -113,16 +117,17 @@ module wbsafety(i_clk, i_reset,
 	wire	[AW-1:0]	skd_addr;
 	wire	[DW-1:0]	skd_data;
 	wire	[DW/8-1:0]	skd_sel;
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Start with a skid buffer on all incoming signals
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 `ifdef	FORMAL
-	//
+	// {{{
 	// We know the skid buffer works.  It's irrelevant to our proof.
 	// Therefore, remove it during formal testing, lest we need to
 	// check it as well.  Further, we make this a parameter--but only
@@ -131,18 +136,26 @@ module wbsafety(i_clk, i_reset,
 	parameter	[0:0]	SKID_PASSTHROUGH = 1'b1;
 `else
 	localparam	[0:0]	SKID_PASSTHROUGH = 1'b0;
+	// }}}
 `endif
 
-	skidbuffer #(.DW(1+AW+DW+(DW/8)),
-		.OPT_PASSTHROUGH(SKID_PASSTHROUGH))
-	skd(i_clk, i_reset || !i_wb_cyc, i_wb_stb, skd_o_ready,
+	skidbuffer #(
+		// {{{
+		.DW(1+AW+DW+(DW/8)),
+		.OPT_PASSTHROUGH(SKID_PASSTHROUGH)
+		// }}}
+	) skd(
+		// {{{
+		i_clk, i_reset || !i_wb_cyc, i_wb_stb, skd_o_ready,
 		{ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel },
-		skd_stb, !skd_stall, { skd_we, skd_addr, skd_data, skd_sel });
+		skd_stb, !skd_stall, { skd_we, skd_addr, skd_data, skd_sel }
+		// }}}
+	);
 
 	always @(*)
 		o_wb_stall = !skd_o_ready;
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Timeout checking
@@ -188,7 +201,7 @@ module wbsafety(i_clk, i_reset,
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Return counting
-	//
+	// {{{
 
 	initial	none_expected = 1;
 	initial	expected_returns = 0;
@@ -208,13 +221,13 @@ module wbsafety(i_clk, i_reset,
 		end
 	default: begin end
 	endcase
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Downstream reset generation
-	//
+	// {{{
 	generate if (OPT_SELF_RESET)
-	begin
+	begin : SELF_RESET
 
 		initial	o_reset = 1;
 		always @(posedge i_clk)
@@ -228,19 +241,20 @@ module wbsafety(i_clk, i_reset,
 			if (timeout)
 				o_reset <= 1;
 		end
-	end else begin
+	end else begin : FORWARD_RESET
 
 		always @(*)
 			o_reset = i_reset || o_fault;
 
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Fault detection
-	//
+	// {{{
 
-	//
+	// faulty_return
+	// {{{
 	// A faulty return is a response from the slave at a time, or in
 	// a fashion that it unexpected and violates protocol
 	//
@@ -255,7 +269,10 @@ module wbsafety(i_clk, i_reset,
 		if (!i_wb_cyc || !o_wb_cyc)
 			faulty_return = 0;
 	end
+	// }}}
 
+	// o_fault
+	// {{{
 	initial	o_fault = 0;
 	always @(posedge i_clk)
 	if (o_reset && !i_wb_cyc)
@@ -266,12 +283,16 @@ module wbsafety(i_clk, i_reset,
 		if (i_wb_cyc && timeout)
 			o_fault <= 1;
 	end
+	// }}}
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Downstream bus signal generation
 	//
 
+	// o_wb_cyc
+	// {{{
 	initial	o_wb_cyc = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset || (o_wb_cyc && i_wb_err) || o_reset || o_fault
@@ -279,7 +300,10 @@ module wbsafety(i_clk, i_reset,
 		o_wb_cyc <= 1'b0;
 	else
 		o_wb_cyc  <= i_wb_cyc && (o_wb_cyc || i_wb_stb);
+	// }}}
 
+	// o_wb_stb
+	// {{{
 	initial	o_wb_stb = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset || (o_wb_cyc && i_wb_err) || o_reset || o_fault || !i_wb_cyc
@@ -287,7 +311,10 @@ module wbsafety(i_clk, i_reset,
 		o_wb_stb <= 1'b0;
 	else if (!o_wb_stb || !i_wb_stall)
 		o_wb_stb  <= skd_stb;
+	// }}}
 
+	// o_wb_we, o_wb_addr, o_wb_data, o_wb_sel
+	// {{{
 	always @(posedge i_clk)
 	if (!o_wb_stb || !i_wb_stall)
 	begin
@@ -296,15 +323,21 @@ module wbsafety(i_clk, i_reset,
 		o_wb_data <= skd_data;
 		o_wb_sel  <= skd_sel;
 	end
+	// }}}
 
+	// o_wb_idata
+	// {{{
 	always @(posedge i_clk)
 		o_wb_idata <= i_wb_idata;
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Return signal generation
 	//
 
+	// skd_stall
+	// {{{
 	always @(*)
 	begin
 		skd_stall = (o_wb_stb && i_wb_stall);
@@ -315,7 +348,10 @@ module wbsafety(i_clk, i_reset,
 		else if (o_reset)
 			skd_stall = 1'b1;
 	end
+	// }}}
 
+	// o_wb_ack, o_wb_err
+	// {{{
 	initial	o_wb_ack   = 0;
 	initial	o_wb_err   = 0;
 	always @(posedge i_clk)
@@ -337,13 +373,21 @@ module wbsafety(i_clk, i_reset,
 		o_wb_ack   <= 1'b0;
 		o_wb_err   <= (i_wb_stb && !skd_stall);
 	end
+	// }}}
 
+	// Make Verilator happy
+	// {{{
+	// Verilator lint_off UNUSED
+	wire	unused;
+	assign	unused = &{ 1'b0, F_OPT_FAULTLESS };
+	// Verilator lint_on  UNUSED
+	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal property section
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -379,15 +423,21 @@ module wbsafety(i_clk, i_reset,
 	if (!f_past_valid)
 		assume(i_reset);
 
-	fwb_slave #(.AW(AW), .DW(DW),
+	fwb_slave #(
+		// {{{
+		.AW(AW), .DW(DW),
 		// .F_MAX_ACK_DELAY(UPSTREAM_ACK_DELAY),
 		.F_LGDEPTH(LGDEPTH),
 		.F_OPT_DISCONTINUOUS(1),
 		.F_OPT_MINCLOCK_DELAY(0)
-	) wbs (i_clk, i_reset,
+		// }}}
+	) wbs (
+		// {{{
+		i_clk, i_reset,
 		i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr, i_wb_data, i_wb_sel,
 			o_wb_ack, o_wb_stall, o_wb_idata, o_wb_err,
 		fwbs_nreqs, fwbs_nacks, fwbs_outstanding
+		// }}}
 	);
 
 	always @(*)
@@ -404,6 +454,7 @@ module wbsafety(i_clk, i_reset,
 
 	generate if (F_OPT_FAULTLESS)
 	begin
+		// {{{
 		////////////////////////////////////////////////////////////////
 		//
 		// Assume the downstream core is protocol compliant, and
@@ -472,8 +523,9 @@ module wbsafety(i_clk, i_reset,
 		always @(*)
 		if (fwbs_nacks != 0 && i_wb_cyc)
 			assert(o_wb_cyc || o_wb_err);
-
+		// }}}
 	end else begin
+		// {{{
 		////////////////////////////////////////////////////////////////
 		//
 		// cover() checks, checks that only make sense if faults are
@@ -515,11 +567,12 @@ module wbsafety(i_clk, i_reset,
 				cover(faulted && !o_reset && o_wb_ack);
 
 		end
-
+		// }}}
 	end endgenerate
 
 	always @(*)
 		cover(!i_reset && fwbs_nacks > 4);
 
 `endif
+// }}}
 endmodule

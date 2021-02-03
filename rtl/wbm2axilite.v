@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	wbm2axilite.v (Wishbone master to AXI slave, pipelined)
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Convert from a wishbone master to an AXI lite interface.  The
@@ -12,9 +12,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2018-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2018-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,7 +34,7 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module wbm2axilite #(
 	parameter C_AXI_ADDR_WIDTH	=  28,// AXI Address width
 	localparam C_AXI_DATA_WIDTH	=  32,// Width of the AXI R&W data
@@ -90,19 +90,6 @@ module wbm2axilite #(
 // Local Parameter declarations
 //*****************************************************************************
 
-	localparam	LG_AXI_DW	= ( C_AXI_DATA_WIDTH ==   8) ? 3
-					: ((C_AXI_DATA_WIDTH ==  16) ? 4
-					: ((C_AXI_DATA_WIDTH ==  32) ? 5
-					: ((C_AXI_DATA_WIDTH ==  64) ? 6
-					: ((C_AXI_DATA_WIDTH == 128) ? 7
-					: 8))));
-
-	localparam	LG_WB_DW	= ( DW ==   8) ? 3
-					: ((DW ==  16) ? 4
-					: ((DW ==  32) ? 5
-					: ((DW ==  64) ? 6
-					: ((DW == 128) ? 7
-					: 8))));
 	//
 	// LGIFOFLN: The log (based two) of the size of our FIFO.  This is a
 	// localparam since 1) 32-bit distributed memories nearly come for
@@ -111,7 +98,6 @@ module wbm2axilite #(
 	// Any smaller, and the core will not be able to maintain 100%
 	// throughput.
 	localparam	LGFIFOLN = 5;
-	localparam	FIFOLN = (1<<LGFIFOLN);
 
 
 //*****************************************************************************
@@ -307,6 +293,7 @@ module wbm2axilite #(
 //
 /////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
+	localparam	FIFOLN = (1<<LGFIFOLN);
 	reg	f_past_valid;
 //
 `define	ASSUME	assume

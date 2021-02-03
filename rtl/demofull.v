@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	demofull.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Demonstrate a formally verified AXI4 core with a (basic)
@@ -20,9 +20,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -42,18 +42,18 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module demofull #(
-	parameter integer C_S_AXI_ID_WIDTH	= 2,
-	parameter integer C_S_AXI_DATA_WIDTH	= 32,
-	parameter integer C_S_AXI_ADDR_WIDTH	= 6,
-	// Some useful short-hand definitions
-	localparam	AW = C_S_AXI_ADDR_WIDTH,
-	localparam	DW = C_S_AXI_DATA_WIDTH,
-	localparam	IW = C_S_AXI_ID_WIDTH,
-	localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3,
-
-	parameter [0:0]	OPT_NARROW_BURST = 1
+		// {{{
+		parameter integer C_S_AXI_ID_WIDTH	= 2,
+		parameter integer C_S_AXI_DATA_WIDTH	= 32,
+		parameter integer C_S_AXI_ADDR_WIDTH	= 6,
+		// Some useful short-hand definitions
+		localparam	AW = C_S_AXI_ADDR_WIDTH,
+		localparam	DW = C_S_AXI_DATA_WIDTH,
+		localparam	IW = C_S_AXI_ID_WIDTH,
+		localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3
+		// }}}
 	) (
 		// Users to add ports here
 

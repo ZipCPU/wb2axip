@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	demoaxi.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Demonstrate an AXI-lite bus design.  The goal of this design
@@ -26,9 +26,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2018-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2018-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -48,9 +48,9 @@
 //
 //
 `default_nettype none
-
+//
 `timescale 1 ns / 1 ps
-
+// }}}
 module	demoaxi
 	#(
 		// Users to add parameters here

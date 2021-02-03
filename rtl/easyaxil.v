@@ -20,7 +20,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -109,8 +109,7 @@ module	easyaxil #(
 
 	reg	[31:0]	r0, r1, r2, r3;
 	wire	[31:0]	wskd_r0, wskd_r1, wskd_r2, wskd_r3;
-
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
@@ -126,7 +125,7 @@ module	easyaxil #(
 
 	generate if (OPT_SKIDBUFFER)
 	begin : SKIDBUFFER_WRITE
-
+		// {{{
 		wire	awskd_valid, wskd_valid;
 
 		skidbuffer #(.OPT_OUTREG(0),
@@ -151,9 +150,9 @@ module	easyaxil #(
 
 		assign	axil_write_ready = awskd_valid && wskd_valid
 				&& (!S_AXI_BVALID || S_AXI_BREADY);
-
+		// }}}
 	end else begin : SIMPLE_WRITES
-
+		// {{{
 		reg	axil_awready;
 
 		initial	axil_awready = 1'b0;
@@ -173,7 +172,7 @@ module	easyaxil #(
 		assign	wskd_strb  = S_AXI_WSTRB;
 
 		assign	axil_write_ready = axil_awready;
-
+		// }}}
 	end endgenerate
 
 	initial	axil_bvalid = 0;
@@ -196,7 +195,7 @@ module	easyaxil #(
 
 	generate if (OPT_SKIDBUFFER)
 	begin : SKIDBUFFER_READ
-
+		// {{{
 		wire	arskd_valid;
 
 		skidbuffer #(.OPT_OUTREG(0),
@@ -211,9 +210,9 @@ module	easyaxil #(
 
 		assign	axil_read_ready = arskd_valid
 				&& (!axil_read_valid || S_AXI_RREADY);
-
+		// }}}
 	end else begin : SIMPLE_READS
-
+		// {{{
 		reg	axil_arready;
 
 		always @(*)
@@ -222,7 +221,7 @@ module	easyaxil #(
 		assign	arskd_addr = S_AXI_ARADDR[C_AXI_ADDR_WIDTH-1:ADDRLSB];
 		assign	S_AXI_ARREADY = axil_arready;
 		assign	axil_read_ready = (S_AXI_ARVALID && S_AXI_ARREADY);
-
+		// }}}
 	end endgenerate
 
 	initial	axil_read_valid = 1'b0;
@@ -306,6 +305,8 @@ module	easyaxil #(
 	endfunction
 	// }}}
 
+	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXI_AWPROT, S_AXI_ARPROT,
@@ -313,14 +314,16 @@ module	easyaxil #(
 			S_AXI_AWADDR[ADDRLSB-1:0] };
 	// Verilator lint_on  UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Formal properties used in verfiying this core
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -343,9 +346,9 @@ module	easyaxil #(
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(F_AXIL_LGDEPTH),
-		.F_AXI_MAXWAIT(2),
-		.F_AXI_MAXDELAY(2),
-		.F_AXI_MAXRSTALL(3),
+		.F_AXI_MAXWAIT(3),
+		.F_AXI_MAXDELAY(3),
+		.F_AXI_MAXRSTALL(5),
 		.F_OPT_COVER_BURST(4)
 		// }}}
 	) faxil(
@@ -401,19 +404,6 @@ module	easyaxil #(
 		assert(faxil_rd_outstanding == (S_AXI_RVALID ? 1:0));
 	end
 
-	always @(posedge S_AXI_ACLK)
-	if (f_past_valid && $past(S_AXI_ARESETN
-			&& axil_read_ready))
-	begin
-		assert(S_AXI_RVALID);
-		case($past(arskd_addr))
-		0: assert(S_AXI_RDATA == $past(r0));
-		1: assert(S_AXI_RDATA == $past(r1));
-		2: assert(S_AXI_RDATA == $past(r2));
-		3: assert(S_AXI_RDATA == $past(r3));
-		endcase
-	end
-
 	//
 	// Check that our low-power only logic works by verifying that anytime
 	// S_AXI_RVALID is inactive, then the outgoing data is also zero.
@@ -421,7 +411,108 @@ module	easyaxil #(
 	always @(*)
 	if (OPT_LOWPOWER && !S_AXI_RVALID)
 		assert(S_AXI_RDATA == 0);
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Register return checking
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+`define	CHECK_REGISTERS
+`ifdef	CHECK_REGISTERS
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(0)
+		// }}}
+	) fr0 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r0)
+		// }}}
+	);
 
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(4)
+		// }}}
+	) fr1 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r1)
+		// }}}
+	);
+
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(8)
+		// }}}
+	) fr2 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r2)
+		// }}}
+	);
+
+	faxil_register #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH),
+		.DW(C_AXI_DATA_WIDTH),
+		.ADDR(12)
+		// }}}
+	) fr3 (
+		// {{{
+		.S_AXI_ACLK(S_AXI_ACLK),
+		.S_AXI_ARESETN(S_AXI_ARESETN),
+		.S_AXIL_AWW(axil_write_ready),
+		.S_AXIL_AWADDR({ awskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_WDATA(wskd_data),
+		.S_AXIL_WSTRB(wskd_strb),
+		.S_AXIL_BVALID(S_AXI_BVALID),
+		.S_AXIL_AR(axil_read_ready),
+		.S_AXIL_ARADDR({ arskd_addr, {(ADDRLSB){1'b0}} }),
+		.S_AXIL_RVALID(S_AXI_RVALID),
+		.S_AXIL_RDATA(S_AXI_RDATA),
+		.i_register(r3)
+		// }}}
+	);
+`endif
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -436,6 +527,6 @@ module	easyaxil #(
 	// application specific here
 
 	// }}}
-	// }}}
 `endif
+// }}}
 endmodule

@@ -28,7 +28,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -156,15 +156,18 @@ module axi2axilite #(
 
 	// Local parameters, register, and net declarations
 	// {{{
-	localparam [1:0]	OKAY = 2'b00,
-				EXOKAY = 2'b01,
-				SLVERR = 2'b10,
-				DECERR = 2'b10;
+	// Verilator lint_off UNUSED
+	localparam [1:0]	EXOKAY = 2'b01,
+				SLVERR = 2'b10;
+	// localparam [1:0]	OKAY = 2'b00,
+	//			DECERR = 2'b10;
+	// Verilator lint_on UNUSED
 	localparam	AW = C_AXI_ADDR_WIDTH;
 	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	IW = C_AXI_ID_WIDTH;
-	localparam	LSB = $clog2(C_AXI_DATA_WIDTH)-3;
-
+	// }}}
+	// Register declarations
+	// {{{
 	//
 	// Write registers
 	reg				m_axi_awvalid, s_axi_wready;

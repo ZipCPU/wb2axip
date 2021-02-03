@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axidouble.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Create a special AXI slave which can be used to reduce crossbar
@@ -107,9 +107,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -129,8 +129,9 @@
 //
 //
 `default_nettype none
-//
+// }}}
 module	axidouble #(
+		// {{{
 		parameter integer C_AXI_DATA_WIDTH = 32,
 		parameter integer C_AXI_ADDR_WIDTH = 32,
 		parameter integer C_AXI_ID_WIDTH = 1,
@@ -187,8 +188,9 @@ module	axidouble #(
 		// subcores will have exclusive access applied.  There is no
 		// core-by-core means of enabling exclusive access at this time.
 		parameter [0:0]	OPT_EXCLUSIVE_ACCESS = 1'b1
-		//
+		// }}}
 	) (
+		// {{{
 		input	wire				S_AXI_ACLK,
 		input	wire				S_AXI_ARESETN,
 		//
@@ -292,6 +294,7 @@ module	axidouble #(
 		input	wire [NS*C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire	[NS*2-1:0]		M_AXI_RRESP
 		// input wire M_AXI_RLAST is assumed to be 1
+		// }}}
 	);
 	//
 	//

@@ -1,0 +1,30 @@
+[tasks]
+prf
+prfz prf opt_lowpower
+cvr
+
+[options]
+prf: mode prove
+prf: depth 11
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal axilupsz.v
+read -formal faxil_slave.v
+read -formal faxil_master.v
+read -formal sfifo.v
+read -formal skidbuffer.v
+opt_lowpower:  hierarchy -top axilupsz -chparam OPT_LOWPOWER 1
+~opt_lowpower: hierarchy -top axilupsz -chparam OPT_LOWPOWER 0
+prep -top axilupsz
+
+[files]
+../../rtl/sfifo.v
+../../rtl/skidbuffer.v
+../../rtl/axilupsz.v
+faxil_slave.v
+faxil_master.v

@@ -86,7 +86,6 @@
 //
 //	Line bytes that include a fraction of a word are rounded down and not
 //	  up.
-//
 // }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.
@@ -94,7 +93,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.

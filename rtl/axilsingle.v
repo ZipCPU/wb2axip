@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axilsingle.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Create a special AXI-lite slave which can be used to reduce
@@ -80,9 +80,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -105,9 +105,9 @@
 // `ifdef	VERILATOR
 // `define	FORMAL
 // `endif
-//
+// }}}
 module	axilsingle #(
-		//
+		// {{{
 		// NS is the number of slave interfaces
 		parameter	NS = 16,
 		//
@@ -130,7 +130,9 @@ module	axilsingle #(
 		// internal and external, to zero anytime their corresponding
 		// *VALID bit is clear
 		parameter [0:0]	OPT_LOWPOWER = 0
+		// }}}
 	) (
+		// {{{
 		input	wire				S_AXI_ACLK,
 		input	wire				S_AXI_ARESETN,
 		//
@@ -173,6 +175,7 @@ module	axilsingle #(
 		//
 		input	wire [NS*C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire	[NS*2-1:0]		M_AXI_RRESP
+		// }}}
 	);
 	//
 	//

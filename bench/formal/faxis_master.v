@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	faxis_master.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Formal properties for verifying the proper functionality of an
@@ -11,9 +11,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -33,43 +33,47 @@
 //
 //
 `default_nettype none
-//
+// }}}
 module	faxis_master #(
-	parameter	F_MAX_PACKET = 0,
-	parameter	F_MIN_PACKET = 0,
-	parameter	F_MAX_STALL  = 0,
-	parameter	C_S_AXI_DATA_WIDTH  = 32,
-	parameter	C_S_AXI_ID_WIDTH = 1,
-	parameter	C_S_AXI_ADDR_WIDTH = 1,
-	parameter	C_S_AXI_USER_WIDTH = 1,
-	parameter [0:0]	OPT_ASYNC_RESET = 1'b0,
-	//
-	// F_LGDEPTH is the number of bits necessary to represent a packets
-	// length
-	parameter	F_LGDEPTH = 32,
-	//
-	localparam	AW  = C_S_AXI_ADDR_WIDTH,
-	localparam	DW  = C_S_AXI_DATA_WIDTH,
-	localparam	IDW  = C_S_AXI_ID_WIDTH,
-	localparam	UW  = C_S_AXI_USER_WIDTH
-	//
+		// {{{
+		parameter	F_MAX_PACKET = 0,
+		parameter	F_MIN_PACKET = 0,
+		parameter	F_MAX_STALL  = 0,
+		parameter	C_S_AXI_DATA_WIDTH  = 32,
+		parameter	C_S_AXI_ID_WIDTH = 1,
+		parameter	C_S_AXI_ADDR_WIDTH = 1,
+		parameter	C_S_AXI_USER_WIDTH = 1,
+		parameter [0:0]	OPT_ASYNC_RESET = 1'b0,
+		//
+		// F_LGDEPTH is the number of bits necessary to represent a
+		// packets length
+		parameter	F_LGDEPTH = 32,
+		//
+		localparam	AW  = C_S_AXI_ADDR_WIDTH,
+		localparam	DW  = C_S_AXI_DATA_WIDTH,
+		localparam	IDW  = C_S_AXI_ID_WIDTH,
+		localparam	UW  = C_S_AXI_USER_WIDTH
+		// }}}
 	) (
-	//
-	input	wire			i_aclk, i_aresetn,
-	input	wire			i_tvalid,
-	input	wire			i_tready = 1,
-	input	wire	[DW-1:0]	i_tdata,
-	input	wire	[DW/8-1:0]	i_tstrb = {(DW/8){1'b1}},
-	input	wire	[DW/8-1:0]	i_tkeep = {(DW/8){1'b1}},
-	input	wire			i_tlast,
-	input	wire	[(IDW>0?IDW:1)-1:0]	i_tid = {(IDW){1'b0}},
-	input	wire	[(AW>0?AW:1)-1:0]	i_tdest = {(AW){1'b0}},
-	input	wire	[(UW>0?UW:1)-1:0]	i_tuser = {(UW){1'b0}},
-	//
-	output	reg	[F_LGDEPTH-1:0]	f_bytecount,
-	(* anyconst *) output	reg	[AW+IDW-1:0]	f_routecheck
+		// {{{
+		input	wire			i_aclk, i_aresetn,
+		input	wire			i_tvalid,
+		input	wire			i_tready = 1,
+		input	wire	[DW-1:0]	i_tdata,
+		input	wire	[DW/8-1:0]	i_tstrb = {(DW/8){1'b1}},
+		input	wire	[DW/8-1:0]	i_tkeep = {(DW/8){1'b1}},
+		input	wire			i_tlast,
+		input	wire	[(IDW>0?IDW:1)-1:0]	i_tid = {(IDW){1'b0}},
+		input	wire	[(AW>0?AW:1)-1:0]	i_tdest = {(AW){1'b0}},
+		input	wire	[(UW>0?UW:1)-1:0]	i_tuser = {(UW){1'b0}},
+		//
+		output	reg	[F_LGDEPTH-1:0]	f_bytecount,
+		(* anyconst *) output	reg	[AW+IDW-1:0]	f_routecheck
+		// }}}
 	);
 
+	// Signal declarations
+	// {{{
 `define	SLAVE_ASSUME	assert
 `define	SLAVE_ASSERT	assume
 
@@ -88,20 +92,37 @@ module	faxis_master #(
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_aclk)
 		f_past_valid <= 1'b1;
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
+	// Reset properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
 	// Reset should always be active (low) initially
 	always @(posedge i_aclk)
 	if (!f_past_valid)
 		`SLAVE_ASSUME(!i_aresetn);
-
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
+	// Stability properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
 	// During and following a reset, TVALID should be deasserted
+	// {{{
 	always @(posedge i_aclk)
 	if ((!f_past_valid)||(!i_aresetn && OPT_ASYNC_RESET)||($past(!i_aresetn)))
 		`SLAVE_ASSUME(!i_tvalid);
+	// }}}
 
-	//
+	// Stability during a stall
+	// {{{
 	// If TVALID but not TREADY, then the master isn't allowed to change
 	// anything until the slave asserts TREADY.
 	always @(posedge i_aclk)
@@ -116,7 +137,12 @@ module	faxis_master #(
 		`SLAVE_ASSUME($stable(i_tdest));
 		`SLAVE_ASSUME($stable(i_tuser));
 	end
-
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Partial data check
+	// {{{
 	generate for(k=0; k<DW/8; k=k+1)
 	begin : CHECK_PARTIAL_DATA
 
@@ -136,6 +162,13 @@ module	faxis_master #(
 		end
 
 	end endgenerate
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Other properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 
 	//
 	// TKEEP == LOW and TSTRB == HIGH is reserved per the spec, and
@@ -144,8 +177,8 @@ module	faxis_master #(
 	if (i_tvalid)
 		`SLAVE_ASSUME((~i_tkeep & i_tstrb)==0);
 
-	//
-	// f_vbytes is the number of valid bytes contained in the current beat
+	// f_vbytes -- a count of the number of valid bytes in the current beat
+	// {{{
 	// It is used for counting packet lengths below.
 	always @(*)
 	if (!i_tvalid)
@@ -156,8 +189,10 @@ module	faxis_master #(
 		if (i_tkeep[iB] && i_tstrb[iB])
 			f_vbytes = f_vbytes + 1;
 	end
+	// }}}
 
-	//
+	// f_bytecount
+	// {{{
 	// f_bytecount is the number of bytes that have taken place so far in
 	// the current packet transmission.  Note that we are *only* counting
 	// our location within the stream if the TUSER and TDEST fields match
@@ -174,8 +209,10 @@ module	faxis_master #(
 		else
 			f_bytecount <= f_bytecount + f_vbytes;
 	end
+	// }}}
 
-	//
+	// f_stall_count
+	// {{{
 	// Count the number of clock cycles between ready's.  We'll use this in
 	// a bit to insist on an (optional) minimum transfer speed.
 	initial	f_stall_count = 0;
@@ -184,10 +221,10 @@ module	faxis_master #(
 		f_stall_count <= 0;
 	else if (!(&f_stall_count))
 		f_stall_count <= f_stall_count + 1;
+	// }}}
 
-	//
 	// F_MAX_PACKET
-	//
+	// {{{
 	// An optional check, to make certain packets don't exceed some maximum
 	// length
 	generate if (F_MAX_PACKET > 0)
@@ -197,11 +234,11 @@ module	faxis_master #(
 			`SLAVE_ASSUME(f_bytecount + f_vbytes <= F_MAX_PACKET);
 
 	end endgenerate
+	// }}}
 
-	//
 	// F_MIN_PACKET
-	//
-	// An optoinal check, forcing a minimum packet length
+	// {{{
+	// An optional check, forcing a minimum packet length
 	generate if (F_MIN_PACKET > 0)
 	begin : MIN_PACKET
 
@@ -210,10 +247,10 @@ module	faxis_master #(
 			`SLAVE_ASSUME(f_bytecount + f_vbytes >= F_MIN_PACKET);
 
 	end endgenerate
-
+	// }}}
 	//
 	// F_MAX_STALL
-	//
+	// {{{
 	// Another optional check, this time insisting that the READY flag can
 	// only be low for up to F_MAX_STALL clocks.
 	//
@@ -224,6 +261,8 @@ module	faxis_master #(
 			`SLAVE_ASSERT(f_stall_count < F_MAX_STALL);
 
 	end endgenerate
+	// }}}
+	// }}}
 endmodule
 `undef	SLAVE_ASSUME
 `undef	SLAVE_ASSERT

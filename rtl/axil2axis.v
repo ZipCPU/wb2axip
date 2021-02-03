@@ -64,7 +64,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -198,10 +198,10 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Register/wire signal declarations
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	wire	i_reset = !S_AXI_ARESETN;
 
 	wire				axil_write_ready;
@@ -234,10 +234,10 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// Write signaling
@@ -498,31 +498,36 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite register logic
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
-
+	//
 
 	//
-	// Read data counting
+	// Read data counting : reads_completed and read_bursts_completed
 	// {{{
 	initial	reads_completed = 0;
 	initial	read_bursts_completed = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 	begin
+		// {{{
 		reads_completed <= 0;
 		read_bursts_completed <= 0;
+		// }}}
 	end else if (!OPT_SINK)
 	begin
+		// {{{
 		reads_completed <= reads_completed + (S_AXIS_TVALID ? 1:0);
 		read_bursts_completed <= read_bursts_completed
 				+ ((S_AXIS_TVALID && S_AXIS_TLAST) ? 1:0);
+		// }}}
 	end else if (read_rfifo && !rfifo_empty)
 	begin
+		// {{{
 		reads_completed <= reads_completed + 1;
 		read_bursts_completed <= read_bursts_completed + (rfifo_last ? 1:0);
+		// }}}
 	end
 	// }}}
 
@@ -531,7 +536,7 @@ module	axil2axis #(
 	// {{{
 	generate if (OPT_SOURCE)
 	begin
-
+		// {{{
 		initial	writes_completed = 0;
 		initial	write_bursts_completed = 0;
 		always @(posedge S_AXI_ACLK)
@@ -545,15 +550,15 @@ module	axil2axis #(
 			write_bursts_completed <= write_bursts_completed
 					+ (M_AXIS_TLAST ? 1:0);
 		end
-
-	end else begin
-
+		// }}}
+	end else begin // No AXI-stream source logic
+		// {{{
 		always @(*)
 		begin
 			writes_completed = 0;
 			write_bursts_completed = 0;
 		end
-
+		// }}}
 	end endgenerate
 	// }}}
 
@@ -594,6 +599,8 @@ module	axil2axis #(
 	assign	S_AXI_RDATA  = axil_read_data;
 	// }}}
 
+	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXI_AWPROT, S_AXI_ARPROT,
@@ -602,14 +609,18 @@ module	axil2axis #(
 			wskd_data[C_AXI_DATA_WIDTH-1:SW] };
 	// Verilator lint_on  UNUSED
 	// }}}
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties used in verfiying this core
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Formal properties used in verfiying this core
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	// {{{
+	// Register definitions
 	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
@@ -623,10 +634,10 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-lite control interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	localparam	F_AXIL_LGDEPTH = 4;
 	wire	[F_AXIL_LGDEPTH-1:0]	faxil_rd_outstanding,
 					faxil_wr_outstanding,
@@ -690,14 +701,13 @@ module	axil2axis #(
 			+(S_AXI_ARREADY ? 0:1));
 	end
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Verifying the packet counters
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	reg	[11:0]	f_reads, f_writes;
 	reg	[3:0]	f_read_pkts, f_write_pkts;
 
@@ -761,14 +771,13 @@ module	axil2axis #(
 		assert(f_write_pkts == write_bursts_completed);
 	end
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Verify the read result
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	always @(posedge S_AXI_ACLK)
 	if (f_past_valid && $past(S_AXI_ARESETN && axil_read_ready))
 	begin
@@ -817,14 +826,13 @@ module	axil2axis #(
 		assert(S_AXI_RDATA == 0);
 
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-stream interfaces
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	// Slave/consumer properties
 	always @(posedge S_AXI_ACLK)
@@ -853,10 +861,10 @@ module	axil2axis #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	always @(*)
 		cover(S_AXI_ARESETN && writes_completed == 16);

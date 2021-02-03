@@ -39,7 +39,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020, Gisselquist Technology, LLC
+// Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -134,7 +134,7 @@ module axilsafety #(
 		output	reg	[2:0]		M_AXI_ARPROT,
 		//
 		input	wire			M_AXI_RVALID,
-		output	reg			M_AXI_RREADY,
+		output	wire			M_AXI_RREADY,
 		input	wire	[DW-1:0]	M_AXI_RDATA,
 		input	wire	[1:0]		M_AXI_RRESP
 		// }}}
@@ -510,7 +510,7 @@ module axilsafety #(
 			S_AXI_RDATA <= rskd_data;
 
 		S_AXI_RRESP <= OKAY;
-		if (o_read_fault || rskd_resp == EXOKAY)
+		if (o_read_fault || rskd_resp == EXOKAY || !M_AXI_ARESETN)
 			S_AXI_RRESP <= SLVERR;
 		else if (!downstream_r_zero)
 			S_AXI_RRESP <= rskd_resp;
@@ -1387,6 +1387,65 @@ module axilsafety #(
 
 		// }}}
 	end endgenerate
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Never data properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	(* anyconst *) reg [C_AXI_DATA_WIDTH-1:0]	fc_never_read_data;
+	(* anyconst *) reg [C_AXI_DATA_WIDTH+C_AXI_DATA_WIDTH/8-1:0]
+						fc_never_write_data;
+
+	(* anyconst *) reg [C_AXI_ADDR_WIDTH-1:0]	fc_never_read_addr,
+						fc_never_write_addr;
+
+	// Write address checking
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN && S_AXI_AWVALID)
+		assume(S_AXI_AWADDR != fc_never_write_addr);
+
+	always @(*)
+	if (S_AXI_ARESETN && M_AXI_ARESETN && !o_write_fault && M_AXI_AWVALID)
+		assert(M_AXI_AWADDR != fc_never_write_addr);
+	// }}}
+
+	// Write checking
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN && S_AXI_WVALID)
+		assume({ S_AXI_WDATA, S_AXI_WSTRB } != fc_never_write_data);
+
+	always @(*)
+	if (S_AXI_ARESETN && M_AXI_ARESETN && !o_write_fault && M_AXI_WVALID)
+		assert({ M_AXI_WDATA, M_AXI_WSTRB } != fc_never_write_data);
+	// }}}
+
+	// Read address checking
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN && S_AXI_ARVALID)
+		assume(S_AXI_ARADDR != fc_never_read_addr);
+
+	always @(*)
+	if (S_AXI_ARESETN && M_AXI_ARESETN && !o_read_fault && M_AXI_ARVALID)
+		assert(M_AXI_ARADDR != fc_never_read_addr);
+	// }}}
+
+	// Read checking
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN && M_AXI_ARESETN && M_AXI_RVALID)
+		assume(M_AXI_RDATA != fc_never_read_data);
+
+	always @(*)
+	if (S_AXI_ARESETN && S_AXI_RVALID && S_AXI_RRESP == 2'b00)
+		assert(S_AXI_RDATA != fc_never_read_data);
+	// }}}
+
+	// }}}
 
 `endif
 // }}}

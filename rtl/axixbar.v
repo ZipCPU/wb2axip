@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axixbar.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Create a full crossbar between NM AXI sources (masters), and NS
@@ -64,8 +64,8 @@
 //		Gisselquist Technology, LLC
 // }}}
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -341,15 +341,15 @@ module	axixbar #(
 	reg	[NM-1:0]		mwempty;
 	reg	[NM-1:0]		mrempty;
 	//
-	reg	[LGNS-1:0]		mwindex	[0:NMFULL-1];
-	reg	[LGNS-1:0]		mrindex	[0:NMFULL-1];
-	reg	[LGNM-1:0]		swindex	[0:NSFULL-1];
-	reg	[LGNM-1:0]		srindex	[0:NSFULL-1];
+	wire	[LGNS-1:0]		mwindex	[0:NMFULL-1];
+	wire	[LGNS-1:0]		mrindex	[0:NMFULL-1];
+	wire	[LGNM-1:0]		swindex	[0:NSFULL-1];
+	wire	[LGNM-1:0]		srindex	[0:NSFULL-1];
 
 	(* keep *) reg	[NM-1:0]		wdata_expected;
 
 	// The shadow buffers
-	reg	[NMFULL-1:0]	m_awvalid, m_arvalid;
+	wire	[NMFULL-1:0]	m_awvalid, m_arvalid;
 	wire	[NMFULL-1:0]	m_wvalid;
 	wire	[NM-1:0]	dcd_awvalid, dcd_arvalid;
 
@@ -447,7 +447,7 @@ module	axixbar #(
 	wire	[NM-1:0]	bskd_ready;
 	wire	[NM-1:0]	rskd_ready;
 
-	reg	[NMFULL-1:0]	write_qos_lockout,
+	wire	[NMFULL-1:0]	write_qos_lockout,
 				read_qos_lockout;
 
 	reg	[NSFULL-1:0]	slave_awready, slave_wready, slave_arready;
@@ -665,13 +665,17 @@ module	axixbar #(
 		end
 		// }}}
 
+		reg	r_awvalid;
+
 		always @(*)
 		begin
-			m_awvalid[N]= dcd_awvalid[N] && !mwfull[N];
+			r_awvalid = dcd_awvalid[N] && !mwfull[N];
 			wrequest[N]= 0;
 			if (!mwfull[N])
 				wrequest[N][NS:0] = wdecode;
 		end
+
+		assign	m_awvalid[N] = r_awvalid;
 
 		// QOS handling via write_qos_lockout
 		// {{{
@@ -680,20 +684,21 @@ module	axixbar #(
 
 			// If we aren't using QOS, then never lock any packets
 			// out from arbitration
-			always @(*)
-				write_qos_lockout[N] = 0;
+			assign	write_qos_lockout[N] = 0;
 
 		end else begin : WRITE_QOS
 
 			// Lock out a master based upon a second master having
 			// a higher QOS request level
 			// {{{
-			initial	write_qos_lockout[N] = 0;
+			reg	r_write_qos_lockout;
+
+			initial	r_write_qos_lockout = 0;
 			always @(posedge  S_AXI_ACLK)
 			if (!S_AXI_ARESETN)
-				write_qos_lockout[N] <= 0;
+				r_write_qos_lockout <= 0;
 			else begin
-				write_qos_lockout[N] <= 0;
+				r_write_qos_lockout <= 0;
 
 				for(iN=0; iN<NM; iN=iN+1)
 				if (iN != N)
@@ -702,9 +707,11 @@ module	axixbar #(
 						&&(|(wrequest[iN][NS-1:0]
 							& wdecode[NS-1:0]))
 						&&(m_awqos[N] < m_awqos[iN]))
-						write_qos_lockout[N] <= 1;
+						r_write_qos_lockout <= 1;
 				end
 			end
+
+			assign	write_qos_lockout[N] = r_write_qos_lockout;
 			// }}}
 		end
 		// }}}
@@ -744,6 +751,7 @@ module	axixbar #(
 	generate for(N=0; N<NM; N=N+1)
 	begin : R1_DECODE_READ_REQUEST
 	// {{{
+		reg		r_arvalid;
 		wire	[NS:0]	rdecode;
 
 		// arskid
@@ -785,11 +793,13 @@ module	axixbar #(
 
 		always @(*)
 		begin
-			m_arvalid[N] = dcd_arvalid[N] && !mrfull[N];
+			r_arvalid = dcd_arvalid[N] && !mrfull[N];
 			rrequest[N] = 0;
 			if (!mrfull[N])
 				rrequest[N][NS:0] = rdecode;
 		end
+
+		assign	m_arvalid[N] = r_arvalid;
 
 		// slave_raccepts decoding
 		// {{{
@@ -828,20 +838,21 @@ module	axixbar #(
 
 			// If we aren't implementing QOS, then the lockout
 			// signal is never set
-			always @(*)
-				read_qos_lockout[N] = 0;
+			assign	read_qos_lockout[N] = 0;
 
 		end else begin : READ_QOS
-
+			// {{{
 			// We set lockout if another master (with a higher
 			// QOS) is requesting this slave *and* the slave
 			// channel is currently stalled.
-			initial	read_qos_lockout[N] = 0;
+			reg	r_read_qos_lockout;
+
+			initial	r_read_qos_lockout = 0;
 			always @(posedge  S_AXI_ACLK)
 			if (!S_AXI_ARESETN)
-				read_qos_lockout[N] <= 0;
+				r_read_qos_lockout <= 0;
 			else begin
-				read_qos_lockout[N] <= 0;
+				r_read_qos_lockout <= 0;
 
 				for(iN=0; iN<NM; iN=iN+1)
 				if (iN != N)
@@ -851,17 +862,19 @@ module	axixbar #(
 						&&(|(rrequest[iN][NS-1:0]
 							& rdecode[NS-1:0]))
 						&&(m_arqos[N] < m_arqos[iN]))
-						read_qos_lockout[N] <= 1;
+						r_read_qos_lockout <= 1;
 				end
 			end
+
+			assign	read_qos_lockout[N] = 0;
+			// {{{
 		end
 		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_RSKID_BUFFERS
 	// {{{
-		always @(*)
-			m_arvalid[N] = 0;
+		assign	m_arvalid[N] = 0;
 		assign	m_arid[N]    = 0;
 		assign	m_araddr[N]  = 0;
 		assign	m_arlen[N]   = 0;
@@ -872,8 +885,7 @@ module	axixbar #(
 		assign	m_arprot[N]  = 0;
 		assign	m_arqos[N]   = 0;
 
-		always @(*)
-			read_qos_lockout[N] = 0;
+		assign	read_qos_lockout[N] = 0;
 	// }}}
 	// }}}
 	end endgenerate
@@ -966,7 +978,8 @@ module	axixbar #(
 		reg			requested_channel_is_available;
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
-		reg			linger;
+		wire			linger;
+		reg	[LGNS-1:0]	r_mwindex;
 
 		// The basic logic:
 		// 1. If we must stay_on_channel, then nothing changes
@@ -1035,34 +1048,35 @@ module	axixbar #(
 		// option is voided and the grant given up anyway.
 		if (OPT_LINGER == 0)
 		begin
-			always @(*)
-				linger = 0;
+			assign	linger = 0;
 		end else begin : WRITE_LINGER
 
 			reg [LGLINGER-1:0]	linger_counter;
+			reg			r_linger;
 
-			initial	linger = 0;
+			initial	r_linger = 0;
 			initial	linger_counter = 0;
 			always @(posedge S_AXI_ACLK)
 			if (!S_AXI_ARESETN || wgrant[N][NS])
 			begin
-				linger <= 0;
+				r_linger <= 0;
 				linger_counter <= 0;
 			end else if (!mwempty[N] || bskd_valid[N])
 			begin
 				// While the channel is in use, we set the
 				// linger counter
 				linger_counter <= OPT_LINGER;
-				linger <= 1;
+				r_linger <= 1;
 			end else if (linger_counter > 0)
 			begin
 				// Otherwise, we decrement it until it reaches
 				// zero
-				linger <= (linger_counter > 1);
+				r_linger <= (linger_counter > 1);
 				linger_counter <= linger_counter - 1;
 			end else
-				linger <= 0;
+				r_linger <= 0;
 
+			assign	linger = r_linger;
 		end
 		// }}}
 
@@ -1130,17 +1144,18 @@ module	axixbar #(
 		end
 
 		// Now for mwindex
-		initial	mwindex[N] = 0;
+		initial	r_mwindex = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
-			mwindex[N] <= requested_index;
+			r_mwindex <= requested_index;
+
+		assign	mwindex[N] = r_mwindex;
 		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
 
-		always @(*)
-			mwindex[N] = 0;
+		assign	mwindex[N] = 0;
 	// }}}
 	end endgenerate
 
@@ -1152,6 +1167,8 @@ module	axixbar #(
 		reg			leave_channel;
 		reg	[LGNS-1:0]	requested_index;
 		reg			linger;
+		reg	[LGNS-1:0]	r_mrindex;
+
 
 		// The basic logic:
 		// 1. If we must stay_on_channel, then nothing changes
@@ -1306,17 +1323,18 @@ module	axixbar #(
 				requested_index = requested_index|iM[LGNS-1:0];
 		end
 
-		initial	mrindex[N] = 0;
+		initial	r_mrindex = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!stay_on_channel && requested_channel_is_available)
-			mrindex[N] <= requested_index;
+			r_mrindex <= requested_index;
+
+		assign	mrindex[N] = r_mrindex;
 		// }}}
 
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin
 
-		always @(*)
-			mrindex[N] = 0;
+		assign	mrindex[N] = 0;
 	// }}}
 	end endgenerate
 
@@ -1332,12 +1350,11 @@ module	axixbar #(
 
 			// If there's only ever one master, that index is
 			// always the index of the one master.
-			always @(*)
-				swindex[M] = 0;
+			assign	swindex[M] = 0;
 
 		end else begin : MULTIPLE_MASTERS
 
-			reg [LGNM-1:0]	reqwindex;
+			reg [LGNM-1:0]	reqwindex, r_swindex;
 
 			// In the case of multiple masters, we follow the logic
 			// of the arbiter to generate the appropriate index
@@ -1354,14 +1371,15 @@ module	axixbar #(
 
 			always @(posedge S_AXI_ACLK)
 			if (!swgrant[M])
-				swindex[M] <= reqwindex;
+				r_swindex <= reqwindex;
+
+			assign	swindex[M] = r_swindex;
 		end
 
 	end for (M=NS; M<NSFULL; M=M+1)
 	begin
 
-		always @(*)
-			swindex[M] = 0;
+		assign	swindex[M] = 0;
 	// }}}
 	end endgenerate
 
@@ -1376,12 +1394,11 @@ module	axixbar #(
 		begin
 			// If there's only one master, srindex can always
 			// point to that master--no longic required
-			always @(*)
-				srindex[M] = 0;
+			assign	srindex[M] = 0;
 
 		end else begin : MULTIPLE_MASTERS
 
-			reg [LGNM-1:0]	reqrindex;
+			reg [LGNM-1:0]	reqrindex, r_srindex;
 
 			// In the case of multiple masters, we'll follow the
 			// read arbitration logic to generate the index--first
@@ -1397,14 +1414,15 @@ module	axixbar #(
 
 			always @(posedge S_AXI_ACLK)
 			if (!srgrant[M])
-				srindex[M] <= reqrindex;
+				r_srindex <= reqrindex;
+
+			assign	srindex[M] = r_srindex;
 		end
 
 	end for (M=NS; M<NSFULL; M=M+1)
 	begin
 
-		always @(*)
-			srindex[M] = 0;
+		assign	srindex[M] = 0;
 	// }}}
 	end endgenerate
 

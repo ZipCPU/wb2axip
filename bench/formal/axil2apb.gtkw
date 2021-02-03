@@ -1,12 +1,11 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Wed Aug 19 18:54:33 2020
+[*] Sat Nov 21 00:36:12 2020
 [*]
-[dumpfile] "(null)"
 [timestart] 0
-[size] 1920 1054
+[size] 1920 1029
 [pos] -1 -1
-*-3.628906 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.628906 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [sst_width] 196
 [signals_width] 230
 [sst_expanded] 1
@@ -16,38 +15,7 @@ axil2apb.S_AXI_ARESETN
 axil2apb.S_AXI_ACLK
 @200
 -
-@28
-[color] 2
-axil2apb.M_APB_PSEL
-[color] 2
-axil2apb.M_APB_PENABLE
-@29
-[color] 3
-axil2apb.M_APB_PREADY
-@22
-[color] 2
-axil2apb.M_APB_PADDR[31:0]
-@28
-[color] 2
-axil2apb.M_APB_PWRITE
-@22
-[color] 2
-axil2apb.M_APB_PWDATA[31:0]
-@28
-[color] 2
-axil2apb.M_APB_PPROT[2:0]
-@22
-[color] 2
-axil2apb.M_APB_PWSTRB[3:0]
-@23
-[color] 3
-axil2apb.M_APB_PRDATA[31:0]
-@29
-[color] 3
-axil2apb.M_APB_PSLVERR
-@200
--
-@800200
+@c00200
 -AXI writes
 @28
 [color] 3
@@ -81,10 +49,8 @@ axil2apb.S_AXI_BVALID
 axil2apb.S_AXI_BREADY
 [color] 2
 axil2apb.S_AXI_BRESP[1:0]
-axil2apb.faxi_awr_outstanding[1:0]
-axil2apb.faxi_wr_outstanding[1:0]
 axil2apb.axil_write_ready
-@1000200
+@1401200
 -AXI writes
 @800200
 -AXI reads
@@ -101,8 +67,10 @@ axil2apb.S_AXI_ARADDR[31:0]
 axil2apb.S_AXI_ARPROT[2:0]
 @200
 -
-@28
+@29
+[color] 2
 axil2apb.S_AXI_RVALID
+@28
 [color] 3
 axil2apb.S_AXI_RREADY
 @22
@@ -111,13 +79,40 @@ axil2apb.S_AXI_RDATA[31:0]
 @28
 [color] 2
 axil2apb.S_AXI_RRESP[1:0]
-axil2apb.faxi_rd_outstanding[1:0]
 axil2apb.axil_read_ready
 axil2apb.arskd_valid
 @1000200
 -AXI reads
+@800200
+-APB out
 @28
-axil2apb.write_grant
-axil2apb.apb_idle
+[color] 2
+axil2apb.M_APB_PSEL
+[color] 2
+axil2apb.M_APB_PENABLE
+[color] 3
+axil2apb.M_APB_PREADY
+@22
+[color] 2
+axil2apb.M_APB_PADDR[31:0]
+@28
+[color] 2
+axil2apb.M_APB_PWRITE
+@22
+[color] 2
+axil2apb.M_APB_PWDATA[31:0]
+@28
+[color] 2
+axil2apb.M_APB_PPROT[2:0]
+@22
+[color] 2
+axil2apb.M_APB_PWSTRB[3:0]
+[color] 3
+axil2apb.M_APB_PRDATA[31:0]
+@28
+[color] 3
+axil2apb.M_APB_PSLVERR
+@1000200
+-APB out
 [pattern_trace] 1
 [pattern_trace] 0

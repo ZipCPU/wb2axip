@@ -13,7 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -31,20 +31,23 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-// }}}
+//
 //
 `default_nettype	none
-//
+// }}}
 module axiempty #(
-	parameter integer C_AXI_ID_WIDTH	= 2,
-	parameter integer C_AXI_DATA_WIDTH	= 32,
-	parameter integer C_AXI_ADDR_WIDTH	= 6,
-	// Some useful short-hand definitions
-	localparam	AW = C_AXI_ADDR_WIDTH,
-	localparam	DW = C_AXI_DATA_WIDTH,
-	localparam	IW = C_AXI_ID_WIDTH,
-	localparam	LSB = $clog2(C_AXI_DATA_WIDTH)-3
+		// {{{
+		parameter integer C_AXI_ID_WIDTH	= 2,
+		parameter integer C_AXI_DATA_WIDTH	= 32,
+		parameter integer C_AXI_ADDR_WIDTH	= 6,
+		// Some useful short-hand definitions
+		localparam	AW = C_AXI_ADDR_WIDTH,
+		localparam	DW = C_AXI_DATA_WIDTH,
+		localparam	IW = C_AXI_ID_WIDTH,
+		localparam	LSB = $clog2(C_AXI_DATA_WIDTH)-3
+		// }}}
 	) (
+		// {{{
 		input	wire				S_AXI_ACLK,
 		input	wire				S_AXI_ARESETN,
 		//
@@ -72,6 +75,7 @@ module axiempty #(
 		output	wire [C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
 		output	wire				S_AXI_RLAST,
 		output	wire	[1:0]			S_AXI_RRESP
+		// }}}
 	);
 
 	// Double buffer the write response channel only
@@ -81,11 +85,14 @@ module axiempty #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 
 	//
 	// Start with the two skid buffers
-	//
+	// {{{
 	wire			m_awvalid, m_wvalid;
 	wire			m_awready, m_wready, m_wlast;
 	wire	[IW-1:0]	m_awid;
@@ -99,8 +106,10 @@ module axiempty #(
 	wskd(S_AXI_ACLK, !S_AXI_ARESETN,
 		S_AXI_WVALID, S_AXI_WREADY, S_AXI_WLAST,
 		m_wvalid, m_wready, m_wlast );
+	// }}}
 
-	//
+	// m_awready, m_wready
+	// {{{
 	// The logic here is pretty simple--accept a write address burst
 	// into the skid buffer, then leave it there while the write data comes
 	// on.  Once we get to the last write data element, accept both it and
@@ -110,10 +119,12 @@ module axiempty #(
 	assign	m_awready= (m_awvalid && m_wvalid && m_wlast)
 			&& (!S_AXI_BVALID || S_AXI_BREADY);
 	assign	m_wready = !m_wlast || m_awready;
+	// }}}
 
-	//
+	// bvalid
+	// {{{
 	// As soon as m_awready above, a packet has come through successfully.
-	// Acknowledge  it with a bus error.
+	// Acknowledge it with a bus error.
 	//
 	initial	axi_bvalid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -123,23 +134,32 @@ module axiempty #(
 		axi_bvalid <= 1'b1;
 	else if (S_AXI_BREADY)
 		axi_bvalid <= 1'b0;
+	// }}}
 
+	// bid
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (m_awready)
 		axi_bid <= m_awid;
+	// }}}
 
 	assign	S_AXI_BVALID = axi_bvalid;
 	assign	S_AXI_BID    = axi_bid;
 	assign	S_AXI_BRESP  = 2'b11;	// An interconnect bus error
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read half
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	reg	[IW-1:0]	rid, axi_rid;
 	reg			axi_arready, axi_rlast, axi_rvalid;
 	reg	[8:0]		axi_rlen;
 
+	// axi_arready
+	// {{{
 	initial axi_arready = 1;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -151,7 +171,10 @@ module axiempty #(
 		if ((!axi_arready)&&(S_AXI_RVALID))
 			axi_arready <= (axi_rlen <= 2);
 	end
+	// }}}
 
+	// axi_rlen
+	// {{{
 	initial	axi_rlen = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -161,11 +184,17 @@ module axiempty #(
 				+ ((S_AXI_RVALID && !S_AXI_RREADY) ? 1:0);
 	else if (S_AXI_RREADY && S_AXI_RVALID)
 		axi_rlen <= axi_rlen - 1;
+	// }}}
 
+	// rid
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARREADY)
 		rid      <= S_AXI_ARID;
+	// }}}
 
+	// axi_rvalid
+	// {{{
 	initial	axi_rvalid = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
@@ -174,7 +203,10 @@ module axiempty #(
 		axi_rvalid <= 1;
 	else if (S_AXI_RREADY)
 		axi_rvalid <= 0;
+	// }}}
 
+	// axi_rid
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
@@ -183,7 +215,10 @@ module axiempty #(
 		else
 			axi_rid <= rid;
 	end
+	// }}}
 
+	// axi_rlast
+	// {{{
 	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_RVALID || S_AXI_RREADY)
@@ -195,6 +230,7 @@ module axiempty #(
 		else
 			axi_rlast <= (axi_rlen == 1);
 	end
+	// }}}
 
 	//
 	assign	S_AXI_ARREADY = axi_arready;
@@ -203,14 +239,24 @@ module axiempty #(
 	assign	S_AXI_RDATA   = 0;
 	assign	S_AXI_RRESP   = 2'b11;
 	assign	S_AXI_RLAST   = axi_rlast;
-	//
+	// }}}
 
 	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0 };
 	// Verilator lint_on  UNUSED
-
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	//
 	// The following properties are only some of the properties used
@@ -434,4 +480,5 @@ module axiempty #(
 	// complete
 	//
 `endif
+// }}}
 endmodule

@@ -14,6 +14,7 @@ smtbmc
 [script]
 read -formal xlnxdemo.v
 read -formal faxil_slave.v
+cvr: hierarchy -top xlnxdemo -chparam OPT_ASSUME_NO_ERRORS 1
 prep -top xlnxdemo
 
 [files]

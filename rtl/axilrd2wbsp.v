@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axilrd2wbsp.v (AXI lite to wishbone slave, read channel)
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Bridge an AXI lite read channel pair to a single wishbone read
@@ -11,9 +11,9 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2016-2020, Gisselquist Technology, LLC
-//
+// }}}
+// Copyright (C) 2016-2021, Gisselquist Technology, LLC
+// {{{
 // This file is part of the WB2AXIP project.
 //
 // The WB2AXIP project contains free software and gateware, licensed under the
@@ -33,7 +33,7 @@
 //
 //
 `default_nettype	none
-//
+// }}}
 module	axilrd2wbsp(i_clk, i_axi_reset_n,
 	// AXI read address channel signals
 	o_axi_arready, i_axi_araddr, i_axi_arcache, i_axi_arprot, i_axi_arvalid,

@@ -1,7 +1,7 @@
 ################################################################################
 ##
 ## Filename:	Makefile
-##
+## {{{
 ## Project:	Pipelined Wishbone to AXI converter
 ##
 ## Purpose:	To direct the formal verification of the bus bridge
@@ -14,9 +14,9 @@
 ##		Gisselquist Technology, LLC
 ##
 ################################################################################
-##
-## Copyright (C) 2017-2020, Gisselquist Technology, LLC
-##
+## }}}
+## Copyright (C) 2017-2021, Gisselquist Technology, LLC
+## {{{
 ## This file is part of the WB2AXIP project.
 ##
 ## The WB2AXIP project contains free software and gateware, licensed under the
@@ -34,14 +34,14 @@
 ##
 ################################################################################
 ##
-##
+## }}}
 HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
-BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb # wbm2axisp axi2axilite axilite2axi
+BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
 AXISTREAM := xlnxstream_2018_3 axisswitch.v axisrandom.v
-AXISLAVES := demoaxi easyaxil axil2axis axiperf # demofull xlnxfull
-AXIMASTERS :=
+AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty # demofull xlnxfull axiempty
+AXIMASTERS := # axis2mm aximm2s axidma axivfifo axivcamera axivdisplay
 FIREWALLS := wbsafety axilsafety axissafety # axisafety
 TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS) apbslave
 .PHONY: $(TESTS)
@@ -51,92 +51,147 @@ SMTBMC     := yosys-smtbmc
 
 #
 # Helpers
+## {{{
 WBARB      := wbarbiter
 DECODER    := addrdecode
 SFIFO      := sfifo
 AFIFO      := afifo
 SKIDBUFFER := skidbuffer
 XBAR := $(RTL)/$(DECODER).v $(RTL)/$(SKIDBUFFER).v
+## }}}
 #
 # Slaves
+## {{{
 AXIL2AXIS  := axil2axis
+AXILEMPTY  := axilempty
+# AXIEMPTY
 AXIPERF    := axiperf
 APBSLAVE   := apbslave
 DEMOAXI    := demoaxi
 EASYAXIL   := easyaxil
+# DEMOFULL
 XILINXDEMO := xlnxdemo
+# XILINXFULL
+## }}}
+#
+# Masters
+## {{{
+# AXIS2MM
+# AXIMM2S
+# AXIDMA
+# AXIVCAMERA
+# AXIVDISPLAY
+# AXIVFIFO
+## }}}
 #
 # AXI Stream cores
+## {{{
 XLNXSTREAM := xlnxstream_2018_3
 AXISRANDOM := axisrandom
 AXISSWITCH := axisswitch
-AXISSWITCH := axisswitch
+## }}}
 #
 # Bridges
+## {{{
 AXIL2APB   := axil2apb
 WB2AXI     := wbm2axisp
+# AXI2WB
+# AXIRD2WB
+# AXIWR2WB
 WB2LITE    := wbm2axilite
 RDLITE     := axilrd2wbsp
 WRLITE     := axilwr2wbsp
 AXLITE     := axlite2wbsp
 AXILSINGLE := axilsingle
 AXILDOUBLE := axildouble
+AXILUPSZ   := axilupsz
+# AXIDOUBLE
+# AXI2AXILITE
+# AXILITE2AXI
 WBP2CLASSIC:= wbp2classic
 WBC2PIPELIN:= wbc2pipeline
+## }}}
 #
 # Cross clock
+## {{{
 WBXCLK     := wbxclk
+# AXIXCLK -- no formal proof
+## }}}
 #
 # Crossbars
+## {{{
 AXILXBAR   := axilxbar
 WBXBAR     := wbxbar
 WBXBAR4x8  := wbxbar4x8
 WBXBAR1x8  := wbxbar1x8
 WBXBAR4x1  := wbxbar4x1
 # AXIXBAR    := axixbar
+## }}}
 #
 # Firewalls
+## {{{
 WBSAFETY   := wbsafety
 AXILSAFETY := axilsafety
+# AXISAFETY
 AXISSAFETY := axissafety
+## }}}
 #
 # Bus property sets
+## {{{
 AXIL       := faxil_master.v faxil_slave.v
 WB         := fwb_master.v   fwb_slave.v
 WBC        := fwbc_master.v  fwbc_slave.v
+# AXI      := faxi_master.v  faxi_slave.v
 AXIS       := faxis_master.v faxis_slave.v
 APB        := fapb_master.v   fapb_slave.v
+## }}}
+################################################################################
+##
+## Bridges
+## {{{
+################################################################################
+##
+##
 
-.PHONY: $(WBARB) $(WB2AXI) $(RDLITE) $(WRLITE) $(AXLITE) $(WB2LITE) $(DEMOAXI)
-.PHONY: $(EASYAXIL) $(AXIPERF)
-
+.PHONY: $(WBARB)
+## {{{
 $(WBARB): $(WBARB)_prf/PASS $(WBARB)_cvr/PASS
 $(WBARB)_prf/PASS: $(RTL)/$(WBARB).v $(WBARB).sby $(WB)
 	sby -f $(WBARB).sby prf
 $(WBARB)_cvr/PASS: $(RTL)/$(WBARB).v $(WBARB).sby $(WB)
 	sby -f $(WBARB).sby cvr
+## }}}
 
-#
+.PHONY: $(WB2AXI)
+## {{{
 # This WB to AXI proof is contained elsewhere
 #
 # .PHONY: $(WB2AXI)
 # $(WB2AXI): $(WB2AXI)/PASS
 # $(WB2AXI)/PASS: $(RTL)/$(WB2AXI).v $(WB2AXI).sby $(WB)
 #	sby -f $(WB2AXI).sby
+## }}}
 
+.PHONY: $(RDLITE)
+## {{{
 $(RDLITE): $(RDLITE)_prf/PASS $(RDLITE)_cvr/PASS
 $(RDLITE)_prf/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB) $(AXIL)
 	sby -f $(RDLITE).sby prf
 $(RDLITE)_cvr/PASS: $(RDLITE).sby $(RTL)/$(RDLITE).v $(WB) $(AXIL)
 	sby -f $(RDLITE).sby cvr
+## }}}
 
+.PHONY: $(WRLITE)
+## {{{
 $(WRLITE): $(WRLITE)_prf/PASS $(WRLITE)_cvr/PASS
 $(WRLITE)_prf/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB) $(AXIL)
 	sby -f $(WRLITE).sby prf
 $(WRLITE)_cvr/PASS: $(WRLITE).sby $(RTL)/$(WRLITE).v $(WB) $(AXIL)
 	sby -f $(WRLITE).sby cvr
+## }}}
 
 .PHONY: $(AXLITE)
+## {{{
 $(AXLITE): $(AXLITE)_prf/PASS $(AXLITE)_cvr/PASS
 AXLITE_DEPS := $(RTL)/$(RDLITE).v $(RTL)/$(WRLITE).v $(AXIL) $(WB)	\
 	$(RTL)/$(WBARB).v $(AXLITE).sby $(RTL)/$(AXLITE).v		\
@@ -148,8 +203,10 @@ $(AXLITE)_prf/PASS: $(AXLITE_DEPS)
 
 $(AXLITE)_cvr/PASS: $(AXLITE_DEPS)
 	sby -f $(AXLITE).sby cvr
+## }}}
 
 .PHONY: $(WB2LITE)
+## {{{
 $(WB2LITE): $(WB2LITE)_cvr/PASS $(WB2LITE)_prf/PASS
 $(WB2LITE)_prf/PASS: $(RTL)/$(WB2LITE).v $(WB) $(AXIL)
 $(WB2LITE)_prf/PASS: $(WB2LITE).sby
@@ -158,15 +215,94 @@ $(WB2LITE)_prf/PASS: $(WB2LITE).sby
 $(WB2LITE)_cvr/PASS: $(RTL)/$(WB2LITE).v $(WB) $(AXIL)
 $(WB2LITE)_cvr/PASS: $(WB2LITE).sby
 	sby -f $(WB2LITE).sby cvr
+## }}}
+
+.PHONY: $(WBP2CLASSIC)
+## {{{
+$(WBP2CLASSIC): $(WBP2CLASSIC)_prf/PASS $(WBP2CLASSIC)_cvr/PASS
+$(WBP2CLASSIC)_prf/PASS: $(RTL)/$(WBP2CLASSIC).v $(WB) $(WBC)
+	sby -f $(WBP2CLASSIC).sby prf
+$(WBP2CLASSIC)_cvr/PASS: $(RTL)/$(WBP2CLASSIC).v $(WB) $(WBC)
+	sby -f $(WBP2CLASSIC).sby cvr
+## }}}
+
+.PHONY: $(WBC2PIPELIN)
+## {{{
+$(WBC2PIPELIN): $(WBC2PIPELIN)_prf/PASS $(WBC2PIPELIN)_cvr/PASS
+$(WBC2PIPELIN)_prf/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
+	sby -f $(WBC2PIPELIN).sby prf
+$(WBC2PIPELIN)_cvr/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
+	sby -f $(WBC2PIPELIN).sby cvr
+## }}}
+
+.PHONY: $(AXIL2APB)
+## {{{
+$(AXIL2APB): $(AXIL2APB)_prf/PASS       $(AXIL2APB)_prfskd/PASS
+$(AXIL2APB): $(AXIL2APB)_cvr/PASS
+AXIL2APBDEPS := $(AXIL2APB).sby $(RTL)/$(AXIL2APB).v $(APB)
+$(AXIL2APB)_prf/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby prf
+$(AXIL2APB)_prfskd/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby prfskd
+$(AXIL2APB)_cvr/PASS: $(AXIL2APBDEPS)
+	sby -f $(AXIL2APB).sby cvr
+## }}}
+
+.PHONY: $(AXIL2AXIS)
+## {{{
+$(AXIL2AXIS): $(AXIL2AXIS)_prf/PASS       $(AXIL2AXIS)_prflps/PASS
+$(AXIL2AXIS): $(AXIL2AXIS)_prflpu/PASS    $(AXIL2AXIS)_prfsink/PASS
+$(AXIL2AXIS): $(AXIL2AXIS)_prfsource/PASS $(AXIL2AXIS)_cvr/PASS
+AXIL2AXISDEPS := $(AXIL2AXIS).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
+		$(RTL)/$(AXIL2AXIS).v $(AXIL)
+$(AXIL2AXIS)_prf/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prf
+$(AXIL2AXIS)_prflpu/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prflpu
+$(AXIL2AXIS)_prflps/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prflps
+$(AXIL2AXIS)_prfsink/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prfsink
+$(AXIL2AXIS)_prfsource/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby prfsource
+$(AXIL2AXIS)_cvr/PASS: $(AXIL2AXISDEPS)
+	sby -f $(AXIL2AXIS).sby cvr
+## }}}
+
+.PHONY: $(AXILUPSZ)
+## {{{
+$(AXILUPSZ): $(AXILUPSZ)_prf/PASS $(AXILUPSZ)_prfz/PASS
+$(AXILUPSZ): $(AXILUPSZ)_cvr/PASS
+AXILUPSZDEPS := $(AXILUPSZ).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
+		$(RTL)/$(AXILUPSZ).v $(AXIL)
+$(AXILUPSZ)_prf/PASS: $(AXILUPSZDEPS)
+	sby -f $(AXIL2AXIS).sby prf
+$(AXILUPSZ)_prflpu/PASS: $(AXILUPSZDEPS)
+	sby -f $(AXIL2AXIS).sby prfz
+$(AXILUPSZ)_prflps/PASS: $(AXILUPSZDEPS)
+	sby -f $(AXIL2AXIS).sby cvr
+## }}}
+
+## }}}
+################################################################################
+##
+## Demonstration designs
+## {{{
+################################################################################
+##
+##
 
 .PHONY: $(DEMOAXI)
+## {{{
 $(DEMOAXI): $(DEMOAXI)_prf/PASS $(DEMOAXI)_cvr/PASS
 $(DEMOAXI)_prf/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby prf
 $(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 	sby -f $(DEMOAXI).sby cvr
+## }}}
 
 .PHONY: $(EASYAXIL)
+## {{{
 $(EASYAXIL): $(EASYAXIL)_prfreg/PASS $(EASYAXIL)_prfreglp/PASS $(EASYAXIL)_cvrreg/PASS
 $(EASYAXIL): $(EASYAXIL)_prfskd/PASS $(EASYAXIL)_prfskdlp/PASS $(EASYAXIL)_cvrskd/PASS
 $(EASYAXIL)_prfreg/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL)
@@ -181,15 +317,38 @@ $(EASYAXIL)_prfskdlp/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXI
 	sby -f $(EASYAXIL).sby prfskdlp
 $(EASYAXIL)_cvrskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL)
 	sby -f $(EASYAXIL).sby cvrskd
+## }}}
 
-.PHONY: $(AXIPERF)
-$(AXIPERF): $(AXIPERF)_prf/PASS $(AXIPERF)_cvr/PASS
-$(AXIPERF)_prf/PASS: $(RTL)/$(AXIPERF).v $(RTL)/$(SKIDBUFFER).v $(AXIPERF).sby $(AXIL)
-	sby -f $(AXIPERF).sby prf
-$(AXIPERF)_cvr/PASS: $(RTL)/$(AXIPERF).v $(RTL)/$(SKIDBUFFER).v $(AXIPERF).sby $(AXIL)
-	sby -f $(AXIPERF).sby cvr
+.PHONY: $(AXILEMPTY)
+## {{{
+$(AXILEMPTY): $(AXILEMPTY)_prfreg/PASS $(AXILEMPTY)_prfreglp/PASS $(AXILEMPTY)_cvrreg/PASS
+$(AXILEMPTY): $(AXILEMPTY)_prfskd/PASS $(AXILEMPTY)_prfskdlp/PASS $(AXILEMPTY)_cvrskd/PASS
+$(AXILEMPTY)_prfreg/PASS: $(RTL)/$(AXILEMPTY).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby prfreg
+$(AXILEMPTY)_prfreglp/PASS: $(RTL)/$(AXILEMPTY).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby prfreglp
+$(AXILEMPTY)_cvrreg/PASS: $(RTL)/$(AXILEMPTY).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby cvrreg
+$(AXILEMPTY)_prfskd/PASS: $(RTL)/$(AXILEMPTY).v $(RTL)/$(SKIDBUFFER).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby prfskd
+$(AXILEMPTY)_prfskdlp/PASS: $(RTL)/$(AXILEMPTY).v $(RTL)/$(SKIDBUFFER).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby prfskdlp
+$(AXILEMPTY)_cvrskd/PASS: $(RTL)/$(AXILEMPTY).v $(RTL)/$(SKIDBUFFER).v $(AXILEMPTY).sby $(AXIL)
+	sby -f $(AXILEMPTY).sby cvrskd
+## }}}
+
+.PHONY: $(APBSLAVE)
+## {{{
+$(APBSLAVE): $(APBSLAVE)_prf/PASS       $(APBSLAVE)_cvr/PASS
+APBSLAVEDEPS := $(APBSLAVE).sby $(RTL)/$(APBSLAVE).v $(APB)
+$(APBSLAVE)_prf/PASS: $(APBSLAVEDEPS)
+	sby -f $(APBSLAVE).sby prf
+$(APBSLAVE)_cvr/PASS: $(APBSLAVEDEPS)
+	sby -f $(APBSLAVE).sby cvr
+## }}}
 
 .PHONY: $(XILINXDEMO)
+## {{{
 $(XILINXDEMO): $(XILINXDEMO)_prf/FAIL $(XILINXDEMO)_cvr/PASS
 $(XILINXDEMO)_prf/FAIL: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	@echo "Expect the Xilinx demo proof to fail."
@@ -197,9 +356,10 @@ $(XILINXDEMO)_prf/FAIL: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	sby -f $(XILINXDEMO).sby prf
 $(XILINXDEMO)_cvr/PASS: $(XILINXDEMO).v $(XILINXDEMO).sby $(AXIL)
 	sby -f $(XILINXDEMO).sby cvr
-
+## }}}
 
 .PHONY: $(XLNXSTREAM)
+## {{{
 $(XLNXSTREAM): $(XLNXSTREAM)_prf/FAIL $(XLNXSTREAM)_cvr/PASS
 $(XLNXSTREAM)_prf/FAIL: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 	@echo "Expect the Xilinx stream master demo proof to fail."
@@ -207,17 +367,46 @@ $(XLNXSTREAM)_prf/FAIL: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 	sby -f $(XLNXSTREAM).sby prf
 $(XLNXSTREAM)_cvr/PASS: $(XLNXSTREAM).v $(XLNXSTREAM).sby $(AXIS)
 	sby -f $(XLNXSTREAM).sby cvr
+## }}}
 
-#
-# Cross clock
+## }}}
+################################################################################
+##
+## Bus masters
+## {{{
+################################################################################
+##
+##
+
+## }}}
+################################################################################
+##
+## Cross clock cores
+## {{{
+################################################################################
+##
+##
+
 .PHONY: $(WBXCLK)
+## {{{
 $(WBXCLK): $(WBXCLK)_prf/PASS $(WBXCLK)_cvr/PASS
 $(WBXCLK)_prf/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby prf
 $(WBXCLK)_cvr/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby cvr
+## }}}
+
+## }}}
+################################################################################
+##
+## Crossbars
+## {{{
+################################################################################
+##
+##
 
 .PHONY: $(AXILXBAR) $(AXILXBAR)prf $(AXILXBAR)cvr $(AXILXBAR)_prf
+## {{{
 $(AXILXBAR): $(AXILXBAR)prf $(AXILXBAR)cvr
 $(AXILXBAR)_prf: $(AXILXBAR)prf
 $(AXILXBAR)prf: $(AXILXBAR)_prf1x8_lp/PASS
@@ -256,9 +445,10 @@ $(AXILXBAR)_cvr1x3_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL) $(XBAR)
 	sby -f $(AXILXBAR).sby cvr1x3_lp
 $(AXILXBAR)_cvr4x1_lp/PASS: $(AXILXBAR).sby $(RTL)/$(AXILXBAR).v $(AXIL) $(XBAR)
 	sby -f $(AXILXBAR).sby cvr4x1_lp
-
+## }}}
 
 .PHONY: $(WBXBAR) $(WBXBAR4x8) $(WBXBAR1x8) $(WBXBAR4x1)
+## {{{
 .PHONY: $(WBXBAR)_prf $(WBXBAR)_cvr
 .PHONY: $(WBXBAR4x8)_prf $(WBXBAR4x8)_cvr
 .PHONY: $(WBXBAR1x8)_prf $(WBXBAR1x8)_cvr
@@ -445,38 +635,46 @@ wbxbar_cvr4x1_lp/PASS:    $(WBXBAR).sby $(RTL)/$(WBXBAR).v $(WB) $(XBAR)
 	sby -f $(WBXBAR).sby cvr4x1_lp
 wbxbar_cvr4x1_cheap/PASS:    $(WBXBAR).sby $(RTL)/$(WBXBAR).v $(WB) $(XBAR)
 	sby -f $(WBXBAR).sby cvr4x1_cheap
-#
-#
+## }}}
 
-.PHONY: $(WBP2CLASSIC)
-$(WBP2CLASSIC): $(WBP2CLASSIC)_prf/PASS $(WBP2CLASSIC)_cvr/PASS
-$(WBP2CLASSIC)_prf/PASS: $(RTL)/$(WBP2CLASSIC).v $(WB) $(WBC)
-	sby -f $(WBP2CLASSIC).sby prf
-$(WBP2CLASSIC)_cvr/PASS: $(RTL)/$(WBP2CLASSIC).v $(WB) $(WBC)
-	sby -f $(WBP2CLASSIC).sby cvr
-
-.PHONY: $(WBC2PIPELIN)
-$(WBC2PIPELIN): $(WBC2PIPELIN)_prf/PASS $(WBC2PIPELIN)_cvr/PASS
-$(WBC2PIPELIN)_prf/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
-	sby -f $(WBC2PIPELIN).sby prf
-$(WBC2PIPELIN)_cvr/PASS: $(RTL)/$(WBC2PIPELIN).v $(WB) $(WBC)
-	sby -f $(WBC2PIPELIN).sby cvr
+## }}}
+################################################################################
+##
+## Simplifiers
+## {{{
+################################################################################
+##
+##
 
 .PHONY: $(AXILSINGLE)
+## {{{
 $(AXILSINGLE): $(AXILSINGLE)_prf/PASS $(AXILSINGLE)_cvr/PASS
 $(AXILSINGLE)_prf/PASS: $(RTL)/$(AXILSINGLE).v $(RTL)/$(SFIFO).v $(AXILSINGLE).sby $(AXIL)
 	sby -f $(AXILSINGLE).sby prf
 $(AXILSINGLE)_cvr/PASS: $(RTL)/$(AXILSINGLE).v $(RTL)/$(SFIFO).v $(AXILSINGLE).sby $(AXIL)
 	sby -f $(AXILSINGLE).sby cvr
+## }}}
 
 .PHONY: $(AXILDOUBLE)
+## {{{
 $(AXILDOUBLE): $(AXILDOUBLE)_prf/PASS $(AXILDOUBLE)_cvr/PASS
 $(AXILDOUBLE)_prf/PASS: $(RTL)/$(AXILDOUBLE).v $(RTL)/$(SFIFO).v $(AXILDOUBLE).sby $(AXIL)
 	sby -f $(AXILDOUBLE).sby prf
 $(AXILDOUBLE)_cvr/PASS: $(RTL)/$(AXILDOUBLE).v $(RTL)/$(SFIFO).v $(AXILDOUBLE).sby $(AXIL)
 	sby -f $(AXILDOUBLE).sby cvr
+## }}}
+
+## }}}
+################################################################################
+##
+## FIFOs
+## {{{
+################################################################################
+##
+##
 
 .PHONY: $(SFIFO)
+## {{{
 $(SFIFO): $(SFIFO)_prf/PASS    $(SFIFO)_prf_a/PASS  $(SFIFO)_cvr/PASS
 $(SFIFO): $(SFIFO)_prf_r/PASS  $(SFIFO)_prf_w/PASS  $(SFIFO)_prf_wr/PASS
 $(SFIFO): $(SFIFO)_prf_ar/PASS $(SFIFO)_prf_aw/PASS $(SFIFO)_prf_awr/PASS
@@ -498,32 +696,24 @@ $(SFIFO)_prf_awr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
 	sby -f $(SFIFO).sby prf_awr
 $(SFIFO)_cvr/PASS: $(RTL)/$(SFIFO).v $(SFIFO).sby
 	sby -f $(SFIFO).sby cvr
+## }}}
 
 .PHONY: $(AFIFO)
+## {{{
 $(AFIFO): $(AFIFO)_prf/PASS    $(AFIFO)_cvr/PASS
+$(AFIFO): $(AFIFO)_prfopt/PASS $(AFIFO)_cvropt/PASS
 $(AFIFO)_prf/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
 	sby -f $(AFIFO).sby prf
 $(AFIFO)_cvr/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
 	sby -f $(AFIFO).sby cvr
-
-.PHONY: $(DECODER)
-$(DECODER): $(DECODER)_prfrlp/PASS $(DECODER)_cvrrlp/PASS
-$(DECODER): $(DECODER)_prfr/PASS   $(DECODER)_cvrr/PASS
-$(DECODER): $(DECODER)_prfc/PASS   $(DECODER)_cvrc/PASS
-$(DECODER)_prfrlp/PASS: $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby prfrlp
-$(DECODER)_prfr/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby prfr
-$(DECODER)_prfc/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby prfc
-$(DECODER)_cvrrlp/PASS: $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby cvrrlp
-$(DECODER)_cvrr/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby cvrr
-$(DECODER)_cvrc/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
-	sby -f $(DECODER).sby cvrc
+$(AFIFO)_prfopt/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
+	sby -f $(AFIFO).sby prfopt
+$(AFIFO)_cvropt/PASS: $(RTL)/$(AFIFO).v $(AFIFO).sby
+	sby -f $(AFIFO).sby cvropt
+## }}}
 
 .PHONY: $(SKIDBUFFER)
+## {{{
 $(SKIDBUFFER): $(SKIDBUFFER)_prfc/PASS $(SKIDBUFFER)_prfo/PASS
 $(SKIDBUFFER): $(SKIDBUFFER)_lpc/PASS  $(SKIDBUFFER)_lpo/PASS
 $(SKIDBUFFER): $(SKIDBUFFER)_cvr/PASS
@@ -537,8 +727,19 @@ $(SKIDBUFFER)_lpo/PASS:  $(SKIDBUFFER).sby $(RTL)/$(SKIDBUFFER).v
 	sby -f $(SKIDBUFFER).sby lpo
 $(SKIDBUFFER)_cvr/PASS:  $(SKIDBUFFER).sby $(RTL)/$(SKIDBUFFER).v
 	sby -f $(SKIDBUFFER).sby cvr
+## }}}
+
+## }}}
+################################################################################
+##
+## Firewalls
+## {{{
+################################################################################
+##
+##
 
 .PHONY: $(WBSAFETY)
+## {{{
 $(WBSAFETY): $(WBSAFETY)_prf/PASS   $(WBSAFETY)_prfr/PASS
 $(WBSAFETY): $(WBSAFETY)_fault/PASS $(WBSAFETY)_faultr/PASS
 $(WBSAFETY): $(WBSAFETY)_cvr/PASS   $(SKIDBUFFER)
@@ -553,8 +754,10 @@ $(WBSAFETY)_faultr/PASS: $(WBSAFETYDEP)
 	sby -f $(WBSAFETY).sby faultr
 $(WBSAFETY)_cvr/PASS: $(WBSAFETYDEP)
 	sby -f $(WBSAFETY).sby cvr
+## }}}
 
 .PHONY: $(AXILSAFETY)
+## {{{
 $(AXILSAFETY): $(AXILSAFETY)_prf/PASS    $(AXILSAFETY)_prfr/PASS
 $(AXILSAFETY): $(AXILSAFETY)_fault/PASS  $(AXILSAFETY)_faultr/PASS
 $(AXILSAFETY): $(AXILSAFETY)_prlong/PASS $(AXILSAFETY)_longr/PASS
@@ -574,56 +777,10 @@ $(AXILSAFETY)_prlong/PASS: $(AXILSAFETYDEP)
 	sby -f $(AXILSAFETY).sby prlong
 $(AXILSAFETY)_cvr/PASS: $(AXILSAFETYDEP)
 	sby -f $(AXILSAFETY).sby cvr
-
-.PHONY: $(AXIL2AXIS)
-$(AXIL2AXIS): $(AXIL2AXIS)_prf/PASS       $(AXIL2AXIS)_prflps/PASS
-$(AXIL2AXIS): $(AXIL2AXIS)_prflpu/PASS    $(AXIL2AXIS)_prfsink/PASS
-$(AXIL2AXIS): $(AXIL2AXIS)_prfsource/PASS $(AXIL2AXIS)_cvr/PASS
-AXIL2AXISDEPS := $(AXIL2AXIS).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
-		$(RTL)/$(AXIL2AXIS).v $(AXIL)
-$(AXIL2AXIS)_prf/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby prf
-$(AXIL2AXIS)_prflpu/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby prflpu
-$(AXIL2AXIS)_prflps/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby prflps
-$(AXIL2AXIS)_prfsink/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby prfsink
-$(AXIL2AXIS)_prfsource/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby prfsource
-$(AXIL2AXIS)_cvr/PASS: $(AXIL2AXISDEPS)
-	sby -f $(AXIL2AXIS).sby cvr
-
-.PHONY: $(APBSLAVE)
-$(APBSLAVE): $(APBSLAVE)_prf/PASS       $(APBSLAVE)_cvr/PASS
-APBSLAVEDEPS := $(APBSLAVE).sby $(RTL)/$(APBSLAVE).v $(APB)
-$(APBSLAVE)_prf/PASS: $(APBSLAVEDEPS)
-	sby -f $(APBSLAVE).sby prf
-$(APBSLAVE)_cvr/PASS: $(APBSLAVEDEPS)
-	sby -f $(APBSLAVE).sby cvr
-
-.PHONY: $(AXIL2APB)
-$(AXIL2APB): $(AXIL2APB)_prf/PASS       $(AXIL2APB)_prfskd/PASS
-$(AXIL2APB): $(AXIL2APB)_cvr/PASS
-AXIL2APBDEPS := $(AXIL2APB).sby $(RTL)/$(AXIL2APB).v $(APB)
-$(AXIL2APB)_prf/PASS: $(AXIL2APBDEPS)
-	sby -f $(AXIL2APB).sby prf
-$(AXIL2APB)_prfskd/PASS: $(AXIL2APBDEPS)
-	sby -f $(AXIL2APB).sby prfskd
-$(AXIL2APB)_cvr/PASS: $(AXIL2APBDEPS)
-	sby -f $(AXIL2APB).sby cvr
-
-.PHONY: $(AXISRANDOM)
-$(AXISRANDOM): $(AXISRANDOM)_prf/PASS
-$(AXISRANDOM)_prf/PASS: $(AXISRANDOM).sby $(RTL)/$(AXISRANDOM).v
-	sby -f $(AXISRANDOM).sby prf
-
-.PHONY: $(AXISSWITCH)
-$(AXISSWITCH): $(AXISSWITCH)_prf/PASS
-$(AXISSWITCH)_prf/PASS: $(AXISSWITCH).sby $(RTL)/$(AXISSWITCH).v
-	sby -f $(AXISSWITCH).sby prf
+## }}}
 
 .PHONY: $(AXISSAFETY)
+## {{{
 $(AXISSAFETY): $(AXISSAFETY)_prf/PASS
 $(AXISSAFETY): $(AXISSAFETY)_prfr/PASS
 $(AXISSAFETY): $(AXISSAFETY)_prfrpkt/PASS
@@ -678,8 +835,61 @@ $(AXISSAFETY)_cvr/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
 	sby -f $(AXISSAFETY).sby cvr
 $(AXISSAFETY)_cvrnopkt/PASS: $(AXISSAFETY).sby $(RTL)/$(AXISSAFETY).v
 	sby -f $(AXISSAFETY).sby cvrnopkt
+## }}}
+
+## }}}
+
+
+################################################################################
+##
+
+.PHONY: $(AXIPERF)
+## {{{
+$(AXIPERF): $(AXIPERF)_prf/PASS $(AXIPERF)_cvr/PASS
+$(AXIPERF)_prf/PASS: $(RTL)/$(AXIPERF).v $(RTL)/$(SKIDBUFFER).v $(AXIPERF).sby $(AXIL)
+	sby -f $(AXIPERF).sby prf
+$(AXIPERF)_cvr/PASS: $(RTL)/$(AXIPERF).v $(RTL)/$(SKIDBUFFER).v $(AXIPERF).sby $(AXIL)
+	sby -f $(AXIPERF).sby cvr
+## }}}
+
+.PHONY: $(DECODER)
+## {{{
+$(DECODER): $(DECODER)_prfrlp/PASS $(DECODER)_cvrrlp/PASS
+$(DECODER): $(DECODER)_prfr/PASS   $(DECODER)_cvrr/PASS
+$(DECODER): $(DECODER)_prfc/PASS   $(DECODER)_cvrc/PASS
+$(DECODER)_prfrlp/PASS: $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby prfrlp
+$(DECODER)_prfr/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby prfr
+$(DECODER)_prfc/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby prfc
+$(DECODER)_cvrrlp/PASS: $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby cvrrlp
+$(DECODER)_cvrr/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby cvrr
+$(DECODER)_cvrc/PASS:   $(DECODER).sby $(RTL)/$(DECODER).v
+	sby -f $(DECODER).sby cvrc
+## }}}
+
+.PHONY: $(AXISRANDOM)
+## {{{
+$(AXISRANDOM): $(AXISRANDOM)_prf/PASS
+$(AXISRANDOM)_prf/PASS: $(AXISRANDOM).sby $(RTL)/$(AXISRANDOM).v
+	sby -f $(AXISRANDOM).sby prf
+## }}}
+
+.PHONY: $(AXISSWITCH)
+## {{{
+$(AXISSWITCH): $(AXISSWITCH)_prf/PASS
+$(AXISSWITCH)_prf/PASS: $(AXISSWITCH).sby $(RTL)/$(AXISSWITCH).v
+	sby -f $(AXISSWITCH).sby prf
+## }}}
+
+################################################################################
+##
 
 .PHONY: clean
+## {{{
 clean:
 	rm -rf  $(DEMOAXI)_*/
 	rm -rf  $(WBARB)_*/
@@ -699,3 +909,4 @@ clean:
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/
+## }}}
