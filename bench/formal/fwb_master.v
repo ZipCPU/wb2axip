@@ -89,24 +89,24 @@ module	fwb_master #(
 		// since the wishbone specification specifically doesn't
 		// require this.  However, some interfaces do, so we allow it
 		// as an option here.
-		parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0;
+		parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0,
 		//
 		//
 		//
 		localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING
-						= {(F_LGDEPTH){1'b1}};
+						= {(F_LGDEPTH){1'b1}},
 		localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
-				? F_MAX_STALL : F_MAX_ACK_DELAY;
+				? F_MAX_STALL : F_MAX_ACK_DELAY,
 		localparam	DLYBITS= (MAX_DELAY < 4) ? 2
 				: (MAX_DELAY >= 65536) ? 32
-				: $clog2(MAX_DELAY),
+				: $clog2(MAX_DELAY+1),
 		//
 		parameter [0:0]		F_OPT_SHORT_CIRCUIT_PROOF = 0,
 		//
 		// If this is the source of a request, then we can assume STB and CYC
 		// will initially start out high.  Master interfaces following the
 		// source on the way to the slave may not have this property
-		parameter [0:0]		F_OPT_SOURCE = 0,
+		parameter [0:0]		F_OPT_SOURCE = 0
 		//
 		//
 		// }}}

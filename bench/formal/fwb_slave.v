@@ -89,17 +89,17 @@ module	fwb_slave #(
 		// since the wishbone specification specifically doesn't
 		// require this.  However, some interfaces do, so we allow it
 		// as an option here.
-		parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0;
+		parameter	[0:0]	F_OPT_MINCLOCK_DELAY = 0,
 		//
 		//
 		//
 		localparam [(F_LGDEPTH-1):0] MAX_OUTSTANDING
-						= {(F_LGDEPTH){1'b1}};
+						= {(F_LGDEPTH){1'b1}},
 		localparam	MAX_DELAY = (F_MAX_STALL > F_MAX_ACK_DELAY)
-				? F_MAX_STALL : F_MAX_ACK_DELAY;
+				? F_MAX_STALL : F_MAX_ACK_DELAY,
 		localparam	DLYBITS= (MAX_DELAY < 4) ? 2
 				: (MAX_DELAY >= 65536) ? 32
-				: $clog2(MAX_DELAY)
+				: $clog2(MAX_DELAY+1)
 		// }}}
 	) (
 		// {{{
