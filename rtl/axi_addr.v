@@ -151,7 +151,7 @@ module	axi_addr #(
 			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size));
 
 		if (AW > 12)
-			wrap_mask[((AW>12)?(AW-1):(AW-1)):((AW>12)?12:(AW-1))] = 0;
+			wrap_mask[(AW-1):((AW>12)? 12:(AW-1))] = 0;
 	end
 	// }}}
 

@@ -867,7 +867,7 @@ module	axixbar #(
 			end
 
 			assign	read_qos_lockout[N] = 0;
-			// {{{
+			// }}}
 		end
 		// }}}
 

@@ -453,7 +453,7 @@ module wbsafety #(
 		assert(expected_returns == fwbs_outstanding);
 
 	generate if (F_OPT_FAULTLESS)
-	begin
+	begin : FAULTLESS_PROPERTIES
 		// {{{
 		////////////////////////////////////////////////////////////////
 		//
@@ -464,17 +464,24 @@ module wbsafety #(
 		reg	[LGDEPTH-1:0]	mreqs, sacks;
 
 
-		fwb_master #(.AW(AW), .DW(DW),
+		fwb_master #(
+			// {{{
+			.AW(AW), .DW(DW),
 			.F_MAX_ACK_DELAY(DOWNSTREAM_ACK_DELAY),
 			.F_MAX_STALL(DOWNSTREAM_ACK_DELAY),
 			.F_LGDEPTH(LGDEPTH),
 			.F_OPT_DISCONTINUOUS(1),
 			.F_OPT_MINCLOCK_DELAY(0)
-		) wbm (i_clk, o_reset,
+			// }}}
+		) wbm (
+			// {{{
+			i_clk, o_reset,
 			o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data,
 				o_wb_sel,
 			i_wb_ack, i_wb_stall, i_wb_idata, i_wb_err,
-			fwbm_nreqs, fwbm_nacks, fwbm_outstanding);
+			fwbm_nreqs, fwbm_nacks, fwbm_outstanding
+			// }}}
+		);
 
 		//
 		// Here's the big proof

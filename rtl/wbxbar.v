@@ -1197,7 +1197,7 @@ module	wbxbar #(
 
 	// Double check the timeout flags for consistency
 	generate for(N=0; N<NM; N=N+1)
-	begin : CHECK_TIMEOUT
+	begin : F_CHECK_TIMEOUT
 		// {{{
 		always @(*)
 		if (f_past_valid)

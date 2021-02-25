@@ -116,7 +116,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -256,11 +256,11 @@ module	aximm2s #(
 	// Local parameter declarations
 	// {{{
 	localparam [2:0]	CMD_CONTROL   = 3'b000,
-				CMD_UNUSED_1  = 3'b001,
+				// CMD_UNUSED_1  = 3'b001,
 				CMD_ADDRLO    = 3'b010,
 				CMD_ADDRHI    = 3'b011,
-				CMD_UNUSED_2  = 3'b100,
-				CMD_UNUSED_3  = 3'b101,
+				// CMD_UNUSED_2  = 3'b100,
+				// CMD_UNUSED_3  = 3'b101,
 				CMD_LENLO     = 3'b110,
 				CMD_LENHI     = 3'b111;
 	localparam		CBIT_BUSY	= 31,
@@ -273,8 +273,8 @@ module	aximm2s #(
 			MAX_FIXED_BURST = 16;
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3),
 			LGLENWA = LGLENW + (OPT_UNALIGNED ? 1:0);
-	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
-	localparam [ADDRLSB-1:0] LSBZEROS = 0;
+	// localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
+	// localparam [ADDRLSB-1:0] LSBZEROS = 0;
 	// }}}
 
 	wire	i_clk   =  S_AXI_ACLK;
@@ -328,7 +328,6 @@ module	aximm2s #(
 	reg				axi_arvalid;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_araddr;
 	reg	[7:0]			axi_arlen;
-	reg	[1:0]			axi_arburst;
 
 	// Speed up checking for zeros
 	reg				ar_none_remaining,
@@ -1007,7 +1006,7 @@ module	aximm2s #(
 	// {{{
 	generate if (OPT_UNALIGNED)
 	begin
-		initial	partial_burst_requested <= 1'b1;
+		initial	partial_burst_requested = 1'b1;
 		always @(posedge i_clk)
 		if (!r_busy)
 			partial_burst_requested <= !unaligned_cmd_addr;
@@ -1128,10 +1127,6 @@ module	aximm2s #(
 		axi_arvalid <= start_burst;
 	// }}}
 
-	always @(posedge i_clk)
-	if (!r_busy)
-		axi_arburst <= (w_increment) ? 2'b01 : 2'b00;
-
 	// Set the constant M_AXI_* signals
 	// {{{
 	assign	M_AXI_ARVALID= axi_arvalid;
@@ -1141,7 +1136,7 @@ module	aximm2s #(
 	// Verilator lint_off WIDTH
 	assign	M_AXI_ARSIZE = $clog2(C_AXI_DATA_WIDTH)-3;
 	// Verilator lint_on  WIDTH
-	assign	M_AXI_ARBURST= axi_arburst;
+	assign	M_AXI_ARBURST= { 1'b0, r_increment };
 	assign	M_AXI_ARLOCK = 0;
 	assign	M_AXI_ARCACHE= 4'b0011;
 	assign	M_AXI_ARPROT = 0;
@@ -1326,14 +1321,6 @@ module	aximm2s #(
 		// }}}
 	);
 
-
-	//
-	// ...
-	//
-
-	always @(*)
-	if (r_busy)
-		assert(axi_arburst == (r_increment ? 2'b01 : 2'b00));
 
 	//
 	// ...

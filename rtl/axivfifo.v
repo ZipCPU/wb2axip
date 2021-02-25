@@ -82,6 +82,10 @@ module	axivfifo #(
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
+		// The number of beats in this maximum burst size is
+		// automatically determined from LGMAXBURST, and so its
+		// forced to be a power of two this way.
+		localparam	MAXBURST=(1<<LGMAXBURST),
 		//
 		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
 		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
@@ -609,7 +613,7 @@ module	axivfifo #(
 	if (!S_AXI_ARESETN)
 		writes_pending <= 0;
 	else if (start_write)
-		writes_pending <= (1<<LGMAXBURST);
+		writes_pending <= MAXBURST;
 	else if (M_AXI_WVALID && M_AXI_WREADY)
 		writes_pending <= writes_pending -1;
 
@@ -625,7 +629,7 @@ module	axivfifo #(
 	assign	M_AXI_AWVALID = axi_awvalid;
 	assign	M_AXI_AWID    = AXI_WRITE_ID;
 	assign	M_AXI_AWADDR  = axi_awaddr;
-	assign	M_AXI_AWLEN   = (1<<LGMAXBURST)-1;
+	assign	M_AXI_AWLEN   = MAXBURST-1;
 	assign	M_AXI_AWSIZE  = ADDRLSB[2:0];
 	assign	M_AXI_AWBURST = 2'b01;
 	assign	M_AXI_AWLOCK  = 0;
@@ -667,9 +671,9 @@ module	axivfifo #(
 	if (reset_fifo)
 		ofifo_space_available <= (1<<LGFIFO);
 	else case({phantom_read, M_AXIS_TVALID && M_AXIS_TREADY})
-	2'b10:	ofifo_space_available <= ofifo_space_available - (1<<LGMAXBURST);
+	2'b10:	ofifo_space_available <= ofifo_space_available - MAXBURST;
 	2'b01:	ofifo_space_available <= ofifo_space_available + 1;
-	2'b11:	ofifo_space_available <= ofifo_space_available - (1<<LGMAXBURST) + 1;
+	2'b11:	ofifo_space_available <= ofifo_space_available - MAXBURST + 1;
 	default: begin end
 	endcase
 	// }}}
@@ -685,7 +689,7 @@ module	axivfifo #(
 		// it doesn't use all ofifo_space_available bits, but rather
 		// only the number of bits between LGFIFO and
 		// LGMAXBURST--nominally a single bit.
-		if (ofifo_space_available < (1<<LGMAXBURST))	// FIFO space ?
+		if (ofifo_space_available < MAXBURST)	// FIFO space ?
 			start_read = 0;
 
 		// If there's no memory available for us to read from, then
@@ -754,7 +758,7 @@ module	axivfifo #(
 	assign	M_AXI_ARVALID = axi_arvalid;
 	assign	M_AXI_ARID    = AXI_READ_ID;
 	assign	M_AXI_ARADDR  = axi_araddr;
-	assign	M_AXI_ARLEN   = (1<<LGMAXBURST)-1;
+	assign	M_AXI_ARLEN   = MAXBURST-1;
 	assign	M_AXI_ARSIZE  = ADDRLSB[2:0];
 	assign	M_AXI_ARBURST = 2'b01;
 	assign	M_AXI_ARLOCK  = 0;
