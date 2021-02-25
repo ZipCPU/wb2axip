@@ -43,7 +43,8 @@ module	fapb_slave #(
 		// Set F_OPT_SLVERR to 1 if your slave supports PSLVERR
 		// assertion, otherwise we'll assert it remains false.
 		parameter [0:0] F_OPT_SLVERR = 1'b0,
-		parameter [0:0]	F_OPT_ASYNC_RESET = 1'b0
+		parameter [0:0]	F_OPT_ASYNC_RESET = 1'b0,
+		parameter [0:0]	F_OPT_INITIAL = 1'b1
 		// }}}
 	) (
 		// {{{
@@ -89,7 +90,9 @@ module	fapb_slave #(
 	// PSEL
 	// {{{
 	always @(posedge PCLK)
-	if (!f_past_valid || !$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+		`SLAVE_ASSUME(!PSEL || F_OPT_INITIAL);
+	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 		`SLAVE_ASSUME(!PSEL);
 	else if ($past(PSEL) && !$past(PENABLE && PREADY))
 		`SLAVE_ASSUME(PSEL);
@@ -99,7 +102,9 @@ module	fapb_slave #(
 	// PENABLE
 	// {{{
 	always @(posedge PCLK)
-	if (!f_past_valid || !$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+		`SLAVE_ASSUME(!PENABLE || F_OPT_INITIAL);
+	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 		`SLAVE_ASSUME(!PENABLE);
 	else if (PSEL)
 	begin
@@ -127,10 +132,11 @@ module	fapb_slave #(
 	// PADDR, PWRITE, and PWDATA need to hold while stalled
 	// {{{
 	always @(posedge PCLK)
-	if ((!f_past_valid)||!$past(PRESETn)||(F_OPT_ASYNC_RESET && !PRESETn))
-	begin
+	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+		`SLAVE_ASSUME(!PREADY || F_OPT_INITIAL);
+	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 		`SLAVE_ASSERT(!PREADY);
-	end else if ($past(PSEL) && (!$past(PENABLE) || !$past(PREADY)))
+	else if ($past(PSEL) && (!$past(PENABLE) || !$past(PREADY)))
 	begin
 		// Stall condition.  Nothing is allowed to change
 		`SLAVE_ASSUME($stable(PADDR));
@@ -174,7 +180,10 @@ module	fapb_slave #(
 	// PREADY are low
 	// Can't generate a slave error when not ready
 	always @(*)
-	if (!PSEL || !PENABLE || !PREADY || !F_OPT_SLVERR)
-		`SLAVE_ASSERT(!PSLVERR);
+	if (f_past_valid || F_OPT_INITIAL)
+	begin
+		if (!PSEL || !PENABLE || !PREADY || !F_OPT_SLVERR)
+			`SLAVE_ASSERT(!PSLVERR);
+	end
 	// }}}
 endmodule
