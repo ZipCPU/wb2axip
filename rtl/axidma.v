@@ -156,7 +156,7 @@ module	axidma #(
 		//
 		output	reg				S_AXIL_BVALID,
 		input	wire				S_AXIL_BREADY,
-		output	reg	[1:0]			S_AXIL_BRESP,
+		output	wire	[1:0]			S_AXIL_BRESP,
 		//
 		input	wire				S_AXIL_ARVALID,
 		output	wire				S_AXIL_ARREADY,
@@ -166,7 +166,7 @@ module	axidma #(
 		output	reg				S_AXIL_RVALID,
 		input	wire				S_AXIL_RREADY,
 		output	reg [C_AXIL_DATA_WIDTH-1:0]	S_AXIL_RDATA,
-		output	reg	[1:0]			S_AXIL_RRESP,
+		output	wire	[1:0]			S_AXIL_RRESP,
 		//
 		//
 		// The AXI Master (DMA) interface
@@ -205,22 +205,22 @@ module	axidma #(
 		//
 		output	reg				M_AXI_ARVALID,
 		input	wire				M_AXI_ARREADY,
-		output	reg	[C_AXI_ID_WIDTH-1:0]	M_AXI_ARID,
+		output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_ARID,
 		output	reg	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
 `ifdef	AXI3
 		output	reg	[3:0]			M_AXI_ARLEN,
 `else
 		output	reg	[7:0]			M_AXI_ARLEN,
 `endif
-		output	reg	[2:0]			M_AXI_ARSIZE,
-		output	reg	[1:0]			M_AXI_ARBURST,
-		output	reg				M_AXI_ARLOCK,
-		output	reg	[3:0]			M_AXI_ARCACHE,
-		output	reg	[2:0]			M_AXI_ARPROT,
-		output	reg	[3:0]			M_AXI_ARQOS,
+		output	wire	[2:0]			M_AXI_ARSIZE,
+		output	wire	[1:0]			M_AXI_ARBURST,
+		output	wire				M_AXI_ARLOCK,
+		output	wire	[3:0]			M_AXI_ARCACHE,
+		output	wire	[2:0]			M_AXI_ARPROT,
+		output	wire	[3:0]			M_AXI_ARQOS,
 		//
 		input	wire				M_AXI_RVALID,
-		output	reg				M_AXI_RREADY,
+		output	wire				M_AXI_RREADY,
 		input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_RID,
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire				M_AXI_RLAST,
@@ -360,8 +360,7 @@ module	axidma #(
 	else if (!S_AXIL_BVALID || S_AXIL_BREADY)
 		S_AXIL_BVALID <= axil_write_ready;
 
-	always @(*)
-		S_AXIL_BRESP = AXI_OKAY;
+	assign	S_AXIL_BRESP = AXI_OKAY;
 
 	always @(*)
 	begin
@@ -467,9 +466,9 @@ module	axidma #(
 
 		if (!OPT_UNALIGNED)
 		begin
-			wide_src[ADDRLSB-1:0] <= 0;
-			wide_dst[ADDRLSB-1:0] <= 0;
-			wide_len[ADDRLSB-1:0] <= 0;
+			wide_src[ADDRLSB-1:0] = 0;
+			wide_dst[ADDRLSB-1:0] = 0;
+			wide_len[ADDRLSB-1:0] = 0;
 		end
 	end
 
@@ -518,9 +517,9 @@ module	axidma #(
 
 		if (!OPT_UNALIGNED)
 		begin
-			new_widesrc[ADDRLSB-1:0] <= 0;
-			new_widedst[ADDRLSB-1:0] <= 0;
-			new_widelen[ADDRLSB-1:0] <= 0;
+			new_widesrc[ADDRLSB-1:0] = 0;
+			new_widedst[ADDRLSB-1:0] = 0;
+			new_widelen[ADDRLSB-1:0] = 0;
 		end
 	end
 
@@ -592,9 +591,6 @@ module	axidma #(
 			r_src_addr[ADDRLSB-1:0] <= 0;
 		end
 	end
-
-	always @(*)
-		S_AXIL_BRESP = 2'b00;
 
 	function [C_AXIL_DATA_WIDTH-1:0]	apply_wstrb;
 		input [C_AXIL_DATA_WIDTH-1:0]	prior_data;
@@ -668,8 +664,7 @@ module	axidma #(
 			S_AXIL_RDATA <= 0;
 	end
 
-	always @(*)
-		S_AXIL_RRESP = AXI_OKAY;
+	assign	S_AXIL_RRESP = AXI_OKAY;
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -827,18 +822,15 @@ module	axidma #(
 		M_AXI_ARLEN <= readlen_w[7:0] - 8'h1;
 `endif
 
-	always @(*)
-	begin
-		M_AXI_ARID    = AXI_READ_ID;
-		M_AXI_ARBURST = AXI_INCR;
-		M_AXI_ARSIZE  = ADDRLSB[2:0];
-		M_AXI_ARLOCK  = 1'b0;
-		M_AXI_ARCACHE = 4'b0011;
-		M_AXI_ARPROT  = r_prot;
-		M_AXI_ARQOS   = r_qos;
+	assign	M_AXI_ARID    = AXI_READ_ID;
+	assign	M_AXI_ARBURST = AXI_INCR;
+	assign	M_AXI_ARSIZE  = ADDRLSB[2:0];
+	assign	M_AXI_ARLOCK  = 1'b0;
+	assign	M_AXI_ARCACHE = 4'b0011;
+	assign	M_AXI_ARPROT  = r_prot;
+	assign	M_AXI_ARQOS   = r_qos;
 		//
-		M_AXI_RREADY = !no_read_bursts_outstanding;
-	end
+	assign	M_AXI_RREADY = !no_read_bursts_outstanding;
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -911,11 +903,15 @@ module	axidma #(
 		if (r_busy)
 		begin
 			if (!extra_realignment_read)
+			begin
 				assert(!clear_read_pipeline);
-			else if (read_beats_remaining_w > 0)
+			end else if (read_beats_remaining_w > 0)
+			begin
 				assert(!clear_read_pipeline);
-			else if (!no_read_bursts_outstanding)
+			end else if (!no_read_bursts_outstanding)
+			begin
 				assert(!clear_read_pipeline);
+			end
 		end
 `endif
 
@@ -1032,9 +1028,9 @@ module	axidma #(
 			if (r_len[(LGLEN-1):(ADDRLSB+1)] != 0)
 				r_oneword <= 0;
 			else
-				r_oneword <= ({ 2'b0, r_dst_addr[ADDRLSB-1:0]}
-					+ r_len[ADDRLSB+1:0] <=
-					{ 2'b01, {(ADDRLSB){1'b0}} });
+				r_oneword <= (({ 2'b0, r_dst_addr[ADDRLSB-1:0]}
+					+ r_len[ADDRLSB+1:0]) <=
+					{ 2'b01, {(ADDRLSB){1'b0}} } ? 1:0);
 		end
 
 		initial	r_first_wstrb = 0;
@@ -1464,8 +1460,7 @@ module	axidma #(
 			readlen_w[LGLENW:8],
 `endif
 			writelen_b[ADDRLSB-1:0], readlen_b[ADDRLSB-1:0],
-			read_distance_to_boundary_b[C_AXI_ADDR_WIDTH-1:ADDRLSB + LGMAXBURST],
-			read_distance_to_boundary_b[ADDRLSB-1:0]
+			read_distance_to_boundary_b
 			};
 
 	generate if (C_AXI_ADDR_WIDTH < 2*C_AXIL_DATA_WIDTH)
