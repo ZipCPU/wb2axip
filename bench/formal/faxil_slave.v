@@ -148,8 +148,8 @@ module faxil_slave #(
 //*****************************************************************************
 
 	// wire	w_fifo_full;
-	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req,
-		axi_rd_err, axi_wr_err;
+	wire	axi_rd_ack, axi_wr_ack, axi_ard_req, axi_awr_req, axi_wr_req;
+		// axi_rd_err, axi_wr_err;
 	//
 	assign	axi_ard_req = (i_axi_arvalid)&&(i_axi_arready) && i_axi_reset_n;
 	assign	axi_awr_req = (i_axi_awvalid)&&(i_axi_awready) && i_axi_reset_n;
@@ -157,8 +157,8 @@ module faxil_slave #(
 	//
 	assign	axi_rd_ack = (i_axi_rvalid)&&(i_axi_rready) && i_axi_reset_n;
 	assign	axi_wr_ack = (i_axi_bvalid)&&(i_axi_bready) && i_axi_reset_n;
-	assign	axi_rd_err = (axi_rd_ack)&&(i_axi_rresp[1]) && i_axi_reset_n;
-	assign	axi_wr_err = (axi_wr_ack)&&(i_axi_bresp[1]) && i_axi_reset_n;
+	// assign axi_rd_err = (axi_rd_ack)&&(i_axi_rresp[1]) && i_axi_reset_n;
+	// assign axi_wr_err = (axi_wr_ack)&&(i_axi_bresp[1]) && i_axi_reset_n;
 
 `define	SLAVE_ASSUME	assume
 `define	SLAVE_ASSERT	assert
@@ -167,7 +167,7 @@ module faxil_slave #(
 	// Setup
 	//
 	reg	f_past_valid;
-	integer	k;
+	// integer	k;
 
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_clk)
@@ -275,9 +275,10 @@ module faxil_slave #(
 	begin
 		`SLAVE_ASSUME(i_axi_awprot  == 3'h0);
 		if (F_OPT_HAS_CACHE)
+		begin
 			// Normal non-cachable, but bufferable
 			`SLAVE_ASSUME(i_axi_awcache == 4'h3);
-		else
+		end else
 			// No caching capability
 			`SLAVE_ASSUME(i_axi_awcache == 4'h0);
 	end
@@ -287,9 +288,10 @@ module faxil_slave #(
 	begin
 		`SLAVE_ASSUME(i_axi_arprot  == 3'h0);
 		if (F_OPT_HAS_CACHE)
+		begin
 			// Normal non-cachable, but bufferable
 			`SLAVE_ASSUME(i_axi_arcache == 4'h3);
-		else
+		end else
 			// No caching capability
 			`SLAVE_ASSUME(i_axi_arcache == 4'h0);
 	end
@@ -581,6 +583,7 @@ module faxil_slave #(
 	else case({ (axi_wr_req), (axi_wr_ack) })
 	2'b01: f_axi_wr_outstanding <= f_axi_wr_outstanding - 1'b1;
 	2'b10: f_axi_wr_outstanding <= f_axi_wr_outstanding + 1'b1;
+	default: begin end
 	endcase
 
 	//
@@ -592,6 +595,7 @@ module faxil_slave #(
 	else case({ (axi_ard_req), (axi_rd_ack) })
 	2'b01: f_axi_rd_outstanding <= f_axi_rd_outstanding - 1'b1;
 	2'b10: f_axi_rd_outstanding <= f_axi_rd_outstanding + 1'b1;
+	default: begin end
 	endcase
 
 	//
