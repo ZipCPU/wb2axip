@@ -393,9 +393,8 @@ module demofull #(
 	else if (!S_AXI_BVALID || S_AXI_BREADY)
 	begin
 		axi_exclusive_write <= exclusive_write;
-		if (m_awvalid && m_awready)
-			axi_exclusive_write <= write_lock_valid;
-		if (OPT_LOWPOWER && (!S_AXI_WVALID || !S_AXI_WREADY || !S_AXI_WLAST))
+		if (OPT_LOWPOWER && (!S_AXI_WVALID || !S_AXI_WREADY || !S_AXI_WLAST)
+				&& !r_bvalid)
 			axi_exclusive_write <= 0;
 	end
 	// }}}
@@ -724,9 +723,10 @@ module demofull #(
 		reg			w_valid_lock_request, w_cancel_lock,
 					w_lock_request,
 					lock_valid, returned_lock_valid;
-		reg	[2:0]		lock_size;
-		reg	[3:0]		lock_len;
 		reg	[AW-LSB-1:0]	lock_start, lock_end;
+		reg	[3:0]		lock_len;
+		reg	[1:0]		lock_burst;
+		reg	[2:0]		lock_size;
 		reg	[IW-1:0]	lock_id;
 		reg			w_write_lock_valid;
 		// }}}
@@ -755,13 +755,17 @@ module demofull #(
 
 		// returned_lock_valid
 		// {{{
+		initial	returned_lock_valid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
+			returned_lock_valid <= 0;
+		else if (S_AXI_ARVALID && S_AXI_ARREADY
+					&& S_AXI_ARLOCK && S_AXI_ARID== lock_id)
 			returned_lock_valid <= 0;
 		else if (w_cancel_lock)
 			returned_lock_valid <= 0;
 		else if (rskd_valid && rskd_lock && rskd_ready)
-			returned_lock_valid <= 1;
+			returned_lock_valid <= lock_valid;
 		// }}}
 
 		// w_cancel_lock
@@ -776,6 +780,7 @@ module demofull #(
 
 		// lock_valid
 		// {{{
+		initial	lock_valid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN || !OPT_LOCK)
 			lock_valid <= 0;
@@ -799,6 +804,7 @@ module demofull #(
 			lock_end <= S_AXI_ARADDR[C_S_AXI_ADDR_WIDTH-1:LSB]
 					+ ((S_AXI_ARBURST == 2'b00) ? 0 : S_AXI_ARLEN[3:0]);
 			lock_len   <= S_AXI_ARLEN[3:0];
+			lock_burst <= S_AXI_ARBURST;
 			lock_size  <= S_AXI_ARSIZE;
 			lock_id    <= S_AXI_ARID;
 		end
@@ -811,7 +817,7 @@ module demofull #(
 			w_write_lock_valid = returned_lock_valid;
 			if (!m_awvalid || !m_awready || !m_awlock || !lock_valid)
 				w_write_lock_valid = 0;
-			if (m_awaddr[C_S_AXI_ADDR_WIDTH-LSB-1:0] != lock_start)
+			if (m_awaddr[C_S_AXI_ADDR_WIDTH-1:LSB] != lock_start)
 				w_write_lock_valid = 0;
 			if (m_awid != lock_id)
 				w_write_lock_valid = 0;
@@ -841,6 +847,7 @@ module demofull #(
 			reg			w_valid_lock_request,
 						w_cancel_lock,
 						lock_valid, returned_lock_valid;
+			reg	[1:0]		lock_burst;
 			reg	[2:0]		lock_size;
 			reg	[3:0]		lock_len;
 			reg	[AW-LSB-1:0]	lock_start, lock_end;
@@ -863,14 +870,18 @@ module demofull #(
 
 			// returned_lock_valid
 			// {{{
+			initial	returned_lock_valid = 0;
 			always @(posedge S_AXI_ACLK)
 			if (!S_AXI_ARESETN)
+				returned_lock_valid <= 0;
+			else if (S_AXI_ARVALID && S_AXI_ARREADY
+					&&S_AXI_ARLOCK&&S_AXI_ARID== gk[IW-1:0])
 				returned_lock_valid <= 0;
 			else if (w_cancel_lock)
 				returned_lock_valid <= 0;
 			else if (rskd_valid && rskd_lock && rskd_ready
 					&& rskd_id == gk[IW-1:0])
-				returned_lock_valid <= 1;
+				returned_lock_valid <= lock_valid;
 			// }}}
 
 			// w_cancel_lock
@@ -885,6 +896,7 @@ module demofull #(
 
 			// lock_valid
 			// {{{
+			initial	lock_valid = 0;
 			always @(posedge S_AXI_ACLK)
 			if (!S_AXI_ARESETN || !OPT_LOCK)
 				lock_valid <= 0;
@@ -910,6 +922,7 @@ module demofull #(
 					+ ((S_AXI_ARBURST == 2'b00) ? 0 : S_AXI_ARLEN[3:0]);
 				lock_len   <= S_AXI_ARLEN[3:0];
 				lock_size  <= S_AXI_ARSIZE;
+				lock_burst <= S_AXI_ARBURST;
 			end
 			// }}}
 
@@ -920,7 +933,7 @@ module demofull #(
 				w_write_lock_valid = returned_lock_valid;
 				if (!m_awvalid || !m_awready || !m_awlock || !lock_valid)
 					w_write_lock_valid = 0;
-				if (m_awaddr[C_S_AXI_ADDR_WIDTH-LSB-1:0] != lock_start)
+				if (m_awaddr[C_S_AXI_ADDR_WIDTH-1:LSB] != lock_start)
 					w_write_lock_valid = 0;
 				if (m_awid[IW-1:0] != gk[IW-1:0])
 					w_write_lock_valid = 0;
@@ -928,7 +941,7 @@ module demofull #(
 					w_write_lock_valid = 0;
 				if (m_awburst != 2'b01 && lock_len != 0)
 					w_write_lock_valid = 0;
-				if (!m_awsize != lock_size)
+				if (m_awsize != lock_size)
 					w_write_lock_valid = 0;
 			end
 			// }}}
@@ -995,7 +1008,7 @@ module demofull #(
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
 		// Address write channel
-		//
+		// {{{
 		.i_axi_awvalid(m_awvalid),
 		.i_axi_awready(m_awready),
 		.i_axi_awid(   m_awid),
@@ -1003,34 +1016,29 @@ module demofull #(
 		.i_axi_awlen(  m_awlen),
 		.i_axi_awsize( m_awsize),
 		.i_axi_awburst(m_awburst),
-		.i_axi_awlock( 1'b0),
+		.i_axi_awlock( m_awlock),
 		.i_axi_awcache(4'h0),
 		.i_axi_awprot( 3'h0),
 		.i_axi_awqos(  4'h0),
-	//
-	//
-		//
+		// }}}
 		// Write Data Channel
-		//
+		// {{{
 		// Write Data
 		.i_axi_wdata(S_AXI_WDATA),
 		.i_axi_wstrb(S_AXI_WSTRB),
 		.i_axi_wlast(S_AXI_WLAST),
 		.i_axi_wvalid(S_AXI_WVALID),
 		.i_axi_wready(S_AXI_WREADY),
-	//
-	//
-		// Response ID tag. This signal is the ID tag of the
-		// write response.
+		// }}}
+		// Write response
+		// {{{
 		.i_axi_bvalid(S_AXI_BVALID),
 		.i_axi_bready(S_AXI_BREADY),
 		.i_axi_bid(   S_AXI_BID),
 		.i_axi_bresp( S_AXI_BRESP),
-	//
-	//
-		//
+		// }}}
 		// Read address channel
-		//
+		// {{{
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_arid(   S_AXI_ARID),
@@ -1042,17 +1050,16 @@ module demofull #(
 		.i_axi_arcache(S_AXI_ARCACHE),
 		.i_axi_arprot( S_AXI_ARPROT),
 		.i_axi_arqos(  S_AXI_ARQOS),
-	//
-	//
-		//
+		// }}}
 		// Read data return channel
-		//
+		// {{{
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),
 		.i_axi_rid(S_AXI_RID),
 		.i_axi_rdata(S_AXI_RDATA),
 		.i_axi_rresp(S_AXI_RRESP),
 		.i_axi_rlast(S_AXI_RLAST),
+		// }}}
 		//
 		// ...
 		// }}}
