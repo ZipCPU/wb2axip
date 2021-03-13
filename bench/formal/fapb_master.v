@@ -91,10 +91,12 @@ module	fapb_master #(
 	// {{{
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+	begin
 		`SLAVE_ASSUME(!PSEL || F_OPT_INITIAL);
-	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	begin
 		`SLAVE_ASSUME(!PSEL);
-	else if ($past(PSEL) && !$past(PENABLE && PREADY))
+	end else if ($past(PSEL) && !$past(PENABLE && PREADY))
 		`SLAVE_ASSUME(PSEL);
 	// }}}
 
@@ -103,10 +105,12 @@ module	fapb_master #(
 	// {{{
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+	begin
 		`SLAVE_ASSUME(!PENABLE || F_OPT_INITIAL);
-	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	begin
 		`SLAVE_ASSUME(!PENABLE);
-	else if (PSEL)
+	end else if (PSEL)
 	begin
 		if (!$past(PSEL))
 			// PSEL rose, this is therefore the setup phase and
@@ -133,10 +137,12 @@ module	fapb_master #(
 	// {{{
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
+	begin
 		`SLAVE_ASSUME(!PREADY || F_OPT_INITIAL);
-	else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
+	begin
 		`SLAVE_ASSERT(!PREADY);
-	else if ($past(PSEL) && (!$past(PENABLE) || !$past(PREADY)))
+	end else if ($past(PSEL) && (!$past(PENABLE) || !$past(PREADY)))
 	begin
 		// Stall condition.  Nothing is allowed to change
 		`SLAVE_ASSUME($stable(PADDR));
