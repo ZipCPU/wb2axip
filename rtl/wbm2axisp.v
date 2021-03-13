@@ -575,7 +575,7 @@ module wbm2axisp #(
 
 	initial begin
 		assert(C_AXI_DATA_WIDTH >= DW);
-		assert(DW == 8 && AW == C_AXI_ADDR_WIDTH);
+		assert((DW == 8) == (AW == C_AXI_ADDR_WIDTH));
 		assert(C_AXI_ADDR_WIDTH == AW + $clog2(DW)-3);
 	end
 	// }}}
