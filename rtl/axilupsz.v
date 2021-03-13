@@ -419,189 +419,196 @@ module	axilupsz #(
 		// Verilator lint_on  UNUSED
 		// }}}
 		// }}}
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	// Formal properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+`ifdef	FORMAL
+		localparam	F_LGDEPTH = LGFIFO+2;
+		wire	[F_LGDEPTH-1:0]	fslv_rd_outstanding,
+					fmst_rd_outstanding,
+					fslv_wr_outstanding,
+					fmst_wr_outstanding,
+					fslv_awr_outstanding,
+					fmst_awr_outstanding;
+		////////////////////////////////////////////////////////////////
+		//
+		// Interface properties
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
+		faxil_slave #(
+			// {{{
+			.C_AXI_DATA_WIDTH(SDW),
+			.C_AXI_ADDR_WIDTH(AW),
+			.F_OPT_COVER_BURST(1),
+			.F_LGDEPTH(F_LGDEPTH),
+			.F_AXI_MAXWAIT(8),
+			.F_AXI_MAXRSTALL(3),
+			.F_AXI_MAXDELAY(16)
+			// }}}
+		) axil_slave (
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
+			//
+			.i_axi_awvalid(S_AXIL_AWVALID),
+			.i_axi_awready(S_AXIL_AWREADY),
+			.i_axi_awaddr( S_AXIL_AWADDR),
+			.i_axi_awprot( S_AXIL_AWPROT),
+			.i_axi_awcache(4'h0),
+			//
+			.i_axi_wvalid(S_AXIL_WVALID),
+			.i_axi_wready(S_AXIL_WREADY),
+			.i_axi_wdata( S_AXIL_WDATA),
+			.i_axi_wstrb( S_AXIL_WSTRB),
+			//
+			.i_axi_bvalid(S_AXIL_BVALID),
+			.i_axi_bready(S_AXIL_BREADY),
+			.i_axi_bresp( S_AXIL_BRESP),
+			//
+			.i_axi_arvalid(S_AXIL_ARVALID),
+			.i_axi_arready(S_AXIL_ARREADY),
+			.i_axi_araddr( S_AXIL_ARADDR),
+			.i_axi_arprot( S_AXIL_ARPROT),
+			.i_axi_arcache(4'h0),
+			//
+			.i_axi_rvalid(S_AXIL_RVALID),
+			.i_axi_rready(S_AXIL_RREADY),
+			.i_axi_rdata( S_AXIL_RDATA),
+			.i_axi_rresp( S_AXIL_RRESP),
+			//
+			.f_axi_rd_outstanding(fslv_rd_outstanding),
+			.f_axi_wr_outstanding(fslv_wr_outstanding),
+			.f_axi_awr_outstanding(fslv_awr_outstanding)
+			// }}}
+		);
+
+		faxil_master #(
+			// {{{
+			.C_AXI_DATA_WIDTH(MDW),
+			.C_AXI_ADDR_WIDTH(AW),
+			.F_OPT_COVER_BURST(1),
+			.F_LGDEPTH(F_LGDEPTH),
+			.F_OPT_NO_RESET(1),
+			.F_AXI_MAXWAIT(5),
+			.F_AXI_MAXRSTALL(3),
+			.F_AXI_MAXDELAY(5)
+			// }}}
+		) axil_master (
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
+			//
+			.i_axi_awvalid(M_AXIL_AWVALID),
+			.i_axi_awready(M_AXIL_AWREADY),
+			.i_axi_awaddr( M_AXIL_AWADDR),
+			.i_axi_awprot( M_AXIL_AWPROT),
+			.i_axi_awcache(4'h0),
+			//
+			.i_axi_wvalid(M_AXIL_WVALID),
+			.i_axi_wready(M_AXIL_WREADY),
+			.i_axi_wdata( M_AXIL_WDATA),
+			.i_axi_wstrb( M_AXIL_WSTRB),
+			//
+			.i_axi_bvalid(M_AXIL_BVALID),
+			.i_axi_bready(M_AXIL_BREADY),
+			.i_axi_bresp( M_AXIL_BRESP),
+			//
+			.i_axi_arvalid(M_AXIL_ARVALID),
+			.i_axi_arready(M_AXIL_ARREADY),
+			.i_axi_araddr( M_AXIL_ARADDR),
+			.i_axi_arprot( M_AXIL_ARPROT),
+			.i_axi_arcache(4'h0),
+			//
+			.i_axi_rvalid(M_AXIL_RVALID),
+			.i_axi_rready(M_AXIL_RREADY),
+			.i_axi_rdata( M_AXIL_RDATA),
+			.i_axi_rresp( M_AXIL_RRESP),
+			//
+			.f_axi_rd_outstanding(fmst_rd_outstanding),
+			.f_axi_wr_outstanding(fmst_wr_outstanding),
+			.f_axi_awr_outstanding(fmst_awr_outstanding)
+			// }}}
+		);
+
+		// Correlate slave and master write outstanding counters
+		// {{{
+		always @(*)
+		begin
+			assume(fslv_awr_outstanding <= (1<<LGFIFO));
+			assume(fslv_wr_outstanding  <= (1<<LGFIFO));
+
+			assert(fslv_awr_outstanding + (S_AXIL_WREADY ? 0:1)
+				== fslv_wr_outstanding +(S_AXIL_AWREADY ? 0:1));
+
+			assert(fmst_awr_outstanding + (M_AXIL_AWVALID ? 1:0)
+				== fmst_wr_outstanding + (M_AXIL_WVALID ? 1:0));
+
+			assert(fslv_awr_outstanding == fmst_awr_outstanding
+				+(M_AXIL_AWVALID ? 1:0)+(S_AXIL_AWREADY ? 0:1));
+			assert(fslv_wr_outstanding == fmst_wr_outstanding
+				+(M_AXIL_WVALID ? 1:0) + (S_AXIL_WREADY ? 0:1));
+		end
+		// }}}
+
+		// Correlate the slave and master read outstanding counters
+		// w/ FIFO fill
+		// {{{
+		always @(*)
+		begin
+			assert(fslv_rd_outstanding == fmst_rd_outstanding
+				+(S_AXIL_RVALID ? 1:0) + (M_AXIL_RREADY ? 0:1));
+			assert(rfifo_fill == fmst_rd_outstanding);
+
+			if (M_AXIL_RVALID)
+				assert(!rfifo_empty);
+		end
+		// }}}
+
+		// }}}
+		////////////////////////////////////////////////////////////////
+		//
+		// Contract checks
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
+		// Not implemented yet
+
+		// }}}
+		////////////////////////////////////////////////////////////////
+		//
+		// Cover checks
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
+		// (Currently) captured by the interface properties
+		// }}}
+		////////////////////////////////////////////////////////////////
+		//
+		// "Careless" assumptions
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
+		// None
+
+		// }}}
+`endif
+	// }}}
 	end endgenerate
 
 	// Parameter checking
 	// {{{
 	initial if (SDW > MDW) $stop;
 	// }}}
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// Formal properties
-// {{{
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-`ifdef	FORMAL
-	localparam	F_LGDEPTH = LGFIFO+2;
-	wire	[F_LGDEPTH-1:0]	fslv_rd_outstanding, fmst_rd_outstanding,
-				fslv_wr_outstanding, fmst_wr_outstanding,
-				fslv_awr_outstanding,fmst_awr_outstanding;
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Interface properties
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	faxil_slave #(
-		// {{{
-		.C_AXI_DATA_WIDTH(SDW),
-		.C_AXI_ADDR_WIDTH(AW),
-		.F_OPT_COVER_BURST(1),
-		.F_LGDEPTH(F_LGDEPTH),
-		.F_AXI_MAXWAIT(8),
-		.F_AXI_MAXRSTALL(3),
-		.F_AXI_MAXDELAY(16)
-		// }}}
-	) axil_slave (
-		// {{{
-		.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
-		//
-		.i_axi_awvalid(S_AXIL_AWVALID),
-		.i_axi_awready(S_AXIL_AWREADY),
-		.i_axi_awaddr( S_AXIL_AWADDR),
-		.i_axi_awprot( S_AXIL_AWPROT),
-		.i_axi_awcache(4'h0),
-		//
-		.i_axi_wvalid(S_AXIL_WVALID),
-		.i_axi_wready(S_AXIL_WREADY),
-		.i_axi_wdata( S_AXIL_WDATA),
-		.i_axi_wstrb( S_AXIL_WSTRB),
-		//
-		.i_axi_bvalid(S_AXIL_BVALID),
-		.i_axi_bready(S_AXIL_BREADY),
-		.i_axi_bresp( S_AXIL_BRESP),
-		//
-		.i_axi_arvalid(S_AXIL_ARVALID),
-		.i_axi_arready(S_AXIL_ARREADY),
-		.i_axi_araddr( S_AXIL_ARADDR),
-		.i_axi_arprot( S_AXIL_ARPROT),
-		.i_axi_arcache(4'h0),
-		//
-		.i_axi_rvalid(S_AXIL_RVALID),
-		.i_axi_rready(S_AXIL_RREADY),
-		.i_axi_rdata( S_AXIL_RDATA),
-		.i_axi_rresp( S_AXIL_RRESP),
-		//
-		.f_axi_rd_outstanding(fslv_rd_outstanding),
-		.f_axi_wr_outstanding(fslv_wr_outstanding),
-		.f_axi_awr_outstanding(fslv_awr_outstanding)
-		// }}}
-	);
-
-	faxil_master #(
-		// {{{
-		.C_AXI_DATA_WIDTH(MDW),
-		.C_AXI_ADDR_WIDTH(AW),
-		.F_OPT_COVER_BURST(1),
-		.F_LGDEPTH(F_LGDEPTH),
-		.F_OPT_NO_RESET(1),
-		.F_AXI_MAXWAIT(5),
-		.F_AXI_MAXRSTALL(3),
-		.F_AXI_MAXDELAY(5)
-		// }}}
-	) axil_master (
-		// {{{
-		.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
-		//
-		.i_axi_awvalid(M_AXIL_AWVALID),
-		.i_axi_awready(M_AXIL_AWREADY),
-		.i_axi_awaddr( M_AXIL_AWADDR),
-		.i_axi_awprot( M_AXIL_AWPROT),
-		.i_axi_awcache(4'h0),
-		//
-		.i_axi_wvalid(M_AXIL_WVALID),
-		.i_axi_wready(M_AXIL_WREADY),
-		.i_axi_wdata( M_AXIL_WDATA),
-		.i_axi_wstrb( M_AXIL_WSTRB),
-		//
-		.i_axi_bvalid(M_AXIL_BVALID),
-		.i_axi_bready(M_AXIL_BREADY),
-		.i_axi_bresp( M_AXIL_BRESP),
-		//
-		.i_axi_arvalid(M_AXIL_ARVALID),
-		.i_axi_arready(M_AXIL_ARREADY),
-		.i_axi_araddr( M_AXIL_ARADDR),
-		.i_axi_arprot( M_AXIL_ARPROT),
-		.i_axi_arcache(4'h0),
-		//
-		.i_axi_rvalid(M_AXIL_RVALID),
-		.i_axi_rready(M_AXIL_RREADY),
-		.i_axi_rdata( M_AXIL_RDATA),
-		.i_axi_rresp( M_AXIL_RRESP),
-		//
-		.f_axi_rd_outstanding(fmst_rd_outstanding),
-		.f_axi_wr_outstanding(fmst_wr_outstanding),
-		.f_axi_awr_outstanding(fmst_awr_outstanding)
-		// }}}
-	);
-
-	// Correlate slave and master write outstanding counters
-	// {{{
-	always @(*)
-	begin
-		assume(fslv_awr_outstanding <= (1<<LGFIFO));
-		assume(fslv_wr_outstanding  <= (1<<LGFIFO));
-
-		assert(fslv_awr_outstanding + (S_AXIL_WREADY ? 0:1)
-			== fslv_wr_outstanding + (S_AXIL_AWREADY ? 0:1));
-
-		assert(fmst_awr_outstanding + (M_AXIL_AWVALID ? 1:0)
-			== fmst_wr_outstanding + (M_AXIL_WVALID ? 1:0));
-
-		assert(fslv_awr_outstanding == fmst_awr_outstanding + (M_AXIL_AWVALID ? 1:0) + (S_AXIL_AWREADY ? 0:1));
-		assert(fslv_wr_outstanding == fmst_wr_outstanding + (M_AXIL_WVALID ? 1:0) + (S_AXIL_WREADY ? 0:1));
-	end
-	// }}}
-
-	// Correlate the slave and master read outstanding counters w/ FIFO fill
-	// {{{
-	always @(*)
-	begin
-		assert(fslv_rd_outstanding == fmst_rd_outstanding + (S_AXIL_RVALID ? 1:0) + (M_AXIL_RREADY ? 0:1));
-		assert(rfifo_fill == fmst_rd_outstanding);
-
-		if (M_AXIL_RVALID)
-			assert(!rfifo_empty);
-	end
-	// }}}
-
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Contract checks
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	// Not implemented yet
-
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Cover checks
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	// (Currently) captured by the interface properties
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// "Careless" assumptions
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	// None
-
-	// }}}
-`endif
-// }}}
 endmodule
