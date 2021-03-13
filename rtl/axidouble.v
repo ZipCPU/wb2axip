@@ -296,8 +296,9 @@ module	axidouble #(
 		// input wire M_AXI_RLAST is assumed to be 1
 		// }}}
 	);
-	//
-	//
+
+	// Signal declarations
+	// {{{
 	// LGNS is the number of bits required in a slave index
 	localparam	LGNS = $clog2(NS);
 	//
@@ -307,49 +308,11 @@ module	axidouble #(
 				INTERCONNECT_ERROR = 2'b11;
 	localparam	ADDR_LSBS = $clog2(DW)-3;
 	//
-
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Unused wire assignments
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-	assign	M_AXI_AWID  = 0;
-	assign	M_AXI_AWLEN = 0;
-	assign	M_AXI_AWBURST = 2'b00;
-	assign	M_AXI_AWLOCK  = 1'b0;
-	assign	M_AXI_AWCACHE = 4'h3;
-	// assign	M_AXI_AWPROT  = 3'h0;
-	assign	M_AXI_AWQOS   = 4'h0;
-	//
-	assign	M_AXI_WVALID  = M_AXI_AWVALID;
-	assign	M_AXI_WLAST   = 1'b1;
-	//
-	assign	M_AXI_BREADY  = 1'b1;
-	//
-	assign	M_AXI_ARID	= 1'b0;
-	assign	M_AXI_ARLEN	= 8'h0; // Burst of one beat
-	assign	M_AXI_ARBURST	= 2'b00; // INC
-	assign	M_AXI_ARLOCK	= 1'b0;
-	assign	M_AXI_ARCACHE	= 4'h3;
-	// assign	M_AXI_ARPROT	= 3'h0;
-	assign	M_AXI_ARQOS	= 4'h0;
-	//
-	assign	M_AXI_RREADY	= -1;
-
-	////////////////////////////////////////////////////////////////////////
-
 	reg	locked_burst, locked_write, lock_valid;
 	integer			k;
 
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Write logic:
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
+	// Write signals
+	// {{{
 	wire			awskd_stall;
 	wire			awskid_valid, bffull, bempty, write_awskidready,
 				dcd_awvalid;
@@ -379,242 +342,10 @@ module	axidouble #(
 	wire			awskid_awlock;
 	//
 	reg			write_top_beat;
+	// }}}
 
-
-	//
-	// Incoming write address requests must go through a skidbuffer.  By
-	// keeping OPT_OUTREG == 0, this shouldn't cost us any time, but should
-	// instead buy us the ability to keep AWREADY high even if for reasons
-	// we can't act on AWVALID & AWREADY on the same cycle
-	skidbuffer #(.OPT_OUTREG(0),
-			.DW(C_AXI_ID_WIDTH+AW+8+3+2+1+3))
-	awskid(	.i_clk(S_AXI_ACLK),
-		.i_reset(!S_AXI_ARESETN),
-		.i_valid(S_AXI_AWVALID),
-			.o_ready(S_AXI_AWREADY),
-			.i_data({ S_AXI_AWID, S_AXI_AWADDR, S_AXI_AWLEN,
-				S_AXI_AWSIZE, S_AXI_AWBURST,
-				S_AXI_AWLOCK, S_AXI_AWPROT }),
-		.o_valid(awskid_valid), .i_ready(write_awskidready),
-			.o_data({ awskid_awid, awskid_awaddr, awskid_awlen,
-				awskid_awsize, awskid_awburst, awskid_awlock,
-				awskid_prot }));
-
-	//
-	// On any write address request (post-skidbuffer), copy down the details
-	// of that request.  Once these details are valid (i.e. on the next
-	// clock), S_AXI_WREADY will be true.
-	always @(posedge S_AXI_ACLK)
-	if (awskid_valid && write_awskidready)
-	begin
-		write_id    <= awskid_awid;
-		write_addr  <= awskid_awaddr;
-		write_size  <= awskid_awsize;
-		write_awlen <= awskid_awlen;
-		write_burst <= awskid_awburst;
-		// write_lock  <= awskid_awlock;
-	end else if (S_AXI_WVALID && S_AXI_WREADY)
-		// Following each write beat, we need to update our address
-		write_addr <= next_waddr;
-
-	//
-	// Given the details of the address request, get the next address to
-	// write to.
-	axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
-	get_next_write_address(write_addr,
-			write_size, write_burst, write_awlen, next_waddr);
-
-
-	//
-	// Count through the beats of the burst in write_len.  write_topofburst
-	// indicates the first beat in any new burst, but will be zero for all
-	// subsequent burst beats.  write_request is true anytime we are trying
-	// to write.
-	initial	write_request    = 1'b0;
-	initial	write_topofburst = 1'b1;
-	initial	write_len        = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-	begin
-		write_request    <= 1'b0;
-		write_topofburst <= 1'b1;
-		write_len        <= 0;
-	end else if (awskid_valid && write_awskidready)
-	begin
-		write_request    <= 1'b1;
-		write_topofburst <= 1'b1;
-		write_len        <= awskid_awlen;
-	end else if (S_AXI_WVALID && S_AXI_WREADY)
-	begin
-		write_topofburst <= 1'b0;
-		if (S_AXI_WLAST)
-			write_request <= 1'b0;
-		if (write_len > 0)
-			write_len <= write_len - 1;
-	end
-
-	// Decode our incoming address in order to determine the next
-	// slave the address addresses
-	addrdecode #(.AW(AW), .DW(3), .NS(NS),
-		.SLAVE_ADDR(SLAVE_ADDR),
-		.SLAVE_MASK(SLAVE_MASK),
-		.OPT_REGISTERED(1'b1))
-	wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
-		.i_valid(awskid_valid && write_awskidready), .o_stall(awskd_stall),
-			// .i_addr(awskid_valid && write_awskidready
-			//	? awskid_awaddr : next_waddr),
-			.i_addr(awskid_awaddr),
-			.i_data(awskid_prot),
-		.o_valid(dcd_awvalid), .i_stall(!S_AXI_WVALID),
-			.o_decode(raw_wdecode), .o_addr(m_awaddr),
-			.o_data(m_axi_awprot));
-
-	// We only do our decode on the address request.  We need the decoded
-	// values long after the top of the burst.  Therefore, let's use
-	// dcd_awvalid to know we have a valid output from the decoder and
-	// then we'll latch that (register it really) for the rest of the burst
-	always @(posedge S_AXI_ACLK)
-	if (dcd_awvalid)
-		last_wdecode <= raw_wdecode;
-
-	always @(*)
-	begin
-		if (dcd_awvalid)
-			wdecode = raw_wdecode;
-		else
-			wdecode = last_wdecode;
-	end
-
-	//
-	// It's now time to create our write request for the slave.  Slave
-	// writes take place on the clock after address valid is true as long
-	// as S_AXI_WVALID is true.  This places combinatorial logic onto the
-	// outgoing AWVALID.  The sign that we are in the middle of a burst
-	// will specifically be that WREADY is true.
-	//
-
-	//
-	// If there were any part of this algorithm I disliked it would be the
-	// AWVALID logic here.  It shouldn't nearly be this loaded.
-	assign	S_AXI_WREADY  = write_request;
-	assign	M_AXI_AWVALID = (S_AXI_WVALID && write_request
-			&& (!locked_burst || locked_write)) ? wdecode[NS-1:0] : 0;
-	assign	M_AXI_AWADDR  = write_addr;
-	assign	M_AXI_AWPROT  = m_axi_awprot;
-	assign	M_AXI_AWSIZE  = write_size;
-	assign	M_AXI_WDATA   = S_AXI_WDATA;
-	assign	M_AXI_WSTRB   = S_AXI_WSTRB;
-
-	// We can accept a new value from the skid buffer as soon as the last
-	// write value comes in, or equivalently if we are not in the middle
-	// of a write.  This is all subject, of course, to our backpressure
-	// FIFO not being full.
-	assign	write_awskidready = ((S_AXI_WVALID&&S_AXI_WLAST)
-						|| !S_AXI_WREADY) && !bfull;
-
-	// Back out an index from our decoded slave value
-	always @(*)
-	begin
-		write_windex = 0;
-		for(k=0; k<NS; k=k+1)
-		if (wdecode[k])
-			write_windex = write_windex | k[LGNS-1:0];
-	end
-
-	always @(posedge S_AXI_ACLK)
-	begin
-		write_bindex <= write_windex;
-		write_no_index <= wdecode[NS];
-	end
-
-	always @(posedge S_AXI_ACLK)
-	// if (write_top_of_burst) // -- not necessary
-		write_bid <= write_id;
-
-	// write_bvalid will be true one clock after the last write is accepted.
-	// This is the internal signal that would've come from a subordinate
-	// slave's BVALID, save that we are generating it internally.
-	initial	{ write_response, write_bvalid } = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-		{ write_response, write_bvalid } <= 0;
-	else
-		{ write_response, write_bvalid } <= { write_bvalid,
-			(S_AXI_WVALID && S_AXI_WREADY&& S_AXI_WLAST) };
-
-	//
-	// Examine write beats, not just write bursts
-	always @(posedge S_AXI_ACLK)
-	begin
-		write_top_beat    <= write_topofburst;
-		write_beat_bvalid <= S_AXI_WVALID && S_AXI_WREADY;
-	end
-
-	// The response from any burst should be an DECERR (interconnect
-	// error) if ever the addressed slave doesn't exist in our address map.
-	// This is sticky: any attempt to generate a request to a non-existent
-	// slave will generate an interconnect error.  Likewise, if the slave
-	// ever returns a slave error, we'll propagate it back in the burst
-	// return.  Finally, on an exclusive access burst, we'll return EXOKAY
-	// if we could write the values.
-	always @(posedge S_AXI_ACLK)
-	if (write_beat_bvalid)
-	begin
-		if (write_no_index)
-			write_resp <= INTERCONNECT_ERROR;
-		else if (M_AXI_BRESP[2*write_bindex])
-			write_resp <= { 1'b1, (write_top_beat)
-						? 1'b0 : write_resp[0] };
-		else if (write_top_beat || !write_resp[1])
-			write_resp <= { 1'b0, (write_top_beat && locked_burst && locked_write) };
-	end
-
-	always @(posedge S_AXI_ACLK)
-		write_retid <= write_bid;
-
-	//
-	// The pseudo-FIFO for the write side.  This counter will let us know
-	// if any write response will ever overflow our write response FIFO,
-	// allowing us to be able to confidently deal with any backpressure.
-	initial	write_count = 0;
-	initial	bfull = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN)
-	begin
-		write_count <= 0;
-		bfull <= 0;
-	end else case({ (awskid_valid && write_awskidready),
-			(S_AXI_BVALID & S_AXI_BREADY) })
-	2'b01:	begin
-		write_count <= write_count - 1;
-		bfull <= 1'b0;
-		end
-	2'b10:	begin
-		write_count <= write_count + 1;
-		bfull <= (&write_count[LGFLEN-1:0]);
-		end
-	default: begin end
-	endcase
-
-	//
-	// Backpressure FIFO on write response returns
-	sfifo #(.BW(C_AXI_ID_WIDTH+2), .OPT_ASYNC_READ(0), .LGFLEN(LGFLEN))
-	bfifo ( .i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
-		.i_wr(write_response), .i_data({ write_retid, write_resp }),
-			.o_full(bffull), .o_fill(bfill),
-		.i_rd(S_AXI_BVALID && S_AXI_BREADY),
-			.o_data({ S_AXI_BID, S_AXI_BRESP }),
-			.o_empty(bempty));
-
-	assign	S_AXI_BVALID = !bempty;
-
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Read logic
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
+	// Read signals
+	// {{{
 	wire				rempty, rdfull;
 	wire	[LGFLEN:0]		rfill;
 	reg	[LGNS-1:0]		read_index, last_read_index;
@@ -640,12 +371,365 @@ module	axidouble #(
 	reg			arvalid;
 	reg	[NS:0]		last_rdecode, rdecode;
 
+	wire	[0:0]	unused_pin;
+	// }}}
+
+	// }}}
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Unused wire assignments
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+	assign	M_AXI_AWID  = 0;
+	assign	M_AXI_AWLEN = 0;
+	assign	M_AXI_AWBURST = 2'b00;
+	assign	M_AXI_AWLOCK  = 1'b0;
+	assign	M_AXI_AWCACHE = 4'h3;
+	// assign	M_AXI_AWPROT  = 3'h0;
+	assign	M_AXI_AWQOS   = 4'h0;
+	//
+	assign	M_AXI_WVALID  = M_AXI_AWVALID;
+	assign	M_AXI_WLAST   = 1'b1;
+	//
+	assign	M_AXI_BREADY  = 1'b1;
+	//
+	assign	M_AXI_ARID	= 1'b0;
+	assign	M_AXI_ARLEN	= 8'h0; // Burst of one beat
+	assign	M_AXI_ARBURST	= 2'b00; // INC
+	assign	M_AXI_ARLOCK	= 1'b0;
+	assign	M_AXI_ARCACHE	= 4'h3;
+	// assign	M_AXI_ARPROT	= 3'h0;
+	assign	M_AXI_ARQOS	= 4'h0;
+	//
+	assign	M_AXI_RREADY	= -1;
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write logic:
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	//
+	// Incoming write address requests must go through a skidbuffer.  By
+	// keeping OPT_OUTREG == 0, this shouldn't cost us any time, but should
+	// instead buy us the ability to keep AWREADY high even if for reasons
+	// we can't act on AWVALID & AWREADY on the same cycle
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0),
+		.DW(C_AXI_ID_WIDTH+AW+8+3+2+1+3)
+		// }}}
+	) awskid(
+		// {{{
+		.i_clk(S_AXI_ACLK),
+		.i_reset(!S_AXI_ARESETN),
+		.i_valid(S_AXI_AWVALID),
+			.o_ready(S_AXI_AWREADY),
+			.i_data({ S_AXI_AWID, S_AXI_AWADDR, S_AXI_AWLEN,
+				S_AXI_AWSIZE, S_AXI_AWBURST,
+				S_AXI_AWLOCK, S_AXI_AWPROT }),
+		.o_valid(awskid_valid), .i_ready(write_awskidready),
+			.o_data({ awskid_awid, awskid_awaddr, awskid_awlen,
+				awskid_awsize, awskid_awburst, awskid_awlock,
+				awskid_prot })
+		// }}}
+	);
+
+	// write_addr and other write_*
+	// {{{
+	// On any write address request (post-skidbuffer), copy down the details
+	// of that request.  Once these details are valid (i.e. on the next
+	// clock), S_AXI_WREADY will be true.
+	always @(posedge S_AXI_ACLK)
+	if (awskid_valid && write_awskidready)
+	begin
+		write_id    <= awskid_awid;
+		write_addr  <= awskid_awaddr;
+		write_size  <= awskid_awsize;
+		write_awlen <= awskid_awlen;
+		write_burst <= awskid_awburst;
+		// write_lock  <= awskid_awlock;
+	end else if (S_AXI_WVALID && S_AXI_WREADY)
+		// Following each write beat, we need to update our address
+		write_addr <= next_waddr;
+	// }}}
+
+	// next_waddr from get_next_write_address
+	// {{{
+	// Given the details of the address request, get the next address to
+	// write to.
+	axi_addr #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH)
+		// }}}
+	) get_next_write_address(
+		// {{{
+		write_addr,
+			write_size, write_burst, write_awlen, next_waddr
+		// }}}
+	);
+	// }}}
+
+
+	// write_request, write_topofburst, write_len
+	// {{{
+	// Count through the beats of the burst in write_len.  write_topofburst
+	// indicates the first beat in any new burst, but will be zero for all
+	// subsequent burst beats.  write_request is true anytime we are trying
+	// to write.
+	initial	write_request    = 1'b0;
+	initial	write_topofburst = 1'b1;
+	initial	write_len        = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+	begin
+		// {{{
+		write_request    <= 1'b0;
+		write_topofburst <= 1'b1;
+		write_len        <= 0;
+		// }}}
+	end else if (awskid_valid && write_awskidready)
+	begin
+		// {{{
+		write_request    <= 1'b1;
+		write_topofburst <= 1'b1;
+		write_len        <= awskid_awlen;
+		// }}}
+	end else if (S_AXI_WVALID && S_AXI_WREADY)
+	begin
+		// {{{
+		write_topofburst <= 1'b0;
+		if (S_AXI_WLAST)
+			write_request <= 1'b0;
+		if (write_len > 0)
+			write_len <= write_len - 1;
+		// }}}
+	end
+	// }}}
+
+	// Slave address decoding
+	// {{{
+	// Decode our incoming address in order to determine the next
+	// slave the address addresses
+	addrdecode #(
+		// {{{
+		.AW(AW), .DW(3), .NS(NS),
+		.SLAVE_ADDR(SLAVE_ADDR),
+		.SLAVE_MASK(SLAVE_MASK),
+		.OPT_REGISTERED(1'b1)
+		// }}}
+	) wraddr(
+		// {{{
+		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+		.i_valid(awskid_valid && write_awskidready), .o_stall(awskd_stall),
+			// .i_addr(awskid_valid && write_awskidready
+			//	? awskid_awaddr : next_waddr),
+			.i_addr(awskid_awaddr),
+			.i_data(awskid_prot),
+		.o_valid(dcd_awvalid), .i_stall(!S_AXI_WVALID),
+			.o_decode(raw_wdecode), .o_addr(m_awaddr),
+			.o_data(m_axi_awprot)
+		// }}}
+	);
+	// }}}
+
+	// last_wdecode
+	// {{{
+	// We only do our decode on the address request.  We need the decoded
+	// values long after the top of the burst.  Therefore, let's use
+	// dcd_awvalid to know we have a valid output from the decoder and
+	// then we'll latch that (register it really) for the rest of the burst
+	always @(posedge S_AXI_ACLK)
+	if (dcd_awvalid)
+		last_wdecode <= raw_wdecode;
+	// }}}
+
+	// wdecode
+	// {{{
+	always @(*)
+	begin
+		if (dcd_awvalid)
+			wdecode = raw_wdecode;
+		else
+			wdecode = last_wdecode;
+	end
+	// }}}
+
+	// Downstream slave (write) signals
+	// {{{
+	// It's now time to create our write request for the slave.  Slave
+	// writes take place on the clock after address valid is true as long
+	// as S_AXI_WVALID is true.  This places combinatorial logic onto the
+	// outgoing AWVALID.  The sign that we are in the middle of a burst
+	// will specifically be that WREADY is true.
+	//
+
+	//
+	// If there were any part of this algorithm I disliked it would be the
+	// AWVALID logic here.  It shouldn't nearly be this loaded.
+	assign	S_AXI_WREADY  = write_request;
+	assign	M_AXI_AWVALID = (S_AXI_WVALID && write_request
+			&& (!locked_burst || locked_write)) ? wdecode[NS-1:0] : 0;
+	assign	M_AXI_AWADDR  = write_addr;
+	assign	M_AXI_AWPROT  = m_axi_awprot;
+	assign	M_AXI_AWSIZE  = write_size;
+	assign	M_AXI_WDATA   = S_AXI_WDATA;
+	assign	M_AXI_WSTRB   = S_AXI_WSTRB;
+	// }}}
+
+	// write_awskidready
+	// {{{
+	// We can accept a new value from the skid buffer as soon as the last
+	// write value comes in, or equivalently if we are not in the middle
+	// of a write.  This is all subject, of course, to our backpressure
+	// FIFO not being full.
+	assign	write_awskidready = ((S_AXI_WVALID&&S_AXI_WLAST)
+						|| !S_AXI_WREADY) && !bfull;
+	// }}}
+
+	// write_windex
+	// {{{
+	// Back out an index from our decoded slave value
+	always @(*)
+	begin
+		write_windex = 0;
+		for(k=0; k<NS; k=k+1)
+		if (wdecode[k])
+			write_windex = write_windex | k[LGNS-1:0];
+	end
+	// }}}
+
+	always @(posedge S_AXI_ACLK)
+	begin
+		write_bindex <= write_windex;
+		write_no_index <= wdecode[NS];
+	end
+
+	always @(posedge S_AXI_ACLK)
+	// if (write_top_of_burst) // -- not necessary
+		write_bid <= write_id;
+
+	// write_response, write_bvalid
+	// {{{
+	// write_bvalid will be true one clock after the last write is accepted.
+	// This is the internal signal that would've come from a subordinate
+	// slave's BVALID, save that we are generating it internally.
+	initial	{ write_response, write_bvalid } = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		{ write_response, write_bvalid } <= 0;
+	else
+		{ write_response, write_bvalid } <= { write_bvalid,
+			(S_AXI_WVALID && S_AXI_WREADY&& S_AXI_WLAST) };
+	// }}}
+
+	// write_top_beat, write_beat_bvalid
+	// {{{
+	// Examine write beats, not just write bursts
+	always @(posedge S_AXI_ACLK)
+	begin
+		write_top_beat    <= write_topofburst;
+		write_beat_bvalid <= S_AXI_WVALID && S_AXI_WREADY;
+	end
+	// }}}
+
+	// write_resp
+	// {{{
+	// The response from any burst should be an DECERR (interconnect
+	// error) if ever the addressed slave doesn't exist in our address map.
+	// This is sticky: any attempt to generate a request to a non-existent
+	// slave will generate an interconnect error.  Likewise, if the slave
+	// ever returns a slave error, we'll propagate it back in the burst
+	// return.  Finally, on an exclusive access burst, we'll return EXOKAY
+	// if we could write the values.
+	always @(posedge S_AXI_ACLK)
+	if (write_beat_bvalid)
+	begin
+		if (write_no_index)
+			write_resp <= INTERCONNECT_ERROR;
+		else if (M_AXI_BRESP[2*write_bindex])
+			write_resp <= { 1'b1, (write_top_beat)
+						? 1'b0 : write_resp[0] };
+		else if (write_top_beat || !write_resp[1])
+			write_resp <= { 1'b0, (write_top_beat && locked_burst && locked_write) };
+	end
+	// }}}
+
+	// write_retid
+	// {{{
+	always @(posedge S_AXI_ACLK)
+		write_retid <= write_bid;
+	// }}}
+
+	// write_count and bfull -- pseudo FIFO counters
+	// {{{
+	// The pseudo-FIFO for the write side.  This counter will let us know
+	// if any write response will ever overflow our write response FIFO,
+	// allowing us to be able to confidently deal with any backpressure.
+	initial	write_count = 0;
+	initial	bfull = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+	begin
+		write_count <= 0;
+		bfull <= 0;
+	end else case({ (awskid_valid && write_awskidready),
+			(S_AXI_BVALID & S_AXI_BREADY) })
+	2'b01:	begin
+		write_count <= write_count - 1;
+		bfull <= 1'b0;
+		end
+	2'b10:	begin
+		write_count <= write_count + 1;
+		bfull <= (&write_count[LGFLEN-1:0]);
+		end
+	default: begin end
+	endcase
+	// }}}
+
+	// Backpressure FIFO on write response returns
+	// {{{
+	sfifo #(
+		// {{{
+		.BW(C_AXI_ID_WIDTH+2),
+		.OPT_ASYNC_READ(0),
+		.LGFLEN(LGFLEN)
+		// }}}
+	) bfifo (
+		// {{{
+		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+		.i_wr(write_response), .i_data({ write_retid, write_resp }),
+			.o_full(bffull), .o_fill(bfill),
+		.i_rd(S_AXI_BVALID && S_AXI_BREADY),
+			.o_data({ S_AXI_BID, S_AXI_BRESP }),
+			.o_empty(bempty)
+		// }}}
+	);
+	// }}}
+
+	assign	S_AXI_BVALID = !bempty;
+
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Read logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	// ar*
+	// {{{
 	// Copy the burst information, for use in determining the next address
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARVALID && S_AXI_ARREADY)
 	begin
+		// {{{
 		araddr  <= S_AXI_ARADDR;
 		arid    <= S_AXI_ARID;
 		arlen   <= S_AXI_ARLEN;
@@ -653,9 +737,13 @@ module	axidouble #(
 		arburst <= S_AXI_ARBURST;
 		arlock  <= S_AXI_ARLOCK;
 		arprot  <= S_AXI_ARPROT;
+		// }}}
 	end else if (issue_read)
 		araddr  <= next_araddr;
+	// }}}
 
+	// rlen
+	// {{{
 	// Count the number of remaining items in a burst.  Note that rlen
 	// counts from N-1 to 0, not from N to 1.
 	initial	rlen = 0;
@@ -666,7 +754,10 @@ module	axidouble #(
 		rlen    <= S_AXI_ARLEN;
 	else if (issue_read && (rlen > 0))
 		rlen <= rlen - 1;
+	// }}}
 
+	// arvalid
+	// {{{
 	// Should the slave M_AXI_ARVALID be true in general?  Based upon
 	// rlen above, but still needs to be gated across all slaves.
 	initial	arvalid = 1'b0;
@@ -677,20 +768,34 @@ module	axidouble #(
 		arvalid <= 1'b1;
 	else if (issue_read && (rlen == 0))
 		arvalid <= 1'b0;
+	// }}}
 
-	// Get the next AXI address
-	axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
-	get_next_read_address(araddr,
-			arsize, arburst, arlen, next_araddr);
+	// next_araddr -- Get the next AXI address
+	// {{{
+	axi_addr #(
+		// {{{
+		.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH)
+		// }}}
+	) get_next_read_address(
+		// {{{
+		araddr,
+			arsize, arburst, arlen, next_araddr
+		// }}}
+	);
+	// }}}
 
-	//
-	// Decode which slave is being addressed by this read.
-	wire	[0:0]	unused_pin;
-	addrdecode #(.AW(AW), .DW(1), .NS(NS),
+	// raw_rdecode-- Decode which slave is being addressed by this read.
+	// {{{
+	addrdecode #(
+		// {{{
+		.AW(AW), .DW(1), .NS(NS),
 		.SLAVE_ADDR(SLAVE_ADDR),
 		.SLAVE_MASK(SLAVE_MASK),
-		.OPT_REGISTERED(1'b1))
-	rdaddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+		.OPT_REGISTERED(1'b1)
+		// }}}
+	) rdaddr(
+		// {{{
+		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_valid(S_AXI_ARVALID && S_AXI_ARREADY || rlen>0),
 			// Warning: there's no skid on this stall
 			.o_stall(arskd_stall),
@@ -699,32 +804,42 @@ module	axidouble #(
 			.i_data(1'b0),
 		.o_valid(read_rwait), .i_stall(!issue_read),
 			.o_decode(raw_rdecode), .o_addr(m_araddr),
-			.o_data(unused_pin[0]));
+			.o_data(unused_pin[0])
+		// }}}
+	);
+	// }}}
 
-	//
+	// last_rdecode
+	// {{{
 	// We want the value from the decoder on the first clock cycle.  It
 	// may not be valid after that, so we'll hold on to it in last_rdecode
 	initial	last_rdecode = 0;
 	always @(posedge S_AXI_ACLK)
 	if (read_rwait)
 		last_rdecode <= raw_rdecode;
+	// }}}
 
+	// rdecode
+	// {{{
 	always @(*)
 	if (read_rwait)
 		rdecode = raw_rdecode;
 	else
 		rdecode = last_rdecode;
+	// }}}
 
-	//
 	// Finally, issue our read request any time the FIFO isn't full
+	// {{{
 	assign	issue_read    = !read_full;
 
 	assign	M_AXI_ARVALID = issue_read ? rdecode[NS-1:0] : 0;
 	assign	M_AXI_ARADDR  = m_araddr;
 	assign	M_AXI_ARPROT  = arprot;
 	assign	M_AXI_ARSIZE  = arsize;
+	// }}}
 
-	//
+	// read_rvalid, read_result
+	// {{{
 	// read_rvalid would be the RVALID response from the slave that would
 	// be returned if we checked it.  read_result is the same thing--one
 	// clock later.
@@ -735,7 +850,10 @@ module	axidouble #(
 	else
 		{ read_result, read_rvalid } <= { read_rvalid,
 				(arvalid&issue_read) };
+	// }}}
 
+	// read_rvid, read_rvlast, read_rvlock
+	// {{{
 	// On the same clock when rvalid is true, we'll also want to know
 	// if RLAST should be true (decoded here, not in the slave), and
 	// whether or not the transaction is locked.  These values are valid
@@ -747,7 +865,10 @@ module	axidouble #(
 		read_rvlast <= (rlen == 0);
 		read_rvlock <= OPT_EXCLUSIVE_ACCESS && arlock && lock_valid;
 	end
+	// }}}
 
+	// read_retid, read_retlast
+	// {{{
 	// read_result is true one clock after read_rvalid is true.  Copy
 	// the ID and LAST values into this pipeline clock cycle
 	always @(posedge S_AXI_ACLK)
@@ -755,13 +876,14 @@ module	axidouble #(
 		read_retid   <= read_rvid;
 		read_retlast <= read_rvlast;
 	end
+	// }}}
 
 	//
 	// Decode the read value.
 	//
 
-	//
-	// First step is to calculate the index of the slave
+	// read_index - First step is to calculate the index of the slave
+	// {{{
 	always @(*)
 	begin
 		read_index = 0;
@@ -770,23 +892,32 @@ module	axidouble #(
 		if (rdecode[k])
 			read_index = read_index | k[LGNS-1:0];
 	end
+	// }}}
 
-	//
+	// last_read_index
+	// {{{
 	// Keep this index into the RVALID cycle
 	always @(posedge S_AXI_ACLK)
 		last_read_index <= read_index;
+	// }}}
 
 	// read_no_index is a flag to indicate that no slave was indexed.
+	// {{{
 	always @(posedge S_AXI_ACLK)
 		read_no_index <= rdecode[NS];
+	// }}}
 
+	// read_rdata
+	// {{{
 	// Now we can use last_read_index to determine the return data.
 	// read_rdata will be valid on the same clock $past(RVALID) or
 	// read_return cycle
 	always @(posedge S_AXI_ACLK)
 		read_rdata <= M_AXI_RDATA[DW*last_read_index +: DW];
+	// }}}
 
-	//
+	// read_resp
+	// {{{
 	// As with read_rdata, read_resp is the response from the slave
 	always @(posedge S_AXI_ACLK)
 	if (read_no_index)
@@ -797,8 +928,10 @@ module	axidouble #(
 		read_resp <= EXOKAY;	// Exclusive access Okay
 	else
 		read_resp <= OKAY;	// OKAY
+	// }}}
 
-	//
+	// read_count, read_full
+	// {{{
 	// Since we can't allow the incoming requests to overflow in the
 	// presence of any back pressure, let's create a phantom FIFO here
 	// counting the number of values either in the final pipeline or in
@@ -819,32 +952,46 @@ module	axidouble #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	assign	S_AXI_ARREADY = (rlen == 0) && !read_full;
 
-	//
+	// Read return FIFO for dealing with backpressure
+	// {{{
 	// Send the return results through a synchronous FIFO to handle
 	// back-pressure.  Doing this costs us one clock of latency.
-	sfifo #(.BW(C_AXI_ID_WIDTH+DW+1+2), .OPT_ASYNC_READ(0), .LGFLEN(LGFLEN))
-	rfifo ( .i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+	sfifo #(
+		// {{{
+		.BW(C_AXI_ID_WIDTH+DW+1+2),
+		.OPT_ASYNC_READ(0), .LGFLEN(LGFLEN)
+		// }}}
+	) rfifo (
+		// {{{
+		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_wr(read_result), .i_data({ read_retid, read_rdata,
 						read_retlast, read_resp }),
 			.o_full(rdfull), .o_fill(rfill),
 		.i_rd(S_AXI_RVALID && S_AXI_RREADY),
-			.o_data({ S_AXI_RID, S_AXI_RDATA, S_AXI_RLAST, S_AXI_RRESP }),.o_empty(rempty));
+			.o_data({ S_AXI_RID, S_AXI_RDATA,
+						S_AXI_RLAST, S_AXI_RRESP }),
+			.o_empty(rempty)
+		// }}}
+	);
+	// }}}
 
 	assign	S_AXI_RVALID = !rempty;
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Exclusive access / Bus locking logic
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
 	generate if (OPT_EXCLUSIVE_ACCESS)
 	begin : EXCLUSIVE_ACCESS
-
+		// {{{
 		reg	[AW-1:0]	lock_addr, lock_last;
 		reg	[4-1:0]		lock_len;
 		reg	[3-1:0]		lock_size;
@@ -911,8 +1058,9 @@ module	axidouble #(
 				locked_burst <= 1'b0;
 			end
 		end
+		// }}}
 	end else begin : NO_EXCLUSIVE_ACCESS
-
+		// {{{
 		// Keep track of whether or not the current burst requests
 		// exclusive access or not.  locked_write is an important
 		// signal used to make certain that we do not write to our
@@ -929,12 +1077,12 @@ module	axidouble #(
 
 		always @(*)
 			lock_valid = 1'b0;
+		// }}}
 	end endgenerate
-
-	////////////////////////////////////////////////////////////////////////
+	// }}}
 
 	// Make Verilator happy
-	//
+	// {{{
 	// verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0,
@@ -944,15 +1092,14 @@ module	axidouble #(
 			bffull, rdfull, bfill, rfill,
 			awskd_stall, arskd_stall };
 	// verilator lint_on  UNUSED
-
+	// }}}
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal verification properties
-//
-// The following are a subset of the formal properties used to verify this
-// module.
-//
+// {{{
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
