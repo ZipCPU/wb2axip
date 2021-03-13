@@ -44,11 +44,12 @@ module	axilempty #(
 		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
 		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
 		// we only ever have 4 configuration words.
+		// Verilator lint_off UNUSED
 		parameter	C_AXI_ADDR_WIDTH = 4,
+		// Verilator lint_on  UNUSED
 		localparam	C_AXI_DATA_WIDTH = 32,
 		parameter [0:0]	OPT_SKIDBUFFER = 1'b0,
-		parameter [0:0]	OPT_LOWPOWER = 0,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		parameter [0:0]	OPT_LOWPOWER = 0
 		// }}}
 	) (
 		// {{{
