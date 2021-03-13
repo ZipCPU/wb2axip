@@ -245,8 +245,9 @@ module skidbuffer #(
 	//
 	always @(posedge i_clk)
 	if (!f_past_valid)
+	begin
 		`ASSUME(!i_valid || !OPT_INITIAL);
-	else if ($past(i_valid && !o_ready && !i_reset) && !i_reset)
+	end else if ($past(i_valid && !o_ready && !i_reset) && !i_reset)
 		`ASSUME(i_valid && $stable(i_data));
 
 `ifdef	VERIFIC
