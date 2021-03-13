@@ -304,8 +304,6 @@ module axim2wbsp #(
 
 	assign	o_reset = (S_AXI_ARESETN == 1'b0);
 
-	// Verilator lint_off UNUSED
-	
 `ifdef	FORMAL
 `endif
 endmodule
