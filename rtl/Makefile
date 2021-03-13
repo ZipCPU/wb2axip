@@ -63,6 +63,10 @@ wbm2axilite: $(VDIRFB)/Vwbm2axilite__ALL.a  $(IVCHECK)/wbm2axilite
 axilrd2wbsp: $(VDIRFB)/Vaxilrd2wbsp__ALL.a  $(IVCHECK)/axilrd2wbsp
 axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a  $(IVCHECK)/axilwr2wbsp
 axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a  $(IVCHECK)/axlite2wbsp
+axiempty:    $(VDIRFB)/Vaxiempty__ALL.a     $(IVCHECK)/axiempty
+axilempty:   $(VDIRFB)/Vaxilempty__ALL.a    $(IVCHECK)/axilempty
+axivcamera:  $(VDIRFB)/Vaxivcamera__ALL.a   $(IVCHECK)/axivcamera
+axivdisplay: $(VDIRFB)/Vaxivdisplay__ALL.a  $(IVCHECK)/axivdisplay
 axivfifo:    $(VDIRFB)/Vaxivfifo__ALL.a     $(IVCHECK)/axivfifo
 axixbar:     $(VDIRFB)/Vaxixbar__ALL.a      $(IVCHECK)/axixbar
 axilxbar:    $(VDIRFB)/Vaxilxbar__ALL.a     $(IVCHECK)/axilxbar
@@ -87,11 +91,11 @@ axil2apb:    $(VDIRFB)/Vaxil2apb__ALL.a     $(IVCHECK)/axil2apb
 apbslave:    $(VDIRFB)/Vapbslave__ALL.a     $(IVCHECK)/apbslave
 
 testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
-testaxi: axim2wbsp axixbar axixclk demofull
+testaxi: axim2wbsp axixbar axixclk demofull axiempty
 testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
-testaxi: axis2mm aximm2s axidma axivfifo
+testaxi: axis2mm aximm2s axidma axivfifo axivdisplay axivcamera
 testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
-testaxil: skidbuffer axiperf
+testaxil: skidbuffer axiperf axilempty
 testapb: axil2apb apbslave
 
 .PHONY: wbm2axisp
@@ -122,6 +126,14 @@ $(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.c
 $(VDIRFB)/Vaxlite2wbsp__ALL.a: $(VDIRFB)/Vaxlite2wbsp.mk
 $(VDIRFB)/Vaxlite2wbsp.h $(VDIRFB)/Vaxlite2wbsp.cpp $(VDIRFB)/Vaxlite2wbsp.mk: axlite2wbsp.v
 
+$(VDIRFB)/Vaxiempty__ALL.a: $(VDIRFB)/Vaxiempty.h $(VDIRFB)/Vaxiempty.cpp
+$(VDIRFB)/Vaxiempty__ALL.a: $(VDIRFB)/Vaxiempty.mk
+$(VDIRFB)/Vaxiempty.h $(VDIRFB)/Vaxiempty.cpp $(VDIRFB)/Vaxiempty.mk: axiempty.v skidbuffer.v
+
+$(VDIRFB)/Vaxilempty__ALL.a: $(VDIRFB)/Vaxilempty.h $(VDIRFB)/Vaxilempty.cpp
+$(VDIRFB)/Vaxilempty__ALL.a: $(VDIRFB)/Vaxilempty.mk
+$(VDIRFB)/Vaxilempty.h $(VDIRFB)/Vaxilempty.cpp $(VDIRFB)/Vaxilempty.mk: axilempty.v skidbuffer.v
+
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.mk
 $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp $(VDIRFB)/Vaxim2wbsp.mk: \
@@ -130,7 +142,17 @@ $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp $(VDIRFB)/Vaxim2wbsp.mk: \
 $(VDIRFB)/Vaxivfifo__ALL.a: $(VDIRFB)/Vaxivfifo.h $(VDIRFB)/Vaxivfifo.cpp
 $(VDIRFB)/Vaxivfifo__ALL.a: $(VDIRFB)/Vaxivfifo.mk
 $(VDIRFB)/Vaxivfifo.h $(VDIRFB)/Vaxivfifo.cpp $(VDIRFB)/Vaxivfifo.mk: \
-	axivfifo.v aximrd2wbsp.v aximwr2wbsp.v wbarbiter.v
+	axivfifo.v skidbuffer.v sfifo.v
+
+$(VDIRFB)/Vaxivcamera__ALL.a: $(VDIRFB)/Vaxivcamera.h $(VDIRFB)/Vaxivcamera.cpp
+$(VDIRFB)/Vaxivcamera__ALL.a: $(VDIRFB)/Vaxivcamera.mk
+$(VDIRFB)/Vaxivcamera.h $(VDIRFB)/Vaxivcamera.cpp $(VDIRFB)/Vaxivcamera.mk: \
+	axivcamera.v skidbuffer.v sfifo.v
+
+$(VDIRFB)/Vaxivdisplay__ALL.a: $(VDIRFB)/Vaxivdisplay.h $(VDIRFB)/Vaxivdisplay.cpp
+$(VDIRFB)/Vaxivdisplay__ALL.a: $(VDIRFB)/Vaxivdisplay.mk
+$(VDIRFB)/Vaxivdisplay.h $(VDIRFB)/Vaxivdisplay.cpp $(VDIRFB)/Vaxivdisplay.mk: \
+	axivdisplay.v skidbuffer.v sfifo.v
 
 $(VDIRFB)/V%.cpp $(VDIRFB)/V%.h $(VDIRFB)/V%.mk: $(FBDIR)/%.v
 	$(VERILATOR) $(VFLAGS) $*.v
@@ -205,7 +227,15 @@ $(IVCHECK)/axis2mm: axis2mm.v sfifo.v skidbuffer.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 
-$(IVCHECK)/axivfifo: axivfifo.v sfifo.v
+$(IVCHECK)/axivcamera: axivcamera.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axivdisplay: axivdisplay.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axivfifo: axivfifo.v sfifo.v skidbuffer.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 
@@ -218,6 +248,14 @@ $(IVCHECK)/axixclk: axixclk.v afifo.v skidbuffer.v
 	$(IVERILOG) -g2012 $^ -o $@
 
 $(IVCHECK)/axlite2wbsp: axlite2wbsp.v axilrd2wbsp.v axilwr2wbsp.v wbarbiter.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axiempty: axiempty.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axilempty: axilempty.v skidbuffer.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 
