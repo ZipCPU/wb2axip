@@ -252,8 +252,6 @@ module	axivdisplay #(
 
 	localparam	LGMAXBURST = (TMPLGMAXBURST+ADDRLSB > 12)
 				? (12-ADDRLSB) : TMPLGMAXBURST;
-
-	localparam [ADDRLSB-1:0] LSBZEROS = 0;
 	// }}}
 
 	wire	i_clk   =  S_AXI_ACLK;

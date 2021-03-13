@@ -156,12 +156,10 @@ module axi2axilite #(
 
 	// Local parameters, register, and net declarations
 	// {{{
-	// Verilator lint_off UNUSED
-	localparam [1:0]	EXOKAY = 2'b01,
-				SLVERR = 2'b10;
-	// localparam [1:0]	OKAY = 2'b00,
+	localparam [1:0]	SLVERR = 2'b10;
+	// localparam [1:0]	OKAY   = 2'b00,
+	//			EXOKAY = 2'b01,
 	//			DECERR = 2'b10;
-	// Verilator lint_on UNUSED
 	localparam	AW = C_AXI_ADDR_WIDTH;
 	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	IW = C_AXI_ID_WIDTH;
