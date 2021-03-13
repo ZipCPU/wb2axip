@@ -1,12 +1,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axis2mm
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Converts an AXI-stream (input) to an AXI (full) memory
 //		interface.
-// // {{{
+//
+// {{{
 //	While I am aware that other vendors sell similar components, if you
 //	look under the hood you'll find no relation to anything but my own
 //	work here.
@@ -143,8 +144,8 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2019-2020, Gisselquist Technology, LLC
+// }}}
+// Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -165,7 +166,7 @@
 //
 //
 `default_nettype none
-//
+// }}}
 module	axis2mm #(
 		// {{{
 		//
@@ -303,10 +304,13 @@ module	axis2mm #(
 		output	reg				o_int
 		// }}}
 	);
+
+	// Local parameters
+	// {{{
 	localparam [2:0]	CMD_CONTROL   = 3'b000,
-				CMD_UNUSED_1  = 3'b001,
-				CMD_UNUSED_2  = 3'b010,
-				CMD_UNUSED_3  = 3'b011,
+				// CMD_UNUSED_1  = 3'b001,
+				// CMD_UNUSED_2  = 3'b010,
+				// CMD_UNUSED_3  = 3'b011,
 				CMD_ADDRLO    = 3'b100,
 				CMD_ADDRHI    = 3'b101,
 				CMD_LENLO     = 3'b110,
@@ -315,14 +319,13 @@ module	axis2mm #(
 	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
 	localparam	LGMAX_FIXED_BURST = (LGMAXBURST > 4) ? 4 : LGMAXBURST;
 	localparam	MAX_FIXED_BURST = (1<<LGMAX_FIXED_BURST);
-	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3);
-	localparam	LGFIFOB = LGFIFO + ($clog2(C_AXI_DATA_WIDTH)-3);
-	localparam [ADDRLSB-1:0] LSBZEROS = 0;
+	localparam	LGLENW  = LGLEN  - ADDRLSB;
+	// localparam	LGFIFOB = LGFIFO + ADDRLSB;
 	localparam	ERRCODE_NOERR    = 0,
 			ERRCODE_OVERFLOW = 0,
 			ERRCODE_SLVERR   = 1,
 			ERRCODE_DECERR   = 2;
-
+	// }}}
 
 	wire	i_clk   =  S_AXI_ACLK;
 	wire	i_reset = !S_AXI_ARESETN;
@@ -408,34 +411,46 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
+	//
 	//
 	// This is mostly the skidbuffer logic, and handling of the VALID
 	// and READY signals for the AXI-lite control logic in the next
 	// section.
-	// {{{
 
 	//
 	// Write signaling
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilawskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilawskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_AWVALID), .o_ready(S_AXIL_AWREADY),
 		.i_data(S_AXIL_AWADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
-		.o_data(awskd_addr));
+		.o_data(awskd_addr)
+		// }}}
+	);
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8))
-	axilwskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8)
+		// }}}
+	) axilwskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_WVALID), .o_ready(S_AXIL_WREADY),
 		.i_data({ S_AXIL_WDATA, S_AXIL_WSTRB }),
 		.o_valid(wskd_valid), .i_ready(axil_write_ready),
-		.o_data({ wskd_data, wskd_strb }));
+		.o_data({ wskd_data, wskd_strb })
+		// }}}
+	);
 
 	assign	axil_write_ready = awskd_valid && wskd_valid
 			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
@@ -458,13 +473,19 @@ module	axis2mm #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilarskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilarskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_ARVALID), .o_ready(S_AXIL_ARREADY),
 		.i_data(S_AXIL_ARADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(arskd_valid), .i_ready(axil_read_ready),
-		.o_data(arskd_addr));
+		.o_data(arskd_addr)
+		// }}}
+	);
 
 	assign	axil_read_ready = arskd_valid
 				&& (!axil_read_valid || S_AXIL_RREADY);
@@ -487,10 +508,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite controlled logic
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	initial	last_stalled = 1'b0;
 	always @(posedge i_clk)
@@ -814,10 +835,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The data FIFO section
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	assign	reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
 	assign	write_to_fifo  = S_AXIS_TVALID && S_AXIS_TREADY&& r_tlast_syncd;
 	assign	read_from_fifo = M_AXI_WVALID  && M_AXI_WREADY
@@ -866,43 +887,65 @@ module	axis2mm #(
 			r_tlast_syncd = 1;
 	end endgenerate
 
+	// Incoming FIFO
+	// {{{
 	generate if (C_AXIS_TUSER_WIDTH > 0)
 	begin : FIFO_WITH_USER_DATA
 
-		sfifo #(.BW(C_AXIS_TUSER_WIDTH + C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-		sfifo(i_clk, reset_fifo,
+		sfifo #(
+			// {{{
+			.BW(C_AXIS_TUSER_WIDTH + C_AXI_DATA_WIDTH),
+			.LGFLEN(LGFIFO)
+			// }}}
+		) u_sfifo (
+			// {{{
+			i_clk, reset_fifo,
 			write_to_fifo, { S_AXIS_TUSER, S_AXIS_TDATA },
-						fifo_full, fifo_fill,
-			read_from_fifo, fifo_data, fifo_empty);
+					fifo_full, fifo_fill,
+			read_from_fifo, fifo_data, fifo_empty
+			// }}}
+		);
 
 		assign	{ M_AXI_WUSER, M_AXI_WDATA }  = fifo_data;
 
 	end else begin : NO_USER_DATA
 
-		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-		sfifo(i_clk, reset_fifo,
+		sfifo #(
+			// {{{
+			.BW(C_AXI_DATA_WIDTH),
+			.LGFLEN(LGFIFO)
+			// }}}
+		) u_sfifo (
+			// {{{
+			i_clk, reset_fifo,
 			write_to_fifo, S_AXIS_TDATA, fifo_full, fifo_fill,
-			read_from_fifo, fifo_data, fifo_empty);
+			read_from_fifo, fifo_data, fifo_empty
+			// }}}
+		);
 
 		assign	M_AXI_WDATA = fifo_data;
 		assign	M_AXI_WUSER = 0;
 
+		// Make Verilator happy
+		// {{{
 		// Verilator lint_off UNUSED
 		wire	unused_tuser;
 		assign	unused_tuser = &{ 1'b0, S_AXIS_TUSER };
 		// Verilator lint_on UNUSED
+		// }}}
 	end endgenerate
 
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The outgoing AXI (full) protocol section
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// {{{
+	//
 
 	// Some counters to keep track of our state
 	// {{{
@@ -1316,10 +1359,18 @@ module	axis2mm #(
 			wr_none_pending, S_AXIL_ARADDR[AXILLSB-1:0],
 			S_AXIL_AWADDR[AXILLSB-1:0],
 			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
-			new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN],
-			new_widelen[AXILLSB-1:0] };
+			new_widelen };
 	// Verilator lint_on  UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	//
 	// The formal properties for this unit are maintained elsewhere.
@@ -1344,10 +1395,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-lite control interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	localparam	F_AXIL_LGDEPTH = 4;
 
 	faxil_slave #(
@@ -1409,10 +1460,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI master memory interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// ...
@@ -1549,9 +1600,12 @@ module	axis2mm #(
 	//
 	always @(*)
 	if (phantom_start)
+	begin
 		assert(data_available >= (M_AXI_AWLEN+1));
-	else if (M_AXI_AWVALID)
-		assert(data_available >= 0 && data_available <= (1<<LGFIFO));
+	end else if (M_AXI_AWVALID)
+	begin
+		assert(data_available <= (1<<LGFIFO));
+	end
 
 
 	always @(*)
@@ -1560,9 +1614,9 @@ module	axis2mm #(
 
 	always @(*)
 	if (phantom_start)
+	begin
 		assert(fifo_fill >= (M_AXI_AWLEN+1));
-
-	else if (!axi_abort_pending)
+	end else if (!axi_abort_pending)
 		assert(fifo_fill >= wr_writes_pending);
 
 	always @(*)
@@ -1682,19 +1736,23 @@ module	axis2mm #(
 	// {{{
 	always @(*)
 	if (fifo_full)
+	begin
 		assert(!S_AXIS_TREADY);
-	else if (OPT_TREADY_WHILE_IDLE)
+	end else if (OPT_TREADY_WHILE_IDLE)
+	begin
 		// If we aren't full, and we set TREADY whenever idle,
 		// then we should otherwise have TREADY set at all times
 		assert(S_AXIS_TREADY);
-	else if (!r_tlast_syncd)
+	end else if (!r_tlast_syncd)
+	begin
 		// If we aren't syncd, always be ready until we finally sync up
 		assert(S_AXIS_TREADY);
-	else if (reset_fifo)
+	end else if (reset_fifo)
+	begin
 		// If we aren't accepting any data, but are idling with TREADY
 		// low, then make sure we drop TREADY when idle
 		assert(!S_AXIS_TREADY);
-	else
+	end else
 		// In all other cases, assert TREADY
 		assert(S_AXIS_TREADY);
 
@@ -1709,8 +1767,9 @@ module	axis2mm #(
 	// {{{
 	always @(*)
 	if (!r_err)
+	begin
 		assert(r_errcode == 0);
-	else
+	end else
 		assert(r_errcode != 0);
 
 	//
@@ -1726,10 +1785,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Contract checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	// 1. All data values must get sent, and none skipped
 	//	Captured in logic above, since M_AXI_WDATA is registered
@@ -1749,10 +1808,10 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	reg		cvr_aborted, cvr_buserr;
 	reg	[2:0]	cvr_continued;
 
