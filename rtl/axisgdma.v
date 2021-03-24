@@ -161,7 +161,7 @@ module	axisgdma #(
 		//
 		output	reg				S_AXIL_BVALID,
 		input	wire				S_AXIL_BREADY,
-		output	reg	[1:0]			S_AXIL_BRESP,
+		output	wire	[1:0]			S_AXIL_BRESP,
 		//
 		input	wire				S_AXIL_ARVALID,
 		output	wire				S_AXIL_ARREADY,
@@ -171,7 +171,7 @@ module	axisgdma #(
 		output	reg				S_AXIL_RVALID,
 		input	wire				S_AXIL_RREADY,
 		output	reg [C_AXIL_DATA_WIDTH-1:0]	S_AXIL_RDATA,
-		output	reg	[1:0]			S_AXIL_RRESP,
+		output	wire	[1:0]			S_AXIL_RRESP,
 		//
 		//
 		// The AXI Master (DMA) interface
@@ -225,7 +225,7 @@ module	axisgdma #(
 		output	wire	[3:0]			M_AXI_ARQOS,
 		//
 		input	wire				M_AXI_RVALID,
-		output	reg				M_AXI_RREADY,
+		output	wire				M_AXI_RREADY,
 		input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_RID,
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire				M_AXI_RLAST,
@@ -297,7 +297,6 @@ module	axisgdma #(
 	wire				pf_axi_arvalid;
 	reg				pf_axi_arready;
 	wire	[C_AXI_ADDR_WIDTH-1:0]	pf_axi_araddr, pf_pc;
-	wire	[2:0]			pf_axi_arprot;
 	wire				pf_axi_rready_ignored;
 	wire	[C_AXI_ID_WIDTH-1:0]	pf_axi_arid;
 	wire	[7:0]			pf_axi_arlen;
@@ -425,8 +424,7 @@ module	axisgdma #(
 
 	// S_AXIL_BRESP
 	// {{{
-	always @(*)
-		S_AXIL_BRESP = AXI_OKAY;
+	assign	S_AXIL_BRESP = AXI_OKAY;
 	// }}}
 
 	// r_start
@@ -644,15 +642,14 @@ module	axisgdma #(
 
 	// S_AXIL_RRESP
 	// {{{
-	always @(*)
-		S_AXIL_RRESP = AXI_OKAY;
+	assign	S_AXIL_RRESP = AXI_OKAY;
 	// }}}
 	// }}} // AXI-lite read
 	// }}} // AXI-lite (all)
 	////////////////////////////////////////////////////////////////////////
 	//
-	// DMA control
-	//
+	// DMA wrapper
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -761,6 +758,7 @@ module	axisgdma #(
 		// }}}
 	);
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-Lite prefetch
@@ -818,8 +816,7 @@ module	axisgdma #(
 	assign	pf_axi_arprot  = 3'b100;
 	assign	pf_axi_arqos   = 4'h0;
 
-	always @(*)
-		M_AXI_RREADY = 1'b1;
+	assign	M_AXI_RREADY = 1'b1;
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -827,6 +824,8 @@ module	axisgdma #(
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
 	// pf_wins_arbitration
 	// {{{
 	always @(posedge S_AXI_ACLK)
@@ -872,8 +871,8 @@ module	axisgdma #(
 	// {{{
 	always @(*)
 	begin
-		sdma_arready = m_axi_arready && !pf_wins_arbitration;
-		pf_axi_arready = m_axi_arready && pf_wins_arbitration;
+		sdma_arready   = m_axi_arready && !pf_wins_arbitration;
+		pf_axi_arready = m_axi_arready &&  pf_wins_arbitration;
 	end
 	// }}}
 
@@ -965,6 +964,7 @@ module	axisgdma #(
 	// }}}
 
 	// Make Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, dmac_awready_ignored, dmac_bvalid,
@@ -976,6 +976,7 @@ module	axisgdma #(
 			sdma_arlock, sdma_rready_ignored,
 			pf_axi_rready_ignored, dmac_arready };
 	// Verilator lint_on  UNUSED
+	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

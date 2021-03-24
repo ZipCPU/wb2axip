@@ -68,10 +68,10 @@ module	axilfetch #(
 		output	reg [C_AXI_ADDR_WIDTH-1:0]	M_AXI_ARADDR,
 		output	wire	[2:0]			M_AXI_ARPROT,
 		//
-		input	reg				M_AXI_RVALID,
+		input	wire				M_AXI_RVALID,
 		output	wire				M_AXI_RREADY,
-		input	reg [C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
-		input	reg [1:0]			M_AXI_RRESP
+		input	wire [C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
+		input	wire [1:0]			M_AXI_RRESP
 		// }}}
 		// }}}
 	);
@@ -388,7 +388,7 @@ module	axilfetch #(
 	// out_fill
 	// {{{
 	initial	out_fill = 0;
-	always @(posedge S_AXI_ARESETN)
+	always @(posedge S_AXI_ACLK)
 	if (fifo_reset)
 		out_fill <= 0;
 	else if (fifo_rd)
@@ -401,7 +401,7 @@ module	axilfetch #(
 
 	// out_data
 	// {{{
-	always @(posedge S_AXI_ARESETN)
+	always @(posedge S_AXI_ACLK)
 	if (fifo_rd)
 		out_data <= fifo_data[C_AXI_DATA_WIDTH-1:0]>>(DATA_WIDTH*shift);
 	else if (i_ready)
@@ -413,7 +413,7 @@ module	axilfetch #(
 	// o_illegal
 	// {{{
 	initial	o_illegal = 1'b0;
-	always @(posedge S_AXI_ARESETN)
+	always @(posedge S_AXI_ACLK)
 	if (fifo_reset)
 		o_illegal <= 1'b0;
 	else if (!o_illegal && fifo_rd && !fifo_empty)
