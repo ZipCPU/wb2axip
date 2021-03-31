@@ -258,7 +258,7 @@ module	aximrd2wbsp #(
 		axi_len   <= skid_arlen;
 
 		if (OPT_SIZESEL)
-			axi_strb  <= (1<<(skid_arsize+1))-1;
+			axi_strb  <= (1<<(1<<(skid_arsize)))-1;
 		else
 			axi_strb  <= { (C_AXI_DATA_WIDTH/8){1'b1} };
 	end
