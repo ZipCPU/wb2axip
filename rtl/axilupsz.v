@@ -447,7 +447,7 @@ module	axilupsz #(
 			// {{{
 			.C_AXI_DATA_WIDTH(SDW),
 			.C_AXI_ADDR_WIDTH(AW),
-			.F_OPT_COVER_BURST(1),
+			.F_OPT_COVER_BURST(4),
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_AXI_MAXWAIT(8),
 			.F_AXI_MAXRSTALL(3),
