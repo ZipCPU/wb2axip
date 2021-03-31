@@ -52,9 +52,11 @@ module	aximrd2wbsp #(
 	                                             // This is an int between 1-16
 		parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 		parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
-		parameter AW			= 26,	// AXI Address width
+		localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH/8),
+		localparam AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,
 		parameter LGFIFO                =  3,
-		parameter [0:0] OPT_SWAP_ENDIANNESS = 0
+		parameter [0:0] OPT_SWAP_ENDIANNESS = 0,
+		parameter [0:0] OPT_SIZESEL	= 1
 		// parameter	WBMODE		= "B4PIPELINE"
 		// Could also be "BLOCK"
 		// }}}
@@ -91,6 +93,7 @@ module	aximrd2wbsp #(
 		output	reg				o_wb_cyc,
 		output	reg				o_wb_stb,
 		output	reg [(AW-1):0]			o_wb_addr,
+		output	wire [(C_AXI_DATA_WIDTH/8-1):0]	o_wb_sel,
 		input	wire				i_wb_stall,
 		input	wire				i_wb_ack,
 		input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
@@ -123,6 +126,7 @@ module	aximrd2wbsp #(
 
 	reg	[1:0]			axi_burst;
 	reg	[2:0]			axi_size;
+	reg	[C_AXI_DATA_WIDTH/8-1:0] axi_strb;
 	reg	[7:0]			axi_len;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	axi_addr;
 	wire	[C_AXI_ADDR_WIDTH-1:0]	next_addr;
@@ -243,6 +247,8 @@ module	aximrd2wbsp #(
 
 	// axi_id, axi_burst, axi_size, axi_len
 	// {{{
+	initial	axi_size = AXI_LSBS[2:0];
+	initial	axi_strb = -1;
 	always @(posedge S_AXI_ACLK)
 	if (accept_request)
 	begin
@@ -250,7 +256,25 @@ module	aximrd2wbsp #(
 		axi_burst <= skid_arburst;
 		axi_size  <= skid_arsize;
 		axi_len   <= skid_arlen;
+
+		if (OPT_SIZESEL)
+			axi_strb  <= (1<<(skid_arsize+1))-1;
+		else
+			axi_strb  <= { (C_AXI_DATA_WIDTH/8){1'b1} };
 	end
+`ifdef	FORMAL
+	always @(*)
+	case(axi_size)
+	0: assert(axi_strb == 1);
+	1: assert((C_AXI_DATA_WIDTH >   8) && (axi_strb ==  2'b11));
+	2: assert((C_AXI_DATA_WIDTH >  16) && (axi_strb ==  4'b1111));
+	3: assert((C_AXI_DATA_WIDTH >  32) && (axi_strb ==  8'hff));
+	4: assert((C_AXI_DATA_WIDTH >  64) && (axi_strb ==  16'hffff));
+	5: assert((C_AXI_DATA_WIDTH > 128) && (axi_strb ==  32'hffff_ffff));
+	6: assert((C_AXI_DATA_WIDTH > 256) && (axi_strb == 64'hffff_ffff_ffff_ffff));
+	default: assert((C_AXI_DATA_WIDTH == 1024) && (&axi_strb));
+	endcase
+`endif
 	// }}}
 
 	// next_addr
@@ -269,6 +293,23 @@ module	aximrd2wbsp #(
 
 	always @(*)
 		o_wb_addr = axi_addr[(C_AXI_ADDR_WIDTH-1):C_AXI_ADDR_WIDTH-AW];
+
+	// o_wb_sel
+	// {{{
+	generate if (OPT_SIZESEL && C_AXI_DATA_WIDTH > 8)
+	begin : MULTI_BYTE_SEL
+		// {{{
+		assign o_wb_sel = axi_strb << axi_addr[AXI_LSBS-1:0];
+		// }}}
+	end else begin : FULL_WORD_SEL
+		assign	o_wb_sel = {(C_AXI_DATA_WIDTH/8){1'b1}};
+
+		// Verilator lint_off UNUSED
+		wire	unused_sel;
+		assign	unused_sel = &{ 1'b0, axi_strb };
+		// Verilator lint_on  UNUSED
+	end endgenerate
+	// }}}
 
 	// lastid_fifo
 	// {{{

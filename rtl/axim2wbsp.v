@@ -62,56 +62,56 @@ module axim2wbsp #(
 
 		// AXI write address channel signals
 		// {{{
-	input	wire			S_AXI_AWVALID,	// Write address valid
-	output	wire			S_AXI_AWREADY, // Slave is ready to rcv
-	input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,	// Write ID
-	input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,	// Write address
-	input	wire	[7:0]		S_AXI_AWLEN,	// Write Burst Length
-	input	wire	[2:0]		S_AXI_AWSIZE,	// Write Burst size
-	input	wire	[1:0]		S_AXI_AWBURST,	// Write Burst type
-	input	wire	[0:0]		S_AXI_AWLOCK,	// Write lock type
-	input	wire	[3:0]		S_AXI_AWCACHE,	// Write Cache type
-	input	wire	[2:0]		S_AXI_AWPROT,	// Write Protection type
-	input	wire	[3:0]		S_AXI_AWQOS,	// Write Quality of Svc
-	// }}}
-	// AXI write data channel signals
-	// {{{
-	input	wire			S_AXI_WVALID,	// Write valid
-	output	wire			S_AXI_WREADY,  // Write data ready
-	input	wire [C_AXI_DATA_WIDTH-1:0]   S_AXI_WDATA,	// Write data
-	input	wire [C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,	// Write strobes
-	input	wire			S_AXI_WLAST, // Last write transaction
-	// }}}
-	// AXI write response channel signals
-	// {{{
-	output	wire 			S_AXI_BVALID,  // Write reponse valid
-	input	wire			S_AXI_BREADY,  // Response ready
-	output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,	// Response ID
-	output	wire [1:0]		S_AXI_BRESP,	// Write response
-	// }}}
-	// AXI read address channel signals
-	// {{{
-	input	wire			S_AXI_ARVALID,	// Read address valid
-	output	wire			S_AXI_ARREADY,	// Read address ready
-	input	wire [C_AXI_ID_WIDTH-1:0]   S_AXI_ARID,	// Read ID
-	input	wire [C_AXI_ADDR_WIDTH-1:0] S_AXI_ARADDR,	// Read address
-	input	wire	[7:0]		S_AXI_ARLEN,	// Read Burst Length
-	input	wire	[2:0]		S_AXI_ARSIZE,	// Read Burst size
-	input	wire	[1:0]		S_AXI_ARBURST,	// Read Burst type
-	input	wire	[0:0]		S_AXI_ARLOCK,	// Read lock type
-	input	wire	[3:0]		S_AXI_ARCACHE,	// Read Cache type
-	input	wire	[2:0]		S_AXI_ARPROT,	// Read Protection type
-	input	wire	[3:0]		S_AXI_ARQOS,	// Read Quality of Svc
-	// }}}
-	// AXI read data channel signals
-	// {{{
-	output	wire			S_AXI_RVALID,  // Read reponse valid
-	input	wire			S_AXI_RREADY,  // Read Response ready
-	output	wire [C_AXI_ID_WIDTH-1:0]   S_AXI_RID,     // Response ID
-	output	wire [C_AXI_DATA_WIDTH-1:0] S_AXI_RDATA,    // Read data
-	output	wire			S_AXI_RLAST,    // Read last
-	output	wire [1:0]		S_AXI_RRESP,   // Read response
-	// }}}
+		input	wire			S_AXI_AWVALID,
+		output	wire			S_AXI_AWREADY,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
+		input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
+		input	wire	[7:0]		S_AXI_AWLEN,
+		input	wire	[2:0]		S_AXI_AWSIZE,
+		input	wire	[1:0]		S_AXI_AWBURST,
+		input	wire	[0:0]		S_AXI_AWLOCK,
+		input	wire	[3:0]		S_AXI_AWCACHE,
+		input	wire	[2:0]		S_AXI_AWPROT,
+		input	wire	[3:0]		S_AXI_AWQOS,
+		// }}}
+		// AXI write data channel signals
+		// {{{
+		input	wire			S_AXI_WVALID,
+		output	wire			S_AXI_WREADY, 
+		input	wire [C_AXI_DATA_WIDTH-1:0]   S_AXI_WDATA,
+		input	wire [C_AXI_DATA_WIDTH/8-1:0] S_AXI_WSTRB,
+		input	wire			S_AXI_WLAST,
+		// }}}
+		// AXI write response channel signals
+		// {{{
+		output	wire 			S_AXI_BVALID, 
+		input	wire			S_AXI_BREADY,
+		output	wire [C_AXI_ID_WIDTH-1:0] S_AXI_BID,
+		output	wire [1:0]		S_AXI_BRESP,
+		// }}}
+		// AXI read address channel signals
+		// {{{
+		input	wire			S_AXI_ARVALID,
+		output	wire			S_AXI_ARREADY,
+		input	wire [C_AXI_ID_WIDTH-1:0]   S_AXI_ARID,
+		input	wire [C_AXI_ADDR_WIDTH-1:0] S_AXI_ARADDR,
+		input	wire	[7:0]		S_AXI_ARLEN,
+		input	wire	[2:0]		S_AXI_ARSIZE,
+		input	wire	[1:0]		S_AXI_ARBURST,
+		input	wire	[0:0]		S_AXI_ARLOCK,
+		input	wire	[3:0]		S_AXI_ARCACHE,
+		input	wire	[2:0]		S_AXI_ARPROT,
+		input	wire	[3:0]		S_AXI_ARQOS,
+		// }}}
+		// AXI read data channel signals
+		// {{{
+		output	wire			S_AXI_RVALID,  // Rd rslt valid
+		input	wire			S_AXI_RREADY,  // Rd rslt ready
+		output	wire [C_AXI_ID_WIDTH-1:0]   S_AXI_RID, // Response ID
+		output	wire [C_AXI_DATA_WIDTH-1:0] S_AXI_RDATA,// Read data
+		output	wire			S_AXI_RLAST,   // Read last
+		output	wire [1:0]		S_AXI_RRESP,   // Read response
+		// }}}
 		// We'll share the clock and the reset
 		// {{{
 		output	wire				o_reset,
@@ -126,6 +126,7 @@ module axim2wbsp #(
 		input	wire [(C_AXI_DATA_WIDTH-1):0]	i_wb_data,
 		input	wire				i_wb_err
 		// }}}
+		// }}}
 	);
 	//
 	//
@@ -134,7 +135,7 @@ module axim2wbsp #(
 
 	wire	[(AW-1):0]			w_wb_addr, r_wb_addr;
 	wire	[(C_AXI_DATA_WIDTH-1):0]	w_wb_data;
-	wire	[(C_AXI_DATA_WIDTH/8-1):0]	w_wb_sel;
+	wire	[(C_AXI_DATA_WIDTH/8-1):0]	w_wb_sel, r_wb_sel;
 	wire	r_wb_err, r_wb_cyc, r_wb_stb, r_wb_stall, r_wb_ack;
 	wire	w_wb_err, w_wb_cyc, w_wb_stb, w_wb_stall, w_wb_ack;
 	wire	r_wb_we, w_wb_we;
@@ -144,6 +145,7 @@ module axim2wbsp #(
 
 	generate if (!OPT_READONLY)
 	begin : AXI_WR
+		// {{{
 		aximwr2wbsp #(
 			// {{{
 			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
@@ -188,6 +190,7 @@ module axim2wbsp #(
 			.i_wb_err(  w_wb_err)
 		// }}}
 		);
+		// }}}
 	end else begin : NO_WRITE_CHANNEL
 		// {{{
 		assign	w_wb_cyc  = 0;
@@ -205,7 +208,7 @@ module axim2wbsp #(
 
 	generate if (!OPT_WRITEONLY)
 	begin : AXI_RD
-
+		// {{{
 		aximrd2wbsp #(
 			// {{{
 			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
@@ -239,12 +242,14 @@ module axim2wbsp #(
 			.o_wb_cyc(  r_wb_cyc),
 			.o_wb_stb(  r_wb_stb),
 			.o_wb_addr( r_wb_addr),
+			.o_wb_sel(  r_wb_sel),
 			.i_wb_ack(  r_wb_ack),
 			.i_wb_stall(r_wb_stall),
 			.i_wb_data( i_wb_data),
 			.i_wb_err(  r_wb_err)
 			// }}}
 		);
+		// }}}
 	end else begin : NO_READ_CHANNEL
 		// {{{
 		assign	r_wb_cyc  = 0;
@@ -268,7 +273,7 @@ module axim2wbsp #(
 		assign	o_wb_we   = r_wb_we;
 		assign	o_wb_addr = r_wb_addr;
 		assign	o_wb_data = 0;
-		assign	o_wb_sel  = 0;
+		assign	o_wb_sel  = r_wb_sel;
 		assign	r_wb_ack  = i_wb_ack;
 		assign	r_wb_stall= i_wb_stall;
 		assign	r_wb_ack  = i_wb_ack;
@@ -292,7 +297,7 @@ module axim2wbsp #(
 		// {{{
 		wbarbiter	#(.DW(DW), .AW(AW))
 		readorwrite(S_AXI_ACLK, o_reset,
-			r_wb_cyc, r_wb_stb, r_wb_we, r_wb_addr, w_wb_data, w_wb_sel,
+			r_wb_cyc, r_wb_stb, r_wb_we, r_wb_addr, w_wb_data, r_wb_sel,
 				r_wb_ack, r_wb_stall, r_wb_err,
 			w_wb_cyc, w_wb_stb, w_wb_we, w_wb_addr, w_wb_data, w_wb_sel,
 				w_wb_ack, w_wb_stall, w_wb_err,
