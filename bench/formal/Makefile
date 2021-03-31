@@ -277,9 +277,9 @@ AXILUPSZDEPS := $(AXILUPSZ).sby $(RTL)/sfifo.v $(RTL)/skidbuffer.v	\
 		$(RTL)/$(AXILUPSZ).v $(AXIL)
 $(AXILUPSZ)_prf/PASS: $(AXILUPSZDEPS)
 	sby -f $(AXILUPSZ).sby prf
-$(AXILUPSZ)_prflpu/PASS: $(AXILUPSZDEPS)
+$(AXILUPSZ)_prfz/PASS: $(AXILUPSZDEPS)
 	sby -f $(AXILUPSZ).sby prfz
-$(AXILUPSZ)_prflps/PASS: $(AXILUPSZDEPS)
+$(AXILUPSZ)_cvr/PASS: $(AXILUPSZDEPS)
 	sby -f $(AXILUPSZ).sby cvr
 ## }}}
 
