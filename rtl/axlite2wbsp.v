@@ -272,7 +272,7 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 		assign	o_wb_we   = 1'b0;
 		assign	o_wb_addr = r_wb_addr;
 		assign	o_wb_data = 32'h0;
-		assign	o_wb_sel  = 0;
+		assign	o_wb_sel  = {(C_AXI_DATA_WIDTH/8){1'b1}};
 		assign	r_wb_ack  = i_wb_ack;
 		assign	r_wb_stall= i_wb_stall;
 		assign	r_wb_ack  = i_wb_ack;
@@ -335,7 +335,7 @@ module axlite2wbsp( i_clk, i_axi_reset_n,
 			.F_MAX_STALL(F_MAXSTALL),
 			.F_MAX_ACK_DELAY(F_MAXDELAY))
 			readorwrite(i_clk, !i_axi_reset_n,
-			r_wb_cyc, r_wb_stb, 1'b0, r_wb_addr, w_wb_data, w_wb_sel,
+			r_wb_cyc, r_wb_stb, 1'b0, r_wb_addr, w_wb_data, {(C_AXI_DATA_WIDTH/8){1'b1}},
 				r_wb_ack, r_wb_stall, r_wb_err,
 			w_wb_cyc, w_wb_stb, 1'b1, w_wb_addr, w_wb_data, w_wb_sel,
 				w_wb_ack, w_wb_stall, w_wb_err,

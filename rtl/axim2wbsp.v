@@ -268,7 +268,7 @@ module axim2wbsp #(
 		assign	o_wb_we   = r_wb_we;
 		assign	o_wb_addr = r_wb_addr;
 		assign	o_wb_data = 0;
-		assign	o_wb_sel  = 0;
+		assign	o_wb_sel  = {(C_AXI_DATA_WIDTH/8){1'b1}};
 		assign	r_wb_ack  = i_wb_ack;
 		assign	r_wb_stall= i_wb_stall;
 		assign	r_wb_ack  = i_wb_ack;
@@ -292,7 +292,7 @@ module axim2wbsp #(
 		// {{{
 		wbarbiter	#(.DW(DW), .AW(AW))
 		readorwrite(S_AXI_ACLK, o_reset,
-			r_wb_cyc, r_wb_stb, r_wb_we, r_wb_addr, w_wb_data, w_wb_sel,
+			r_wb_cyc, r_wb_stb, r_wb_we, r_wb_addr, w_wb_data, {(C_AXI_DATA_WIDTH/8){1'b1}},
 				r_wb_ack, r_wb_stall, r_wb_err,
 			w_wb_cyc, w_wb_stb, w_wb_we, w_wb_addr, w_wb_data, w_wb_sel,
 				w_wb_ack, w_wb_stall, w_wb_err,
