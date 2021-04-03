@@ -732,8 +732,7 @@ module	axixbar #(
 		assign	m_awprot[N]  = 0;
 		assign	m_awqos[N]   = 0;
 
-		always @(*)
-			m_awvalid[N] = 0;
+		assign	m_awvalid[N] = 0;
 
 		assign	m_wvalid[N]  = 0;
 		//
@@ -741,8 +740,7 @@ module	axixbar #(
 		assign	m_wstrb[N] = 0;
 		assign	m_wlast[N] = 0;
 
-		always @(*)
-			write_qos_lockout[N] = 0;
+		assign	write_qos_lockout[N] = 0;
 	// }}}
 	// }}}
 	end endgenerate
