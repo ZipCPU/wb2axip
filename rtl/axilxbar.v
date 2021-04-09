@@ -743,7 +743,7 @@ module	axilxbar #(
 
 		// requested_index
 		// {{{
-		always @(*)
+		always @(wrequest[N])
 		begin
 			requested_index = 0;
 			for(iM=0; iM<=NS; iM=iM+1)
@@ -892,7 +892,7 @@ module	axilxbar #(
 
 		// requested_index
 		// {{{
-		always @(*)
+		always @(rrequest[N])
 		begin
 			requested_index = 0;
 			for(iM=0; iM<=NS; iM=iM+1)

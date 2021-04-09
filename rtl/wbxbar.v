@@ -261,13 +261,18 @@ module	wbxbar #(
 `endif
 			.OPT_OUTREG(0)
 			// }}}
-		) iskid (i_clk, i_reset || !i_mcyc[N], i_mstb[N], iskd_ready,
+		) iskid (
 			// {{{
-			{ i_mwe[N], i_maddr[N*AW +: AW], i_mdata[N*DW +: DW],
-					i_msel[N*DW/8 +: DW/8] },
-			skd_stb, !skd_stall,
-				{ skd_we, skd_addr, skd_data, skd_sel });
-		// }}}
+			.i_clk(i_clk),
+			.i_reset(i_reset || !i_mcyc[N]),
+			.i_valid(i_mstb[N]), .o_ready(iskd_ready),
+			.i_data({ i_mwe[N], i_maddr[N*AW +: AW],
+					i_mdata[N*DW +: DW],
+					i_msel[N*DW/8 +: DW/8] }),
+			.o_valid(skd_stb), .i_ready(!skd_stall),
+				.o_data({ skd_we, skd_addr, skd_data, skd_sel })
+			// }}}
+		);
 
 		always @(*)
 			o_mstall[N] = !iskd_ready;
@@ -283,12 +288,17 @@ module	wbxbar #(
 			.SLAVE_MASK(SLAVE_MASK),
 			.OPT_REGISTERED(OPT_BUFFER_DECODER)
 			// }}}
-		) adcd(i_clk, i_reset, skd_stb && i_mcyc[N], skd_stall,
+		) adcd(
 			// {{{
-			skd_addr, { skd_we, skd_data, skd_sel },
-			dcd_stb[N], (m_stall[N]&&i_mcyc[N]),decoded, m_addr[N],
-				{ m_we[N], m_data[N], m_sel[N] });
-		// }}}
+			.i_clk(i_clk), .i_reset(i_reset),
+			.i_valid(skd_stb && i_mcyc[N]), .o_stall(skd_stall),
+				.i_addr(skd_addr),
+				.i_data({ skd_we, skd_data, skd_sel }),
+			.o_valid(dcd_stb[N]), .i_stall(m_stall[N]&&i_mcyc[N]),
+			.o_decode(decoded), .o_addr(m_addr[N]),
+				.o_data({ m_we[N], m_data[N], m_sel[N] })
+			// }}}
+		);
 
 		assign	request[N] = (m_cyc[N] && dcd_stb[N]) ? decoded : 0;
 
@@ -552,7 +562,7 @@ module	wbxbar #(
 
 			// r_reindex
 			// {{{
-			always @(*)
+			always @(r_regrant, regrant)
 			begin
 				r_reindex = 0;
 				for(iM=0; iM<=NS; iM=iM+1)
