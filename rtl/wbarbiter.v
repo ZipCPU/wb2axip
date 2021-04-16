@@ -15,7 +15,7 @@
 //		1. If 'A' or 'B' asserts the o_cyc line, a bus cycle will begin,
 //			with acccess granted to whomever requested it.
 //		2. If both 'A' and 'B' assert o_cyc at the same time, only 'A'
-//			will be granted the bus.  (If the alternating parameter 
+//			will be granted the bus.  (If the alternating parameter
 //			is set, A and B will alternate who gets the bus in
 //			this case.)
 //		3. The bus will remain owned by whomever the bus was granted to
@@ -230,7 +230,15 @@ module	wbarbiter #(
 					F_MAX_ACK_DELAY };
 	// verilator lint_on  UNUSED
 	// }}}
-
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 
 `ifdef	WBARBITER
@@ -239,6 +247,8 @@ module	wbarbiter #(
 `else
 `define	ASSUME	assert
 `endif
+	reg	f_prior_a_ack, f_prior_b_ack;
+
 
 	reg	f_past_valid;
 	initial	f_past_valid = 1'b0;
@@ -266,77 +276,104 @@ module	wbarbiter #(
 			assert($past(r_a_owner) == r_a_owner);
 	end
 
-	fwb_master #(.DW(DW), .AW(AW),
-			.F_MAX_STALL(F_MAX_STALL),
-			.F_LGDEPTH(F_LGDEPTH),
-			.F_MAX_ACK_DELAY(F_MAX_ACK_DELAY),
-			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
-		f_wbm(i_clk, i_reset,
-			o_cyc, o_stb, o_we, o_adr, o_dat, o_sel,
-			i_ack, i_stall, 32'h0, i_err,
-			f_nreqs, f_nacks, f_outstanding);
+	fwb_master #(
+		// {{{
+		.DW(DW), .AW(AW),
+		.F_MAX_STALL(F_MAX_STALL),
+		.F_LGDEPTH(F_LGDEPTH),
+		.F_MAX_ACK_DELAY(F_MAX_ACK_DELAY),
+		.F_OPT_RMW_BUS_OPTION(1),
+		.F_OPT_DISCONTINUOUS(1)
+		// }}}
+	) f_wbm(
+		// {{{
+		i_clk, i_reset,
+		o_cyc, o_stb, o_we, o_adr, o_dat, o_sel,
+		i_ack, i_stall, 32'h0, i_err,
+		f_nreqs, f_nacks, f_outstanding
+		// }}}
+	);
 
-	fwb_slave  #(.DW(DW), .AW(AW),
+	fwb_slave  #(
+		// {{{
+		.DW(DW), .AW(AW),
+		.F_MAX_STALL(0),
+		.F_LGDEPTH(F_LGDEPTH),
+		.F_MAX_ACK_DELAY(0),
+		.F_OPT_RMW_BUS_OPTION(1),
+		.F_OPT_DISCONTINUOUS(1)
+		// }}}
+	) f_wba(
+		// {{{
+		i_clk, i_reset,
+		i_a_cyc, i_a_stb, i_a_we, i_a_adr, i_a_dat, i_a_sel,
+		o_a_ack, o_a_stall, 32'h0, o_a_err,
+		f_a_nreqs, f_a_nacks, f_a_outstanding
+		// }}}
+	);
+
+	fwb_slave  #(
+		// {{{
+		.DW(DW), .AW(AW),
 			.F_MAX_STALL(0),
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_ACK_DELAY(0),
 			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
-		f_wba(i_clk, i_reset,
-			i_a_cyc, i_a_stb, i_a_we, i_a_adr, i_a_dat, i_a_sel, 
-			o_a_ack, o_a_stall, 32'h0, o_a_err,
-			f_a_nreqs, f_a_nacks, f_a_outstanding);
-
-	fwb_slave  #(.DW(DW), .AW(AW),
-			.F_MAX_STALL(0),
-			.F_LGDEPTH(F_LGDEPTH),
-			.F_MAX_ACK_DELAY(0),
-			.F_OPT_RMW_BUS_OPTION(1),
-			.F_OPT_DISCONTINUOUS(1))
-		f_wbb(i_clk, i_reset,
-			i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
-			o_b_ack, o_b_stall, 32'h0, o_b_err,
-			f_b_nreqs, f_b_nacks, f_b_outstanding);
+			.F_OPT_DISCONTINUOUS(1)
+		// }}}
+	) f_wbb(
+		// {{{
+		i_clk, i_reset,
+		i_b_cyc, i_b_stb, i_b_we, i_b_adr, i_b_dat, i_b_sel,
+		o_b_ack, o_b_stall, 32'h0, o_b_err,
+		f_b_nreqs, f_b_nacks, f_b_outstanding
+		// }}}
+	);
 
 	always @(posedge i_clk)
-		if (r_a_owner)
-		begin
-			assert(f_b_nreqs == 0);
-			assert(f_b_nacks == 0);
-			assert(f_a_outstanding == f_outstanding);
-		end else begin
-			assert(f_a_nreqs == 0);
-			assert(f_a_nacks == 0);
-			assert(f_b_outstanding == f_outstanding);
-		end
+	if (r_a_owner)
+	begin
+		assert(f_b_nreqs == 0);
+		assert(f_b_nacks == 0);
+		assert(f_a_outstanding == f_outstanding);
+	end else begin
+		assert(f_a_nreqs == 0);
+		assert(f_a_nacks == 0);
+		assert(f_b_outstanding == f_outstanding);
+	end
 
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))
 			&&($past(i_a_stb))&&(!$past(i_b_cyc)))
 		assert(r_a_owner);
+
 	always @(posedge i_clk)
 	if ((f_past_valid)&&(!$past(i_reset))
 			&&(!$past(i_a_cyc))&&($past(i_b_stb)))
 		assert(!r_a_owner);
 
 	always @(posedge i_clk)
-		if ((f_past_valid)&&(r_a_owner != $past(r_a_owner)))
-			assert(!$past(o_cyc));
+	if ((f_past_valid)&&(r_a_owner != $past(r_a_owner)))
+		assert(!$past(o_cyc));
 
-	reg	f_prior_a_ack, f_prior_b_ack;
-
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Cover checks
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	initial	f_prior_a_ack = 1'b0;
 	always @(posedge i_clk)
 	if ((i_reset)||(o_a_err)||(o_b_err))
-		f_prior_a_ack = 1'b0;
+		f_prior_a_ack <= 1'b0;
 	else if ((o_cyc)&&(o_a_ack))
 		f_prior_a_ack <= 1'b1;
 
 	initial	f_prior_b_ack = 1'b0;
 	always @(posedge i_clk)
 	if ((i_reset)||(o_a_err)||(o_b_err))
-		f_prior_b_ack = 1'b0;
+		f_prior_b_ack <= 1'b0;
 	else if ((o_cyc)&&(o_b_ack))
 		f_prior_b_ack <= 1'b1;
 
@@ -358,6 +395,8 @@ module	wbarbiter #(
 
 	always @(*)
 		cover(o_cyc && o_b_ack);
+	// }}}
+// }}}
 `endif
 endmodule
 `ifndef	YOSYS

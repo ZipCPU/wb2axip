@@ -130,9 +130,11 @@ module axlite2wbsp #(
 
 `ifdef	FORMAL
 	// {{{
+	// Verilator lint_off UNUSED
 	wire	[LGFIFO:0]	f_wr_fifo_first, f_rd_fifo_first,
 				f_wr_fifo_mid,   f_rd_fifo_mid,
 				f_wr_fifo_last,  f_rd_fifo_last;
+	// Verilator lint_on  UNUSED
 	wire	[(F_LGDEPTH-1):0]	f_wb_nreqs, f_wb_nacks,
 					f_wb_outstanding;
 	wire	[(F_LGDEPTH-1):0]	f_wb_wr_nreqs, f_wb_wr_nacks,
@@ -164,27 +166,27 @@ module axlite2wbsp #(
 			// {{{
 			.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 			//
+			.i_axi_awvalid(i_axi_awvalid),
 			.o_axi_awready(o_axi_awready),
 			.i_axi_awaddr( i_axi_awaddr),
 			.i_axi_awprot( i_axi_awprot),
-			.i_axi_awvalid(i_axi_awvalid),
 			//
+			.i_axi_wvalid( i_axi_wvalid),
 			.o_axi_wready( o_axi_wready),
 			.i_axi_wdata(  i_axi_wdata),
 			.i_axi_wstrb(  i_axi_wstrb),
-			.i_axi_wvalid( i_axi_wvalid),
 			//
-			.o_axi_bresp(o_axi_bresp),
 			.o_axi_bvalid(o_axi_bvalid),
 			.i_axi_bready(i_axi_bready),
+			.o_axi_bresp(o_axi_bresp),
 			//
 			.o_wb_cyc(  w_wb_cyc),
 			.o_wb_stb(  w_wb_stb),
 			.o_wb_addr( w_wb_addr),
 			.o_wb_data( w_wb_data),
 			.o_wb_sel(  w_wb_sel),
-			.i_wb_ack(  w_wb_ack),
 			.i_wb_stall(w_wb_stall),
+			.i_wb_ack(  w_wb_ack),
 			.i_wb_err(  w_wb_err)
 `ifdef	FORMAL
 			// {{{
@@ -241,15 +243,15 @@ module axlite2wbsp #(
 			// {{{
 			.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 			//
+			.i_axi_arvalid(i_axi_arvalid),
 			.o_axi_arready(o_axi_arready),
 			.i_axi_araddr( i_axi_araddr),
 			.i_axi_arprot( i_axi_arprot),
-			.i_axi_arvalid(i_axi_arvalid),
 			//
-			.o_axi_rresp( o_axi_rresp),
 			.o_axi_rvalid(o_axi_rvalid),
-			.o_axi_rdata( o_axi_rdata),
 			.i_axi_rready(i_axi_rready),
+			.o_axi_rdata( o_axi_rdata),
+			.o_axi_rresp( o_axi_rresp),
 			//
 			.o_wb_cyc(  r_wb_cyc),
 			.o_wb_stb(  r_wb_stb),
@@ -368,24 +370,61 @@ module axlite2wbsp #(
 		// }}}
 	end else begin : ARB_WB
 		// {{{
-		wbarbiter	#(.DW(DW), .AW(AW),
+		wbarbiter #(
+			// {{{
+			.DW(DW), .AW(AW),
 			.F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_STALL(F_MAXSTALL),
-			.F_MAX_ACK_DELAY(F_MAXDELAY))
-			readorwrite(i_clk, !i_axi_reset_n,
-			r_wb_cyc, r_wb_stb, 1'b0, r_wb_addr, w_wb_data, r_wb_sel,
-				r_wb_ack, r_wb_stall, r_wb_err,
-			w_wb_cyc, w_wb_stb, 1'b1, w_wb_addr, w_wb_data, w_wb_sel,
-				w_wb_ack, w_wb_stall, w_wb_err,
-			o_wb_cyc, o_wb_stb, o_wb_we, o_wb_addr, o_wb_data, o_wb_sel,
-				i_wb_ack, i_wb_stall, i_wb_err
+			.F_MAX_ACK_DELAY(F_MAXDELAY)
+			// }}}
+		) readorwrite(
+			// {{{
+			.i_clk(i_clk), .i_reset(!i_axi_reset_n),
+			// Channel A - Reads
+			// {{{
+			.i_a_cyc(r_wb_cyc), .i_a_stb(r_wb_stb),
+				.i_a_we(1'b0),
+				.i_a_adr(r_wb_addr),
+				.i_a_dat(w_wb_data),
+				.i_a_sel(r_wb_sel),
+				.o_a_stall(r_wb_stall),
+				.o_a_ack(r_wb_ack),
+				.o_a_err(r_wb_err),
+			// }}}
+			// Channel B
+			// {{{
+			.i_b_cyc(w_wb_cyc), .i_b_stb(w_wb_stb),
+				.i_b_we(1'b1),
+				.i_b_adr(w_wb_addr),
+				.i_b_dat(w_wb_data),
+				.i_b_sel(w_wb_sel),
+				.o_b_stall(w_wb_stall),
+				.o_b_ack(w_wb_ack),
+				.o_b_err(w_wb_err),
+			// }}}
+			// Arbitrated outgoing channel
+			// {{{
+			.o_cyc(o_wb_cyc), .o_stb(o_wb_stb), .o_we(o_wb_we),
+				.o_adr(o_wb_addr),
+				.o_dat(o_wb_data),
+				.o_sel(o_wb_sel),
+				.i_stall(i_wb_stall),
+				.i_ack(i_wb_ack),
+				.i_err(i_wb_err)
+			// }}}
 `ifdef	FORMAL
+			// {{{
 			,
-			f_wb_rd_nreqs, f_wb_rd_nacks, f_wb_rd_outstanding,
-			f_wb_wr_nreqs, f_wb_wr_nacks, f_wb_wr_outstanding,
-			f_wb_nreqs, f_wb_nacks, f_wb_outstanding
+			.f_nreqs(f_wb_nreqs), .f_nacks(f_wb_nacks),
+				.f_outstanding(f_wb_outstanding),
+			.f_a_nreqs(f_wb_rd_nreqs), .f_a_nacks(f_wb_rd_nacks),
+				.f_a_outstanding(f_wb_rd_outstanding),
+			.f_b_nreqs(f_wb_wr_nreqs), .f_b_nacks(f_wb_wr_nacks),
+				.f_b_outstanding(f_wb_wr_outstanding)
+			// }}}
 `endif
-			);
+			// }}}
+		);
 		// }}}
 	end endgenerate
 	// }}}
@@ -407,27 +446,15 @@ module axlite2wbsp #(
 
 	initial	f_past_valid = 1'b0;
 	always @(posedge i_clk)
-		f_past_valid = 1'b1;
+		f_past_valid <= 1'b1;
 
 
 	wire	[(F_LGDEPTH-1):0]	f_axi_rd_outstanding,
 					f_axi_wr_outstanding,
 					f_axi_awr_outstanding;
-	wire	[(F_LGDEPTH-1):0]	f_axi_rd_id_outstanding,
-					f_axi_awr_id_outstanding,
-					f_axi_wr_id_outstanding;
-	wire	[8:0]			f_axi_wr_pending,
-					f_axi_rd_count,
-					f_axi_wr_count;
-
-	wire	f_axi_ard_req, f_axi_awr_req, f_axi_wr_req,
-		f_axi_rd_ack, f_axi_wr_ack;
 
 	wire	[LGFIFO:0]	f_awr_fifo_axi_used,
-				f_dwr_fifo_axi_used,
-				f_rd_fifo_axi_used,
-				f_wr_fifo_wb_outstanding,
-				f_rd_fifo_wb_outstanding;
+				f_rd_fifo_axi_used;
 	// }}}
 
 	initial	assume(!i_axi_reset_n);
@@ -479,16 +506,8 @@ module axlite2wbsp #(
 		// }}}
 	);
 
-	assign	f_axi_ard_req = (i_axi_arvalid)&&(o_axi_arready);
-	assign	f_axi_awr_req = (i_axi_awvalid)&&(o_axi_awready);
-	assign	f_axi_wr_req  = (i_axi_wvalid)&&(o_axi_wready);
-	assign	f_axi_wr_ack  = (o_axi_bvalid)&&(i_axi_bready);
-	assign	f_axi_rd_ack  = (o_axi_rvalid)&&(i_axi_rready);
-
 	assign	f_awr_fifo_axi_used = f_wr_fifo_first - f_wr_fifo_last;
 	assign	f_rd_fifo_axi_used  = f_rd_fifo_first - f_rd_fifo_last;
-	assign	f_wr_fifo_wb_outstanding = f_wr_fifo_first - f_wr_fifo_last;
-	assign	f_rd_fifo_wb_outstanding = f_rd_fifo_first - f_rd_fifo_last;
 
 	always @(*)
 	begin
@@ -528,6 +547,17 @@ module axlite2wbsp #(
 		assume(i_axi_arvalid == 0);
 		assert(o_axi_rvalid == 0);
 	end
+
+	// Make Verilator happy
+	// {{{
+	// Verilator lint_off UNUSED
+	wire	unused_formal;
+	assign	unused_formal = &{ 1'b0, f_wb_nreqs, f_wb_nacks,
+		f_wb_outstanding, f_wb_wr_nreqs, f_wb_wr_nacks,
+		f_wb_wr_outstanding, f_wb_rd_nreqs, f_wb_rd_nacks,
+		f_wb_rd_outstanding };
+	// Verilator lint_on  UNUSED
+	// }}}
 `endif
 // }}}
 endmodule

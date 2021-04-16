@@ -146,9 +146,11 @@ module wbsafety #(
 		// }}}
 	) skd(
 		// {{{
-		i_clk, i_reset || !i_wb_cyc, i_wb_stb, skd_o_ready,
-		{ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel },
-		skd_stb, !skd_stall, { skd_we, skd_addr, skd_data, skd_sel }
+		.i_clk(i_clk), .i_reset(i_reset || !i_wb_cyc),
+		.i_valid(i_wb_stb), .o_ready(skd_o_ready),
+			.i_data({ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel }),
+		.o_valid(skd_stb), .i_ready(!skd_stall),
+			.o_data({ skd_we, skd_addr, skd_data, skd_sel })
 		// }}}
 	);
 
