@@ -800,12 +800,14 @@ module	wbxbar #(
 		// Veri1ator.  Hence, we're using r_s* and setting all of o_s*
 		// here.
 		for(M=0; M<NS; M=M+1)
-		always @(*)
-		begin
-			o_swe[M]            = r_swe;
-			o_saddr[M*AW +: AW] = r_saddr[AW-1:0];
-			o_sdata[M*DW +: DW] = r_sdata[DW-1:0];
-			o_ssel[M*DW/8+:DW/8]= r_ssel[DW/8-1:0];
+		begin : FOREACH_SLAVE_PORT
+			always @(*)
+			begin
+				o_swe[M]            = r_swe;
+				o_saddr[M*AW +: AW] = r_saddr[AW-1:0];
+				o_sdata[M*DW +: DW] = r_sdata[DW-1:0];
+				o_ssel[M*DW/8+:DW/8]= r_ssel[DW/8-1:0];
+			end
 		end
 		// }}}
 	end else for(M=0; M<NS; M=M+1)
@@ -846,7 +848,7 @@ module	wbxbar #(
 		reg	[NM-1:0]	r_mack, r_merr;
 
 		for(N=0; N<NM; N=N+1)
-		begin
+		begin : FOREACH_MASTER_PORT
 			// m_stall isn't buffered, since it depends upon
 			// the already existing buffer within the address
 			// decoder
@@ -905,7 +907,7 @@ module	wbxbar #(
 	begin : SINGLE_SLAVE
 		// {{{
 		for(N=0; N<NM; N=N+1)
-		begin
+		begin : FOREACH_MASTER_PORT
 			always @(*)
 			begin
 				m_stall[N] = !mgrant[N] || s_stall[0]
@@ -943,7 +945,7 @@ module	wbxbar #(
 	end else begin : SINGLE_BUFFER_STALL
 		// {{{
 		for(N=0; N<NM; N=N+1)
-		begin
+		begin : FOREACH_MASTER_PORT
 			// initial	o_mstall[N] = 0;
 			// initial	o_mack[N]   = 0;
 			always @(*)
@@ -1022,7 +1024,7 @@ module	wbxbar #(
 	begin : CHECK_TIMEOUT
 		// {{{
 		for(N=0; N<NM; N=N+1)
-		begin
+		begin : FOREACH_MASTER_PORT
 
 			reg	[TIMEOUT_WIDTH-1:0]	deadlock_timer;
 			reg				r_timed_out;
