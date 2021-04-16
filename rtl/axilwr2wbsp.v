@@ -518,10 +518,12 @@ module	axilwr2wbsp #(
 	if (!w_reset)
 	begin
 		if (o_wb_stb)
+		begin
 			assert(wb_outstanding+1 == wb_fill);
-		else if (o_wb_cyc)
+		end else if (o_wb_cyc)
+		begin
 			assert(wb_outstanding == wb_fill);
-		else if (!err_state)
+		end else if (!err_state)
 			assert((wb_fill == 0)&&(wb_outstanding == 0));
 	end
 
@@ -574,19 +576,23 @@ module	axilwr2wbsp #(
 	if (o_axi_bvalid)
 	begin
 		if (!err_state)
+		begin
 			assert(!o_axi_bresp[1]);
-		else if (err_loc == f_last)
+		end else if (err_loc == f_last)
+		begin
 			assert(o_axi_bresp == 2'b10);
-		else if (f_err_minus_last < (1<<LGFIFO))
+		end else if (f_err_minus_last < (1<<LGFIFO))
+		begin
 			assert(!o_axi_bresp[1]);
-		else
+		end else
 			assert(o_axi_bresp[1]);
 	end
 
 	always @(*)
 	if (err_state)
+	begin
 		assert(o_axi_bvalid == (r_first != r_last));
-	else
+	end else
 		assert(o_axi_bvalid == (r_mid != r_last));
 
 	always @(*)
@@ -646,6 +652,14 @@ module	axilwr2wbsp #(
 		cover(o_axi_bvalid && i_axi_bready
 			&& $past(o_axi_bvalid && i_axi_bready,1)
 			&& $past(o_axi_bvalid && i_axi_bready,2)); //
+	// }}}
+
+	// Make Verilator happy
+	// {{{
+	// Verilator lint_off UNUSED
+	wire	unused_formal;
+	assign	unused_formal = &{ 1'b0, f_wb_nreqs, f_wb_nacks };
+	// Verilator lint_on  UNUSED
 	// }}}
 `endif
 // }}}

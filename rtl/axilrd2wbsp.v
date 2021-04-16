@@ -451,9 +451,9 @@ module	axilrd2wbsp #(
 		assert(wb_outstanding+1+((r_stb)?1:0) == wb_fill);
 	always @(*)
 	if (o_wb_stb)
+	begin
 		assert(&o_wb_sel);
-
-	else if (o_wb_cyc)
+	end else if (o_wb_cyc)
 		assert(wb_outstanding == wb_fill);
 
 	always @(*)
@@ -501,23 +501,28 @@ module	axilrd2wbsp #(
 	assign	f_mid_minus_err  = f_mid - err_loc;
 	assign	f_err_minus_last = err_loc - f_last;
 	assign	f_first_minus_err = f_first - err_loc;
+
 	always @(*)
 	if (o_axi_rvalid)
 	begin
 		if (!err_state)
+		begin
 			assert(!o_axi_rresp[1]);
-		else if (err_loc == f_last)
+		end else if (err_loc == f_last)
+		begin
 			assert(o_axi_rresp == 2'b10);
-		else if (f_err_minus_last < (1<<LGFIFO))
+		end else if (f_err_minus_last < (1<<LGFIFO))
+		begin
 			assert(!o_axi_rresp[1]);
-		else
+		end else
 			assert(o_axi_rresp[1]);
 	end
 
 	always @(*)
 	if (err_state)
+	begin
 		assert(o_axi_rvalid == (r_first != r_last));
-	else
+	end else
 		assert(o_axi_rvalid == (r_mid != r_last));
 
 	always @(*)
@@ -536,8 +541,9 @@ module	axilrd2wbsp #(
 	if ((f_past_valid)&&(i_axi_reset_n)&&(f_axi_rd_outstanding > 0))
 	begin
 		if (err_state)
+		begin
 			assert((!o_wb_cyc)&&(f_wb_outstanding == 0));
-		else if (!o_wb_cyc)
+		end else if (!o_wb_cyc)
 			assert((o_axi_rvalid)&&(f_axi_rd_outstanding>0)
 					&&(wb_fill == 0));
 	end
@@ -574,6 +580,14 @@ module	axilrd2wbsp #(
 		cover(o_axi_rvalid && i_axi_rready
 			&& $past(o_axi_rvalid && i_axi_rready)
 			&& $past(o_axi_rvalid && i_axi_rready,2));
+	// }}}
+
+	// Make Verilator happy
+	// {{{
+	// Verilator lint_off UNUSED
+	wire	unused_formal;
+	assign	unused_formal = &{ 1'b0, f_wb_nreqs, f_wb_nacks };
+	// Verilator lint_on  UNUSED
 	// }}}
 `endif
 // }}}
