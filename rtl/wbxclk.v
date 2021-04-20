@@ -65,9 +65,7 @@ module	wbxclk #(
 				DW=32,
 				DELAY_STALL = 0,
 				LGFIFO = 5,
-		parameter [(LGFIFO-1):0] THRESHOLD = {{(LGFIFO-4){1'b0}},4'h8},
-		localparam	NFF = 2,
-		localparam	FIFOLN    = (1<<LGFIFO)
+		parameter [(LGFIFO-1):0] THRESHOLD = {{(LGFIFO-4){1'b0}},4'h8}
 		// }}}
 	) (
 		// {{{
@@ -99,6 +97,7 @@ module	wbxclk #(
 	//
 	// Declare our signals
 	// {{{
+	localparam	NFF = 2;
 	reg		wb_active;
 	reg [NFF-2:0]	bus_abort_pipe;
 	reg [LGFIFO:0]	acks_outstanding;

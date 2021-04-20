@@ -223,9 +223,7 @@ module	axis2mm #(
 		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
 		// we only ever have 4 configuration words.
 		localparam	C_AXIL_ADDR_WIDTH = 5,
-		localparam	C_AXIL_DATA_WIDTH = 32,
-		localparam	AXILLSB = $clog2(C_AXIL_DATA_WIDTH)-3,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		localparam	C_AXIL_DATA_WIDTH = 32
 		// }}}
 	) (
 		// {{{
@@ -307,6 +305,8 @@ module	axis2mm #(
 
 	// Local parameters
 	// {{{
+	localparam	AXILLSB = $clog2(C_AXIL_DATA_WIDTH)-3;
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	localparam [2:0]	CMD_CONTROL   = 3'b000,
 				// CMD_UNUSED_1  = 3'b001,
 				// CMD_UNUSED_2  = 3'b010,

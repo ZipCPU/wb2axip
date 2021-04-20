@@ -52,8 +52,7 @@ module	easyaxil #(
 		parameter	C_AXI_ADDR_WIDTH = 4,
 		localparam	C_AXI_DATA_WIDTH = 32,
 		parameter [0:0]	OPT_SKIDBUFFER = 1'b0,
-		parameter [0:0]	OPT_LOWPOWER = 0,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		parameter [0:0]	OPT_LOWPOWER = 0
 		// }}}
 	) (
 		// {{{
@@ -89,10 +88,11 @@ module	easyaxil #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Register/wire signal declarations
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
+
 	wire	i_reset = !S_AXI_ARESETN;
 
 	wire				axil_write_ready;

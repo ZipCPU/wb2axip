@@ -56,11 +56,7 @@ module afifo #(
 		// OPT_REGISTER_READS, we force all reads to be synchronous and
 		// not burdened by any logic.  You can spare a clock of latency
 		// by clearing this register.
-		parameter [0:0]	OPT_REGISTER_READS = 1'b1,
-		//
-		// MSB = most significant bit of the FIFO address vector.  It's
-		// just short-hand for LGFIFO, and won't work any other way.
-		localparam	MSB = LGFIFO
+		parameter [0:0]	OPT_REGISTER_READS = 1'b1
 `ifdef	FORMAL
 		// F_OPT_DATA_STB
 		// {{{
@@ -92,6 +88,10 @@ module afifo #(
 
 	// Register/net declarations
 	// {{{
+	// MSB = most significant bit of the FIFO address vector.  It's
+	// just short-hand for LGFIFO, and won't work any other way.
+	localparam	MSB = LGFIFO;
+	//
 	reg	[WIDTH-1:0]		mem	[(1<<LGFIFO)-1:0];
 	reg	[LGFIFO:0]		rd_addr, wr_addr,
 					rd_wgray, wr_rgray;

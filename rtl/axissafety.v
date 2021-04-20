@@ -81,8 +81,7 @@ module	axissafety #(
 		parameter	C_AXIS_USER_WIDTH = 1,
 		parameter	OPT_MAX_STALL = 0,
 		parameter	OPT_PACKET_LENGTH = 0,
-		parameter [0:0]	OPT_SELF_RESET = 0,
-		localparam	LGPKTLEN = $clog2(OPT_PACKET_LENGTH+1)
+		parameter [0:0]	OPT_SELF_RESET = 0
 		// }}}
 	) (
 		// {{{
@@ -110,6 +109,7 @@ module	axissafety #(
 
 	// Parameter/register declarations
 	// {{{
+	localparam	LGPKTLEN = $clog2(OPT_PACKET_LENGTH+1);
 	localparam	LGSTALLCOUNT = $clog2(OPT_MAX_STALL+1);
 	reg	skdr_valid, skd_valid, skd_ready;
 

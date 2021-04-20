@@ -55,9 +55,7 @@ module	axi2axi3 #(
 		// {{{
 		parameter	C_AXI_ID_WIDTH = 1,
 		parameter	C_AXI_ADDR_WIDTH = 32,
-		parameter	C_AXI_DATA_WIDTH = 32,
-		//
-		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3
+		parameter	C_AXI_DATA_WIDTH = 32
 		// }}}
 	) (
 		// {{{
@@ -160,6 +158,8 @@ module	axi2axi3 #(
 		// }}}
 	);
 
+	//
+	localparam		ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3;
 	localparam	[0:0]	OPT_LOWPOWER = 1'b0;
 	localparam		LGWFIFO = 4;
 	localparam		NID = (1<<C_AXI_ID_WIDTH);

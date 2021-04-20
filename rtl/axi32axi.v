@@ -67,10 +67,8 @@ module	axi32axi #(
 		parameter [0:0]	OPT_LOWPOWER = 0,
 		parameter [0:0]	OPT_LOW_LATENCY = 0,
 		parameter	WID_LGAWFIFO = 3,
-		parameter	WID_LGWFIFO = 3,
+		parameter	WID_LGWFIFO = 3
 		//
-		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3,
-		localparam	IW=C_AXI_ID_WIDTH
 		// }}}
 	) (
 		// {{{
@@ -175,6 +173,8 @@ module	axi32axi #(
 
 	// Register/net declarations
 	// {{{
+	// localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3;
+	localparam	IW=C_AXI_ID_WIDTH;
 	reg	[3:0]	axi4_awcache, axi4_arcache;
 	reg		axi4_awlock, axi4_arlock;
 	wire		awskd_ready;

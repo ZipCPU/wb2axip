@@ -42,10 +42,7 @@ module	axilupsz #(
 		parameter [0:0]	OPT_LOWPOWER = 1,
 		localparam	SDW = C_S_AXIL_DATA_WIDTH,
 		localparam	MDW = C_M_AXIL_DATA_WIDTH,
-		localparam	AW = C_AXIL_ADDR_WIDTH,
-		localparam	MLSB = $clog2(C_M_AXIL_DATA_WIDTH/8),
-		localparam	SLSB = $clog2(C_S_AXIL_DATA_WIDTH/8),
-		localparam	RPTS = MDW/SDW
+		localparam	AW = C_AXIL_ADDR_WIDTH
 		// }}}
 	) (
 		// {{{
@@ -105,6 +102,10 @@ module	axilupsz #(
 		// }}}
 		// }}}
 	);
+
+	localparam	MLSB = $clog2(C_M_AXIL_DATA_WIDTH/8);
+	localparam	SLSB = $clog2(C_S_AXIL_DATA_WIDTH/8);
+	localparam	RPTS = MDW/SDW;
 
 	generate if (SDW == MDW)
 	begin : NO_CHANGE

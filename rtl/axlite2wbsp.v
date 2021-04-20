@@ -47,8 +47,7 @@ module axlite2wbsp #(
 		parameter		F_MAXDELAY = 3,
 		parameter	[0:0]	OPT_READONLY  = 1'b0,
 		parameter	[0:0]	OPT_WRITEONLY = 1'b0,
-		localparam		AXILLSB = $clog2(C_AXI_DATA_WIDTH/8),
-		localparam		F_LGDEPTH = LGFIFO+1
+		localparam		AXILLSB = $clog2(C_AXI_DATA_WIDTH/8)
 		// }}}
 	) (
 		// {{{
@@ -131,6 +130,7 @@ module axlite2wbsp #(
 `ifdef	FORMAL
 	// {{{
 	// Verilator lint_off UNUSED
+	localparam		F_LGDEPTH = LGFIFO+1;
 	wire	[LGFIFO:0]	f_wr_fifo_first, f_rd_fifo_first,
 				f_wr_fifo_mid,   f_rd_fifo_mid,
 				f_wr_fifo_last,  f_rd_fifo_last;

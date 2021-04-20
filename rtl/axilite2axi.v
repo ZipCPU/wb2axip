@@ -38,8 +38,7 @@ module axilite2axi #(
 				C_AXI_ADDR_WIDTH= 32,
 				C_AXI_DATA_WIDTH= 32,
 		parameter [C_AXI_ID_WIDTH-1:0]	C_AXI_WRITE_ID = 0,
-						C_AXI_READ_ID = 0,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+						C_AXI_READ_ID = 0
 		// }}}
 	) (
 		// {{{
@@ -120,6 +119,7 @@ module axilite2axi #(
 		// }}}
 	);
 
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	assign	M_AXI_AWID    = C_AXI_WRITE_ID;
 	assign	M_AXI_AWADDR  = S_AXI_AWADDR;
 	assign	M_AXI_AWLEN   = 0;

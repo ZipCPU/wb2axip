@@ -278,8 +278,7 @@ module	axiperf #(
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_ID_WIDTH = 4,
 		parameter [0:0]	OPT_LOWPOWER = 0,
-		parameter	LGCNT = 32,
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		parameter	LGCNT = 32
 		// }}}
 	) (
 		// {{{
@@ -368,6 +367,7 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// {{{
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	wire	i_reset = !S_AXI_ARESETN;
 
 	wire				axil_write_ready;

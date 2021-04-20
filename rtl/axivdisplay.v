@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axivdisplay
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Reads from memory for the purposes of serving a video frame
@@ -93,7 +93,7 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 //
@@ -112,12 +112,11 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 //
-// }}}
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
 `default_nettype none
-//
+// }}}
 module	axivdisplay #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 32,

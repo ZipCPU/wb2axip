@@ -43,7 +43,6 @@ module aximwr2wbsp #(
 		parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b1,
 		localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH)-3,
 		localparam AW			= C_AXI_ADDR_WIDTH-AXI_LSBS,
-		localparam DW			= C_AXI_DATA_WIDTH,
 
 		parameter LGFIFO                =  5
 		// }}}
@@ -98,6 +97,7 @@ module aximwr2wbsp #(
 
 	// Register/net declarations
 	// {{{
+	localparam DW			= C_AXI_DATA_WIDTH;
 	wire			w_reset;
 
 	wire			skid_awvalid;

@@ -133,14 +133,12 @@ module	axil2axis #(
 		// OPT_LOWPOWER sets outputs to zero if not valid.  This applies
 		// to the AXI-lite bus, however, and not the AXI stream FIFOs,
 		// since those don't have LOWPOWER support (currently).
-		parameter [0:0]	OPT_LOWPOWER = 0,
+		parameter [0:0]	OPT_LOWPOWER = 0
 		//
 		// This design currently ignores WSTRB, beyond checking that it
 		// is not zero.  I see no easy way to add it.  (I'll leave that
 		// to you to implement, if you wish.)
 		// parameter [0:0]	OPT_WSTRB = 0,
-		//
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
 		// }}}
 	) (
 		// {{{
@@ -189,6 +187,7 @@ module	axil2axis #(
 		// }}}
 	);
 
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	localparam	[1:0]	ADDR_SINK = 2'b00,	// Read from stream
 				ADDR_SOURCE = 2'b01, // Write, also sets TLAST
 				ADDR_STATS  = 2'b10,

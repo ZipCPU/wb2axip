@@ -144,8 +144,6 @@ module	axidouble #(
 		// Shorthand for address width, data width, and id width
 		// AW, and DW, are short-hand abbreviations used locally.
 		localparam AW = C_AXI_ADDR_WIDTH,
-		localparam DW = C_AXI_DATA_WIDTH,
-		localparam IW = C_AXI_ID_WIDTH,
 		//
 		// Each of the slave interfaces has an address range.  The
 		// base address for each slave is given by AW bits of SLAVE_ADDR
@@ -299,6 +297,8 @@ module	axidouble #(
 
 	// Signal declarations
 	// {{{
+	localparam DW = C_AXI_DATA_WIDTH;
+	// localparam IW = C_AXI_ID_WIDTH;
 	// LGNS is the number of bits required in a slave index
 	localparam	LGNS = $clog2(NS);
 	//

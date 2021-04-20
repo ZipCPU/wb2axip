@@ -102,11 +102,6 @@ module	axidma #(
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
-		// The number of beats in this maximum burst size is
-		// automatically determined from LGMAXBURST, and so its
-		// forced to be a power of two this way.
-		localparam	MAXBURST=(1<<LGMAXBURST),
-		//
 		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
 		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
 		// (words) in it.  High throughput transfers are accomplished
@@ -230,6 +225,11 @@ module	axidma #(
 		// }}}
 	);
 
+	// The number of beats in this maximum burst size is
+	// automatically determined from LGMAXBURST, and so its
+	// forced to be a power of two this way.
+	localparam	MAXBURST=(1<<LGMAXBURST);
+	//
 	localparam	[2:0]	CTRL_ADDR   = 3'b000,
 				// UNUSED_ADDR = 3'b001,
 				SRCLO_ADDR  = 3'b010,

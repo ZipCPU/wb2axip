@@ -52,9 +52,6 @@ module demofull #(
 		parameter	[0:0]	OPT_LOCKID   = 1'b1,
 		parameter	[0:0]	OPT_LOWPOWER = 1'b0,
 		// Some useful short-hand definitions
-		localparam	AW = C_S_AXI_ADDR_WIDTH,
-		localparam	DW = C_S_AXI_DATA_WIDTH,
-		localparam	IW = C_S_AXI_ID_WIDTH,
 		localparam	LSB = $clog2(C_S_AXI_DATA_WIDTH)-3
 		// }}}
 	) (
@@ -249,6 +246,10 @@ module demofull #(
 
 	// Local declarations
 	// {{{
+	// More useful shorthand definitions
+	localparam	AW = C_S_AXI_ADDR_WIDTH;
+	localparam	DW = C_S_AXI_DATA_WIDTH;
+	localparam	IW = C_S_AXI_ID_WIDTH;
 	// Double buffer the write response channel only
 	reg	[IW-1 : 0]	r_bid;
 	reg			r_bvalid;

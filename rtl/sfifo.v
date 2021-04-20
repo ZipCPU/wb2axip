@@ -30,8 +30,7 @@ module sfifo #(
 		parameter 	LGFLEN=4,
 		parameter [0:0]	OPT_ASYNC_READ = 1'b1,
 		parameter [0:0]	OPT_WRITE_ON_FULL = 1'b0,
-		parameter [0:0]	OPT_READ_ON_EMPTY = 1'b0,
-		localparam	FLEN=(1<<LGFLEN)
+		parameter [0:0]	OPT_READ_ON_EMPTY = 1'b0
 		// }}}
 	) (
 		// {{{
@@ -53,6 +52,7 @@ module sfifo #(
 
 	// Register/net declarations
 	// {{{
+	localparam	FLEN=(1<<LGFLEN);
 	reg			r_full, r_empty;
 	reg	[(BW-1):0]	mem[0:(FLEN-1)];
 	reg	[LGFLEN:0]	wr_addr, rd_addr;

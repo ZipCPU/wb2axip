@@ -24,9 +24,9 @@
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
-// }}}
-////////////////////////////////////////////////////////////////////////////////
 //
+////////////////////////////////////////////////////////////////////////////////
+// }}}
 // Copyright (C) 2020-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
@@ -43,13 +43,13 @@
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
 // License for the specific language governing permissions and limitations
 // under the License.
-// }}}
+//
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype	none
-// `define			AXI3
 //
+// `define			AXI3
+// }}}
 module	axivfifo #(
 		// {{{
 		parameter	C_AXI_ID_WIDTH = 1,
@@ -82,10 +82,6 @@ module	axivfifo #(
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
-		// The number of beats in this maximum burst size is
-		// automatically determined from LGMAXBURST, and so its
-		// forced to be a power of two this way.
-		localparam	MAXBURST=(1<<LGMAXBURST),
 		//
 		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
 		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
@@ -226,6 +222,10 @@ module	axivfifo #(
 
 	// Register and signal definitions
 	// {{{
+	// The number of beats in this maximum burst size is automatically
+	// determined from LGMAXBURST, and so its forced to be a power of
+	// two this way.
+	localparam	MAXBURST=(1<<LGMAXBURST);
 	localparam	BURSTAW = C_AXI_ADDR_WIDTH-LGMAXBURST-ADDRLSB;
 
 	reg				soft_reset, vfifo_empty, vfifo_full;

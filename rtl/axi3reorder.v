@@ -91,12 +91,7 @@ module	axi3reorder #(
 		parameter	OPT_METHOD = 0,
 		parameter [0:0]	OPT_LOWPOWER = 0,
 		parameter [0:0]	OPT_LOW_LATENCY = 0,
-		localparam	MTHD_NONE = 0,
-		localparam	MTHD_SHIFT_REGISTER = 1,
-		localparam	MTHD_PERID_FIFOS = 2,
-		localparam	IW = C_AXI_ID_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
-		parameter	NUM_FIFOS = (1<<IW)
+		parameter	NUM_FIFOS = (1<<C_AXI_ID_WIDTH)
 		// }}}
 	) (
 		// {{{
@@ -106,7 +101,7 @@ module	axi3reorder #(
 		// {{{
 		input	wire			S_AXI3_AWVALID,
 		output	wire			S_AXI3_AWREADY,
-		input	wire	[IW-1:0]	S_AXI3_AWID,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI3_AWID,
 		// input	wire [AW-1:0]	S_AXI3_AWADDR,
 		// input	wire	[3:0]	S_AXI3_AWLEN,
 		// input	wire	[2:0]	S_AXI3_AWSIZE,
@@ -118,18 +113,18 @@ module	axi3reorder #(
 		//
 		input	wire			S_AXI3_WVALID,
 		output	wire			S_AXI3_WREADY,
-		input	wire	[IW-1:0]	S_AXI3_WID,
-		input	wire	[DW-1:0]	S_AXI3_WDATA,
-		input	wire	[DW/8-1:0]	S_AXI3_WSTRB,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI3_WID,
+		input	wire	[C_AXI_DATA_WIDTH-1:0]	S_AXI3_WDATA,
+		input	wire	[C_AXI_DATA_WIDTH/8-1:0]	S_AXI3_WSTRB,
 		input	wire			S_AXI3_WLAST,
 		// }}}
 		// Reordered write data port.  WID may now be discarded.
 		// {{{
 		output	reg			M_AXI_WVALID,
 		input	wire			M_AXI_WREADY,
-		output	reg	[IW-1:0]	M_AXI_WID,
-		output	reg	[DW-1:0]	M_AXI_WDATA,
-		output	reg	[DW/8-1:0]	M_AXI_WSTRB,
+		output	reg	[C_AXI_ID_WIDTH-1:0]	M_AXI_WID,
+		output	reg	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
+		output	reg	[C_AXI_DATA_WIDTH/8-1:0]	M_AXI_WSTRB,
 		output	reg			M_AXI_WLAST
 		// }}}
 		// }}}
@@ -137,6 +132,11 @@ module	axi3reorder #(
 
 	// Register declarations
 	// {{{
+	localparam	MTHD_NONE = 0;
+	localparam	MTHD_SHIFT_REGISTER = 1;
+	localparam	MTHD_PERID_FIFOS = 2;
+	localparam	IW = C_AXI_ID_WIDTH;
+	localparam	DW = C_AXI_DATA_WIDTH;
 	wire			awfifo_full, awfifo_empty;
 	reg			read_awid_fifo;
 	wire	[IW-1:0]	awfifo_id;

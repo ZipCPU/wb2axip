@@ -49,10 +49,7 @@ module	axisswitch #(
 		//
 		parameter	NUM_STREAMS = 4,
 		parameter	C_AXIS_DATA_WIDTH = 32,
-		parameter [0:0]	OPT_LOWPOWER = 0,
-		//
-		localparam	LGNS = $clog2(NUM_STREAMS),
-		localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		parameter [0:0]	OPT_LOWPOWER = 0
 		// }}}
 	) (
 		// {{{
@@ -108,6 +105,10 @@ module	axisswitch #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	localparam	LGNS = $clog2(NUM_STREAMS);
+	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
+
 	wire	i_reset = !S_AXI_ARESETN;
 
 	wire				axil_write_ready;

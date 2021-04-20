@@ -148,6 +148,9 @@ module axisafety #(
 	parameter C_S_AXI_ID_WIDTH	= 1,
 	parameter C_S_AXI_DATA_WIDTH	= 32,
 	parameter C_S_AXI_ADDR_WIDTH	= 16,
+	// OPT_SELF_RESET: Set to true if the downstream slave should be
+	// reset upon detecting an error and separate from the upstream reset
+	// domain
 	parameter [0:0] OPT_SELF_RESET  = 0,
 	//
 	// I use the following abbreviations, IW, DW, and AW, to simplify
@@ -518,7 +521,7 @@ module axisafety #(
 	// the ID of the returned value.
 	//
 	always @(posedge S_AXI_ACLK)
-	if (S_AXI_AWREADY && S_AXI_AWVALID)
+	if (S_AXI_AWVALID && S_AXI_AWREADY)
 	begin
 		// {{{
 		wfifo_id   <= S_AXI_AWID;
@@ -1068,8 +1071,8 @@ module axisafety #(
 		if (M_AXI_RVALID)
 		begin
 			if (M_AXI_ARVALID)
-				// It is a fault to return data apart from a
-				// request.
+				// It is a fault to return data before the
+				// request has been accepted
 				faulty_read_return = 1;
 			if (M_AXI_RID != rfifo_id)
 				// It is a fault to return data from a

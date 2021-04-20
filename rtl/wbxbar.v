@@ -116,10 +116,6 @@ module	wbxbar #(
 		parameter [0:0]	OPT_STARVATION_TIMEOUT = 1'b0
 						&& (OPT_TIMEOUT > 0),
 		//
-		// TIMEOUT_WIDTH is the number of bits in counter used to check
-		// on a timeout.
-		localparam	TIMEOUT_WIDTH = $clog2(OPT_TIMEOUT),
-		//
 		// OPT_DBLBUFFER is used to register all of the outputs, and
 		// thus avoid adding additional combinational latency through
 		// the core that might require a slower clock speed.
@@ -130,18 +126,7 @@ module	wbxbar #(
 		// that could be used to reduce the logic count of the device.
 		// Hence, OPT_LOWPOWER will use more logic, but it won't drive
 		// bus wires unless there's a value to drive onto them.
-		parameter [0:0]	OPT_LOWPOWER = 1'b1,
-		//
-		// LGNM is the log (base two) of the number of bus masters
-		// connecting to this crossbar
-		localparam	LGNM = (NM>1) ? $clog2(NM) : 1,
-		//
-		// LGNM is the log (base two) of the number of slaves plus one
-		// come out of the system.  The extra "plus one" is used for a
-		// pseudo slave representing the case where the given address
-		// doesn't connect to any of the slaves.  This address will
-		// generate a bus error.
-		localparam	LGNS = $clog2(NS+1)
+		parameter [0:0]	OPT_LOWPOWER = 1'b1
 		// }}}
 	) (
 		// {{{
@@ -178,6 +163,21 @@ module	wbxbar #(
 	//
 	// Register declarations
 	// {{{
+	//
+	// TIMEOUT_WIDTH is the number of bits in counter used to check
+	// on a timeout.
+	localparam	TIMEOUT_WIDTH = $clog2(OPT_TIMEOUT);
+	//
+	// LGNM is the log (base two) of the number of bus masters
+	// connecting to this crossbar
+	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
+	//
+	// LGNS is the log (base two) of the number of slaves plus one
+	// come out of the system.  The extra "plus one" is used for a
+	// pseudo slave representing the case where the given address
+	// doesn't connect to any of the slaves.  This address will
+	// generate a bus error.
+	localparam	LGNS = $clog2(NS+1);
 	// At one time I used o_macc and o_sacc to put into the outgoing
 	// trace file, just enough logic to tell me if a transaction was
 	// taking place on the given clock.

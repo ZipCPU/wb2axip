@@ -64,8 +64,6 @@ module wbsafety #(
 		parameter	AW = 28, DW = 32,
 		parameter	OPT_TIMEOUT = 12,
 		parameter	MAX_DEPTH = (OPT_TIMEOUT),
-		localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1),
-		localparam	LGDEPTH   = $clog2(MAX_DEPTH+1),
 		parameter [0:0]	OPT_SELF_RESET = 1'b1,
 		parameter [0:0]	F_OPT_FAULTLESS = 1'b1
 		// }}}
@@ -106,6 +104,8 @@ module wbsafety #(
 
 	// Declarations
 	// {{{
+	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
+	localparam	LGDEPTH   = $clog2(MAX_DEPTH+1);
 	reg			none_expected;
 	reg	[LGDEPTH-1:0]	expected_returns;
 	reg	[LGTIMEOUT-1:0]	stall_timer, wait_timer;

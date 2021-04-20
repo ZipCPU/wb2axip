@@ -114,10 +114,6 @@ module	axilsingle #(
 		parameter integer C_AXI_DATA_WIDTH = 32,
 		localparam integer C_AXI_ADDR_WIDTH = $clog2(NS)+$clog2(C_AXI_DATA_WIDTH)-3,
 		//
-		// AW, and DW, are short-hand abbreviations used locally.
-		localparam	AW = C_AXI_ADDR_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
-		//
 		// LGFLEN specifies the log (based two) of the number of
 		// transactions that may need to be held outstanding internally.
 		// If you really want high throughput, and if you expect any
@@ -177,8 +173,11 @@ module	axilsingle #(
 		input	wire	[NS*2-1:0]		M_AXI_RRESP
 		// }}}
 	);
+
 	//
-	//
+	// AW, and DW, are short-hand abbreviations used locally.
+	localparam	AW = C_AXI_ADDR_WIDTH;
+	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	LGNS = $clog2(NS);
 	//
 	localparam	INTERCONNECT_ERROR = 2'b11;

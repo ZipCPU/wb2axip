@@ -40,45 +40,45 @@ module axiempty #(
 		parameter integer C_AXI_ID_WIDTH	= 2,
 		parameter integer C_AXI_DATA_WIDTH	= 32,
 		// Verilator lint_off UNUSED
-		parameter integer C_AXI_ADDR_WIDTH	= 6,
+		parameter integer C_AXI_ADDR_WIDTH	= 6
 		// Verilator lint_on  UNUSED
 		// Some useful short-hand definitions
 		// localparam	AW = C_AXI_ADDR_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
-		localparam	IW = C_AXI_ID_WIDTH
+		// localparam	DW = C_AXI_DATA_WIDTH
 		// }}}
 	) (
 		// {{{
-		input	wire			S_AXI_ACLK,
-		input	wire			S_AXI_ARESETN,
+		input	wire				S_AXI_ACLK,
+		input	wire				S_AXI_ARESETN,
 		//
-		input	wire			S_AXI_AWVALID,
-		output	wire			S_AXI_AWREADY,
-		input	wire	[IW-1:0]	S_AXI_AWID,
+		input	wire				S_AXI_AWVALID,
+		output	wire				S_AXI_AWREADY,
+		input	wire [C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
 		//
-		input	wire			S_AXI_WVALID,
-		output	wire			S_AXI_WREADY,
-		input	wire			S_AXI_WLAST,
+		input	wire				S_AXI_WVALID,
+		output	wire				S_AXI_WREADY,
+		input	wire				S_AXI_WLAST,
 		//
-		output	wire			S_AXI_BVALID,
-		input	wire			S_AXI_BREADY,
-		output	wire	[IW-1:0]	S_AXI_BID,
-		output	wire	[1:0]		S_AXI_BRESP,
+		output	wire				S_AXI_BVALID,
+		input	wire				S_AXI_BREADY,
+		output	wire [C_AXI_ID_WIDTH-1:0]	S_AXI_BID,
+		output	wire	[1:0]			S_AXI_BRESP,
 		//
-		input	wire			S_AXI_ARVALID,
-		output	wire			S_AXI_ARREADY,
-		input	wire	[IW-1:0]	S_AXI_ARID,
-		input	wire	[7:0]		S_AXI_ARLEN,
+		input	wire				S_AXI_ARVALID,
+		output	wire				S_AXI_ARREADY,
+		input	wire [C_AXI_ID_WIDTH-1:0]	S_AXI_ARID,
+		input	wire	[7:0]			S_AXI_ARLEN,
 		//
-		output	wire			S_AXI_RVALID,
-		input	wire			S_AXI_RREADY,
-		output	wire	[IW-1:0]	S_AXI_RID,
-		output	wire	[DW-1:0]	S_AXI_RDATA,
-		output	wire			S_AXI_RLAST,
-		output	wire	[1:0]		S_AXI_RRESP
+		output	wire				S_AXI_RVALID,
+		input	wire				S_AXI_RREADY,
+		output	wire [C_AXI_ID_WIDTH-1:0]	S_AXI_RID,
+		output	wire [C_AXI_DATA_WIDTH-1:0]	S_AXI_RDATA,
+		output	wire				S_AXI_RLAST,
+		output	wire	[1:0]			S_AXI_RRESP
 		// }}}
 	);
 
+	localparam	IW = C_AXI_ID_WIDTH;
 	// Double buffer the write response channel only
 	reg	[IW-1 : 0]	axi_bid;
 	reg			axi_bvalid;

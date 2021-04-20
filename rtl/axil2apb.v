@@ -40,10 +40,7 @@ module	axil2apb #(
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 32,
 		// OPT_OUTGOING_SKIDBUFFER: required for 50% throughput
-		parameter [0:0]	OPT_OUTGOING_SKIDBUFFER = 1'b0,
-		localparam	AW = C_AXI_ADDR_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
-		localparam	AXILLSB = $clog2(C_AXI_DATA_WIDTH)-3
+		parameter [0:0]	OPT_OUTGOING_SKIDBUFFER = 1'b0
 		// }}}
 	) (
 		// {{{
@@ -95,6 +92,9 @@ module	axil2apb #(
 
 	// Register declarations
 	// {{{
+	localparam	AW = C_AXI_ADDR_WIDTH;
+	localparam	DW = C_AXI_DATA_WIDTH;
+	localparam	AXILLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	wire				awskd_valid, wskd_valid, arskd_valid;
 	reg				axil_write_ready, axil_read_ready,
 					write_grant, apb_idle;
