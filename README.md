@@ -141,7 +141,7 @@ downstream (untrusted) component.
   the bus, and a bus error will be returned for both the errant transaction
   and any following.
 
-  [AXILSAFETY](rtl/axisafety.v) also has a mode where, once a fault has been
+  [AXILSAFETY](rtl/axilsafety.v) also has a mode where, once a fault has been
   detected, the slave is reset and then allowed to return to the bus
   infrastructure again until its next fault.
 
