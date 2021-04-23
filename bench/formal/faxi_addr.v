@@ -2,7 +2,7 @@
 //
 // Filename: 	faxi_addr.v
 // {{{
-// Project:	Pipelined Wishbone to AXI converter
+// Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	The AXI (full) standard has some rather complicated addressing
 //		modes, where the address can either be FIXED, INCRementing, or
@@ -46,22 +46,25 @@
 `default_nettype none
 //
 // }}}
-module	faxi_addr(i_last_addr,
-		i_size,
-		i_burst,
-		i_len,
-		o_incr,
-		o_next_addr);
-	parameter	AW=32;
-	input	wire	[AW-1:0]	i_last_addr;
-	input	wire	[2:0]		i_size; // 1b, 2b, 4b, 8b, etc
-	input	wire	[1:0]		i_burst; // fixed, incr, wrap, reserved
-	input	wire	[7:0]		i_len;
-	output	reg	[7:0]		o_incr;
-	output	reg	[AW-1:0]	o_next_addr;
+module	faxi_addr #(
+		// {{{
+		parameter	AW=32
+		// }}}
+	) (
+		// {{{
+		input	wire	[AW-1:0]	i_last_addr,
+		input	wire	[2:0]		i_size, // 1b, 2b, 4b, 8b, etc
+		input	wire	[1:0]		i_burst, // fixed, incr, wrap, reserved
+		input	wire	[7:0]		i_len,
+		output	reg	[7:0]		o_incr,
+		output	reg	[AW-1:0]	o_next_addr
+		// }}}
+	);
 
 	(* keep *) reg	[AW-1:0]	wrap_mask, increment;
 
+	// increment
+	// {{{
 	always @(*)
 	begin
 		increment = 0;
@@ -82,7 +85,10 @@ module	faxi_addr(i_last_addr,
 			// verilator lint_on WIDTH
 		end
 	end
+	// }}}
 
+	// wrap_mask
+	// {{{
 	always @(*)
 	begin
 		wrap_mask = 0;
@@ -99,7 +105,10 @@ module	faxi_addr(i_last_addr,
 			wrap_mask = wrap_mask - 1;
 		end
 	end
+	// }}}
 
+	// o_next_addr
+	// {{{
 	always @(*)
 	begin
 		o_next_addr = i_last_addr + increment;
@@ -130,11 +139,15 @@ module	faxi_addr(i_last_addr,
 					| (o_next_addr & wrap_mask);
 		end
 	end
+	// }}}
 
+	// o_incr
+	// {{{
 	always @(*)
 	begin
 		o_incr = 0;
 		o_incr[((AW>7)?7:AW-1):0] = increment[((AW>7)?7:AW-1):0];
 	end
+	// }}}
 
 endmodule
