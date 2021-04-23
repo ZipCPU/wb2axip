@@ -400,7 +400,7 @@ module	fwb_master #(
 
 
 	//
-	// Count the number of acknowledgements that have been returned
+	// Count the number of acknowledgements that have been received
 	//
 	initial	f_nacks = 0;
 	always @(posedge i_clk)
@@ -421,8 +421,9 @@ module	fwb_master #(
 	if ((i_wb_cyc)&&(F_MAX_REQUESTS > 0))
 	begin
 		if (i_wb_stb)
+		begin
 			`SLAVE_ASSUME(f_nreqs < F_MAX_REQUESTS);
-		else
+		end else
 			`SLAVE_ASSUME(f_nreqs <= F_MAX_REQUESTS);
 		`SLAVE_ASSERT(f_nacks <= f_nreqs);
 		assert(f_outstanding < (1<<F_LGDEPTH)-1);

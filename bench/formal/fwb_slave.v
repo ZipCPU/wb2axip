@@ -412,8 +412,9 @@ module	fwb_slave #(
 	if ((i_wb_cyc)&&(F_MAX_REQUESTS > 0))
 	begin
 		if (i_wb_stb)
+		begin
 			`SLAVE_ASSUME(f_nreqs < F_MAX_REQUESTS);
-		else
+		end else
 			`SLAVE_ASSUME(f_nreqs <= F_MAX_REQUESTS);
 		`SLAVE_ASSERT(f_nacks <= f_nreqs);
 		assert(f_outstanding < (1<<F_LGDEPTH)-1);
