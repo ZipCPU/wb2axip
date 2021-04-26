@@ -473,21 +473,25 @@ module	axilrd2wbsp #(
 		// }}}
 	) faxil(
 		// {{{
-		i_clk, i_axi_reset_n,
+		.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 		//
 		// AXI write address channel signals
-		1'b0, i_axi_araddr, 4'h0, i_axi_arprot, 1'b0,
+		.i_axi_arvalid(1'b0), .i_axi_arready(1'b0),
+			.i_axi_araddr(i_axi_araddr),
 		// AXI write data channel signals
-		1'b0, 32'h0, 4'h0, 1'b0,
+		.i_axi_wvalid(1'b0), .i_axi_wready(1'b0), .i_axi_wdata(32'h0),
+			.i_axi_wstrb(4'h0),
 		// AXI write response channel signals
-		2'b00, 1'b0, 1'b0,
+		.i_axi_bvalid(1'b0), .i_axi_bready(1'b0), .i_axi_bresp(2'b00),
 		// AXI read address channel signals
-		o_axi_arready, i_axi_araddr, 4'h0, i_axi_arprot,
-			i_axi_arvalid,
+		.i_axi_arvalid(i_axi_arvalid), .i_axi_arready(o_axi_arready),
+			.i_axi_araddr(i_axi_araddr),.i_axi_arprot(i_axi_arprot),
 		// AXI read data channel signals
-		o_axi_rresp, o_axi_rvalid, o_axi_rdata, i_axi_rready,
-		f_axi_rd_outstanding, f_axi_wr_outstanding,
-		f_axi_awr_outstanding
+		.i_axi_rvalid(o_axi_rvalid), .i_axi_rready(i_axi_rready),
+			.i_axi_rdata(o_axi_rdata), .i_axi_rresp(o_axi_rresp),
+		.f_axi_rd_outstanding(f_axi_rd_outstanding),
+		.f_axi_wr_outstanding(f_axi_wr_outstanding),
+		.f_axi_awr_outstanding(f_axi_awr_outstanding)
 		// }}}
 	);
 

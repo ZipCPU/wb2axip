@@ -51,8 +51,8 @@
 //
 `timescale 1 ns / 1 ps
 // }}}
-module	demoaxi
-	#(
+module	demoaxi #(
+		// {{{
 		// Users to add parameters here
 		parameter [0:0] OPT_READ_SIDEEFFECTS = 1,
 		// User parameters ends
@@ -61,7 +61,9 @@ module	demoaxi
 		parameter integer C_S_AXI_DATA_WIDTH	= 32,
 		// Width of S_AXI address bus
 		parameter integer C_S_AXI_ADDR_WIDTH	= 8
+		// }}}
 	) (
+		// {{{
 		// Users to add ports here
 		// No user ports (yet) in this design
 		// User ports ends
@@ -127,8 +129,11 @@ module	demoaxi
 		// Read ready. This signal indicates that the master can
     		// accept the read data and response information.
 		input wire  S_AXI_RREADY
+		// }}}
 	);
 
+	// Local declarations
+	// {{{
 	// AXI4LITE signals
 	reg		axi_awready;
 	reg		axi_wready;
@@ -161,7 +166,7 @@ module	demoaxi
 	assign S_AXI_RRESP	= 2'b00; // The OKAY response
 	assign S_AXI_RVALID	= axi_rvalid;
 	// Implement axi_*wready generation
-
+	// }}}
 	//////////////////////////////////////
 	//
 	// Read processing
@@ -391,6 +396,7 @@ module	demoaxi
 `ifdef	FORMAL
 	localparam	F_LGDEPTH = 4;
 
+	reg	f_past_valid;
 	wire	[(F_LGDEPTH-1):0]	f_axi_awr_outstanding,
 					f_axi_wr_outstanding,
 					f_axi_rd_outstanding;
@@ -405,37 +411,34 @@ module	demoaxi
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
-		.i_axi_awaddr(S_AXI_AWADDR),
-		.i_axi_awcache(4'h0),
-		.i_axi_awprot(S_AXI_AWPROT),
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
+		.i_axi_awaddr(S_AXI_AWADDR),
+		.i_axi_awprot(S_AXI_AWPROT),
 		//
-		.i_axi_wdata(S_AXI_WDATA),
-		.i_axi_wstrb(S_AXI_WSTRB),
 		.i_axi_wvalid(S_AXI_WVALID),
 		.i_axi_wready(S_AXI_WREADY),
+		.i_axi_wdata(S_AXI_WDATA),
+		.i_axi_wstrb(S_AXI_WSTRB),
 		//
-		.i_axi_bresp(S_AXI_BRESP),
 		.i_axi_bvalid(S_AXI_BVALID),
 		.i_axi_bready(S_AXI_BREADY),
+		.i_axi_bresp(S_AXI_BRESP),
 		//
-		.i_axi_araddr(S_AXI_ARADDR),
-		.i_axi_arprot(S_AXI_ARPROT),
-		.i_axi_arcache(4'h0),
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
+		.i_axi_araddr(S_AXI_ARADDR),
+		.i_axi_arprot(S_AXI_ARPROT),
 		//
-		.i_axi_rdata(S_AXI_RDATA),
-		.i_axi_rresp(S_AXI_RRESP),
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),
+		.i_axi_rdata(S_AXI_RDATA),
+		.i_axi_rresp(S_AXI_RRESP),
 		//
 		.f_axi_rd_outstanding(f_axi_rd_outstanding),
 		.f_axi_wr_outstanding(f_axi_wr_outstanding),
 		.f_axi_awr_outstanding(f_axi_awr_outstanding));
 
-	reg	f_past_valid;
 	initial	f_past_valid = 1'b0;
 	always @(posedge S_AXI_ACLK)
 		f_past_valid <= 1'b1;

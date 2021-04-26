@@ -498,7 +498,6 @@ module	axil2apb #(
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awaddr(S_AXI_AWADDR),
 		.i_axi_awprot(S_AXI_AWPROT),
-		.i_axi_awcache(4'h0),
 		//
 		.i_axi_wready(S_AXI_WREADY),
 		.i_axi_wdata(S_AXI_WDATA),
@@ -513,7 +512,6 @@ module	axil2apb #(
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_araddr(S_AXI_ARADDR),
 		.i_axi_arprot(S_AXI_ARPROT),
-		.i_axi_arcache(4'h0),
 		//
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),

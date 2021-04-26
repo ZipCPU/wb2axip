@@ -537,21 +537,27 @@ module	axilwr2wbsp #(
 		// }}}
 	) faxil(
 		// {{{
-		i_clk, i_axi_reset_n,
+		.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 		//
 		// AXI write address channel signals
-		o_axi_awready, i_axi_awaddr, 4'h0, i_axi_awprot, i_axi_awvalid,
+		.i_axi_awvalid(i_axi_awvalid), .i_axi_awready(o_axi_awready),
+			.i_axi_awaddr(i_axi_awaddr),.i_axi_awprot(i_axi_awprot),
 		// AXI write data channel signals
-		o_axi_wready, i_axi_wdata, i_axi_wstrb, i_axi_wvalid,
+		.i_axi_wvalid(i_axi_wvalid), .i_axi_wready(o_axi_wready),
+			.i_axi_wdata(i_axi_wdata), .i_axi_wstrb(i_axi_wstrb),
 		// AXI write response channel signals
-		o_axi_bresp, o_axi_bvalid, i_axi_bready,
+		.i_axi_bvalid(o_axi_bvalid), .i_axi_bready(i_axi_bready),
+			.i_axi_bresp(o_axi_bresp),
 		// AXI read address channel signals
-		1'b0, i_axi_awaddr, 4'h0, i_axi_awprot,
-			1'b0,
+		.i_axi_arvalid(1'b0), .i_axi_arready(1'b0),
+			.i_axi_araddr(i_axi_awaddr),.i_axi_arprot(i_axi_awprot),
 		// AXI read data channel signals
-		o_axi_bresp, 1'b0, {(DW){1'b0}}, 1'b0,
-		f_axi_rd_outstanding, f_axi_wr_outstanding,
-		f_axi_awr_outstanding
+		.i_axi_rvalid(1'b0), .i_axi_rready(1'b0),
+			.i_axi_rdata({(DW){1'b0}}),
+			.i_axi_rresp(2'b00),
+		.f_axi_rd_outstanding(f_axi_rd_outstanding),
+		.f_axi_wr_outstanding(f_axi_wr_outstanding),
+		.f_axi_awr_outstanding(f_axi_awr_outstanding)
 		// }}}
 	);
 
@@ -565,9 +571,12 @@ module	axilwr2wbsp #(
 	always @(*)
 		assert(f_axi_awr_outstanding - (r_awvalid ? 1:0) == f_fifo_fill);
 	always @(*)
-		if (r_wvalid)  assert(f_axi_wr_outstanding > 0);
+	if (r_wvalid)
+		assert(f_axi_wr_outstanding > 0);
+
 	always @(*)
-		if (r_awvalid) assert(f_axi_awr_outstanding > 0);
+	if (r_awvalid)
+		assert(f_axi_awr_outstanding > 0);
 
 	assign	f_mid_minus_err  = f_mid - err_loc;
 	assign	f_err_minus_last = err_loc - f_last;

@@ -183,14 +183,6 @@ module	axilupsz #(
 			.o_data({ awskd_addr, awskd_prot })
 			// }}}
 		);
-
-`ifdef	FORMAL
-		// {{{
-		always @(*)
-		if (awskd_valid)
-			assert(awskd_prot == 3'h0);
-		// }}}
-`endif
 		// }}}
 
 		skidbuffer #(
@@ -462,7 +454,6 @@ module	axilupsz #(
 			.i_axi_awready(S_AXIL_AWREADY),
 			.i_axi_awaddr( S_AXIL_AWADDR),
 			.i_axi_awprot( S_AXIL_AWPROT),
-			.i_axi_awcache(4'h0),
 			//
 			.i_axi_wvalid(S_AXIL_WVALID),
 			.i_axi_wready(S_AXIL_WREADY),
@@ -477,7 +468,6 @@ module	axilupsz #(
 			.i_axi_arready(S_AXIL_ARREADY),
 			.i_axi_araddr( S_AXIL_ARADDR),
 			.i_axi_arprot( S_AXIL_ARPROT),
-			.i_axi_arcache(4'h0),
 			//
 			.i_axi_rvalid(S_AXIL_RVALID),
 			.i_axi_rready(S_AXIL_RREADY),
@@ -509,7 +499,6 @@ module	axilupsz #(
 			.i_axi_awready(M_AXIL_AWREADY),
 			.i_axi_awaddr( M_AXIL_AWADDR),
 			.i_axi_awprot( M_AXIL_AWPROT),
-			.i_axi_awcache(4'h0),
 			//
 			.i_axi_wvalid(M_AXIL_WVALID),
 			.i_axi_wready(M_AXIL_WREADY),
@@ -524,7 +513,6 @@ module	axilupsz #(
 			.i_axi_arready(M_AXIL_ARREADY),
 			.i_axi_araddr( M_AXIL_ARADDR),
 			.i_axi_arprot( M_AXIL_ARPROT),
-			.i_axi_arcache(4'h0),
 			//
 			.i_axi_rvalid(M_AXIL_RVALID),
 			.i_axi_rready(M_AXIL_RREADY),

@@ -374,8 +374,8 @@ throughput capabilities.
   DMA controller.  Give it a pointer to a table of DMA descriptors, and it
   will issue commands to the DMA until the table is complete.
 
-  This core has not yet been verified in any manner, and is likely to still
-  contain many bugs within it until that time.  Use it at your own risk.
+  Both the [internal FSM](rtl/axisgfsm.v) and the [table reader](rtl/axilfetch.v) have been separately verified.  The [AXISGDMA](rtl/axisgdma.v) has not yet
+  been verified.
 
 - [AXIVCAMERA](rtl/axivcamera.v) is a AXI-based frame-buffer writer.  Given
   an AXI-stream video source, a frame start address, the number of lines in the

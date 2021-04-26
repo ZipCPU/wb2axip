@@ -350,31 +350,29 @@ module wbm2axilite #(
 		f_axil(.i_clk(i_clk),
 			.i_axi_reset_n((!i_reset)&&(!axi_reset_state)),
 			// Write address channel
+			.i_axi_awvalid(o_axi_awvalid), 
 			.i_axi_awready(i_axi_awready), 
 			.i_axi_awaddr( o_axi_awaddr), 
-			.i_axi_awcache(4'h0), 
 			.i_axi_awprot( o_axi_awprot), 
-			.i_axi_awvalid(o_axi_awvalid), 
 			// Write data channel
+			.i_axi_wvalid( o_axi_wvalid),
 			.i_axi_wready( i_axi_wready),
 			.i_axi_wdata(  o_axi_wdata),
 			.i_axi_wstrb(  o_axi_wstrb),
-			.i_axi_wvalid( o_axi_wvalid),
 			// Write response channel
-			.i_axi_bresp(  i_axi_bresp),
 			.i_axi_bvalid( i_axi_bvalid),
 			.i_axi_bready( o_axi_bready),
+			.i_axi_bresp(  i_axi_bresp),
 			// Read address channel
+			.i_axi_arvalid(o_axi_arvalid),
 			.i_axi_arready(i_axi_arready),
 			.i_axi_araddr( o_axi_araddr),
-			.i_axi_arcache(4'h0),
 			.i_axi_arprot( o_axi_arprot),
-			.i_axi_arvalid(o_axi_arvalid),
 			// Read data channel
-			.i_axi_rresp(  i_axi_rresp),
 			.i_axi_rvalid( i_axi_rvalid),
-			.i_axi_rdata(  i_axi_rdata),
 			.i_axi_rready( o_axi_rready),
+			.i_axi_rdata(  i_axi_rdata),
+			.i_axi_rresp(  i_axi_rresp),
 			// Counts
 			.f_axi_rd_outstanding( f_axi_rd_outstanding),
 			.f_axi_wr_outstanding( f_axi_wr_outstanding),

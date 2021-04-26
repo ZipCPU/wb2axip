@@ -1085,7 +1085,6 @@ module axilsafety #(
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awaddr( S_AXI_AWADDR),
 		.i_axi_awprot( S_AXI_AWPROT),
-		.i_axi_awcache(4'h0),
 		//
 		.i_axi_wvalid(S_AXI_WVALID),
 		.i_axi_wready(S_AXI_WREADY),
@@ -1100,7 +1099,6 @@ module axilsafety #(
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_araddr( S_AXI_ARADDR),
 		.i_axi_arprot( S_AXI_ARPROT),
-		.i_axi_arcache(4'h0),
 		//
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),
@@ -1215,7 +1213,6 @@ module axilsafety #(
 			.i_axi_awready(M_AXI_AWREADY),
 			.i_axi_awaddr( M_AXI_AWADDR),
 			.i_axi_awprot( M_AXI_AWPROT),
-			.i_axi_awcache(4'h0),
 			//
 			.i_axi_wvalid(M_AXI_WVALID),
 			.i_axi_wready(M_AXI_WREADY),
@@ -1230,7 +1227,6 @@ module axilsafety #(
 			.i_axi_arready(M_AXI_ARREADY),
 			.i_axi_araddr( M_AXI_ARADDR),
 			.i_axi_arprot( M_AXI_ARPROT),
-			.i_axi_arcache(4'h0),
 			//
 			.i_axi_rvalid(M_AXI_RVALID),
 			.i_axi_rready(M_AXI_RREADY),

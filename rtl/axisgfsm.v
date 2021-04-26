@@ -77,7 +77,9 @@
 module	axisgfsm #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 30,
+		// Verilator lint_off UNUSED
 		parameter	C_AXI_DATA_WIDTH = 32,
+		// Verilator lint_on  UNUSED
 		localparam DMAC_ADDR_WIDTH = 5,
 		localparam DMAC_DATA_WIDTH = 32,
 		//
@@ -161,6 +163,7 @@ module	axisgfsm #(
 
 	// DMA device internal addresses
 	// {{{
+	// Verilator lint_off UNUSED
 	localparam [4:0]	DMA_CONTROL= 5'b00000,
 				DMA_UNUSED = 5'b00100,
 				DMA_SRCLO  = 5'b01000,
@@ -169,6 +172,7 @@ module	axisgfsm #(
 				DMA_DSTHI  = 5'b10100,
 				DMA_LENLO  = 5'b11000,
 				DMA_LENHI  = 5'b11100;
+	// Verilator lint_on  UNUSED
 	// }}}
 
 	localparam [C_AXI_ADDR_WIDTH-1:0] TBL_SIZE
@@ -180,7 +184,8 @@ module	axisgfsm #(
 	// {{{
 	reg		tbl_last, tbl_int_enable;
 	reg	[2:0]	sgstate;
-	reg		dma_err, dma_abort, dma_done, dma_busy;
+	reg		dma_err, dma_abort, dma_done, dma_busy, dma_starting,
+			dma_aborting;
 	reg	[59:0]	r_pf_pc;
 	// }}}
 
@@ -191,6 +196,8 @@ module	axisgfsm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	reg	dma_op_complete, dma_terminate;
 
 	// o_pf_ready
 	// {{{
@@ -234,6 +241,27 @@ module	axisgfsm #(
 		dma_abort = i_dmac_rdata[3];
 		dma_done  = i_dmac_rdata[1];
 		dma_busy  = i_dmac_rdata[0];
+	end
+	// }}}
+
+	// dma_op_complete
+	// {{{
+	always @(*)
+	if (dma_busy || dma_starting || (o_dmac_wvalid && !i_dmac_wready))
+		dma_op_complete = 0;
+	else
+		dma_op_complete = (!o_dmac_wvalid || !o_dmac_wstrb[0]);
+	// }}}
+
+	// dma_terminate
+	// {{{
+	always @(*)
+	begin
+		dma_terminate = 0;
+		if (i_abort || tbl_last || dma_aborting)
+			dma_terminate = 1;
+		if (dma_err || i_pf_illegal)
+			dma_terminate = 1;
 	end
 	// }}}
 
@@ -297,7 +325,7 @@ module	axisgfsm #(
 			// {{{
 			if (i_pf_valid && o_pf_ready)
 			begin
-			o_dmac_wvalid <= i_pf_valid && !i_pf_insn[31];
+			o_dmac_wvalid <= !i_pf_insn[31];
 			o_dmac_waddr  <= (C_AXI_ADDR_WIDTH<=30)
 						? DMA_SRCLO : DMA_SRCHI;
 			o_dmac_wdata  <= i_pf_insn;
@@ -372,10 +400,14 @@ module	axisgfsm #(
 			sgstate    <= SG_CONTROL;
 			if (i_pf_insn <= 0)
 			begin
+				o_dmac_wvalid <= 1'b0;
 				if (tbl_last)
 				begin
 					sgstate    <= SG_IDLE;
 					o_new_pc   <= 1'b0;
+					o_busy     <= 1'b0;
+					o_done     <= 1'b1;
+					o_pf_clear_cache <= 1'b1;
 				end else begin
 					sgstate    <= SG_SRCADDR;
 					o_new_pc   <= 1'b1;
@@ -402,22 +434,18 @@ module	axisgfsm #(
 			// }}}
 		SG_WAIT: // Wait for the DMA transfer to complete
 			// {{{
-			if (i_dma_complete && !o_dmac_wvalid)
+			if (dma_op_complete)
 			begin
 				// o_int <= int_enable;
-				if (tbl_last || (dma_err && !o_busy)
-							|| i_pf_illegal)
+				r_pf_pc[C_AXI_ADDR_WIDTH-1:0] <= o_tbl_addr;
+				if (dma_terminate)
 				begin
 					o_pf_clear_cache <= 1'b1;
 					sgstate <= SG_IDLE;
 					o_busy <= 1'b0;
 					o_done <= 1'b1;
 					o_err  <= dma_err || dma_abort;
-					if (!i_pf_illegal)
-						// Halt at the beginning
-						// of the TBL
-						r_pf_pc[C_AXI_ADDR_WIDTH-1:0] <= o_tbl_addr;
-					else
+					if (i_pf_illegal)
 						r_pf_pc[C_AXI_ADDR_WIDTH-1:0] <= i_pf_pc;
 				end else if (C_AXI_ADDR_WIDTH > 30)
 					sgstate <= SG_SRCHALF;
@@ -445,10 +473,18 @@ module	axisgfsm #(
 			// {{{
 			o_dmac_wstrb <= 4'h8;
 			o_dmac_wdata[31:24] <= ABORT_KEY;
-			o_dmac_wvalid <= !dma_abort && (sgstate == SG_WAIT);
+			o_dmac_wvalid <= o_dmac_wstrb[0] && dma_busy
+					&& !dma_err && (sgstate == SG_WAIT);
 			// }}}
-			if (!dma_busy)
+			if (!dma_busy && (sgstate != SG_WAIT))
+			begin
 				sgstate <= SG_IDLE;
+				o_done  <= 1'b1;
+				o_new_pc<= 1'b0;
+				o_busy  <= 1'b0;
+				o_dmac_wvalid <= 1'b0;
+				o_pf_clear_cache  <= 1'b1;
+			end
 		end
 
 		if (!S_AXI_ARESETN)
@@ -467,11 +503,50 @@ module	axisgfsm #(
 
 		r_pf_pc[60-1:C_AXI_ADDR_WIDTH] <= 0;
 	end
+	// }}}
+
+	// dma_starting
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		dma_starting <= 0;
+	else if (sgstate != SG_WAIT)
+		dma_starting <= 0;
+	else if (!o_dmac_wvalid || o_dmac_waddr != DMA_CONTROL)
+		dma_starting <= 0;
+	else
+		dma_starting <= o_dmac_wdata[0] && o_dmac_wstrb[0];
 
 	always @(*)
 		o_pf_pc = { r_pf_pc[C_AXI_ADDR_WIDTH-1:2], 2'b00 };
 	// }}}
 
+	// dma_aborting
+	// {{{
+	initial	dma_aborting = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		dma_aborting <= 0;
+	else if (sgstate != SG_WAIT)
+		dma_aborting <= 0;
+	else if (!dma_aborting)
+	begin
+		if (i_abort)
+			dma_aborting <= 1;
+	end else if (!dma_busy && !dma_starting && (!o_dmac_wvalid
+					|| (i_dmac_wready && !o_dmac_wstrb[0])))
+		dma_aborting <= 0;
+`ifdef	FORMAL
+	always @(*)
+	if (S_AXI_ARESETN)
+	begin
+		if (o_dmac_wvalid && !o_dmac_wstrb[0])
+			assert(dma_aborting);
+		if (sgstate != SG_WAIT && sgstate != SG_IDLE)
+			assert(!dma_aborting);
+	end
+`endif
+	// }}}
 	// }}}
 
 	// Make Verilator happy
@@ -498,16 +573,19 @@ module	axisgfsm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	localparam	F_LGDEPTH = 4;
-	reg	f_past_valid;
+	// Verilator lint_off UNDRIVEN
 	(* anyseq *) reg [TBL_SIZE*8-1:0] f_tblentry;
-	reg	[C_AXI_ADDR_WIDTH-1 :0]	f_tbladdr, f_pc;
 	(* anyconst *) reg		f_never_abort;
-	// (* anyconst *) reg [C_AXI_ADDR_WIDTH-1:0]	f_skip_addr;
+	(* anyseq *)	reg	f_dma_complete;
+	// Verilator lint_on  UNDRIVEN
+	reg	f_past_valid;
+	reg	[C_AXI_ADDR_WIDTH-1 :0]	f_tbladdr, f_pc;
 	reg				f_tbl_last, f_tbl_skip, f_tbl_jump,
 					f_tbl_int_enable;
-	reg	[C_AXI_ADDR_WIDTH-1:0]	f_tbl_src;
-	reg				f_dma_arvalid, f_dma_arready,
-					f_dma_awready;
+	// reg	[C_AXI_ADDR_WIDTH-1:0]	f_tbl_src;
+	reg				f_dma_arvalid, f_dma_arready;
+			reg	f_dma_busy;
+
 
 
 	initial	f_past_valid = 0;
@@ -562,10 +640,12 @@ module	axisgfsm #(
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || $past(!S_AXI_ARESETN || o_new_pc
 				|| o_pf_clear_cache))
+	begin
 		assume(!i_pf_illegal);
-	else if (!$rose(i_pf_valid))
+	end else if (!$rose(i_pf_valid))
+	begin
 		assume(!$rose(i_pf_illegal));
-	else
+	end else
 		assume($stable(i_pf_illegal));
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -577,58 +657,70 @@ module	axisgfsm #(
 	//
 	reg	[F_LGDEPTH-1:0]	fdma_rd_outstanding, fdma_wr_outstanding,
 				fdma_awr_outstanding;
-	reg			f_dma_bvalid;
+	reg			f_dma_bvalid, f_dma_rvalid;
 
 	faxil_master #(
-		.C_AXI_DATA_WIDTH(32),
+		// {{{
+		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(DMAC_ADDR_WIDTH),
 		.F_OPT_BRESP(1'b1),
 		.F_OPT_RRESP(1'b0),
 		.F_OPT_NO_RESET(1'b1),
 		.F_LGDEPTH(F_LGDEPTH)
+		// }}}
 	) faxi(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_axi_reset_n(S_AXI_ARESETN),
 		//
+		.i_axi_awvalid(o_dmac_wvalid),
 		.i_axi_awready(i_dmac_wready),
 		.i_axi_awaddr(o_dmac_waddr),
 		.i_axi_awcache(4'h0),
 		.i_axi_awprot( 3'h0),
-		.i_axi_awvalid(o_dmac_wvalid),
 		//
+		.i_axi_wvalid(o_dmac_wvalid),
 		.i_axi_wready(i_dmac_wready),
 		.i_axi_wdata( o_dmac_wdata),
 		.i_axi_wstrb( o_dmac_wstrb),
-		.i_axi_wvalid(o_dmac_wvalid),
 		//
+		.i_axi_bvalid(f_dma_bvalid),
 		.i_axi_bready(1'b1),
 		.i_axi_bresp( 2'b00),
-		.i_axi_bvalid(f_dma_bvalid),
 		//
+		.i_axi_arvalid(f_dma_arvalid),
 		.i_axi_arready(f_dma_arready),
 		.i_axi_araddr(DMA_CONTROL),
 		.i_axi_arcache(4'h0),
 		.i_axi_arprot(3'h0),
-		.i_axi_arvalid(f_dma_arvalid),
 		//
-		.i_axi_rresp(2'b00),
-		.i_axi_rvalid(f_dma_arvalid),
-		.i_axi_rdata(i_dmac_rdata),
+		.i_axi_rvalid(f_dma_rvalid),
 		.i_axi_rready(1'b1),
+		.i_axi_rresp(2'b00),
+		.i_axi_rdata(i_dmac_rdata),
 		//
 		.f_axi_rd_outstanding(fdma_rd_outstanding),
 		.f_axi_wr_outstanding(fdma_wr_outstanding),
 		.f_axi_awr_outstanding(fdma_awr_outstanding)
+		// }}}
 	);
 
 	initial	f_dma_arvalid = 1'b0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
-		f_dma_arvalid = 1'b0;
+		f_dma_arvalid <= 1'b0;
 	else
 		f_dma_arvalid <= 1'b1;
 
 	always @(*)
 		f_dma_arready = 1'b1;
+
+	always @(*)
+	if (S_AXI_ARESETN)
+	begin
+		assert(fdma_awr_outstanding == fdma_wr_outstanding);
+		assert(fdma_wr_outstanding == (f_dma_bvalid ? 1:0));
+		assert(fdma_rd_outstanding <= 1);
+	end
 
 	assert property (@(posedge S_AXI_ACLK)
 		!S_AXI_ARESETN
@@ -654,6 +746,15 @@ module	axisgfsm #(
 		f_dma_bvalid <= 1;
 	else
 		f_dma_bvalid <= 0;
+
+	initial	f_dma_rvalid = 1'b0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN)
+		f_dma_rvalid <= 0;
+	else if (f_dma_arvalid)
+		f_dma_rvalid <= 1;
+	else
+		f_dma_rvalid <= 0;
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -662,9 +763,6 @@ module	axisgfsm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-
-			reg	f_dma_busy;
-	(* anyseq *)	reg	f_dma_complete;
 
 	initial	f_dma_busy = 0;
 	always @(posedge S_AXI_ACLK)
@@ -676,13 +774,51 @@ module	axisgfsm #(
 	else if (f_dma_busy)
 		f_dma_busy <= !f_dma_complete;
 
-	assume property (@(posedge S_AXI_ACLK)
-		##1 dma_busy == $past(f_dma_busy));
-	assume property (@(posedge S_AXI_ACLK)
-		!f_dma_busy |-> !f_dma_complete);
+	always @(*)
+	if (S_AXI_ARESETN)
+	begin
+		if (sgstate != SG_WAIT)
+			assert(!f_dma_busy);
+		else if (o_dmac_wvalid && !dma_aborting)
+			assert(!f_dma_busy);
+	end
+
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && S_AXI_ARESETN && $past(f_dma_busy))
+		assert(!dma_starting);
+
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid)
+	begin
+		assume(dma_busy == $past(f_dma_busy));
+		assume(i_dma_complete == $past(f_dma_complete));
+	end
+
+	always @(*)
+	if (!f_dma_busy)
+		assume(!f_dma_complete);
 
 	assume property (@(posedge S_AXI_ACLK)
-		##1 i_dma_complete == $past(f_dma_complete));
+		disable iff (!S_AXI_ARESETN)
+		!dma_busy ##1 !dma_busy |-> !$rose(dma_err)
+	);
+
+	assume property (@(posedge S_AXI_ACLK)
+		disable iff (!S_AXI_ARESETN)
+		$rose(dma_busy) |=> !dma_err);
+
+	assume property (@(posedge S_AXI_ACLK)
+		disable iff (!S_AXI_ARESETN)
+		o_dmac_wvalid && i_dmac_wready && o_dmac_wstrb[0]
+				&& o_dmac_wdata[4]
+		|=> ##1 !dma_err);
+
+	assume property (@(posedge S_AXI_ACLK)
+		disable iff (!S_AXI_ARESETN)
+		!o_dmac_wvalid || !i_dmac_wready || !o_dmac_wstrb[0]
+				|| !o_dmac_wdata[4]
+		|=> ##1 !$fell(dma_err));
+
 
 //	assume property (@(posedge S_AXI_ACLK)
 //		dma_busy |=> dma_busy [*0:$]
@@ -698,15 +834,14 @@ module	axisgfsm #(
 	//
 	//
 
-	always @(*)
-		f_tbl_src = f_tblentry[C_AXI_ADDR_WIDTH-1:0];
 
 	always @(*)
 	if (o_new_pc)
 	begin
 		if (C_AXI_ADDR_WIDTH <= 30)
+		begin
 			assert(sgstate == SG_SRCADDR);
-		else
+		end else
 			assert(sgstate == SG_SRCHALF);
 	end
 
@@ -730,14 +865,23 @@ module	axisgfsm #(
 	end endgenerate
 
 	always @(posedge S_AXI_ACLK)
-	if (S_AXI_ARESETN
-		&& (sgstate != SG_IDLE)
-			&&(sgstate != SG_SRCADDR || $stable(sgstate)))
-		assume($stable(f_tblentry));
+	if (S_AXI_ARESETN && (sgstate != SG_IDLE))
+	begin
+		if ($stable(sgstate))
+		begin
+			assume($stable(f_tblentry));
+		end else if ((C_AXI_ADDR_WIDTH > 30)&&(sgstate != SG_SRCHALF))
+		begin
+			assume($stable(f_tblentry));
+		end else if ((C_AXI_ADDR_WIDTH <= 30)&&(sgstate != SG_SRCADDR))
+			assume($stable(f_tblentry));
+	end
 
 	always @(posedge S_AXI_ACLK)
 	if (o_new_pc)
 		f_tbladdr <= o_pf_pc;
+	else if (sgstate == SG_WAIT && dma_op_complete && !dma_terminate)
+		f_tbladdr <= f_tbladdr + TBL_SIZE;
 
 	assert property (@(posedge S_AXI_ACLK)
 		disable iff (!S_AXI_ARESETN)
@@ -764,12 +908,19 @@ module	axisgfsm #(
 		// SG_LENGTH:	begin end
 		// SG_CONTROL:	begin end
 		// SG_WAIT:	begin end
-		SG_SRCADDR: assume(i_pf_insn == f_tblentry[31:0]
+		SG_SRCADDR: begin
+			assume(i_pf_insn == f_tblentry[31:0]
 				&&(i_pf_pc == f_tbladdr));
-		SG_DSTADDR: assume(i_pf_insn == f_tblentry[63:32]
+			end
+		SG_DSTADDR: begin
+			assume(i_pf_insn == f_tblentry[63:32]
 				&&(i_pf_pc == f_tbladdr + 4));
-		SG_LENGTH: assume(i_pf_insn == f_tblentry[95:64]
+			end
+		SG_LENGTH: begin
+			assume(i_pf_insn == f_tblentry[95:64]
 				&&(i_pf_pc == f_tbladdr + 8));
+			end
+		default: begin end
 		endcase
 
 		assert property (@(posedge S_AXI_ACLK)
@@ -782,7 +933,7 @@ module	axisgfsm #(
 
 		initial	f_dma_seq = 0;
 		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN || i_abort)
+		if (!S_AXI_ARESETN)
 			f_dma_seq <= 0;
 		else begin
 
@@ -820,8 +971,9 @@ module	axisgfsm #(
 					// Check the jump address
 					// if ($past(i_pf_insn[31:30] == 2'b11))
 					if ($past(f_tbl_jump))
+					begin
 						assert(o_pf_pc == { $past(i_pf_insn[C_AXI_ADDR_WIDTH-1:2]), 2'b00 });
-					else // Skip
+					end else // Skip
 						assert(o_pf_pc == $past(f_tbladdr + TBL_SIZE));
 				end
 			end
@@ -866,7 +1018,16 @@ module	axisgfsm #(
 				// assert(f_pc == o_pf_pc + 8);
 				f_dma_seq <= 4;
 				if (i_pf_valid && o_pf_ready)
-					f_dma_seq <= 8;
+				begin
+					if (i_pf_insn == 0)
+					begin
+						if (tbl_last)
+							f_dma_seq <= 0;
+						else
+							f_dma_seq <= 1;
+					end else
+						f_dma_seq <= 8;
+				end
 			end
 			// }}}
 
@@ -883,6 +1044,7 @@ module	axisgfsm #(
 				assert(&o_dmac_wstrb);
 				assert(!dma_busy);
 				assert(o_pf_pc == f_tbladdr);
+				assert(f_pc == f_tbladdr + TBL_SIZE);
 				// assert(f_pc == o_pf_pc);
 				f_dma_seq <= 8;
 				if (i_dmac_wready)
@@ -903,6 +1065,7 @@ module	axisgfsm #(
 				assert(&o_dmac_wstrb);
 				assert(!dma_busy);
 				assert(o_pf_pc == f_tbladdr);
+				assert(f_pc == f_tbladdr + TBL_SIZE);
 				// assert(f_pc == o_pf_pc);
 				f_dma_seq <= 16;
 				if (o_dmac_wvalid && i_dmac_wready)
@@ -915,31 +1078,46 @@ module	axisgfsm #(
 			if (f_dma_seq[5])
 			begin
 				assert(sgstate == SG_WAIT);
-				assert(!o_dmac_wvalid);
 				assert(tbl_last == f_tbl_last);
 				assert(o_tbl_addr == f_tbladdr + TBL_SIZE);
-				assert(!o_dmac_wvalid);
 				assert(o_dmac_waddr == DMA_CONTROL);
 				// assert(o_dmac_wdata == f_tblentry[95:64]);
-				assert(&o_dmac_wstrb);
+				if (f_never_abort)
+				begin
+					assert(&o_dmac_wstrb);
+					assert(!o_dmac_wvalid);
+				end else
+					assert(o_dmac_wstrb == 4'h8
+						|| o_dmac_wstrb == 4'hf);
+				if (o_dmac_wvalid)
+					assert(!o_dmac_wstrb[0]);
 				f_dma_seq <= 32;
 				assert(o_pf_pc == f_tbladdr);
+				assert(f_pc == f_tbladdr + TBL_SIZE);
 				// assert(f_pc == o_pf_pc);
-				if (i_dma_complete)
-					f_dma_seq <= 0;
+				// if (tbl_last || (dma_err && !o_busy)
+				//			|| i_pf_illegal)
+				if (dma_op_complete)
+				begin
+					if (dma_terminate)
+							// (dma_err && !o_busy))
+						f_dma_seq <= 0;
+					else
+						f_dma_seq <= 1;
+				end
 			end
 			// }}}
 
 			// pf_illegal
 			// {{{
-			if (f_dma_seq[2:0] && i_pf_illegal)
+			if ((|f_dma_seq[2:0]) && i_pf_illegal)
 				f_dma_seq <= 0;
 			// }}}
 
 			// i_abort
-			// if (f_dma_seq[2:0] && i_abort
-			//		&& (!o_dmac_wvalid || i_dmac_wready))
-			//	f_dma_seq <= 0;
+			if ((|f_dma_seq[3:0]) && i_abort
+					&& (!o_dmac_wvalid || i_dmac_wready))
+				f_dma_seq <= 0;
 		end
 
 		always @(*)
@@ -959,19 +1137,26 @@ module	axisgfsm #(
 			assert(!dma_busy);
 		end
 
-		cover property (@(posedge S_AXI_ACLK)
-			f_dma_seq[5]);
+		cover property (@(posedge S_AXI_ACLK) S_AXI_ARESETN); // !!!
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq == 0 && S_AXI_ARESETN); // !!!
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq == 0 && S_AXI_ARESETN && !i_abort); // !!!
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq == 0 && S_AXI_ARESETN && !i_abort && i_start); // !!!
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq[1]);
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq[2]);
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq[3]);
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq[4]);	// !!!
+		cover property (@(posedge S_AXI_ACLK) f_dma_seq[5]);	// !!!
 
-		cover property (@(posedge S_AXI_ACLK)
-			disable iff (!S_AXI_ARESETN || i_abort || i_pf_illegal
-				|| dma_err)
-			f_dma_seq[0] ##1 1[*0:$] ##1 f_dma_seq[5]
-			##1 f_dma_seq == 0);	// !!!
+//		cover property (@(posedge S_AXI_ACLK)
+//			disable iff (!S_AXI_ARESETN || i_abort || i_pf_illegal
+//				|| dma_err)
+//			f_dma_seq[0] ##1 1[*0:$] ##1 f_dma_seq[5]
+//			##1 f_dma_seq == 0);	// !!!
 
-		cover property (@(posedge S_AXI_ACLK)
+		cover property (@(posedge S_AXI_ACLK)	// !!!
 			f_dma_seq[5] && !tbl_last && f_dma_busy && dma_busy);
 
-		cover property (@(posedge S_AXI_ACLK)
+		cover property (@(posedge S_AXI_ACLK)	// !!!
 			f_dma_seq[5] && tbl_last && f_dma_busy && dma_busy);
 
 		cover property (@(posedge S_AXI_ACLK)
@@ -996,8 +1181,9 @@ module	axisgfsm #(
 		assert(!o_err);
 	end
 
-	assert property (@(posedge S_AXI_ACLK)
-		S_AXI_ARESETN && o_busy ##1 !o_busy |-> o_done);
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $past(S_AXI_ARESETN) && $past(o_busy) && !o_busy)
+		assert(o_done);
 
 //	assert property (@(posedge S_AXI_ACLK)
 //		!o_done |-> !o_int);
@@ -1028,11 +1214,9 @@ module	axisgfsm #(
 	//
 
 	always @(*)
+	if (f_never_abort)
 		assume(!i_abort);
 
-	always @(*)
-	if (sgstate == SG_SRCHALF)
-		assume(!i_abort);
 	// }}}
 `endif
 // }}}

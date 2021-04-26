@@ -297,7 +297,6 @@ module	axilempty #(
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awaddr({(C_AXI_ADDR_WIDTH){1'b0}}),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( 3'h0),
 		//
 		.i_axi_wvalid(S_AXI_WVALID),
@@ -312,7 +311,6 @@ module	axilempty #(
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_araddr( {(C_AXI_ADDR_WIDTH){1'b0}}),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot( 3'h0),
 		//
 		.i_axi_rvalid(S_AXI_RVALID),

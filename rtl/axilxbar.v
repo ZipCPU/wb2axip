@@ -427,9 +427,9 @@ module	axilxbar #(
 
 `ifdef	FORMAL
 		// {{{
-		always @(*)
-		if (skd_awvalid[N])
-			assert(skd_awprot[N] == 0);
+		// always @(*)
+		// if (skd_awvalid[N])
+		//	assert(skd_awprot[N] == 0);
 		// }}}
 `endif
 		// }}}
@@ -512,9 +512,9 @@ module	axilxbar #(
 
 `ifdef	FORMAL
 		// {{{
-		always @(*)
-		if (skd_arvalid[N])
-			assert(skd_arprot[N] == 0);
+		// always @(*)
+		// if (skd_arvalid[N])
+		//	assert(skd_arprot[N] == 0);
 		// }}}
 `endif
 		// }}}
@@ -924,13 +924,13 @@ module	axilxbar #(
 	// {{{
 	generate for (N=0; N<NM; N=N+1)
 	begin
-		always @(*)
-		if (dcd_awvalid[N])
-			assert(m_awprot[N] == 0);
+		// always @(*)
+		// if (dcd_awvalid[N])
+		//	assert(m_awprot[N] == 0);
 
-		always @(*)
-		if (dcd_arvalid[N])
-			assert(m_arprot[N] == 0);
+		// always @(*)
+		// if (dcd_arvalid[N])
+		//	assert(m_arprot[N] == 0);
 
 	end endgenerate
 	// }}}
@@ -1801,32 +1801,30 @@ module	axilxbar #(
 		  mstri(.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(S_AXI_ARESETN),
 			//
+			.i_axi_awvalid(S_AXI_AWVALID[N]),
 			.i_axi_awready(S_AXI_AWREADY[N]),
 			.i_axi_awaddr(S_AXI_AWADDR[N*AW +: AW]),
-			.i_axi_awcache(0),
 			.i_axi_awprot(S_AXI_AWPROT[N*3 +: 3]),
-			.i_axi_awvalid(S_AXI_AWVALID[N]),
 			//
+			.i_axi_wvalid(S_AXI_WVALID[N]),
 			.i_axi_wready(S_AXI_WREADY[N]),
 			.i_axi_wdata( S_AXI_WDATA[N*DW +: DW]),
 			.i_axi_wstrb( S_AXI_WSTRB[N*DW/8 +: DW/8]),
-			.i_axi_wvalid(S_AXI_WVALID[N]),
 			//
-			.i_axi_bresp( S_AXI_BRESP[N*2 +: 2]),
 			.i_axi_bvalid(S_AXI_BVALID[N]),
 			.i_axi_bready(S_AXI_BREADY[N]),
+			.i_axi_bresp( S_AXI_BRESP[N*2 +: 2]),
 			//
+			.i_axi_arvalid(S_AXI_ARVALID[N]),
 			.i_axi_arready(S_AXI_ARREADY[N]),
 			.i_axi_araddr( S_AXI_ARADDR[N*AW +: AW]),
-			.i_axi_arcache(4'b0),
 			.i_axi_arprot( S_AXI_ARPROT[N*3 +: 3]),
-			.i_axi_arvalid(S_AXI_ARVALID[N]),
 			//
 			//
-			.i_axi_rresp( S_AXI_RRESP[N*2 +: 2]),
 			.i_axi_rvalid(S_AXI_RVALID[N]),
-			.i_axi_rdata( S_AXI_RDATA[N*DW +: DW]),
 			.i_axi_rready(S_AXI_RREADY[N]),
+			.i_axi_rdata( S_AXI_RDATA[N*DW +: DW]),
+			.i_axi_rresp( S_AXI_RRESP[N*2 +: 2]),
 			//
 			.f_axi_rd_outstanding( fm_rd_outstanding[N]),
 			.f_axi_wr_outstanding( fm_wr_outstanding[N]),
@@ -1951,32 +1949,30 @@ module	axilxbar #(
 		  slvi(.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(S_AXI_ARESETN),
 			//
+			.i_axi_awvalid(M_AXI_AWVALID[M]),
 			.i_axi_awready(M_AXI_AWREADY[M]),
 			.i_axi_awaddr(M_AXI_AWADDR[M*AW +: AW]),
-			.i_axi_awcache(0),
 			.i_axi_awprot(M_AXI_AWPROT[M*3 +: 3]),
-			.i_axi_awvalid(M_AXI_AWVALID[M]),
 			//
+			.i_axi_wvalid(M_AXI_WVALID[M]),
 			.i_axi_wready(M_AXI_WREADY[M]),
 			.i_axi_wdata( M_AXI_WDATA[M*DW +: DW]),
 			.i_axi_wstrb( M_AXI_WSTRB[M*DW/8 +: DW/8]),
-			.i_axi_wvalid(M_AXI_WVALID[M]),
 			//
-			.i_axi_bresp( M_AXI_BRESP[M*2 +: 2]),
 			.i_axi_bvalid(M_AXI_BVALID[M]),
 			.i_axi_bready(M_AXI_BREADY[M]),
+			.i_axi_bresp( M_AXI_BRESP[M*2 +: 2]),
 			//
+			.i_axi_arvalid(M_AXI_ARVALID[M]),
 			.i_axi_arready(M_AXI_ARREADY[M]),
 			.i_axi_araddr( M_AXI_ARADDR[M*AW +: AW]),
-			.i_axi_arcache(4'b0),
 			.i_axi_arprot( M_AXI_ARPROT[M*3 +: 3]),
-			.i_axi_arvalid(M_AXI_ARVALID[M]),
 			//
 			//
-			.i_axi_rresp( M_AXI_RRESP[M*2 +: 2]),
 			.i_axi_rvalid(M_AXI_RVALID[M]),
-			.i_axi_rdata( M_AXI_RDATA[M*DW +: DW]),
 			.i_axi_rready(M_AXI_RREADY[M]),
+			.i_axi_rdata( M_AXI_RDATA[M*DW +: DW]),
+			.i_axi_rresp( M_AXI_RRESP[M*2 +: 2]),
 			//
 			.f_axi_rd_outstanding( fs_rd_outstanding[M]),
 			.f_axi_wr_outstanding( fs_wr_outstanding[M]),

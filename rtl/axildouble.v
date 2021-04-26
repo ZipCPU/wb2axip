@@ -511,7 +511,6 @@ module	axildouble #(
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awaddr(S_AXI_AWADDR),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot(S_AXI_AWPROT),
 		//
 		.i_axi_wvalid(S_AXI_WVALID),
@@ -527,7 +526,6 @@ module	axildouble #(
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_araddr(S_AXI_ARADDR),
 		.i_axi_arprot(S_AXI_ARPROT),
-		.i_axi_arcache(4'h0),
 		//
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),
@@ -560,7 +558,6 @@ module	axildouble #(
 			.i_axi_awvalid(M_AXI_AWVALID[M]),
 			.i_axi_awready(1'b1),
 			.i_axi_awaddr(M_AXI_AWADDR),
-			.i_axi_awcache(4'h0),
 			.i_axi_awprot(M_AXI_AWPROT),
 			//
 			.i_axi_wvalid(M_AXI_AWVALID[M]),
@@ -576,7 +573,6 @@ module	axildouble #(
 			.i_axi_arready(1'b1),
 			.i_axi_araddr(M_AXI_ARADDR),
 			.i_axi_arprot(M_AXI_ARPROT),
-			.i_axi_arcache(4'h0),
 			//
 			.i_axi_rdata(M_AXI_RDATA[M*C_AXI_DATA_WIDTH +: C_AXI_DATA_WIDTH]),
 			.i_axi_rresp(M_AXI_RRESP[2*M +: 2]),
@@ -630,9 +626,6 @@ module	axildouble #(
 	always @(*)
 		assert($onehot0(m_axi_rvalid));
 `endif
-	always @(*)
-	if (S_AXI_WREADY)
-		assert(M_AXI_AWPROT == 0);
 	always @(*)
 	begin
 		count_awr_outstanding = 0;

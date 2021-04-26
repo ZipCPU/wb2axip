@@ -474,31 +474,29 @@ module axlite2wbsp #(
 		// {{{
 		.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 		// AXI write address channnel
+		.i_axi_awvalid(i_axi_awvalid),
 		.i_axi_awready(o_axi_awready),
 		.i_axi_awaddr( i_axi_awaddr),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( i_axi_awprot),
-		.i_axi_awvalid(i_axi_awvalid),
 		// AXI write data channel
+		.i_axi_wvalid( i_axi_wvalid),
 		.i_axi_wready( o_axi_wready),
 		.i_axi_wdata(  i_axi_wdata),
 		.i_axi_wstrb(  i_axi_wstrb),
-		.i_axi_wvalid( i_axi_wvalid),
 		// AXI write acknowledgement channel
-		.i_axi_bresp( o_axi_bresp),
 		.i_axi_bvalid(o_axi_bvalid),
 		.i_axi_bready(i_axi_bready),
+		.i_axi_bresp( o_axi_bresp),
 		// AXI read address channel
+		.i_axi_arvalid(i_axi_arvalid),
 		.i_axi_arready(o_axi_arready),
 		.i_axi_araddr( i_axi_araddr),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot( i_axi_arprot),
-		.i_axi_arvalid(i_axi_arvalid),
 		// AXI read data return
-		.i_axi_rresp(  o_axi_rresp),
 		.i_axi_rvalid( o_axi_rvalid),
-		.i_axi_rdata(  o_axi_rdata),
 		.i_axi_rready( i_axi_rready),
+		.i_axi_rdata(  o_axi_rdata),
+		.i_axi_rresp(  o_axi_rresp),
 		// Quantify where we are within a transaction
 		.f_axi_rd_outstanding( f_axi_rd_outstanding),
 		.f_axi_wr_outstanding( f_axi_wr_outstanding),

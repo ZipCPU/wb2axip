@@ -980,39 +980,37 @@ module axi2axilsub #(
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address channel
 			// {{{
+			.i_axi_awvalid(M_AXI_AWVALID),
 			.i_axi_awready(M_AXI_AWREADY),
 			.i_axi_awaddr( M_AXI_AWADDR),
-			.i_axi_awcache(4'h0),
 			.i_axi_awprot( M_AXI_AWPROT),
-			.i_axi_awvalid(M_AXI_AWVALID),
 			// }}}
 			// Write data
 			// {{{
+			.i_axi_wvalid( M_AXI_WVALID),
 			.i_axi_wready( M_AXI_WREADY),
 			.i_axi_wdata(  M_AXI_WDATA),
 			.i_axi_wstrb(  M_AXI_WSTRB),
-			.i_axi_wvalid( M_AXI_WVALID),
 			// }}}
 			// Write response
 			// {{{
-			.i_axi_bresp(  skidm_bresp),
 			.i_axi_bvalid( skidm_bvalid),
 			.i_axi_bready( skidm_bready),
+			.i_axi_bresp(  skidm_bresp),
 			// }}}
 			// Read address
 			// {{{
+			.i_axi_arvalid(M_AXI_ARVALID),
 			.i_axi_arready(M_AXI_ARREADY),
 			.i_axi_araddr( M_AXI_ARADDR),
-			.i_axi_arcache(4'h0),
 			.i_axi_arprot( M_AXI_ARPROT),
-			.i_axi_arvalid(M_AXI_ARVALID),
 			// }}}
 			// Read data return
 			// {{{
-			.i_axi_rresp(  skidm_rresp),
+			.i_axi_rready( skidm_rready),
 			.i_axi_rvalid( skidm_rvalid),
 			.i_axi_rdata(  skidm_rdata),
-			.i_axi_rready( skidm_rready),
+			.i_axi_rresp(  skidm_rresp),
 			// }}}
 			// Formal check variables
 			// {{{
@@ -1774,39 +1772,37 @@ module axi2axilsub #(
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address channel
 			// {{{
+			.i_axi_awvalid(M_AXI_AWVALID),
 			.i_axi_awready(M_AXI_AWREADY),
 			.i_axi_awaddr( M_AXI_AWADDR),
-			.i_axi_awcache(4'h0),
 			.i_axi_awprot( M_AXI_AWPROT),
-			.i_axi_awvalid(M_AXI_AWVALID),
 			// }}}
 			// Write data
 			// {{{
+			.i_axi_wvalid( skidm_wvalid),
 			.i_axi_wready( skidm_wready),
 			.i_axi_wdata(  skidm_wdata),
 			.i_axi_wstrb(  skidm_wstrb),
-			.i_axi_wvalid( skidm_wvalid),
 			// }}}
 			// Write response
 			// {{{
-			.i_axi_bresp(  skidm_bresp),
 			.i_axi_bvalid( skidm_bvalid),
 			.i_axi_bready( skidm_bready),
+			.i_axi_bresp(  skidm_bresp),
 			// }}}
 			// Read address
 			// {{{
+			.i_axi_arvalid(M_AXI_ARVALID),
 			.i_axi_arready(M_AXI_ARREADY),
 			.i_axi_araddr( M_AXI_ARADDR),
-			.i_axi_arcache(4'h0),
 			.i_axi_arprot( M_AXI_ARPROT),
-			.i_axi_arvalid(M_AXI_ARVALID),
 			// }}}
 			// Read data return
 			// {{{
-			.i_axi_rresp(  skidm_rresp),
 			.i_axi_rvalid( skidm_rvalid),
-			.i_axi_rdata(  skidm_rdata),
 			.i_axi_rready( skidm_rready),
+			.i_axi_rdata(  skidm_rdata),
+			.i_axi_rresp(  skidm_rresp),
 			// }}}
 			// Formal check variables
 			// {{{

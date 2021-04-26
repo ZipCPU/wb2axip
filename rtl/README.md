@@ -32,6 +32,11 @@ All three cores are supported by the (dev branch of)
   eventually, but it will also only ever support full word transfers
   through the stream.
 - [AXIDMA](axidma.v).  Supports unaligned transfers.
+- [AXISGDMA](axisgdma.v).  A scatter-gather DMA implementation.  Performs DMA
+  operations based upon an external, bus-fetched, table containing the details
+  of multiple DMA operations to be done.
+  -- [AXILFETCH](axilfetch.v)--A ZipCPU instruction fetch module required by the Scatter-Gather engine to fetch tables from memory.
+  -- [AXISGFSM](axisgfsm.v)--The FSM that reads instructions (i.e. table entries) from the fetch routine, and issues instructions to the [AXIDMA](axidma.v).
 - [AXIVFIFO](axivfifo.v).  A virtual FIFO, using an external AXI device for
   memory backing--perhaps even an SDRAM.  It doesn't really matter--it just
   needs to be AXI.

@@ -103,10 +103,6 @@ module	axisgdma #(
 `else
 		parameter	LGMAXBURST=8,	// 256 beats
 `endif
-		// The number of beats in this maximum burst size is
-		// automatically determined from LGMAXBURST, and so its
-		// forced to be a power of two this way.
-		localparam	MAXBURST=(1<<LGMAXBURST),
 		//
 		// LGFIFO: This is the (log-based-2) size of the internal FIFO.
 		// Hence if LGFIFO=8, the internal FIFO will have 256 elements
@@ -137,11 +133,7 @@ module	axisgdma #(
 		parameter	[7:0]			ABORT_KEY  = 8'h6d,
 		//
 		// OPT_LOWPOWER
-		parameter	[0:0]			OPT_LOWPOWER = 1'b0,
-		//
-		localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3,
-		localparam	AXILLSB= $clog2(C_AXIL_DATA_WIDTH)-3,
-		localparam	LGLENW= LGLEN-ADDRLSB
+		parameter	[0:0]			OPT_LOWPOWER = 1'b0
 		// }}}
 	) (
 		// {{{
@@ -186,7 +178,11 @@ module	axisgdma #(
 `endif
 		output	wire	[2:0]			M_AXI_AWSIZE,
 		output	wire	[1:0]			M_AXI_AWBURST,
+`ifdef	AXI3
+		output	wire	[1:0]			M_AXI_AWLOCK,
+`else
 		output	wire				M_AXI_AWLOCK,
+`endif
 		output	wire	[3:0]			M_AXI_AWCACHE,
 		output	wire	[2:0]			M_AXI_AWPROT,
 		output	wire	[3:0]			M_AXI_AWQOS,
@@ -219,7 +215,11 @@ module	axisgdma #(
 `endif
 		output	wire	[2:0]			M_AXI_ARSIZE,
 		output	wire	[1:0]			M_AXI_ARBURST,
+`ifdef	AXI3
+		output	wire	[1:0]			M_AXI_ARLOCK,
+`else
 		output	wire				M_AXI_ARLOCK,
+`endif
 		output	wire	[3:0]			M_AXI_ARCACHE,
 		output	wire	[2:0]			M_AXI_ARPROT,
 		output	wire	[3:0]			M_AXI_ARQOS,
@@ -237,8 +237,17 @@ module	axisgdma #(
 
 	// Local parameter definitions
 	// {{{
+	// The number of beats in this maximum burst size is
+	// automatically determined from LGMAXBURST, and so its
+	// forced to be a power of two this way.
+	// localparam	MAXBURST=(1<<LGMAXBURST);
+	//
+	localparam	ADDRLSB= $clog2(C_AXI_DATA_WIDTH)-3;
+	localparam	AXILLSB= $clog2(C_AXIL_DATA_WIDTH)-3;
+	// localparam	LGLENW= LGLEN-ADDRLSB;
+
 	localparam	[1:0]	CTRL_ADDR   = 2'b00,
-				UNUSED_ADDR = 2'b01,
+				// UNUSED_ADDR = 2'b01,
 				TBLLO_ADDR  = 2'b10,
 				TBLHI_ADDR  = 2'b11;
 	localparam		CTRL_START_BIT = 0,
@@ -246,8 +255,8 @@ module	axisgdma #(
 				CTRL_INT_BIT   = 1,
 				CTRL_INTEN_BIT = 2,
 				CTRL_ABORT_BIT = 3,
-				CTRL_ERR_BIT   = 4,
-				CTRL_INTERIM_BIT= 5;
+				CTRL_ERR_BIT   = 4;
+				// CTRL_INTERIM_BIT= 5;
 	localparam	[1:0]	AXI_INCR = 2'b01, AXI_OKAY = 2'b00;
 
 `ifdef	AXI3
@@ -261,8 +270,8 @@ module	axisgdma #(
 	localparam [4:0]	DMA_CONTROL= 5'b00000;
 	// }}}
 
-	localparam [C_AXI_ADDR_WIDTH-1:0] TBL_SIZE
-				= (C_AXI_ADDR_WIDTH < 30) ? (4*5) : (4*7);
+	// localparam [C_AXI_ADDR_WIDTH-1:0] TBL_SIZE
+	//			= (C_AXI_ADDR_WIDTH < 30) ? (4*5) : (4*7);
 
 	// }}}
 
@@ -299,7 +308,7 @@ module	axisgdma #(
 	wire	[C_AXI_ADDR_WIDTH-1:0]	pf_axi_araddr, pf_pc;
 	wire				pf_axi_rready_ignored;
 	wire	[C_AXI_ID_WIDTH-1:0]	pf_axi_arid;
-	wire	[7:0]			pf_axi_arlen;
+	wire	[LENWIDTH-1:0]		pf_axi_arlen;
 	wire	[2:0]			pf_axi_arsize;
 	wire	[1:0]			pf_axi_arburst;
 	wire	[3:0]			pf_axi_arcache;
@@ -331,7 +340,7 @@ module	axisgdma #(
 	wire				sdma_arvalid;
 	wire	[C_AXI_ID_WIDTH-1:0]	sdma_arid;
 	wire	[C_AXI_ADDR_WIDTH-1:0]	sdma_araddr;
-	wire	[7:0]			sdma_arlen;
+	wire	[LENWIDTH-1:0]		sdma_arlen;
 	wire	[2:0]			sdma_arsize;
 	wire	[1:0]			sdma_arburst;
 	wire	[0:0]			sdma_arlock;
@@ -341,6 +350,8 @@ module	axisgdma #(
 	reg				sdma_arready;
 	wire				sdma_rready_ignored;
 	wire				dma_complete;
+
+	wire				unused_dma_lock;
 	// }}}
 
 	// Combined AXI nets
@@ -348,7 +359,7 @@ module	axisgdma #(
 	reg				m_axi_arvalid;
 	reg	[C_AXI_ID_WIDTH-1:0]	m_axi_arid;
 	reg	[C_AXI_ADDR_WIDTH-1:0]	m_axi_araddr;
-	reg	[7:0]			m_axi_arlen;
+	reg	[LENWIDTH-1:0]		m_axi_arlen;
 	reg	[2:0]			m_axi_arsize;
 	reg	[1:0]			m_axi_arburst;
 	reg	[3:0]			m_axi_arcache;
@@ -382,31 +393,43 @@ module	axisgdma #(
 
 	// axil AW skid buffer
 	// {{{
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilawskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilawskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_valid(S_AXIL_AWVALID), .o_ready(S_AXIL_AWREADY),
 		.i_data(S_AXIL_AWADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
-		.o_data(awskd_addr));
+		.o_data(awskd_addr)
+		// }}}
+	);
 	// }}}
 
 	// axil W skid buffer
 	// {{{
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8))
-	axilwskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8)
+		// }}}
+	) axilwskid (
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_valid(S_AXIL_WVALID), .o_ready(S_AXIL_WREADY),
 		.i_data({ S_AXIL_WSTRB, S_AXIL_WDATA }),
 		.o_valid(wskd_valid), .i_ready(axil_write_ready),
-		.o_data({ wskd_strb, wskd_data }));
+		.o_data({ wskd_strb, wskd_data })
+		// }}}
+	);
 	// }}}
 
 	// axil_write_ready
 	// {{{
 	always  @(*)
 	begin
-		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;;
+		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;
 		if (!awskd_valid || !wskd_valid)
 			axil_write_ready = 0;
 	end
@@ -582,13 +605,19 @@ module	axisgdma #(
 
 	// AXI-lite AR skid buffer
 	// {{{
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilarskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilarskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 		.i_valid(S_AXIL_ARVALID), .o_ready(S_AXIL_ARREADY),
 		.i_data(S_AXIL_ARADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(arskd_valid), .i_ready(axil_read_ready),
-		.o_data(arskd_addr));
+		.o_data(arskd_addr)
+		// }}}
+	);
 	// }}}
 
 	// axil_read_ready
@@ -711,7 +740,7 @@ module	axisgdma #(
 		.M_AXI_AWLEN(  M_AXI_AWLEN),
 		.M_AXI_AWSIZE( M_AXI_AWSIZE),
 		.M_AXI_AWBURST(M_AXI_AWBURST),
-		.M_AXI_AWLOCK( M_AXI_AWLOCK),
+		.M_AXI_AWLOCK( unused_dma_lock),
 		.M_AXI_AWCACHE(M_AXI_AWCACHE),
 		.M_AXI_AWPROT( M_AXI_AWPROT),
 		.M_AXI_AWQOS(  M_AXI_AWQOS),
@@ -758,6 +787,7 @@ module	axisgdma #(
 		// }}}
 	);
 
+	assign	M_AXI_AWLOCK = 0;
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -773,7 +803,7 @@ module	axisgdma #(
 		// {{{
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
-		.FETCH_LIMIT(2)
+		.FETCH_LIMIT(4)
 		// }}}
 	) pf (
 		// {{{
@@ -809,11 +839,11 @@ module	axisgdma #(
 	// }}}
 
 	assign	pf_axi_arid    = PF_READ_ID;
-	assign	pf_axi_arlen   = 8'h0; // Only read singletons
+	assign	pf_axi_arlen   = 0; // Only read singletons
 	assign	pf_axi_arsize  = ADDRLSB[2:0];
-	assign	pf_axi_arburst = 2'b01;
+	assign	pf_axi_arburst = AXI_INCR;
 	assign	pf_axi_arcache = 4'b0011;
-	assign	pf_axi_arprot  = 3'b100;
+	// assign	pf_axi_arprot  = 3'b100;
 	assign	pf_axi_arqos   = 4'h0;
 
 	assign	M_AXI_RREADY = 1'b1;
@@ -882,7 +912,8 @@ module	axisgdma #(
 		// {{{
 		.OPT_LOWPOWER(OPT_LOWPOWER),
 		.OPT_OUTREG(1'b1),
-		.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + 8 + 3 + 2 + 4  +3 + 4)
+		.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + LENWIDTH
+				+ 3 + 2 + 4  +3 + 4)
 		// }}}
 	) marskd(
 		// {{{
@@ -973,6 +1004,7 @@ module	axisgdma #(
 			S_AXIL_ARADDR[AXILLSB-1:0], S_AXIL_ARPROT,
 			M_AXI_RREADY, r_done,
 			new_widetbl[63:C_AXI_ADDR_WIDTH],
+			unused_dma_lock,
 			sdma_arlock, sdma_rready_ignored,
 			pf_axi_rready_ignored, dmac_arready };
 	// Verilator lint_on  UNUSED
