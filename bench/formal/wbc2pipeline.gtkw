@@ -1,0 +1,76 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Tue Oct 13 02:43:36 2020
+[*]
+[dumpfile_mtime] "Wed Mar 25 13:05:01 2020"
+[dumpfile_size] 14972
+[timestart] 0
+[size] 1208 600
+[pos] 2629 19
+*-5.270011 60 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 196
+[signals_width] 134
+[sst_expanded] 1
+[sst_vpaned_height] 155
+@28
+wbc2pipeline.i_clk
+wbc2pipeline.i_reset
+@200
+-
+@28
+[color] 3
+wbc2pipeline.i_mcyc
+[color] 3
+wbc2pipeline.i_mstb
+[color] 3
+wbc2pipeline.i_mwe
+[color] 3
+wbc2pipeline.i_mbte[1:0]
+[color] 3
+wbc2pipeline.i_mcti[2:0]
+@22
+[color] 3
+wbc2pipeline.i_maddr[11:0]
+[color] 3
+wbc2pipeline.i_mdata[31:0]
+[color] 3
+wbc2pipeline.i_msel[3:0]
+@29
+[color] 2
+wbc2pipeline.o_mack
+@23
+[color] 2
+wbc2pipeline.o_mdata[31:0]
+@29
+[color] 2
+wbc2pipeline.o_merr
+@200
+-
+@28
+[color] 2
+wbc2pipeline.o_scyc
+[color] 2
+wbc2pipeline.o_sstb
+[color] 2
+wbc2pipeline.o_swe
+@22
+[color] 2
+wbc2pipeline.o_saddr[11:0]
+[color] 2
+wbc2pipeline.o_sdata[31:0]
+[color] 2
+wbc2pipeline.o_ssel[3:0]
+@28
+[color] 3
+wbc2pipeline.i_sstall
+[color] 3
+wbc2pipeline.i_sack
+@22
+[color] 3
+wbc2pipeline.i_sdata[31:0]
+@28
+[color] 3
+wbc2pipeline.i_serr
+wbc2pipeline.last_stb
+[pattern_trace] 1
+[pattern_trace] 0

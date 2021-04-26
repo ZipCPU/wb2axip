@@ -1,0 +1,83 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Mon Apr 26 17:11:38 2021
+[*]
+[dumpfile] "(null)"
+[timestart] 0
+[size] 1257 907
+[pos] 3044 -638
+*-3.908651 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] axilwr2wbsp.
+[sst_width] 329
+[signals_width] 238
+[sst_expanded] 1
+[sst_vpaned_height] 238
+@28
+axilwr2wbsp.i_clk
+axilwr2wbsp.i_axi_reset_n
+@200
+-
+@28
+[color] 3
+axilwr2wbsp.i_axi_awvalid
+[color] 2
+axilwr2wbsp.o_axi_awready
+@22
+[color] 3
+axilwr2wbsp.i_axi_awaddr[27:0]
+@28
+[color] 3
+axilwr2wbsp.i_axi_awprot[2:0]
+axilwr2wbsp.r_awvalid
+@200
+-
+@28
+[color] 3
+axilwr2wbsp.i_axi_wvalid
+[color] 2
+axilwr2wbsp.o_axi_wready
+@22
+[color] 3
+axilwr2wbsp.i_axi_wdata[31:0]
+[color] 3
+axilwr2wbsp.i_axi_wstrb[3:0]
+@28
+axilwr2wbsp.r_wvalid
+@200
+-
+@28
+[color] 2
+axilwr2wbsp.o_axi_bvalid
+[color] 3
+axilwr2wbsp.i_axi_bready
+[color] 2
+axilwr2wbsp.o_axi_bresp[1:0]
+@200
+-
+@28
+[color] 2
+axilwr2wbsp.o_wb_cyc
+[color] 2
+axilwr2wbsp.o_wb_stb
+@22
+[color] 2
+axilwr2wbsp.o_wb_addr[25:0]
+[color] 2
+axilwr2wbsp.o_wb_data[31:0]
+[color] 2
+axilwr2wbsp.o_wb_sel[3:0]
+@28
+[color] 3
+axilwr2wbsp.i_wb_stall
+[color] 3
+axilwr2wbsp.i_wb_ack
+[color] 3
+axilwr2wbsp.i_wb_err
+@200
+-
+@22
+axilwr2wbsp.f_axi_awr_outstanding[3:0]
+axilwr2wbsp.f_axi_rd_outstanding[3:0]
+axilwr2wbsp.f_axi_wr_outstanding[3:0]
+[pattern_trace] 1
+[pattern_trace] 0
