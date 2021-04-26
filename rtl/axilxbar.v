@@ -425,13 +425,6 @@ module	axilxbar #(
 		assign	m_wvalid[N] = r_mwvalid;
 		// }}}
 
-`ifdef	FORMAL
-		// {{{
-		// always @(*)
-		// if (skd_awvalid[N])
-		//	assert(skd_awprot[N] == 0);
-		// }}}
-`endif
 		// }}}
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_WSKID_BUFFERS
@@ -510,13 +503,6 @@ module	axilxbar #(
 		end
 		// }}}
 
-`ifdef	FORMAL
-		// {{{
-		// always @(*)
-		// if (skd_arvalid[N])
-		//	assert(skd_arprot[N] == 0);
-		// }}}
-`endif
 		// }}}
 	end for (N=NM; N<NMFULL; N=N+1)
 	begin : UNUSED_RSKID_BUFFERS
@@ -919,22 +905,6 @@ module	axilxbar #(
 		assign	srindex[N] = 0;
 		// }}}
 	end endgenerate
-
-`ifdef	FORMAL
-	// {{{
-	generate for (N=0; N<NM; N=N+1)
-	begin
-		// always @(*)
-		// if (dcd_awvalid[N])
-		//	assert(m_awprot[N] == 0);
-
-		// always @(*)
-		// if (dcd_arvalid[N])
-		//	assert(m_arprot[N] == 0);
-
-	end endgenerate
-	// }}}
-`endif
 
 	// Calculate mwindex
 	generate for (M=0; M<NS; M=M+1)
