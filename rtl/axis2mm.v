@@ -79,6 +79,14 @@
 //		Read only bit.  True following any AXI stream overflow.
 //		Cleared whenever the error bit is cleared.
 //
+//		A "proper" AXI stream will never nor can it ever overflow.  This
+//		overflow check therefore looks for AXI stream protocol
+//		violations.  Such a violation might be not maintaining TVALID
+//		when !TREADY, or changing TDATA when TVALID && !TREADY.
+//		Likewise, if TLAST changes while TVALID && !TREADY an overflow
+//		condition will be generated--but in this case only if the
+//		OPT_TLAST_SYNC option is set.
+//
 //	[22]	Abort in progress
 //
 //		Read only bit.  This bit will be true following any abort until
@@ -100,8 +108,12 @@
 //
 //  x10-14:	CMD_ADDR
 //	[C_AXI_ADDR_WIDTH-1:($clog2(C_AXI_DATA_WIDTH)-3)]
-//		If idle, the address the core will write to when it starts.
-//		If busy, the address the core is currently writing to.
+//
+//		If idle, this is address the core will write to when it starts.
+//
+//		If busy, this is the address of either the current or next
+//		address the core will request writing to.
+//
 //		Upon completion, the address either returns to the starting
 //		address (if r_continuous is clear), or otherwise becomes the
 //		address where the core left off.  In the case of an abort or an
@@ -110,7 +122,12 @@
 //		Why "near"?  Because this address records the writes that have
 //		been issued while no error is pending.  If a bus error return
 //		comes back, there may have been several writes issued before
-//		that error address.
+//		that error address.  Likewise if an overflow is detected, the
+//		data associated with the overflow may have already been
+//		somewhat written--the AXI bus doesn't stop on a dime.
+//
+//		I hope to eventually add support for unaligned bursts.  Such
+//		support is not currently part of this core.
 //
 //  x18-1c:  CMD_LEN
 //	[LGLEN-1:0]
@@ -124,10 +141,6 @@
 //		While the core is busy, reads from this address will return
 //		the number of items still to be written to the bus.
 //
-//		I hope to eventually add support for unaligned bursts.  Such
-//		support is not currently part of this core.
-//
-//
 // }}}
 //
 // Status:
@@ -135,11 +148,24 @@
 //	1. The core passes both cover checks and formal property (assertion)
 //		based checks.  It has not (yet) been tested in real hardware.
 //
-//	2. I'd also like to support unaligned addresses and lengths.  This will
-//		require aligning the data coming out of the FIFO as well.
+//	2. I'd also like to support unaligned addresses (not lengths).  This
+//		will require aligning the data coming out of the FIFO as well.
 //		As written, the core doesn't yet support these features.
 //
 // }}}
+//
+// Updates:
+// {{{
+//	20210426 - Fix.  Upon reading, the current AXI write address and length
+//		will (now) be returned.  These are word address and lengths, not
+//		packet address and lengths, and may (or may not) be aligned with
+//		packet boundaries.
+//
+//		In a similar fashion, the cmd_addr and cmd_length registers will
+//		be adjusted on any error to (approximate) the address and length
+//		remaining upon any discovered error.
+// }}}
+//
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
@@ -327,11 +353,11 @@ module	axis2mm #(
 			ERRCODE_DECERR   = 2;
 	// }}}
 
+	// Signal declarations
+	// {{{
 	wire	i_clk   =  S_AXI_ACLK;
 	wire	i_reset = !S_AXI_ARESETN;
 
-	// Signal declarations
-	// {{{
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
 		cmd_abort, zero_length, r_pre_start,
 		w_cmd_start, w_complete, w_cmd_abort;
@@ -350,7 +376,8 @@ module	axis2mm #(
 	reg	[LGLENW-1:0]		cmd_length_w;
 
 	reg	[2*C_AXIL_DATA_WIDTH-1:0]	wide_address, wide_length,
-					new_wideaddr, new_widelen;
+					new_wideaddr, new_widelen,
+					wide_len_remaining,wide_current_address;
 	wire	[C_AXIL_DATA_WIDTH-1:0]	new_cmdaddrlo, new_cmdaddrhi,
 					new_lengthlo,  new_lengthhi;
 
@@ -513,20 +540,39 @@ module	axis2mm #(
 	//
 	//
 
+	// last_stalled -- used in overflow checking
+	// {{{
 	initial	last_stalled = 1'b0;
 	always @(posedge i_clk)
 		last_stalled <= (!i_reset) && (S_AXIS_TVALID && !S_AXIS_TREADY);
+	// }}}
 
+	// last_tlast -- used to check for protocol violations in overflow next
+	// {{{
 	always @(posedge i_clk)
 	if (!OPT_TLAST_SYNC)
 		last_tlast <= 0;
 	else
 		last_tlast <= S_AXIS_TLAST;
+	// }}}
 
+	// last_tdata -- used for overflow checking
+	// {{{
 	always @(posedge i_clk)
 		last_tdata <= S_AXIS_TDATA;
+	// }}}
 
-
+	// overflow
+	// {{{
+	// Capture and check whether or not the incoming data stream overflowed
+	// This is primarily a check for AXI-stream protocol violations, since
+	// you can't really overflow an AXI stream when following protocol.  The
+	// problem is that many stream sources--such as ADCs for example--can't
+	// handle back-pressure.  Hence, checking for stream violations can
+	// be used in those cases to check for overflows.  The check is only
+	// so good, however, since an overflow condition might take place if
+	// an ADC produces two consecutive (identical) values, one of which gets
+	// skipped--and this check will not capture that.
 	initial	overflow = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -544,10 +590,13 @@ module	axis2mm #(
 
 		// This will be caught by r_err and r_continuous
 	end
+	// }}}
 
-	//
-	// Abort transaction
-	//
+	// w_cmd_abort, cmd_abort -- Abort transaction on user request
+	// {{{
+
+	// w_cmd_abort is a combinational value capturing a user abort request
+	// {{{
 	always @(*)
 	begin
 		w_cmd_abort = 0;
@@ -556,7 +605,10 @@ module	axis2mm #(
 		if (!r_busy)
 			w_cmd_abort = 0;
 	end
+	// }}}
 
+	// cmd_abort latches the user request until the abort is complete
+	// {{{
 	initial	cmd_abort = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -565,6 +617,8 @@ module	axis2mm #(
 		cmd_abort <= 0;
 	else
 		cmd_abort <= cmd_abort || w_cmd_abort;
+	// }}}
+	// }}}
 
 	//
 	// Start command
@@ -583,18 +637,8 @@ module	axis2mm #(
 			w_cmd_start = 0;
 	end
 
-	// initial	cmd_start = 0;
-	// always @(posedge i_clk)
-	//	cmd_start <= (!i_reset)&&(w_cmd_start);
-
-	//
-	// Recognize the last ack
-	//
-	// assign	w_complete = something
-
-	//
-	// Calculate busy or complete flags
-	//
+	// r_busy, r_complete -- Calculate busy or complete flags
+	// {{{
 	initial	r_busy     = 0;
 	initial	r_complete = 0;
 	always @(posedge i_clk)
@@ -619,10 +663,10 @@ module	axis2mm #(
 		r_complete <= 1;
 		r_busy <= 1'b0;
 	end
+	// }}}
 
-	//
-	// Interrupts
-	//
+	// o_int -- interrupt generation
+	// {{{
 	initial	o_int = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -630,10 +674,10 @@ module	axis2mm #(
 	else
 		o_int <= (r_busy && w_complete)
 			|| (r_continuous && overflow);
+	// }}}
 
-	//
-	// Error conditions
-	//
+	// r_err, r_errcode: Error conditions checking
+	// {{{
 	initial	r_err = 0;
 	initial	r_errcode = ERRCODE_NOERR;
 	always @(posedge i_clk)
@@ -672,7 +716,10 @@ module	axis2mm #(
 			r_errcode[ERRCODE_OVERFLOW] <= 1'b1;
 		end
 	end
+	// }}}
 
+	// r_continuous
+	// {{{
 	initial	r_continuous = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -683,17 +730,28 @@ module	axis2mm #(
 		if (!r_busy && axil_write_ready && awskd_addr == CMD_CONTROL)
 			r_continuous <= wskd_strb[3] && wskd_data[28];
 	end
+	// }}}
 
+	// wide_*
+	// {{{
 	always @(*)
 	begin
 		wide_address = 0;
 		wide_address[C_AXI_ADDR_WIDTH-1:0] = cmd_addr;
 
+		wide_current_address = 0;
+		wide_current_address[C_AXI_ADDR_WIDTH-1:0] = axi_addr;
+
 		wide_length = 0;
 		wide_length[ADDRLSB +: LGLENW] = cmd_length_w;
+
+		wide_len_remaining = 0;
+		wide_len_remaining[ADDRLSB +: LGLENW] = r_remaining_w;
 	end
+	// }}}
 
-
+	// new_* wires created via apply_wstrb
+	// {{{
 	assign	new_cmdaddrlo= apply_wstrb(
 			wide_address[C_AXIL_DATA_WIDTH-1:0],
 			wskd_data, wskd_strb);
@@ -706,7 +764,13 @@ module	axis2mm #(
 	assign	new_lengthhi= apply_wstrb(
 			wide_length[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
 			wskd_data, wskd_strb);
+	// }}}
 
+	// new_wideaddr, new_widelen
+	// {{{
+	// These are the wide_* adjusted for any write, and then adjusted again
+	// to make sure they are within the correct number of bits for the
+	// interface.
 	always @(*)
 	begin
 		new_wideaddr = wide_address;
@@ -739,7 +803,10 @@ module	axis2mm #(
 		// We only support LGLEN length bits
 		new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN] = 0;
 	end
+	// }}}
 
+	// cmd_addr, cmd_length_w, r_increment, zero_length, aw_multiple_*
+	// {{{
 	initial	r_increment   = 1'b1;
 	initial	cmd_addr      = 0;
 	initial	cmd_length_w  = 0;	// Counts in bytes
@@ -749,20 +816,22 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
+		// {{{
 		r_increment <= 1'b1;
 		cmd_addr      <= 0;
 		cmd_length_w  <= 0;
 		zero_length   <= 1;
 		aw_multiple_full_bursts  <= 0;
 		aw_multiple_fixed_bursts <= 0;
+		// }}}
 	end else if (axil_write_ready && !r_busy)
-	begin
+	begin // Set the command, address, and length prior to operation
+		// {{{
 		case(awskd_addr)
 		CMD_CONTROL:
 			r_increment <= !wskd_data[27];
-		CMD_ADDRLO: begin
+		CMD_ADDRLO:
 			cmd_addr <= new_wideaddr[C_AXI_ADDR_WIDTH-1:0];
-			end
 		CMD_ADDRHI: if (C_AXI_ADDR_WIDTH > C_AXIL_DATA_WIDTH)
 			begin
 			cmd_addr <= new_wideaddr[C_AXI_ADDR_WIDTH-1:0];
@@ -783,10 +852,54 @@ module	axis2mm #(
 			end
 		default: begin end
 		endcase
-	end else if (r_busy && r_continuous)
-		cmd_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]
-					<= axi_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB];
+		// }}}
+	end else if (r_busy)
+	begin // Updated cmd_addr && cmd_length during operation
+		// {{{
+		// Capture the last address written to in case of r_continuous
+		// (where we'll want to start again from this address),
+		// cmd_abort (where we'll want to know how far we got), or
+		// a bus error (where again we'll want to know how far we got)
+		if (r_continuous||axi_abort_pending)
+			cmd_addr <= axi_addr;
 
+		// Capture the number of remaining requests on either an error
+		// or an abort.  Need to be careful here that we don't capture
+		// this address twice--hence the check for
+		// w_cmd_abort && !cmd_abort, and again for BVALID && !r_err
+		//
+		// Note that we can't check for axi_abort_pending here, since
+		// as soon as axi_abort_pending becomes true then cmd_length_w
+		// will get set to zero.  Hence we need to capture this before
+		// axi_abort_pending gets set.
+		//
+		// Note that this is only an *approximate* length--especially
+		// in the case of either a bus error or an overflow, in which
+		// cases we won't really know what writes have been accomplished
+		// only that the last one failed.  In that case, this will
+		// indicate the amount of writes we haven't requested
+		// (yet)--knowing that at least one (or more) of those prior
+		// must've failed.  In the case of an overflow error, the
+		// overflow error may (or may not) have been written to memory
+		// by this time.
+		if (!axi_abort_pending && (cmd_abort || r_err
+				|| (M_AXI_BVALID && M_AXI_BRESP[1])))
+		begin
+			cmd_length_w <= aw_requests_remaining;
+			zero_length  <= (aw_requests_remaining == 0);
+			aw_multiple_full_bursts  <= |aw_requests_remaining[LGLENW-1:LGMAXBURST];
+			aw_multiple_fixed_bursts <= |aw_requests_remaining[LGLENW-1:LGMAX_FIXED_BURST];
+		end
+
+		// Note that, because cmd_addr and cmd_length_w here aren't set
+		// on the same conditions that it is possible, on an error,
+		// that the two will not match.
+		// }}}
+	end
+	// }}}
+
+	// w_status_word
+	// {{{
 	always @(*)
 	begin
 		w_status_word = 0;
@@ -804,21 +917,46 @@ module	axis2mm #(
 		w_status_word[22] = cmd_abort;
 		w_status_word[20:16] = LGFIFO;
 	end
+	// }}}
 
+	// axil_read_data
+	// {{{
 	always @(posedge i_clk)
 	if (!axil_read_valid || S_AXIL_RREADY)
 	begin
 		case(arskd_addr)
 		CMD_CONTROL: axil_read_data <= w_status_word;
-		CMD_ADDRLO:  axil_read_data <= wide_address[C_AXIL_DATA_WIDTH-1:0];
-		CMD_ADDRHI:  axil_read_data <= wide_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
-		CMD_LENLO:   axil_read_data <= wide_length[C_AXIL_DATA_WIDTH-1:0];
-		CMD_LENHI:   axil_read_data <= wide_length[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+		CMD_ADDRLO: begin
+			if (!r_busy)
+				axil_read_data <= wide_address[C_AXIL_DATA_WIDTH-1:0];
+			else
+				axil_read_data <= wide_current_address[C_AXIL_DATA_WIDTH-1:0];
+			end
+		CMD_ADDRHI: begin
+			if (!r_busy)
+				axil_read_data <= wide_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+			else
+				axil_read_data <= wide_current_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+			end
+		CMD_LENLO: begin
+			if (!r_busy)
+				axil_read_data <= wide_length[C_AXIL_DATA_WIDTH-1:0];
+			else
+				axil_read_data <= wide_len_remaining[C_AXIL_DATA_WIDTH-1:0];
+			end
+		CMD_LENHI: begin
+			if (!r_busy)
+				axil_read_data <= wide_length[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+			else
+				axil_read_data <= wide_len_remaining[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
+			end
 		default:     axil_read_data <= 0;
 		endcase
 	end
+	// }}}
 
 	function [C_AXIL_DATA_WIDTH-1:0] apply_wstrb;
+	// {{{
 		input   [C_AXIL_DATA_WIDTH-1:0]  prior_data;
 		input   [C_AXIL_DATA_WIDTH-1:0]  new_data;
 		input   [C_AXIL_DATA_WIDTH/8-1:0]   wstrb;
@@ -830,6 +968,7 @@ module	axis2mm #(
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
 		end
 	endfunction
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1575,11 +1714,12 @@ module	axis2mm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Other formal properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	// ...
+	//
 
 	always @(*)
 	if (!r_busy)
@@ -1685,7 +1825,7 @@ module	axis2mm #(
 	end
 
 	always @(*)
-	if (r_busy && aw_requests_remaining == f_length)
+	if (r_busy && !r_err && !cmd_abort && aw_requests_remaining == f_length)
 		assert(initial_burstlen > 0);
 
 	always @(*)
