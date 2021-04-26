@@ -327,7 +327,7 @@ module axi2axilsub #(
 		//
 		// S_AXI_AW* skid buffer
 		wire			skids_awvalid;
-		reg			skids_awready;
+		wire			skids_awready;
 		wire	[IW-1:0]	skids_awid;
 		wire	[AW-1:0]	skids_awaddr;
 		wire	[7:0]		skids_awlen;
@@ -1007,10 +1007,10 @@ module axi2axilsub #(
 			// }}}
 			// Read data return
 			// {{{
-			.i_axi_rready( skidm_rready),
-			.i_axi_rvalid( skidm_rvalid),
-			.i_axi_rdata(  skidm_rdata),
-			.i_axi_rresp(  skidm_rresp),
+			.i_axi_rvalid( 1'b0),
+			.i_axi_rready( 1'b1),
+			.i_axi_rdata(  {(C_M_AXI_DATA_WIDTH){1'b0}}),
+			.i_axi_rresp(  2'b00),
 			// }}}
 			// Formal check variables
 			// {{{

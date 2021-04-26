@@ -538,6 +538,16 @@ module axi2axilite #(
 		assign	wfifo_empty = 1;
 		assign	wfifo_count = 0;
 		assign	read_from_wrfifo = 0;
+
+		// Make Verilator happy
+		// {{{
+		// Verilator lint_off UNUSED
+		wire	unused_write_signals;
+		assign	unused_write_signals = &{ 1'b0, M_AXI_AWREADY,
+				M_AXI_WREADY, S_AXI_BREADY };
+		// Verilator lint_on  UNUSED
+		// }}}
+
 		// }}}
 	end endgenerate
 	// }}}
@@ -757,6 +767,16 @@ module axi2axilite #(
 		assign	rfifo_empty = 1;
 		assign	rfifo_full  = 0;
 		assign	rfifo_count = 0;
+
+		// Make Verilator happy
+		// {{{
+		// Verilator lint_off UNUSED
+		wire	unused_read_signals;
+		assign	unused_read_signals = &{ 1'b0, M_AXI_ARREADY,
+				S_AXI_RREADY };
+		// Verilator lint_on  UNUSED
+		// }}}
+
 		// }}}
 	end endgenerate
 	// }}}
@@ -872,11 +892,10 @@ module axi2axilite #(
 		faxil(.i_clk(S_AXI_ACLK),
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address channel
+			.i_axi_awvalid(M_AXI_AWVALID),
 			.i_axi_awready(M_AXI_AWREADY),
 			.i_axi_awaddr( M_AXI_AWADDR),
-			.i_axi_awcache(4'h0),
 			.i_axi_awprot( M_AXI_AWPROT),
-			.i_axi_awvalid(M_AXI_AWVALID),
 			// Write data
 			.i_axi_wready( skidm_wready),
 			.i_axi_wdata(  skidm_wdata),
@@ -887,16 +906,15 @@ module axi2axilite #(
 			.i_axi_bvalid( skidm_bvalid),
 			.i_axi_bready( skidm_bready),
 			// Read address
+			.i_axi_arvalid(M_AXI_ARVALID),
 			.i_axi_arready(M_AXI_ARREADY),
 			.i_axi_araddr( M_AXI_ARADDR),
-			.i_axi_arcache(4'h0),
 			.i_axi_arprot( M_AXI_ARPROT),
-			.i_axi_arvalid(M_AXI_ARVALID),
 			// Read data return
-			.i_axi_rresp(  skidm_rresp),
 			.i_axi_rvalid( skidm_rvalid),
-			.i_axi_rdata(  skidm_rdata),
 			.i_axi_rready( skidm_rready),
+			.i_axi_rdata(  skidm_rdata),
+			.i_axi_rresp(  skidm_rresp),
 			//
 			// Formal check variables
 			.f_axi_rd_outstanding(faxil_rd_outstanding),

@@ -748,10 +748,10 @@ module wbm2axisp #(
 	begin
 		assert(npending <= { 1'b1, {(LGFIFO){1'b0}} });
 		assert(empty == (npending == 0));
-		assert(full == (npending == {1'b1, {(LGFIFO){1'b0}}}));
-		assert(nearfull == (npending >= {1'b0, {(LGFIFO){1'b1}}}));
+		assert(full == (npending == {1'b1, {(LGFIFO){1'b0}} }));
+		assert(nearfull == (npending >= {1'b0, {(LGFIFO){1'b1}} }));
 		if (full)
-			assert(o_wb_stall);
+			assert(!m_ready);
 	end
 	// }}}
 	////////////////////////////////////////////////////////////////////////
