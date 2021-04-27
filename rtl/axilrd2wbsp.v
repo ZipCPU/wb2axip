@@ -39,7 +39,8 @@ module	axilrd2wbsp #(
 		parameter C_AXI_DATA_WIDTH	= 32,
 		parameter C_AXI_ADDR_WIDTH	= 28,
 		parameter AXILLSB		= $clog2(C_AXI_DATA_WIDTH/8),
-		localparam AW			= C_AXI_ADDR_WIDTH-AXILLSB,
+		localparam	AW		= C_AXI_ADDR_WIDTH-AXILLSB,
+		localparam	DW		= C_AXI_DATA_WIDTH,
 		parameter LGFIFO                =  3
 		// }}}
 	) (
@@ -86,7 +87,6 @@ module	axilrd2wbsp #(
 
 	// Local declarations
 	// {{{
-	localparam	DW = C_AXI_DATA_WIDTH;
 	localparam	AXI_LSBS = $clog2(C_AXI_DATA_WIDTH)-3;
 
 	wire	w_reset;
@@ -476,8 +476,8 @@ module	axilrd2wbsp #(
 		.i_clk(i_clk), .i_axi_reset_n(i_axi_reset_n),
 		//
 		// AXI write address channel signals
-		.i_axi_arvalid(1'b0), .i_axi_arready(1'b0),
-			.i_axi_araddr(i_axi_araddr),
+		.i_axi_awvalid(1'b0), .i_axi_awready(1'b0),
+			.i_axi_awaddr({(AW){1'b0}}),
 		// AXI write data channel signals
 		.i_axi_wvalid(1'b0), .i_axi_wready(1'b0), .i_axi_wdata(32'h0),
 			.i_axi_wstrb(4'h0),
