@@ -93,7 +93,7 @@ module sfifo #(
 	else
 		o_full = r_full;
 	// }}}
-		
+
 	// wr_addr, the write address pointer
 	// {{{
 	initial	wr_addr = 0;

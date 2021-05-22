@@ -1763,7 +1763,6 @@ module	axilxbar #(
 		faxil_slave #(
 			.C_AXI_DATA_WIDTH(DW),
 			.C_AXI_ADDR_WIDTH(AW),
-			.F_OPT_HAS_CACHE(1'b0),
 			.F_OPT_ASSUME_RESET(1'b1),
 			.F_AXI_MAXWAIT(0),
 			.F_AXI_MAXDELAY(0),
@@ -1912,7 +1911,6 @@ module	axilxbar #(
 		faxil_master #(
 			.C_AXI_DATA_WIDTH(DW),
 			.C_AXI_ADDR_WIDTH(AW),
-			.F_OPT_HAS_CACHE(1'b0),
 			.F_OPT_ASSUME_RESET(1'b1),
 			.F_AXI_MAXRSTALL(0),
 			.F_LGDEPTH(F_LGDEPTH))
