@@ -42,7 +42,6 @@ module faxil_slave #(
 	// can be apart.  If F_OPT_XILINX is set, these rules will be applied
 	// here as well.  See in-line for more details.
 	parameter [0:0]	F_OPT_XILINX = 1'b0,
-	parameter [0:0]	F_OPT_HAS_CACHE = 1'b0,
 	// F_OPT_WRITE_ONLY, if set, will assume the master is always idle on
 	// te read channel, allowing you to test/focus on the write interface
 	parameter [0:0]	F_OPT_WRITE_ONLY  = 1'b0,
@@ -204,7 +203,6 @@ module faxil_slave #(
 
 	//
 	// If asserted, the reset must be asserted for a minimum of 16 clocks
-	reg	[3:0]	f_reset_length;
 	initial	f_reset_length = 0;
 	always @(posedge i_clk)
 	if (F_OPT_NO_RESET || i_axi_reset_n)
