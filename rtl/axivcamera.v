@@ -626,17 +626,14 @@ module	axivcamera #(
 	//
 	//
 
-	reg	S_AXIS_SOF, S_AXIS_HLAST, S_AXIS_VLAST;
+	wire	S_AXIS_SOF, S_AXIS_HLAST, S_AXIS_VLAST;
 	generate if (OPT_TUSER_IS_SOF)
 	begin : XILINX_SOF_LOCK
 		reg	[15:0]	axis_line;
 		reg		axis_last_line;
 
-		always @(*)
-			S_AXIS_HLAST = S_AXIS_TLAST;
-
-		always @(*)
-			S_AXIS_SOF = S_AXIS_TUSER;
+		assign	S_AXIS_HLAST = S_AXIS_TLAST;
+		assign	S_AXIS_SOF = S_AXIS_TUSER;
 
 		//  Generate S_AXIS_VLAST from S_AXIS_SOF
 		always @(posedge S_AXI_ACLK)
@@ -653,16 +650,13 @@ module	axivcamera #(
 		always @(posedge S_AXI_ACLK)
 			axis_last_line <= (axis_line+1 >= cfg_frame_lines);
 
-		always @(*)
-			S_AXIS_VLAST = axis_last_line && S_AXIS_HLAST;
+		assign	S_AXIS_VLAST = axis_last_line && S_AXIS_HLAST;
 
 	end else begin : VLAST_LOCK
 
-		always @(*)
-			S_AXIS_VLAST = S_AXIS_TLAST;
+		assign	S_AXIS_VLAST = S_AXIS_TLAST;
 
-		always @(*)
-			S_AXIS_HLAST = S_AXIS_TUSER;
+		assign	S_AXIS_HLAST = S_AXIS_TUSER;
 
 		/*
 		initial	S_AXIS_SOF = 0;
@@ -672,8 +666,7 @@ module	axivcamera #(
 		else if (S_AXIS_TVALID && S_AXIS_TREADY)
 			S_AXIS_SOF <= S_AXIS_VLAST;
 		*/
-		always @(*)
-			S_AXIS_SOF = 1'b0;
+		assign	S_AXIS_SOF = 1'b0;
 
 		// Verilator lint_off UNUSED
 		wire	unused_sof;

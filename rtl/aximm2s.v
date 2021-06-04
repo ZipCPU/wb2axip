@@ -338,7 +338,7 @@ module	aximm2s #(
 					ar_multiple_fixed_bursts,
 					ar_multiple_bursts_remaining,
 					ar_needs_alignment;
-	reg				partial_burst_requested;
+	wire				partial_burst_requested;
 	reg	[LGMAXBURST-1:0]	addralign;
 	reg	[LGFIFO:0]		rd_uncommitted;
 	reg	[LGMAXBURST:0]		initial_burstlen;
@@ -1054,16 +1054,18 @@ module	aximm2s #(
 	// {{{
 	generate if (OPT_UNALIGNED)
 	begin
-		initial	partial_burst_requested = 1'b1;
+		reg	r_partial_burst_requested;
+		initial	r_partial_burst_requested = 1'b1;
 		always @(posedge i_clk)
 		if (!r_busy)
-			partial_burst_requested <= !unaligned_cmd_addr;
+			r_partial_burst_requested <= !unaligned_cmd_addr;
 		else if (phantom_start)
-			partial_burst_requested <= 1'b1;
+			r_partial_burst_requested <= 1'b1;
+
+		assign	partial_burst_requested = r_partial_burst_requested;
 	end else begin
 
-		always @(*)
-			partial_burst_requested = 1'b1;
+		assign	partial_burst_requested = 1'b1;
 	end endgenerate
 
 	initial	rd_uncommitted = (1<<LGFIFO);

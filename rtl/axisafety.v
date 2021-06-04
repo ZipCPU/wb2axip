@@ -287,7 +287,7 @@ module axisafety #(
 	// Register declarations
 	// {{{
 	reg			faulty_write_return, faulty_read_return;
-	reg			clear_fault;
+	wire			clear_fault;
 	//
 	// Timer/timeout variables
 	reg	[LGTIMEOUT-1:0]	write_timer,   read_timer;
@@ -1315,7 +1315,7 @@ module axisafety #(
 		// Declarations
 		// {{{
 		reg	[4:0]	reset_counter;
-		reg		reset_timeout, r_clear_fault;
+		reg		reset_timeout, r_clear_fault, w_clear_fault;
 		// }}}
 
 		// M_AXI_ARESETN
@@ -1363,11 +1363,13 @@ module axisafety #(
 		// {{{
 		always @(*)
 		if (S_AXI_AWVALID || S_AXI_ARVALID)
-			clear_fault = 0;
+			w_clear_fault = 0;
 		else if (raddr_valid || waddr_valid)
-			clear_fault = 0;
+			w_clear_fault = 0;
 		else
-			clear_fault = r_clear_fault;
+			w_clear_fault = r_clear_fault;
+
+		assign	clear_fault = w_clear_fault;
 		// }}}
 
 		// }}}
@@ -1375,8 +1377,7 @@ module axisafety #(
 		// {{{
 		always @(*)
 			M_AXI_ARESETN = S_AXI_ARESETN;
-		always @(*)
-			clear_fault = 0;
+		assign	clear_fault = 0;
 		// }}}
 	end endgenerate
 	// }}}

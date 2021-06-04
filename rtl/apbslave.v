@@ -53,7 +53,7 @@ module	apbslave #(
 		input	wire	[DW/8-1:0]	PWSTRB,
 		input	wire	[2:0]		PPROT,
 		output	reg	[DW-1:0]	PRDATA,
-		output	reg			PSLVERR
+		output	wire			PSLVERR
 		// }}}
 	);
 
@@ -96,8 +96,7 @@ module	apbslave #(
 
 	// PSLVERR -- unused in this design, and so kept at zero
 	// {{{
-	always @(*)
-		PSLVERR = 1'b0;
+	assign	PSLVERR = 1'b0;
 	// }}}
 
 	// Make Verilator happy
