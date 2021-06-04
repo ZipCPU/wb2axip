@@ -308,7 +308,7 @@ module	axil2apb #(
 				&& M_APB_PREADY && M_APB_PWRITE)|| r_apb_bvalid;
 		// }}}
 
-		// apb_bvalid
+		// apb_rvalid
 		// {{{
 		always @(*)
 			apb_rvalid = (M_APB_PSEL && M_APB_PENABLE
@@ -338,31 +338,30 @@ module	axil2apb #(
 		// }}}
 	end else begin
 		// {{{
+
+		initial	r_apb_bvalid = 1'b0;
+		initial	r_apb_rvalid = 1'b0;
+		initial	r_apb_error = 1'b0;
+		initial	r_apb_data = 0;
 		always @(*)
+		begin
 			r_apb_bvalid = 1'b0;
-
-		always @(*)
 			r_apb_rvalid = 1'b0;
-
-		always @(*)
 			r_apb_error = 1'b0;
-
-		always @(*)
 			r_apb_data = 0;
 
-		always @(*)
 			apb_bvalid = M_APB_PSEL && M_APB_PENABLE
 				&& M_APB_PREADY && M_APB_PWRITE;
-		always @(*)
+
 			apb_rvalid = M_APB_PSEL && M_APB_PENABLE
 				&& M_APB_PREADY && !M_APB_PWRITE;
-		always @(*)
+
 			apb_data = M_APB_PRDATA;
-		always @(*)
+
 			apb_error = M_APB_PSLVERR;
 
-		always @(*)
 			out_skid_full = 1'b0;
+		end
 
 		// Verilator lint_off UNUSED
 		wire	skd_unused;
