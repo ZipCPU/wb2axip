@@ -195,13 +195,14 @@
 //	 80: AWR Cycles
 //		Number of clock cycles between the first AWVALID of any burst
 //		and the last BVALID && BREADY clearing the channel again.
-//		(This does not (yet) count the number of cycles where
-//		AWVALID && !AWREADY prior to a burst being accepted.)
+//		This includes any cycles where AWVALID && !AWREADY prior to the
+//		first brust being accepted.
+//
 //	 84: Write cycles
 //		Number of clock cycles between the first WVALID of any burst
 //		and the last BVALID && BREADY clearing the channel again.
-//		(This does not (yet) include the number of cycles where
-//		WVALID && !WREADY while the channel is otherwise idle.)
+//		This includes the number of cycles where WVALID && !WREADY,
+//		even if the channel would be otherwise idle.
 //
 //	Total write cycles = max(AWR Cycles, Write Cycles)
 //		= (wr_addr_lag+wr_data_lag+wr_awr_early+wr_early_beat
@@ -463,6 +464,7 @@ module	axiperf #(
 	reg		rd_responding_d;
 
 	reg [LGCNT-1:0]	wr_cycles, awr_cycles;
+	reg	last_awr_stall, last_wr_stall;
 
 	integer		ik;
 	genvar		gk;
@@ -669,6 +671,9 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	// triggered
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		triggered <= 0;
@@ -678,13 +683,19 @@ module	axiperf #(
 			triggered <= 1'b1;
 	end else if (stop_request && idle_bus)
 		triggered <= 0;
+	// }}}
 
+	// active_time : count number of cycles while triggered
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		active_time <= 0;
 	else if (triggered)
 		active_time <= active_time + 1;
+	// }}}
 
+	// idle_bus : Can we start or stop our couters?  Can't if not idle
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		idle_bus <= 1;
@@ -696,6 +707,7 @@ module	axiperf #(
 		&& (rd_outstanding_bursts
 			==((M_AXI_RVALID && M_AXI_RREADY && M_AXI_RLAST)? 1:0)))
 		idle_bus <= 1;
+	// }}}
 
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -988,26 +1000,32 @@ module	axiperf #(
 
 	// AWR Cycles: Counting the time while wr_aw_outstanding > 0
 	// {{{
+	always @(posedge S_AXI_ACLK)
+		last_awr_stall <= (M_AXI_AWVALID && !M_AXI_AWREADY);
+
 	initial	awr_cycles = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		awr_cycles <= 0;
 	else if (triggered)
 	begin
-		if (!wr_aw_zero_outstanding)
+		if (!wr_aw_zero_outstanding || last_awr_stall)
 			awr_cycles <= awr_cycles + 1;
 	end
 	// }}}
 
 	// WR Cycles: Counting the time while wr_w_outstanding > 0
 	// {{{
+	always @(posedge S_AXI_ACLK)
+		last_wr_stall <= (M_AXI_WVALID && !M_AXI_WREADY);
+
 	initial	wr_cycles = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_cycles <= 0;
 	else if (triggered)
 	begin
-		if (!wr_w_zero_outstanding)
+		if (!wr_w_zero_outstanding || wr_in_progress || last_wr_stall)
 			wr_cycles <= wr_cycles + 1;
 	end
 	// }}}
