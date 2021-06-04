@@ -107,7 +107,6 @@ module	addrdecode #(
 	//
 	wire	[NS:0]		request;
 	reg	[NS-1:0]	prerequest;
-	wire			none_sel;
 	integer			iM;
 	// }}}
 
@@ -161,7 +160,7 @@ module	addrdecode #(
 	end endgenerate
 	// }}}
 
-	// none_sel
+	// request[NS]
 	// {{{
 	generate if (OPT_NONESEL)
 	begin
@@ -184,13 +183,9 @@ module	addrdecode #(
 			r_request_NS = r_none_sel;
 		end
 
-		assign { request[NS], none_sel } = { r_request_NS, r_none_sel };
+		assign request[NS] = r_request_NS;
 	end else begin
-		assign { request[NS], none_sel } = 2'b00;
-
-		// Verilator lint_off UNUSED
-		wire	all_assigned_unused = none_sel;
-		// Verilator lint_on  UNUSED
+		assign request[NS] = 1'b0;
 	end endgenerate
 	// }}}
 
