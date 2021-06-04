@@ -43,8 +43,10 @@ module axlite2wbsp #(
 		parameter C_AXI_DATA_WIDTH	= 32,// Width of the AXI R&W data
 		parameter C_AXI_ADDR_WIDTH	= 28,	// AXI Address width
 		parameter		LGFIFO = 4,
+`ifdef	FORMAL
 		parameter		F_MAXSTALL = 3,
 		parameter		F_MAXDELAY = 3,
+`endif
 		parameter	[0:0]	OPT_READONLY  = 1'b0,
 		parameter	[0:0]	OPT_WRITEONLY = 1'b0,
 		localparam		AXILLSB = $clog2(C_AXI_DATA_WIDTH/8)
@@ -372,10 +374,12 @@ module axlite2wbsp #(
 		// {{{
 		wbarbiter #(
 			// {{{
-			.DW(DW), .AW(AW),
-			.F_LGDEPTH(F_LGDEPTH),
+			.DW(DW), .AW(AW)
+`ifdef	FORMAL
+			, .F_LGDEPTH(F_LGDEPTH),
 			.F_MAX_STALL(F_MAXSTALL),
 			.F_MAX_ACK_DELAY(F_MAXDELAY)
+`endif
 			// }}}
 		) readorwrite(
 			// {{{
