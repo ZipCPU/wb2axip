@@ -105,75 +105,76 @@
 //		Number of cycles where a write has started, that is WVALID
 //		and WREADY (but !WLAST) have been seen, but yet WVALID is now
 //		low.  These are only counted if a write address request has
-//		already been recceived, and if no completed write packets are
-//		awaiting their respective BVALIDs.
+//		already been recceived.
 //						*ORTHOGONAL*
 //	 32: wr_stall--Write stalls
-//		Counts the number of cycles where a write address request has
-//		been issued, but not (yet) enough data writes are outstanding
-//		to complete the burst.  In this context, it counts WVALID &&
-//		!WREADY cycles.
+//		Counts the number of cycles where WVALID && !WREADY, but
+//		only if AWVALID is true or has been true.  This is to
+//		distinguish from stalls which may take place before AWVALID,
+//		where the slave may be waiting on AWVALID (lag) versus
+//		unable to handle the throuhgput.
 //						*ORTHOGONAL*
 //	 36: wr_addr_lag--Write address channel lagging
-//		Counts one of three conditions, but only assuming that no
-//		write address has been issued and is outstanding waiting on a
-//		BVALID.  1) Writes are outstanding, possibly even a WLAST has
-//		been received, for which no address has yet been received.
-//		2) The WVALID comes before AWVALID.  3) A WVALID && WREADY
-//		have already taken place, and so there's a write burst in
-//		progress, but one which hasn't yet seen its address.
+//		Counts the number of cycles where the write data has been
+//		present on the channel prior to the write address.  This
+//		includes cycles where AWVALID is true or stalled, just not
+//		cycles where WVALID is also true.
 //						*ORTHOGONAL*
 //	 40: wr_data_lag--Write data laggging
 //		The AWVALID && AWREADY has been received, but no data has
 //		yet been received for this write burst and WVALID remains
 //		low.  (i.e., no BVALIDs are pending either.)
 //						*ORTHOGONAL*
-//	 44: wr_beat--Write beats (different from the write beat count above)
-//		The big difference between this and the total number of write
-//		beats is that this counts the number of clock cycles where
-//		the write data is on the critical path.  It doesn't count
-///		cycles where no AWVALID has been seen, nor does it count clock
-//		cycles where additional data is passing between one WLAST and
-//		its corresponding BVALID.
+//	 44: wr_awr_early--AWVALID && AWREADY, but only if !WVALID and
+//		no AWVALID has yet been received.
 //						*ORTHOGONAL*
-//	 48: aw_burst--AWVALID request accepted
-//		But this particular measure is only counted if there's already
-//		been a full write burst received (and no BVALIDs can yet be
-//		pending--those take precedence)  See the AWW* measures below
-//		for other AWVALID cycles.
+//	 48: wr_early_beat--WVALID && WREADY && !AWVALID, and also prior to
+//		any AWVALID,
 //						*ORTHOGONAL*
-//	 52: addr_stall--Write address channel is stalled
-//		This counts any cycle where AWVALID && !AWREADY and no bursts
-//		are outstanding waiting on BVALID.
+//	 52: wr_addr_stall--AWVALID && !AWREADY, but only if !WVALID and
+//		no AWVALID has yet been received.
 //						*ORTHOGONAL*
-//	 56: aww_stall-- Write address and data, address accepted but not data
-//		Counts AWVALID && AWREADY && WVALID && !WREADY cycles, but
-//		only when 
+//	 56: wr_early_stall--WVALID && !WREADY, but only if this burst has
+//		not yet started and no AWVALID has yet been received.
 //						*ORTHOGONAL*
-//	 60: aww_slow--AWVALID and write data is in process, but not ready
-//		Counts the number of cycles, following the first WVALID,
-//		where WVALID is low and AWVALID && AWREADY are both true
-//		(and no completed bursts are waiting on BVALID--cause then
-//		this cycle wouldn't be on a critical path)
-//						*ORTHOGONAL*
-//	 64: aww_nodata--AWVALID && AWREADY && !WVALID
-//		... and no data for this burst has yet been received, neither
-//		are any BVALIDs pending
-//						*ORTHOGONAL*
-//	 68: aww_beat-Counts the number of cycles beginning a burst where
-//		AWVALID && AWREADY && WVALID && WREADY and the channel is
-//		otherwise idle (no BVALIDs pending)
-//						*ORTHOGONAL*
-//	 72: b_lag_count
+//	 60: b_lag_count
 //		Counts the number of cycles between the last accepted AWVALID
 //		and WVALID && WLAST and its corresponding BVALID.  This is
 //		the number of cycles where BVALID could be high in response
-//		to any burst, but yet where it isn't.
+//		to any burst, but yet where it isn't.  To avoid interfering
+//		with the throughput measure, this excludes any cycles where
+//		WVALID is also true.
 //						*ORTHOGONAL*
-//	 76: b_stall_count
+//	 64: b_stall_count
 //		Number of cycles where BVALID && !BREADY.  This could be a
 //		possible indication of backpressure in the interconnect.
+//		This also excludes any cycles where WVALID is also true.
 //						*ORTHOGONAL*
+//
+//	 76: Write Bias
+//		Total number of cycles between the first AWVALID and the
+//		first WVALID, minus the total number of cycles between the
+//		first WVALID and the first AWVALID.  This is a measure of
+//		how often AWV comes before WV and by how much.  To make use
+//		of this statistic, divide it by the total number of bursts
+//		for the average distance between the first AWV and the first WV.
+//	 80: AWR Cycles
+//		Number of between the first AWVALID of any burst and the last
+//		BVALID && BREADY clearing the channel again.
+//	 84: Write cycles
+//		Number of between the first WVALID of any burst and the last
+//		BVALID && BREADY clearing the channel again.
+//
+//	Total write cycles = max(AWR Cycles, Write Cycles)
+//		= (wr_addr_lag+wr_data_lag+wr_awr_early+wr_early_beat
+//			+ wr_addr_stall + wr_b_lag_count + wr_b_stall_count)
+//		    + (wr_slow_data + wr_stall + wr_beats - wr_early_beats)
+//
+//	Latency = (wr_addr_lag+wr_data_lag+wr_awr_early+wr_early_beat
+//			+ wr_addr_stall + wr_b_lag + wr_b_stall) / WR BURSTS
+//	Throughput= (wr_beats) / 
+//			(wr_slow_data + wr_stall + wr_beats - wr_early_beats)
+//
 //	 80: (Unused)
 //	 84: (Unused)
 //
@@ -203,7 +204,7 @@
 //		read bursts ever allowed.	*ORTHOGONAL*
 //	112: R stalls
 //		Total number of clock cycles where RVALID && !RREADY.  This is
-//		an indication of a slave that has issued more read requests
+//		an indication of a master that has issued more read requests
 //		than it can process, and so it is suffering from internal
 //		back pressure.			*ORTHOGONAL*
 //	116: Lag counter
@@ -236,6 +237,11 @@
 //		Write a 1 to this register to start recording, and a 0 to this
 //		register to stop.  Writing a 2 will clear the counters as
 //		well.
+//
+// Performance:
+//	Write Throughput = (Wr Beats) / (Wr Beats + WrStalls + WrSlow);
+//	Read Throughput = (Rd Beats) / (Rd Beats + R Stalls + RSlow);
+//	Read Latency    = (AR Stalls + RdLag) ./ (Rd Bursts)
 // }}}
 //
 // Creator:	Dan Gisselquist, Ph.D.
@@ -363,13 +369,15 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Register/wire signal declarations
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
 	wire	i_reset = !S_AXI_ARESETN;
 
+	// AXI signaling
+	// {{{
 	wire				axil_write_ready;
 	wire	[C_AXIL_ADDR_WIDTH-ADDRLSB-1:0]	awskd_addr;
 	//
@@ -382,21 +390,57 @@ module	axiperf #(
 	reg	[C_AXIL_DATA_WIDTH-1:0]	axil_read_data;
 	reg				axil_read_valid;
 
+	wire	awskd_valid, wskd_valid;
+	wire	arskd_valid;
+	// }}}
+
+	reg		idle_bus, triggered, stop_request,
+			clear_request, start_request;
+	reg	[LGCNT-1:0]	active_time;
+	reg	[7:0]	wr_max_burst_size;
+	reg	[LGCNT-1:0]	wr_awburst_count, wr_wburst_count, wr_beat_count;
+	reg	[LGCNT-1:0]	wr_aw_byte_count, wr_w_byte_count;
+	reg	[7:0]	wr_aw_outstanding, wr_w_outstanding,
+			wr_aw_max_outstanding, wr_w_max_outstanding,
+			wr_max_outstanding, wr_now_outstanding;
+	reg		wr_aw_zero_outstanding, wr_w_zero_outstanding,
+			wr_in_progress;
+	reg	[LGCNT-1:0]	wr_idle_cycles,
+			wr_b_lag_count, wr_b_stall_count,
+			wr_slow_data, wr_stall, wr_early_beat, // wr_beat,
+			wr_addr_lag, wr_data_lag, wr_awr_early,
+			wr_bias, wr_addr_stall, wr_early_stall;
+	reg[C_AXI_DATA_WIDTH/8:0]	wstrb_count;
+
+	reg [LGCNT-1:0]	rd_idle_cycles, rd_lag_counter, rd_slow_link,
+			rd_burst_count, rd_byte_count, rd_beat_count,
+			rd_ar_stalls, rd_r_stalls;
+	reg	[7:0]	rd_outstanding_bursts, rd_max_burst_size,
+			rd_max_outstanding_bursts;
+	reg [7:0]	rd_outstanding_bursts_id [0:(1<<C_AXI_ID_WIDTH)-1];
+	reg [(1<<C_AXI_ID_WIDTH)-1:0]	rd_nonzero_outstanding_id,
+			rd_bursts_in_flight;
+	reg [C_AXI_ID_WIDTH:0]	rd_total_in_flight, rd_responding,
+			rd_max_responding_bursts;
+	reg		rd_responding_d;
+
+	reg [LGCNT-1:0]	wr_cycles, awr_cycles;
+
+	integer		ik;
+	genvar		gk;
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// Write signaling
 	//
 	// {{{
-
-	wire	awskd_valid, wskd_valid;
-
 	skidbuffer #(.OPT_OUTREG(0),
 			.OPT_LOWPOWER(OPT_LOWPOWER),
 			.DW(C_AXIL_ADDR_WIDTH-ADDRLSB))
@@ -437,9 +481,6 @@ module	axiperf #(
 	// Read signaling
 	//
 	// {{{
-
-	wire	arskd_valid;
-
 	skidbuffer #(.OPT_OUTREG(0),
 			.OPT_LOWPOWER(OPT_LOWPOWER),
 			.DW(C_AXIL_ADDR_WIDTH-ADDRLSB))
@@ -471,55 +512,21 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite register logic
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
-	reg		idle_bus, triggered, stop_request,
-			clear_request, start_request;
-	reg	[LGCNT-1:0]	active_time;
-	reg	[7:0]	wr_max_burst_size;
-	reg	[LGCNT-1:0]	wr_awburst_count, wr_wburst_count, wr_beat_count;
-	reg	[LGCNT-1:0]	wr_aw_byte_count, wr_w_byte_count;
-	reg	[7:0]	wr_aw_outstanding, wr_w_outstanding,
-			wr_aw_max_outstanding, wr_w_max_outstanding,
-			wr_max_outstanding;
-	reg		wr_aw_zero_outstanding, wr_w_zero_outstanding,
-			wr_in_progress;
-	reg	[LGCNT-1:0]	wr_idle_cycles,
-			wr_b_lag_count, wr_b_stall_count,
-			wr_slow_data, wr_stall,
-			wr_addr_lag, wr_data_lag,
-			wr_beat,
-			wr_aw_burst, wr_addr_stall,
-			wr_aww_stall, wr_aww_slow, wr_aww_nodata, wr_aww_beat;
-	reg[C_AXI_DATA_WIDTH/8:0]	wstrb_count;
-
-	reg [LGCNT-1:0]	rd_idle_cycles, rd_lag_counter, rd_slow_link,
-			rd_burst_count, rd_byte_count, rd_beat_count,
-			rd_ar_stalls, rd_r_stalls;
-	reg	[7:0]	rd_outstanding_bursts, rd_max_burst_size,
-			rd_max_outstanding_bursts;
-	reg [7:0]	rd_outstanding_bursts_id [0:(1<<C_AXI_ID_WIDTH)-1];
-	reg [(1<<C_AXI_ID_WIDTH)-1:0]	rd_nonzero_outstanding_id,
-			rd_bursts_in_flight;
-	reg [C_AXI_ID_WIDTH:0]	rd_total_in_flight, rd_responding,
-			rd_max_responding_bursts;
-	reg		rd_responding_d;
-
-	integer		ik;
-	genvar		gk;
-
+	//
 	always @(posedge S_AXI_ACLK)
 	begin
+		clear_request <= 1'b0;
+		if (!clear_request && idle_bus)
+		begin
+			start_request <= 0;
+			stop_request <= 0;
+		end
+
 		if (axil_write_ready)
 		begin
-			clear_request <= 1'b0;
-			if (!clear_request && idle_bus)
-			begin
-				start_request <= 0;
-				stop_request <= 0;
-			end
 			case(awskd_addr)
 			5'h1f:	if (wskd_strb[0]) begin
 				// Start, stop, clear, reset
@@ -558,19 +565,24 @@ module	axiperf #(
 		5'h04: axil_read_data[LGCNT-1:0] <= wr_beat_count;
 		5'h05: axil_read_data[LGCNT-1:0] <= wr_aw_byte_count;
 		5'h06: axil_read_data[LGCNT-1:0] <= wr_w_byte_count;
+		//
 		5'h07: axil_read_data[LGCNT-1:0] <= wr_slow_data;
 		5'h08: axil_read_data[LGCNT-1:0] <= wr_stall;
 		5'h09: axil_read_data[LGCNT-1:0] <= wr_addr_lag;
 		5'h0a: axil_read_data[LGCNT-1:0] <= wr_data_lag;
-		5'h0b: axil_read_data[LGCNT-1:0] <= wr_beat;
-		5'h0c: axil_read_data[LGCNT-1:0] <= wr_aw_burst;
+		5'h0b: axil_read_data[LGCNT-1:0] <= wr_awr_early;
+		5'h0c: axil_read_data[LGCNT-1:0] <= wr_early_beat;
 		5'h0d: axil_read_data[LGCNT-1:0] <= wr_addr_stall;
-		5'h0e: axil_read_data[LGCNT-1:0] <= wr_aww_stall;
-		5'h0f: axil_read_data[LGCNT-1:0] <= wr_aww_slow;
-		5'h10: axil_read_data[LGCNT-1:0] <= wr_aww_nodata;
-		5'h11: axil_read_data[LGCNT-1:0] <= wr_aww_beat;
-		5'h12: axil_read_data[LGCNT-1:0] <= wr_b_lag_count;
-		5'h13: axil_read_data[LGCNT-1:0] <= wr_b_stall_count;
+		5'h0e: axil_read_data[LGCNT-1:0] <= wr_early_stall;
+		5'h0f: axil_read_data[LGCNT-1:0] <= wr_b_lag_count;
+		5'h10: axil_read_data[LGCNT-1:0] <= wr_b_stall_count;
+		// 5'h10:
+		// 5'h11:
+		// 5'h12:
+		//
+		5'h13: axil_read_data[LGCNT-1:0] <= wr_bias;
+		5'h14: axil_read_data[LGCNT-1:0] <= awr_cycles;
+		5'h15: axil_read_data[LGCNT-1:0] <= wr_cycles;
 		//
 		5'h16: axil_read_data[LGCNT-1:0] <= rd_idle_cycles;
 		5'h17: axil_read_data	<= {
@@ -612,14 +624,13 @@ module	axiperf #(
 		end
 	endfunction
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI performance counters
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		triggered <= 0;
@@ -651,9 +662,12 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write statistics
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// wr_max_burst_size: max of all AWLEN values
 	// {{{
 	initial	wr_max_burst_size = 0;
 	always @(posedge S_AXI_ACLK)
@@ -664,28 +678,40 @@ module	axiperf #(
 		if (M_AXI_AWVALID && M_AXI_AWLEN > wr_max_burst_size)
 			wr_max_burst_size <= M_AXI_AWLEN;
 	end
+	// }}}
 
+	// wr_awburst_count -- count AWVALID && AWREADY
+	// {{{
 	initial	wr_awburst_count = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_awburst_count <= 0;
 	else if (triggered && M_AXI_AWVALID && M_AXI_AWREADY)
 		wr_awburst_count <= wr_awburst_count + 1;
+	// }}}
 
+	// wr_wburst_count -- count of WVALID && WLAST && WREADY
+	// {{{
 	initial	wr_wburst_count = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_wburst_count <= 0;
 	else if (triggered && M_AXI_WVALID && M_AXI_WREADY && M_AXI_WLAST)
 		wr_wburst_count <= wr_wburst_count + 1;
+	// }}}
 
+	// wr_beat_count -- count of WVALID && WREADY
+	// {{{
 	initial	wr_beat_count = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_beat_count <= 0;
 	else if (triggered && M_AXI_WVALID && M_AXI_WREADY)
 		wr_beat_count <= wr_beat_count + 1;
+	// }}}
 
+	// wstrb_count -- combinatorial, current active strobe count
+	// {{{
 	always @(*)
 	begin
 		wstrb_count = 0;
@@ -693,7 +719,10 @@ module	axiperf #(
 		if (M_AXI_WSTRB[ik])
 			wstrb_count = wstrb_count + 1;
 	end
+	// }}}
 
+	// wr_aw_byte_count : count of (AWLEN+1)<<AWSIZE
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_aw_byte_count <= 0;
@@ -702,7 +731,10 @@ module	axiperf #(
 		wr_aw_byte_count <= wr_aw_byte_count
 			+ (({ 24'b0, M_AXI_AWLEN}+32'h1) << M_AXI_AWSIZE);
 	end
+	// }}}
 
+	// wr_w_byte_count : Count of active WSTRBs
+	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_w_byte_count <= 0;
@@ -711,7 +743,10 @@ module	axiperf #(
 		wr_w_byte_count <= wr_w_byte_count
 			+ { {(32-C_AXI_DATA_WIDTH/8-1){1'b0}}, wstrb_count };
 	end
+	// }}}
 
+	// wr_aw_outstanding, wr_aw_zero_outstanding: AWV && AWR - BV && BR
+	// {{{
 	initial	wr_aw_outstanding = 0;
 	initial	wr_aw_zero_outstanding = 1;
 	always @(posedge S_AXI_ACLK)
@@ -731,14 +766,20 @@ module	axiperf #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
+	// wr_aw_max_outstanding : max of wr_aw_outstanding
+	// {{{
 	initial	wr_aw_max_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_aw_max_outstanding <= 0;
-	else if (triggered && (wr_aw_max_outstanding > wr_aw_outstanding))
+	else if (triggered && (wr_aw_max_outstanding < wr_aw_outstanding))
 		wr_aw_max_outstanding <= wr_aw_outstanding;
+	// }}}
 
+	// wr_w_outstanding, wr_w_zero_outstanding: WV & WR & WL - BV & BR
+	// {{{
 	initial	wr_w_outstanding = 0;
 	initial	wr_w_zero_outstanding = 1;
 	always @(posedge S_AXI_ACLK)
@@ -758,37 +799,57 @@ module	axiperf #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
+	// wr_w_max_outstanding: max of wr_w_outstanding + wr_in_progress
+	// {{{
 	initial	wr_w_max_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_w_max_outstanding <= 0;
 	else if (triggered)
 	begin
-		if (wr_w_max_outstanding > wr_w_outstanding)
-			wr_w_max_outstanding <= wr_w_outstanding;
+		if (wr_w_outstanding + (wr_in_progress ? 1:0)
+					> wr_max_outstanding)
+			wr_w_max_outstanding <= wr_w_outstanding
+						+ (wr_in_progress ? 1:0);
+	end
+	// }}}
+
+	// wr_now_outs*, wr_max_outs*: max of wr_w_outs* and wr_aw_outs*
+	// {{{
+	always @(*)
+	begin
+		wr_now_outstanding = 0;
+		wr_now_outstanding = wr_w_max_outstanding;
+		if (wr_aw_max_outstanding > wr_now_outstanding)
+			wr_now_outstanding = wr_aw_max_outstanding;
 	end
 
 	initial	wr_max_outstanding = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		wr_max_outstanding <= 0;
-	else if (wr_aw_max_outstanding > wr_w_max_outstanding
-						+ (wr_in_progress ? 1:0))
-		wr_max_outstanding <= wr_aw_max_outstanding;
-	else
-		wr_max_outstanding <= wr_w_max_outstanding
-						+ (wr_in_progress ? 1:0);
+	else if (triggered)
+	begin
+		if (wr_now_outstanding > wr_max_outstanding)
+			wr_max_outstanding <= wr_now_outstanding;
+	end
+	// }}}
 
+	// wr_in_progress: Flag, true between WVALID and WV && WR && WLAST
+	// {{{
 	initial	wr_in_progress = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN)
 		wr_in_progress <= 0;
-	else case ({ M_AXI_WVALID, M_AXI_WLAST })
+	else case ({ M_AXI_WVALID && (!M_AXI_WREADY || !M_AXI_WLAST),
+				M_AXI_WVALID && M_AXI_WREADY && M_AXI_WLAST })
 	2'b10: wr_in_progress <= 1;
-	2'b11: wr_in_progress <= 0;
+	2'b01: wr_in_progress <= 0;
 	default: begin end
 	endcase
+	// }}}
 
 	// Orthogonal write statistics
 	// {{{
@@ -799,27 +860,46 @@ module	axiperf #(
 	//
 	//	AW_O W_O WIP AWV AWR WV WR BV BR
 	//	0    0	 0   0       0		IDLE-CYCLE
-	//	1    1	            	   0	B-LAG
-	//	1    1	            	   1  0	B-STALL
-	//	1    1	            	   1  1	(BURSTS COMPLETED)
-	//	1    0	 1           0  	W-SLOW
-	//	1    0	             1  0	W-STALL
-	//	1    0   0           0          DATA-LAG
-	//	1    0	             1  1	W-BEAT
-	//	0    1       0                  ADDR-LAG
-	//	0    1	     1   1       	AW-BURST
-	//	0     	     1   0       	AW-STALL
-	//	0    0   0   0       1          ADDR-LAG
-	//	0    0   1   0                  ADDR-LAG
-	//
-	//	0    0	     1   1   1  0	AWW-STALL
-	//	0    0	 1   1   1   0  	AWW-SLOW
-	//	0    0   0   1   1   0          AWW-NO-DATA
-	//	0    0       1   1   1  1       AWW-BEAT
-	//
-	//
-	//	      	     1   1       	AW-BURST (Counted elsewhere)
+	//	1     	 1           0		SLOW-DATA
+	//	1     	             1	0	Write stall (#1)
+	//	0     	 1           1	0	Write stall (#2)
 	//	      	             1  1	W-BEAT   (Counted elsewhere)
+	//
+	//	0    0   0   1       0		W-DATA-LAG (#1)
+	//	1    0   0           0		W-DATA-LAG (#2)
+	//	0    1   0           0		WR Early (AWR after WLAST)
+	//	0        1           0		Write data before AWR
+	//
+	//
+	//
+	//	0     	     0       1	1	Early write beat (special)
+	//	      	     1   1       	AW-BURST (Counted elsewhere)
+	//
+	// (DRAFT) Single channel AWR orthogonal
+	// {{{
+	//	AWR bursts (got that)
+	//	AWR Cycles = (AWR latency) + (WR Beats) / (Throughput)
+	//
+	//	AWR bias = (counts where W follows AW)
+	//		- (counts where AW follows W)
+	//	If (AWR bias > 0), then
+	//		Write lag = (BLAG + AWR bias) / AWR beats
+	//	Else if (AWR bias < 0) (WData before AWVALID), then
+	//		Write lag = (BLAG - AWR bias) / AWR beats
+	//		Write throughput = (WR BEATS + WR STALL + WR SLOW
+	//					+ AWR bias) / WR Beats
+	// }}}
+	// (DRAFT) Single channel write measures
+	// {{{
+	//	WR SLOW	= (WR in progress) && !WVALID)
+	//	WR STALL= WVALID && !WREADY
+	//	WR BEATS= WVALID && WREADY
+	//	BLAG    = B outstanding, not W--counts BVALIDs as well
+	//
+	//	WR Cycles = (BLAG + BSTALL) + (WR BEATS + WR STALL + WR SLOW)
+	//	WR throughput = (WR BEATS) / (WR BEATS + WR STALL + WR SLOW)
+	//	WR Lag        = BLAG / Total WR bursts
+	// }}}
 	// Skip the boring stuffs (if using VIM folding)
 	// {{{
 	initial	wr_data_lag      = 0;
@@ -828,15 +908,10 @@ module	axiperf #(
 	initial	wr_b_stall_count = 0;
 	initial	wr_slow_data     = 0;
 	initial	wr_stall         = 0;
-	initial	wr_data_lag      = 0;
-	initial	wr_beat          = 0;
-	initial	wr_aw_burst      = 0;
+	initial	wr_early_beat    = 0;
+	// initial	wr_aw_burst      = 0;
 	initial	wr_addr_stall    = 0;
 	initial	wr_addr_lag      = 0;
-	initial	wr_aww_stall     = 0;
-	initial	wr_aww_slow      = 0;
-	initial	wr_aww_nodata    = 0;
-	initial	wr_aww_beat      = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 	begin
@@ -847,14 +922,9 @@ module	axiperf #(
 		wr_slow_data     <= 0;
 		wr_stall         <= 0;
 		wr_data_lag      <= 0;
-		wr_beat          <= 0;
-		wr_aw_burst      <= 0;
 		wr_addr_stall    <= 0;
 		wr_addr_lag      <= 0;
-		wr_aww_stall     <= 0;
-		wr_aww_slow      <= 0;
-		wr_aww_nodata    <= 0;
-		wr_aww_beat      <= 0;
+		wr_early_stall   <= 0;
 	end else if (triggered)
 	// }}}
 	casez({ !wr_aw_zero_outstanding, !wr_w_zero_outstanding,
@@ -863,34 +933,88 @@ module	axiperf #(
 		M_AXI_WVALID,  M_AXI_WREADY,
 		M_AXI_BVALID,  M_AXI_BREADY })
 	9'b0000?0???: wr_idle_cycles   <= wr_idle_cycles   + 1;
-	9'b11?????0?: wr_b_lag_count   <= wr_b_lag_count   + 1;
-	9'b11?????10: wr_b_stall_count <= wr_b_stall_count + 1;
-	9'b11?????11: begin end // BURST count
-	9'b101??0???: wr_slow_data <= wr_slow_data  + 1;
-	9'b10???10??: wr_stall     <= wr_stall      + 1;
-	9'b100??0???: wr_data_lag  <= wr_data_lag   + 1;
-	9'b100??11??: wr_beat      <= wr_beat       + 1;
-	9'b01?0?????: wr_addr_lag  <= wr_addr_lag   + 1;
-	9'b01?11????: wr_aw_burst  <= wr_aw_burst   + 1;
-	9'b0??10????: wr_addr_stall<= wr_addr_stall + 1;
-	9'b0000?1???: wr_addr_lag  <= wr_addr_lag   + 1;
-	9'b0010?????: wr_addr_lag  <= wr_addr_lag   + 1;
-	9'b00?1110??: wr_aww_stall <= wr_aww_stall  + 1;
-	9'b001110???: wr_aww_slow  <= wr_aww_slow   + 1;
-	9'b000110???: wr_aww_nodata<= wr_aww_nodata + 1;
-	9'b00?1111??: wr_aww_beat  <= wr_aww_beat   + 1;
+	// 9'b11?????11: begin end // BURST count
+	//
+// Throughput measures
+	9'b1?1??0???: wr_slow_data <= wr_slow_data  + 1;
+	9'b1????10??: wr_stall     <= wr_stall      + 1;	// Stall #1
+	9'b0?1??10??: wr_stall     <= wr_stall      + 1;	// Stall #2
+	//
+	9'b0??0?11??: wr_early_beat<= wr_early_beat + 1;	// Before AWV
+	// 9'b1??0?11??: wr_beat      <= wr_beat       + 1;
+	// 9'b???1?11??: wr_beat      <= wr_beat       + 1;
+	//
+// Lag measures
+	9'b000110???: wr_awr_early  <= wr_awr_early + 1;
+	9'b000100???: wr_addr_stall <= wr_addr_stall + 1;
+	9'b100??0?0?: wr_data_lag   <= wr_data_lag   + 1;
+	9'b010??0???: wr_addr_lag   <= wr_addr_lag   + 1;
+	9'b0?1??0???: wr_addr_lag   <= wr_addr_lag   + 1;
+	9'b0?0??10??: wr_early_stall<= wr_early_stall+ 1;
+
+	9'b110??0?0?: wr_b_lag_count   <= wr_b_lag_count   + 1;
+	9'b110??0?10: wr_b_stall_count <= wr_b_stall_count + 1;
+	//
 	default: begin end
 	endcase
+	// }}}
+
+	// AWR Cycles: Counting the time while wr_aw_outstanding > 0
+	// {{{
+	initial	awr_cycles = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || clear_request)
+		awr_cycles <= 0;
+	else if (triggered)
+	begin
+		if (!wr_aw_zero_outstanding)
+			awr_cycles <= awr_cycles + 1;
+	end
+	// }}}
+
+	// WR Cycles: Counting the time while wr_w_outstanding > 0
+	// {{{
+	initial	wr_cycles = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || clear_request)
+		wr_cycles <= 0;
+	else if (triggered)
+	begin
+		if (!wr_w_zero_outstanding)
+			wr_cycles <= wr_cycles + 1;
+	end
+	// }}}
+
+	// WR Bias: How far ahead of WVALID does AWVALID show up?
+	// {{{
+	initial	wr_bias = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || clear_request)
+		wr_bias <= 0;
+	else if (triggered)
+	begin
+		if ((!wr_aw_zero_outstanding
+			|| (M_AXI_AWVALID && (!M_AXI_AWREADY
+					|| (!M_AXI_WVALID || !M_AXI_WREADY))))
+			&& (wr_w_zero_outstanding && !wr_in_progress))
+			wr_bias <= wr_bias + 1;
+		else if ((wr_aw_zero_outstanding
+				&& (!M_AXI_AWVALID || !M_AXI_ARREADY))
+			&& ((M_AXI_WVALID && (!M_AXI_AWVALID
+					|| (M_AXI_WREADY && !M_AXI_AWREADY)))
+				|| !wr_w_zero_outstanding || wr_in_progress))
+			wr_bias <= wr_bias - 1;
+	end
 	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read statistics
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 		rd_max_burst_size <= 0;
@@ -1044,7 +1168,7 @@ module	axiperf #(
 	end
 	// }}}
 	// }}}
-
+	// }}}
 
 	// Make Verilator happy
 	// {{{
@@ -1064,14 +1188,16 @@ module	axiperf #(
 			};
 	// Verilator lint_on  UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties used in verfiying this core
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Formal properties used in verfiying this core
-	//
-	////////////////////////////////////////////////////////////////////////
-	//
-	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)

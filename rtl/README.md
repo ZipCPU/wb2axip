@@ -135,6 +135,13 @@ the rest of the design for additional testing.
 
 - [Wishbone](wbsafety.v)
 
+## Performance Measurement
+
+- [AXIPERF](axiperf.v) -- Useful for measuring Latency and Throughput in an
+AXI bus.  Has an AXI-lite interface, and an AXI4 monitor interface.  Monitors
+the AXI4 bus, and measures key performance statistics.  Statistics may be read
+and cleared via the AXI-lite interface.
+
 ## Empty slaves
 
 These are used to simplify interconnect generation.  When there are no slaves

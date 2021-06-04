@@ -456,6 +456,15 @@ throughput capabilities.
 - [AXISRANDOM](rtl/axisrandom.v) is a quick AXI stream source generating random
   numbers via a linear feedback shift register.
 
+- [AXIPERF](rtl/axiperf.v) is an AXI4 performance measurement peripheral.
+  It has an AXI4 monitor interface, for use with monitoring an AXI4 (full) bus.
+  A second AXI4-lite interface allows you to start, stop, or clear the data
+  collection, as well as the ability to read the results back out.  This core
+  has been used to successfully measure bus latency and throughput, as well
+  as to gain other valuable insights from any monitored AXI4 interface.
+
+  *This core has been [demonstrated in simulation](https://github.com/ZipCPU/axidmacheck).  The AXI-lite interface has been formally verified.*
+
 # APB
 
 There are now two APB cores in this repository:
