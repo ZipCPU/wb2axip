@@ -183,7 +183,7 @@
 //		This also excludes any cycles where WVALID is also true.
 //						*ORTHOGONAL*
 //
-//	 76: Write Bias
+//	 72: Write Bias
 //		Total number of cycles between the first AWVALID and the
 //		first WVALID, minus the total number of cycles between the
 //		first WVALID and the first AWVALID.  This is a measure of
@@ -192,13 +192,13 @@
 //		total number of bursts for the average distance between the
 //		first AWV and the first WV.  Negative distances are possible
 //		if the first WV tends to precede the first AWV.
-//	 80: AWR Cycles
+//	 76: AWR Cycles
 //		Number of clock cycles between the first AWVALID of any burst
 //		and the last BVALID && BREADY clearing the channel again.
 //		This includes any cycles where AWVALID && !AWREADY prior to the
 //		first brust being accepted.
 //
-//	 84: Write cycles
+//	 80: Write cycles
 //		Number of clock cycles between the first WVALID of any burst
 //		and the last BVALID && BREADY clearing the channel again.
 //		This includes the number of cycles where WVALID && !WREADY,
@@ -214,27 +214,29 @@
 //	Throughput= (wr_beats) /
 //			(wr_slow_data + wr_stall + wr_beats - wr_early_beats)
 //
-//	 80: (Unused)
-//	 84: (Unused)
-//
-//	 88: Read idle cycles
+//	 84: Read idle cycles
 //		Number of clock cycles, while the core is collecting, where
 //		nothing is happening on the read channel--ARVALID is low,
 //		nothing is outstanding, etc.	*ORTHOGONAL*
-//	 92: Max responding bursts
+//	 88: Max responding bursts
 //		This is the maximum number of bursts that have been responding
 //		at the same time, as counted by the maximum number of ID's
 //		which have seen an RVALID but not RLAST.  It's an estimate of
 //		how out of order the channel has become.
-//	 96: Read burst count
+//	 92: Read burst count
 //		The total number of RVALID && RREADY && RLAST's seen
-//	100: Read beat count
+//	 96: Read beat count
 //		The total number of beats requested, as measured by
 //		RVALID && RREADY (or equivalently by ARLEN ... but we measure
 //		RVALID && RREADY here).		*ORTHOGONAL*
-//	104: Read byte count
+//	100: Read byte count
 //		The total number of bytes requested, as measured by ARSIZE
 //		and ARLEN.
+//	104: AR cycles
+//		Total number of cycles where the interface is idle, but yet
+//		ARVALID && ARREADY are both true.  Yes, it'll be busy on the
+//		next cycle, but we still need to count them.
+//						*ORTHOGONAL*
 //	108: AR stalls
 //		Total number of clock cycles where ARVALID && !ARREADY, but
 //		only under the condition that nothing is currently outstanding.
@@ -263,6 +265,7 @@
 //				+ lag counter	(No data is ready)
 //				+ slow link	(Slave isn't ready))
 //				+ rd_ar_stalls	(Slave not ready for AR*)
+//				+ rd_ar_cycles	(Slave accepted AR*, o.w. idle)
 //
 //		We can then measure read throughput as the number of
 //		active cycles (active time - read idle counts) divided by the
@@ -453,7 +456,7 @@ module	axiperf #(
 
 	reg [LGCNT-1:0]	rd_idle_cycles, rd_lag_counter, rd_slow_link,
 			rd_burst_count, rd_byte_count, rd_beat_count,
-			rd_ar_stalls, rd_r_stalls;
+			rd_ar_stalls, rd_r_stalls, rd_ar_cycles;
 	reg	[7:0]	rd_outstanding_bursts, rd_max_burst_size,
 			rd_max_outstanding_bursts;
 	reg [7:0]	rd_outstanding_bursts_id [0:(1<<C_AXI_ID_WIDTH)-1];
@@ -617,20 +620,19 @@ module	axiperf #(
 		5'h0f: axil_read_data[LGCNT-1:0] <= wr_b_lag_count;
 		5'h10: axil_read_data[LGCNT-1:0] <= wr_b_stall_count;
 		// 5'h10:
-		// 5'h11:
-		// 5'h12:
 		//
-		5'h13: axil_read_data[LGCNT-1:0] <= wr_bias;
-		5'h14: axil_read_data[LGCNT-1:0] <= awr_cycles;
-		5'h15: axil_read_data[LGCNT-1:0] <= wr_cycles;
+		5'h12: axil_read_data[LGCNT-1:0] <= wr_bias;
+		5'h13: axil_read_data[LGCNT-1:0] <= awr_cycles;
+		5'h14: axil_read_data[LGCNT-1:0] <= wr_cycles;
 		//
-		5'h16: axil_read_data[LGCNT-1:0] <= rd_idle_cycles;
-		5'h17: axil_read_data	<= {
+		5'h15: axil_read_data[LGCNT-1:0] <= rd_idle_cycles;
+		5'h16: axil_read_data	<= {
 				{(C_AXIL_DATA_WIDTH-C_AXI_ID_WIDTH-1){1'b0}},
 				rd_max_responding_bursts };
-		5'h18: axil_read_data[LGCNT-1:0] <= rd_burst_count;
-		5'h19: axil_read_data[LGCNT-1:0] <= rd_beat_count;
-		5'h1a: axil_read_data[LGCNT-1:0] <= rd_byte_count;
+		5'h17: axil_read_data[LGCNT-1:0] <= rd_burst_count;
+		5'h18: axil_read_data[LGCNT-1:0] <= rd_beat_count;
+		5'h19: axil_read_data[LGCNT-1:0] <= rd_byte_count;
+		5'h1a: axil_read_data[LGCNT-1:0] <= rd_ar_cycles;
 		5'h1b: axil_read_data[LGCNT-1:0] <= rd_ar_stalls;
 		5'h1c: axil_read_data[LGCNT-1:0] <= rd_r_stalls;
 		5'h1d: axil_read_data[LGCNT-1:0] <= rd_lag_counter;
@@ -1225,13 +1227,16 @@ module	axiperf #(
 	initial	rd_idle_cycles = 0;
 	initial	rd_lag_counter = 0;
 	initial	rd_slow_link   = 0;
+	initial	rd_ar_stalls   = 0;
+	initial	rd_ar_cycles   = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || clear_request)
 	begin
 		rd_idle_cycles <= 0;
 		rd_lag_counter <= 0;
 		rd_slow_link   <= 0;
-		rd_ar_stalls <= rd_ar_stalls + 1;
+		rd_ar_stalls   <= 0;
+		rd_ar_cycles   <= 0;
 	end else if (triggered)
 	begin
 		// }}}
@@ -1245,6 +1250,8 @@ module	axiperf #(
 				rd_idle_cycles <= rd_idle_cycles + 1;
 			else if (M_AXI_ARVALID && !M_AXI_ARREADY)
 				rd_ar_stalls <= rd_ar_stalls + 1;
+			else // if M_AXI_ARVLD && M_AXI_ARRDY && otherwise idle
+				rd_ar_cycles <= rd_ar_cycles + 1;
 		end // else if (M_AXI_RREADDY) rd_beat_count <= rd_beat_count+1;
 	end
 	// }}}
