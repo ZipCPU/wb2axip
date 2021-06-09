@@ -92,7 +92,7 @@ module	fapb_master #(
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
 	begin
-		`SLAVE_ASSUME(!PSEL || F_OPT_INITIAL);
+		`SLAVE_ASSUME(!PSEL || !F_OPT_INITIAL);
 	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 	begin
 		`SLAVE_ASSUME(!PSEL);
@@ -138,7 +138,7 @@ module	fapb_master #(
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
 	begin
-		`SLAVE_ASSUME(!PREADY || F_OPT_INITIAL);
+		`SLAVE_ASSERT(!PREADY || !F_OPT_INITIAL);
 	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 	begin
 		`SLAVE_ASSERT(!PREADY);
