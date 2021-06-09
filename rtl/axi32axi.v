@@ -1,11 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axi32axi.v
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Bridge from an AXI3 slave to an AXI4 master
-// {{{
+//
 //	The goal here is to support as high a bus speed as possible, maintain
 //	burst support (if possible) and (more important) allow bus requests
 //	coming from the ARM within either the Zynq or one of Intel's SOC chips
@@ -54,7 +54,6 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype none
 // }}}
 module	axi32axi #(
@@ -76,17 +75,17 @@ module	axi32axi #(
 		input	wire				S_AXI_ARESETN,
 		//
 		// The AXI3 incoming/slave interface
-		input	reg				S_AXI_AWVALID,
+		input	wire				S_AXI_AWVALID,
 		output	wire				S_AXI_AWREADY,
-		input	reg	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
-		input	reg	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
-		input	reg	[3:0]			S_AXI_AWLEN,
-		input	reg	[2:0]			S_AXI_AWSIZE,
-		input	reg	[1:0]			S_AXI_AWBURST,
-		input	reg	[1:0]			S_AXI_AWLOCK,
-		input	reg	[3:0]			S_AXI_AWCACHE,
-		input	reg	[2:0]			S_AXI_AWPROT,
-		input	reg	[3:0]			S_AXI_AWQOS,
+		input	wire	[C_AXI_ID_WIDTH-1:0]	S_AXI_AWID,
+		input	wire	[C_AXI_ADDR_WIDTH-1:0]	S_AXI_AWADDR,
+		input	wire	[3:0]			S_AXI_AWLEN,
+		input	wire	[2:0]			S_AXI_AWSIZE,
+		input	wire	[1:0]			S_AXI_AWBURST,
+		input	wire	[1:0]			S_AXI_AWLOCK,
+		input	wire	[3:0]			S_AXI_AWCACHE,
+		input	wire	[2:0]			S_AXI_AWPROT,
+		input	wire	[3:0]			S_AXI_AWQOS,
 		//
 		//
 		input	wire				S_AXI_WVALID,
@@ -255,7 +254,7 @@ module	axi32axi #(
 		.OPT_LOWPOWER(OPT_LOWPOWER),
 		.OPT_LOW_LATENCY(OPT_LOW_LATENCY),
 		.LGAWFIFO(WID_LGAWFIFO),
-		.LGWFIFO(WID_LGWFIFO),
+		.LGWFIFO(WID_LGWFIFO)
 		// }}}
 	) widreorder (
 		// {{{

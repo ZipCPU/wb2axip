@@ -69,10 +69,9 @@ module axi2axilsub #(
 		parameter integer C_AXI_ADDR_WIDTH	= 6,
 		parameter	 [0:0]	OPT_LOWPOWER	= 1,
 		parameter	 [0:0]	OPT_WRITES	= 1,
-		parameter	 [0:0]	OPT_READS	= 0,
+		parameter	 [0:0]	OPT_READS	= 1,
 		parameter		SLVSZ = $clog2(C_S_AXI_DATA_WIDTH/8),
 		parameter		MSTSZ = $clog2(C_M_AXI_DATA_WIDTH/8),
-		parameter		LENB = 8+SLVSZ-MSTSZ,
 		// Log (based two) of the maximum number of outstanding AXI
 		// (not AXI-lite) transactions.  If you multiply 2^LGFIFO * 256,
 		// you'll get the maximum number of outstanding AXI-lite
@@ -381,6 +380,8 @@ module axi2axilsub #(
 		wire	[1:0]		skidm_bresp;
 
 		reg				m_axi_wvalid;
+		reg	[MSTDW-1:0]		m_axi_wdata;
+		reg	[MSTDW/8-1:0]		m_axi_wstrb;
 		reg	[AW-1:0]		mst_awaddr;
 		reg	[2:0]			mst_awprot;
 		reg	[SLVSZ-MSTSZ:0]		slv_awbeats, mst_awbeats,
@@ -435,7 +436,7 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		assign	skids_awready = (slv_wlen >= (slv_awready ? 1:0));
+		assign	skids_awready = (slv_wlen <= (slv_awready ? 1:0));
 		assign	slv_awvalid = (slv_wlen > 0);
 		assign	slv_awready = (!M_AXI_AWVALID || M_AXI_AWREADY)
 					&& (mst_wbeats <= (M_AXI_WREADY ? 1:0))
@@ -520,11 +521,11 @@ module axi2axilsub #(
 					mst_awprot <= 0;
 				end
 				// }}}
-			end else if (mst_awbeats > 0)
+			end else if ((mst_awbeats > 0)&&(!M_AXI_AWVALID || M_AXI_AWREADY))
 			begin
 				// {{{
-				mst_awaddr <= mst_awaddr + (1<<SLVSZ);
-				mst_awaddr[SLVSZ-1:0] <= 0;
+				mst_awaddr <= mst_awaddr + (1<<MSTSZ);
+				mst_awaddr[MSTSZ-1:0] <= 0;
 				mst_awbeats <= mst_awbeats - 1;
 				// }}}
 			end
@@ -563,7 +564,7 @@ module axi2axilsub #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			m_axi_awvalid <= 0;
-		else if (skids_awvalid && skids_awready)
+		else if (slv_awvalid && slv_awready)
 			m_axi_awvalid <= 1;
 		else if (!M_AXI_AWVALID || M_AXI_AWREADY)
 			m_axi_awvalid <= (mst_awbeats > 1);
@@ -578,9 +579,9 @@ module axi2axilsub #(
 		begin
 			m_axi_wvalid <= 0;
 			mst_wbeats   <= 0;
-		end else if (skids_wready)
+		end else if (slv_awready)
 		begin
-			m_axi_wvalid <= skids_wvalid;
+			m_axi_wvalid <= slv_awvalid;
 			mst_wbeats   <= slv_awbeats;
 		end else if (M_AXI_WVALID && M_AXI_WREADY)
 		begin
@@ -595,6 +596,27 @@ module axi2axilsub #(
 `endif
 		// }}}
 
+		// M_AXI_WDATA, M_AXI_WSTRB
+		// {{{
+		always @(posedge S_AXI_ACLK)
+		if (OPT_LOWPOWER && !S_AXI_ARESETN)
+		begin
+			m_axi_wdata <= 0;
+			m_axi_wstrb <= 0;
+		end else if (!M_AXI_WVALID || M_AXI_WREADY)
+		begin
+			m_axi_wdata <= slv_wdata[MSTDW-1:0];
+			m_axi_wstrb <= slv_wstrb[MSTDW/8-1:0];
+
+			if (OPT_LOWPOWER && (mst_wbeats <= 1)
+				&& (!slv_awvalid || !slv_awready))
+			begin
+				m_axi_wdata <= 0;
+				m_axi_wstrb <= 0;
+			end
+		end
+		// }}}
+
 		// slv_wstrb, slv_wdata
 		// {{{
 		always @(posedge S_AXI_ACLK)
@@ -602,8 +624,8 @@ module axi2axilsub #(
 			{ slv_wstrb, slv_wdata } <= 0;
 		else if (skids_wready)
 		begin
-			slv_wstrb <= skids_wstrb >> (slv_awaddr[SLVSZ-1:MSTSZ]);
-			slv_wdata <= skids_wdata >> (slv_awaddr[SLVSZ-1:MSTSZ]*8);
+			slv_wstrb <= skids_wstrb >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW/8);
+			slv_wdata <= skids_wdata >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW);
 			if (OPT_LOWPOWER && !skids_wvalid)
 			begin
 				slv_wstrb <= 0;
@@ -625,8 +647,8 @@ module axi2axilsub #(
 		// }}}
 
 		assign	M_AXI_WVALID = m_axi_wvalid;
-		assign	M_AXI_WDATA  = slv_wdata[MSTDW-1:0];
-		assign	M_AXI_WSTRB  = slv_wstrb[MSTDW/8-1:0];
+		assign	M_AXI_WDATA  = m_axi_wdata;
+		assign	M_AXI_WSTRB  = m_axi_wstrb;
 
 		// read_from_wrfifo
 		// {{{
@@ -696,7 +718,7 @@ module axi2axilsub #(
 		if (!S_AXI_ARESETN)
 			bcounts <= 0;
 		else if (read_from_wrfifo)
-			bcounts <= wfifo_subcount + bcounts;
+			bcounts <= wfifo_subcount + bcounts - 1;
 		else if (skidm_bvalid && skidm_bready)
 			bcounts <= bcounts - 1;
 		// }}}
@@ -762,7 +784,7 @@ module axi2axilsub #(
 		else if (skidm_bvalid && skidm_bready)
 			s_axi_bvalid <= ((bcounts == 1)&& blast)
 				||((bcounts == 0) && (!wfifo_empty)
-					&& (wfifo_subcount == 0) && wfifo_wlast);
+					&& (wfifo_subcount <= 1) && wfifo_wlast);
 		else if (S_AXI_BREADY)
 			s_axi_bvalid <= 0;
 		// }}}
@@ -1055,6 +1077,7 @@ module axi2axilsub #(
 		// }}}
 `endif
 		// }}}
+		// }}}
 	end else begin : NO_WRITE_SUPPORT
 		// {{{
 		assign	S_AXI_AWREADY = 0;
@@ -1214,8 +1237,8 @@ module axi2axilsub #(
 
 		// Declarations
 		// {{{
-		wire				slv_arready;
-		reg	[IW-1:0]	slv_arid, mst_arid;
+		wire				slv_arvalid, slv_arready;
+		reg	[IW-1:0]		slv_arid, mst_arid;
 		reg	[AW-1:0]		slv_araddr, mst_araddr;
 		wire	[AW-1:0]		slv_next_araddr;
 		reg	[7:0]			slv_arlen;
@@ -1237,9 +1260,9 @@ module axi2axilsub #(
 		wire				rfifo_empty;
 		reg				s_axi_rvalid;
 		reg	[1:0]			s_axi_rresp;
-		reg	[IW-1:0]	s_axi_rid;
-		wire	[IW-1:0]	rfifo_rid;
-		reg [SLVDW-1:0]	s_axi_rdata, next_rdata;
+		reg	[IW-1:0]		s_axi_rid;
+		wire	[IW-1:0]		rfifo_rid;
+		reg	[SLVDW-1:0]		s_axi_rdata, next_rdata;
 		reg				s_axi_rlast;
 		reg	[IW-1:0]		rid;
 		wire				read_from_rdfifo;
@@ -1301,17 +1324,6 @@ module axi2axilsub #(
 			// }}}
 		);
 		// }}}
-		// m_axi_arvalid
-		// {{{
-		initial	m_axi_arvalid = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			m_axi_arvalid <= 0;
-		else if (skids_arvalid && skids_arready)
-			m_axi_arvalid <= 1;
-		else if (M_AXI_ARREADY && slv_rlen == 0)
-			m_axi_arvalid <= 0;
-		// }}}
 
 		// slv_*
 		// {{{
@@ -1368,6 +1380,8 @@ module axi2axilsub #(
 				// }}}
 			end
 		end
+
+		assign	slv_arvalid = (slv_rlen > 0);
 `ifdef	FORMAL
 		always @(*)
 			assert(slv_arlast == (skids_rlen <= 1));
@@ -1394,8 +1408,7 @@ module axi2axilsub #(
 		);
 		// }}}
 
-
-		// slv_arbeats
+		// slv_arvalid, slv_arbeats
 		// {{{
 		always @(*)
 		if (slv_rlen > 0)
@@ -1433,11 +1446,12 @@ module axi2axilsub #(
 					mst_arprot <= 0;
 				end
 				// }}}
-			end else if (mst_arbeats > 0)
+			end else if ((mst_arbeats > 0)
+					&&(M_AXI_ARVALID && M_AXI_ARREADY))
 			begin
 				// {{{
-				mst_araddr <= mst_araddr + (1<<SLVSZ);
-				mst_araddr[SLVSZ-1:0] <= 0;
+				mst_araddr <= mst_araddr + (1<<MSTSZ);
+				mst_araddr[MSTSZ-1:0] <= 0;
 				mst_arbeats <= mst_arbeats - 1;
 
 				mst_arsublast <= (mst_arbeats <= 2);
@@ -1474,9 +1488,9 @@ module axi2axilsub #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			m_axi_arvalid <= 0;
-		else if (skids_arvalid && skids_arready)
+		else if (slv_arvalid && slv_arready)
 			m_axi_arvalid <= 1;
-		else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+		else if (M_AXI_ARVALID && M_AXI_ARREADY)
 			m_axi_arvalid <= (mst_arbeats > 1);
 
 		assign	M_AXI_ARVALID = m_axi_arvalid;
@@ -1487,11 +1501,12 @@ module axi2axilsub #(
 `endif
 		// }}}
 
-		assign	skids_arready = (slv_rlen >= (slv_arready ? 1:0))
-					&&(mst_arbeats >=(M_AXI_ARREADY ? 1:0));
+		assign	skids_arready = (slv_rlen <= (slv_arready ? 1:0))
+					&&(mst_arbeats <=(M_AXI_ARREADY ? 1:0));
 		assign	slv_arready = (mst_arbeats <= (M_AXI_ARREADY ? 1:0));
-		assign	read_from_rdfifo = skidm_rvalid && skidm_rready
-					&& (rfifo_rlast && rfifo_end_of_beat) && !rfifo_empty;
+		assign	read_from_rdfifo = skidm_rvalid && skidm_rready;
+					//&&(rfifo_rlast && rfifo_end_of_beat);
+					// && !rfifo_empty;
 
 		// Read ID FIFO
 		// {{{
@@ -1517,7 +1532,9 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY);
+		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY
+				||!rfifo_rlast || !rfifo_end_of_beat)
+				&& !rfifo_empty;
 
 		// s_axi_rvalid
 		// {{{
@@ -1526,7 +1543,7 @@ module axi2axilsub #(
 		if (!S_AXI_ARESETN)
 			s_axi_rvalid <= 0;
 		else if (skidm_rvalid && skidm_rready && rfifo_end_of_beat)
-			s_axi_rvalid <= 1;
+			s_axi_rvalid <= rfifo_rlast;
 		else if (S_AXI_RREADY)
 			s_axi_rvalid <= 0;
 		// }}}
