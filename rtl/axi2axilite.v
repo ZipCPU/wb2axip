@@ -263,40 +263,68 @@ module axi2axilite #(
 		// {{{
 		// The write address channel's skid buffer
 		// {{{
-		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
-		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0)
+			// }}}
+		) awskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_AWVALID, S_AXI_AWREADY,
 			{ S_AXI_AWID, S_AXI_AWADDR, S_AXI_AWLEN, S_AXI_AWSIZE,
 				S_AXI_AWBURST },
 			skids_awvalid, skids_awready,
 			{ skids_awid, skids_awaddr, skids_awlen, skids_awsize,
-				skids_awburst });
+				skids_awburst }
+			// }}}
+		);
 		// }}}
 		//
 		// The write data channel's skid buffer (S_AXI_W*)
 		// {{{
-		skidbuffer #(.DW(DW+DW/8+1), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
-		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(DW+DW/8+1), .OPT_LOWPOWER(0), .OPT_OUTREG(0)
+			// }}}
+		) wskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_WVALID, S_AXI_WREADY,
 			{ S_AXI_WDATA, S_AXI_WSTRB, S_AXI_WLAST },
 			skids_wvalid, skids_wready,
-			{ skids_wdata, skids_wstrb, skids_wlast });
+			{ skids_wdata, skids_wstrb, skids_wlast }
+			// }}}
+		);
 		// }}}
 		//
 		// The downstream AXI-lite write data (M_AXI_W*) skid buffer
 		// {{{
-		skidbuffer #(.DW(DW+DW/8), .OPT_LOWPOWER(0), .OPT_OUTREG(1))
-		mwskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(DW+DW/8), .OPT_LOWPOWER(0), .OPT_OUTREG(1)
+			// }}}
+		) mwskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			skidm_wvalid, skidm_wready, { skidm_wdata, skidm_wstrb },
-			M_AXI_WVALID,M_AXI_WREADY,{ M_AXI_WDATA, M_AXI_WSTRB });
+			M_AXI_WVALID,M_AXI_WREADY,{ M_AXI_WDATA, M_AXI_WSTRB }
+			// }}}
+		);
 		// }}}
 		//
 		// The downstream AXI-lite response (M_AXI_B*) skid buffer
 		// {{{
-		skidbuffer #(.DW(2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
-		bskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(2), .OPT_LOWPOWER(0), .OPT_OUTREG(0)
+			// }}}
+		) bskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			M_AXI_BVALID, M_AXI_BREADY, { M_AXI_BRESP },
-			skidm_bvalid, skidm_bready, { skidm_bresp });
+			skidm_bvalid, skidm_bready, { skidm_bresp }
+			// }}}
+		);
 		// }}}
 
 		// m_axi_awvalid
@@ -348,9 +376,16 @@ module axi2axilite #(
 
 		// axi_addr
 		// {{{
-		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
-		calcwraddr(axi_awaddr, axi_awsize, axi_awburst,
-			axi_blen, next_write_addr);
+		axi_addr #(
+			// {{{
+			.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH)
+			// }}}
+		) calcwraddr(
+			// {{{
+			axi_awaddr, axi_awsize, axi_awburst,
+			axi_blen, next_write_addr
+			// }}}
+		);
 		// }}}
 
 		// s_axi_wready
@@ -564,21 +599,35 @@ module axi2axilite #(
 		//
 		// S_AXI_AR* skid buffer
 		// {{{
-		skidbuffer #(.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
-		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+AW+8+3+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0)
+			// }}}
+		) arskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_ARVALID, S_AXI_ARREADY,
 			{ S_AXI_ARID, S_AXI_ARADDR, S_AXI_ARLEN, S_AXI_ARSIZE,
 				S_AXI_ARBURST },
 			skids_arvalid, skids_arready,
 			{ skids_arid, skids_araddr, skids_arlen, skids_arsize,
-				skids_arburst });
+				skids_arburst }
+			// }}}
+		);
 		// }}}
 		// M_AXI_R* skid buffer
 		// {{{
-		skidbuffer #(.DW(DW+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0))
-		rskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(DW+2), .OPT_LOWPOWER(0), .OPT_OUTREG(0)
+			// }}}
+		) rskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			M_AXI_RVALID, M_AXI_RREADY,{ M_AXI_RDATA, M_AXI_RRESP },
-			skidm_rvalid,skidm_rready,{ skidm_rdata, skidm_rresp });
+			skidm_rvalid,skidm_rready,{ skidm_rdata, skidm_rresp }
+			// }}}
+		);
 		// }}}
 		// m_axi_arvalid
 		// {{{
@@ -604,9 +653,15 @@ module axi2axilite #(
 		end else if (M_AXI_ARREADY)
 			axi_araddr <= next_read_addr;
 
-		axi_addr #(.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH))
-			calcrdaddr(axi_araddr, axi_arsize, axi_arburst,
-			axi_rlen, next_read_addr);
+		axi_addr #(
+			// {{{
+			.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH)
+		) calcrdaddr(
+			// {{{
+			axi_araddr, axi_arsize, axi_arburst,
+			axi_rlen, next_read_addr
+			// }}}
+		);
 		// }}}
 
 		// axi_arlen, Read length processing
@@ -630,13 +685,20 @@ module axi2axilite #(
 
 		// Read ID FIFO
 		// {{{
-		sfifo	#(.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO))
-		ridlnfifo(S_AXI_ACLK, !S_AXI_ARESETN,
+		sfifo	#(
+			// {{{
+			.BW(C_AXI_ID_WIDTH+8), .LGFLEN(LGFIFO)
+			// }}}
+		) ridlnfifo(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			skids_arvalid && skids_arready,
 			{ skids_arid, skids_arlen },
 			rfifo_full, rfifo_count,
 			read_from_rdfifo,
-			{ rfifo_rid, rfifo_rcount }, rfifo_empty);
+			{ rfifo_rid, rfifo_rcount }, rfifo_empty
+			// }}}
+		);
 		// }}}
 
 		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY);

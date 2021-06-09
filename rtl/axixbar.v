@@ -562,9 +562,13 @@ module	axixbar #(
 
 		// awskid, the skidbuffer for the incoming AW* channel
 		// {{{
-		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
-					.OPT_OUTREG(OPT_SKID_INPUT))
-		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+AW+8+3+2+1+4+3+4),
+			.OPT_OUTREG(OPT_SKID_INPUT)
+		) awskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_AWVALID[N], S_AXI_AWREADY[N],
 			{ S_AXI_AWID[N*IW +: IW], S_AXI_AWADDR[N*AW +: AW],
 			  S_AXI_AWLEN[N*8 +: 8], S_AXI_AWSIZE[N*3 +: 3],
@@ -574,17 +578,24 @@ module	axixbar #(
 			skd_awvalid[N], !skd_awstall[N],
 			{ skd_awid[N], skd_awaddr[N], skd_awlen[N],
 			  skd_awsize[N], skd_awburst[N], skd_awlock[N],
-			  skd_awcache[N], skd_awprot[N], skd_awqos[N] });
+			  skd_awcache[N], skd_awprot[N], skd_awqos[N] }
+			// }}}
+		);
 		// }}}
 
 		// wraddr, decode the write channel's address request to a
 		// particular slave index
 		// {{{
-		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
+		addrdecode #(
+			// {{{
+			.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
-			.OPT_REGISTERED(OPT_BUFFER_DECODER))
-		wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+			// }}}
+		) wraddr(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_valid(skd_awvalid[N]), .o_stall(skd_awstall[N]),
 				.i_addr(skd_awaddr[N]), .i_data({ skd_awid[N],
 				skd_awlen[N], skd_awsize[N], skd_awburst[N],
@@ -595,19 +606,28 @@ module	axixbar #(
 				.o_decode(wdecode), .o_addr(m_awaddr[N]),
 				.o_data({ m_awid[N], m_awlen[N], m_awsize[N],
 				  m_awburst[N], m_awlock[N], m_awcache[N],
-				  m_awprot[N], m_awqos[N]}));
+				  m_awprot[N], m_awqos[N]})
+			// }}}
+		);
 		// }}}
 
 		// wskid, the skid buffer for the incoming W* channel
 		// {{{
-		skidbuffer #(.DW(DW+DW/8+1),
-			.OPT_OUTREG(OPT_SKID_INPUT || OPT_BUFFER_DECODER))
-		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(DW+DW/8+1),
+			.OPT_OUTREG(OPT_SKID_INPUT || OPT_BUFFER_DECODER)
+			// }}}
+		) wskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_WVALID[N], S_AXI_WREADY[N],
 			{ S_AXI_WDATA[N*DW +: DW], S_AXI_WSTRB[N*DW/8 +: DW/8],
 			  S_AXI_WLAST[N] },
 			m_wvalid[N], slave_waccepts[N],
-			{ m_wdata[N], m_wstrb[N], m_wlast[N] });
+			{ m_wdata[N], m_wstrb[N], m_wlast[N] }
+			// }}}
+		);
 		// }}}
 
 		// slave_awaccepts
@@ -754,9 +774,14 @@ module	axixbar #(
 
 		// arskid
 		// {{{
-		skidbuffer #(.DW(IW+AW+8+3+2+1+4+3+4),
-					.OPT_OUTREG(OPT_SKID_INPUT))
-		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+AW+8+3+2+1+4+3+4),
+			.OPT_OUTREG(OPT_SKID_INPUT)
+			// }}}
+		) arskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_ARVALID[N], S_AXI_ARREADY[N],
 			{ S_AXI_ARID[N*IW +: IW], S_AXI_ARADDR[N*AW +: AW],
 			  S_AXI_ARLEN[N*8 +: 8], S_AXI_ARSIZE[N*3 +: 3],
@@ -766,16 +791,23 @@ module	axixbar #(
 			skd_arvalid[N], !skd_arstall[N],
 			{ skd_arid[N], skd_araddr[N], skd_arlen[N],
 			  skd_arsize[N], skd_arburst[N], skd_arlock[N],
-			  skd_arcache[N], skd_arprot[N], skd_arqos[N] });
+			  skd_arcache[N], skd_arprot[N], skd_arqos[N] }
+			// }}}
+		);
 		// }}}
 
 		// Read address decoder
 		// {{{
-		addrdecode #(.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
+		addrdecode #(
+			// {{{
+			.AW(AW), .DW(IW+8+3+2+1+4+3+4), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
-			.OPT_REGISTERED(OPT_BUFFER_DECODER))
-		rdaddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+			// }}}
+		) rdaddr(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_valid(skd_arvalid[N]), .o_stall(skd_arstall[N]),
 				.i_addr(skd_araddr[N]), .i_data({ skd_arid[N],
 				skd_arlen[N], skd_arsize[N], skd_arburst[N],
@@ -786,7 +818,9 @@ module	axixbar #(
 				.o_decode(rdecode), .o_addr(m_araddr[N]),
 				.o_data({ m_arid[N], m_arlen[N], m_arsize[N],
 				  m_arburst[N], m_arlock[N], m_arcache[N],
-				  m_arprot[N], m_arqos[N]}));
+				  m_arprot[N], m_arqos[N]})
+			// }}}
+		);
 		// }}}
 
 		always @(*)
@@ -1785,14 +1819,21 @@ module	axixbar #(
 
 		// bskid, the B* channel skidbuffer
 		// {{{
-		skidbuffer #(.DW(IW+2),
-				.OPT_LOWPOWER(OPT_LOWPOWER),
-				.OPT_OUTREG(1))
-		bskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+2),
+			.OPT_LOWPOWER(OPT_LOWPOWER),
+			.OPT_OUTREG(1)
+			// }}}
+		) bskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			bskd_valid[N], bskd_ready[N],
 			{ i_axi_bid, i_axi_bresp },
 			S_AXI_BVALID[N], S_AXI_BREADY[N],
-			{ S_AXI_BID[N*IW +: IW], S_AXI_BRESP[N*2 +: 2] });
+			{ S_AXI_BID[N*IW +: IW], S_AXI_BRESP[N*2 +: 2] }
+			// }}}
+		);
 		// }}}
 	// }}}
 	end endgenerate
@@ -1838,15 +1879,21 @@ module	axixbar #(
 		// determined, we'll throw them into an outgoing skid buffer
 		// to register them (per spec) and to make it easier to meet
 		// timing.
-		skidbuffer #(.DW(IW+DW+1+2),
-				.OPT_LOWPOWER(OPT_LOWPOWER),
-				.OPT_OUTREG(1))
-		rskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(IW+DW+1+2),
+			.OPT_LOWPOWER(OPT_LOWPOWER),
+			.OPT_OUTREG(1)
+		) rskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			rskd_valid[N], rskd_ready[N],
 			{ i_axi_rid, i_axi_rdata, rskd_rlast[N], i_axi_rresp },
 			S_AXI_RVALID[N], S_AXI_RREADY[N],
 			{ S_AXI_RID[N*IW +: IW], S_AXI_RDATA[N*DW +: DW],
-			  S_AXI_RLAST[N], S_AXI_RRESP[N*2 +: 2] });
+			  S_AXI_RLAST[N], S_AXI_RRESP[N*2 +: 2] }
+			// }}}
+		);
 		// }}}
 	// }}}
 	end endgenerate

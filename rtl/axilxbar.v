@@ -341,37 +341,56 @@ module	axilxbar #(
 
 		// awskid
 		// {{{
-		skidbuffer #(.DW(AW+3), .OPT_OUTREG(OPT_SKID_INPUT))
-		awskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(AW+3), .OPT_OUTREG(OPT_SKID_INPUT)
+		) awskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_AWVALID[N], S_AXI_AWREADY[N],
 			{ S_AXI_AWADDR[N*AW +: AW], S_AXI_AWPROT[N*3 +: 3] },
 			skd_awvalid[N], !skd_awstall[N],
-				{ skd_awaddr[N], skd_awprot[N] });
+				{ skd_awaddr[N], skd_awprot[N] }
+			// }}}
+		);
 		// }}}
 
 		// write address decoding
 		// {{{
-		addrdecode #(.AW(AW), .DW(3), .NS(NS),
+		addrdecode #(
+			// {{{
+			.AW(AW), .DW(3), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR),
 			.SLAVE_MASK(SLAVE_MASK),
-			.OPT_REGISTERED(OPT_BUFFER_DECODER))
-		wraddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+			// }}}
+		) wraddr(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_valid(skd_awvalid[N]), .o_stall(skd_awstall[N]),
 				.i_addr(skd_awaddr[N]), .i_data(skd_awprot[N]),
 			.o_valid(dcd_awvalid[N]),
 				.i_stall(!dcd_awvalid[N]||!slave_awaccepts[N]),
 				.o_decode(wdecode), .o_addr(m_awaddr[N]),
-				.o_data(m_awprot[N]));
+				.o_data(m_awprot[N])
+			// }}}
+		);
 		// }}}
 
 		// wskid
 		// {{{
-		skidbuffer #(.DW(DW+DW/8), .OPT_OUTREG(OPT_SKID_INPUT))
-		wskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(DW+DW/8), .OPT_OUTREG(OPT_SKID_INPUT)
+		) wskid
+			// {{{
+			(S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_WVALID[N], S_AXI_WREADY[N],
 			{ S_AXI_WDATA[N*DW +: DW], S_AXI_WSTRB[N*DW/8 +: DW/8]},
 			skd_wvalid[N], (m_wvalid[N] && slave_waccepts[N]),
-					{ m_wdata[N], m_wstrb[N] });
+					{ m_wdata[N], m_wstrb[N] }
+			// }}}
+		);
 		// }}}
 
 		// slave_awaccepts
@@ -444,26 +463,39 @@ module	axilxbar #(
 
 		// arskid
 		// {{{
-		skidbuffer #(.DW(AW+3), .OPT_OUTREG(OPT_SKID_INPUT))
-		arskid(S_AXI_ACLK, !S_AXI_ARESETN,
+		skidbuffer #(
+			// {{{
+			.DW(AW+3), .OPT_OUTREG(OPT_SKID_INPUT)
+		) arskid(
+			// {{{
+			S_AXI_ACLK, !S_AXI_ARESETN,
 			S_AXI_ARVALID[N], S_AXI_ARREADY[N],
 			{ S_AXI_ARADDR[N*AW +: AW], S_AXI_ARPROT[N*3 +: 3] },
 			skd_arvalid[N], !skd_arstall[N],
-				{ skd_araddr[N], skd_arprot[N] });
+				{ skd_araddr[N], skd_arprot[N] }
+			// }}}
+		);
 		// }}}
 
 		// Read address decoding
 		// {{{
-		addrdecode #(.AW(AW), .DW(3), .NS(NS),
+		addrdecode #(
+			// {{{
+			.AW(AW), .DW(3), .NS(NS),
 			.SLAVE_ADDR(SLAVE_ADDR), .SLAVE_MASK(SLAVE_MASK),
-			.OPT_REGISTERED(OPT_BUFFER_DECODER))
-		rdaddr(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.OPT_REGISTERED(OPT_BUFFER_DECODER)
+			// }}}
+		) rdaddr(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
 			.i_valid(skd_arvalid[N]), .o_stall(skd_arstall[N]),
 				.i_addr(skd_araddr[N]), .i_data(skd_arprot[N]),
 			.o_valid(dcd_arvalid[N]),
 				.i_stall(!m_arvalid[N] || !slave_raccepts[N]),
 				.o_decode(rdecode), .o_addr(m_araddr[N]),
-				.o_data(m_arprot[N]));
+				.o_data(m_arprot[N])
+			// }}}
+		);
 		// }}}
 
 		// m_arvalid[N]
@@ -634,7 +666,7 @@ module	axilxbar #(
 		// {{{
 		always @(*)
 		begin
-			requested_channel_is_available = 
+			requested_channel_is_available =
 				|(wrequest[N][NS-1:0] & ~mwgrant
 						& ~wrequested[N][NS-1:0]);
 			if (wrequest[N][NS])
@@ -783,7 +815,7 @@ module	axilxbar #(
 		// {{{
 		always @(*)
 		begin
-			requested_channel_is_available = 
+			requested_channel_is_available =
 				|(rrequest[N][NS-1:0] & ~mrgrant
 						& ~rrequested[N][NS-1:0]);
 			if (rrequest[N][NS])
