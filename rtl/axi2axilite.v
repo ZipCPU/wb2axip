@@ -1011,10 +1011,12 @@ module axi2axilite #(
 	begin
 		assert(m_axi_awvalid);
 		if (axi_awlen > 1)
+		begin
 			assert(!skids_awready);
-		else if (wfifo_full)
+		end else if (wfifo_full)
+		begin
 			assert(!skids_awready);
-		else if (M_AXI_AWVALID && !M_AXI_AWREADY)
+		end else if (M_AXI_AWVALID && !M_AXI_AWREADY)
 			assert(!skids_awready);
 	end
 
