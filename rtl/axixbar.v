@@ -566,6 +566,7 @@ module	axixbar #(
 			// {{{
 			.DW(IW+AW+8+3+2+1+4+3+4),
 			.OPT_OUTREG(OPT_SKID_INPUT)
+			// }}}
 		) awskid(
 			// {{{
 			S_AXI_ACLK, !S_AXI_ARESETN,
@@ -1884,6 +1885,7 @@ module	axixbar #(
 			.DW(IW+DW+1+2),
 			.OPT_LOWPOWER(OPT_LOWPOWER),
 			.OPT_OUTREG(1)
+			// }}}
 		) rskid(
 			// {{{
 			S_AXI_ACLK, !S_AXI_ARESETN,
