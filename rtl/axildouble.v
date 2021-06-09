@@ -198,8 +198,6 @@ module	axildouble #(
 	localparam	LGNS = $clog2(NS);
 	//
 	localparam	INTERCONNECT_ERROR = 2'b11;
-	localparam	ADDR_LSBS = $clog2(DW)-3;
-	//
 
 	////////////////////////////////////////////////////////////////////////
 	//
