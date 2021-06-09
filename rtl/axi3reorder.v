@@ -138,7 +138,7 @@ module	axi3reorder #(
 	localparam	IW = C_AXI_ID_WIDTH;
 	localparam	DW = C_AXI_DATA_WIDTH;
 	wire			awfifo_full, awfifo_empty;
-	reg			read_awid_fifo;
+	wire			read_awid_fifo;
 	wire	[IW-1:0]	awfifo_id;
 	wire	[LGAWFIFO:0]	awfifo_fill;
 
@@ -167,13 +167,11 @@ module	axi3reorder #(
 		assign	awfifo_full  = 0;
 		assign	awfifo_fill  = 0;
 		assign	awfifo_empty = !S_AXI3_AWVALID;
-		assign	cid_valid = S_AXI3_AWVALID;
 		always @(*)
 			cid_valid = S_AXI3_AWVALID;
 		always @(*)
 			current_id= S_AXI3_AWID;
-		always @(*)
-			read_awid_fifo = 0;
+		assign	read_awid_fifo = 0;
 
 		// Verilator lint_off UNUSED
 		wire	none_aw_unused;
@@ -254,7 +252,7 @@ module	axi3reorder #(
 			read_beat_fifo = 0;
 		end
 		// }}}
-		
+
 		assign	S_AXI3_WREADY = M_AXI_WREADY;
 
 		// Keep Verilator happy
@@ -416,8 +414,7 @@ module	axi3reorder #(
 		////////////////////////////////////////////////////////////////
 		//
 		//
-		always @(*)
-			read_awid_fifo = (!M_AXI_WVALID || M_AXI_WREADY)
+		assign read_awid_fifo = (!M_AXI_WVALID || M_AXI_WREADY)
 				&& (!cid_valid
 				|| (known_next && sr_last[sr_next]));
 
@@ -474,8 +471,9 @@ module	axi3reorder #(
 `ifdef	FORMAL
 		always @(*)
 		if (S_AXI3_WVALID && S_AXI3_WREADY)
+		begin
 			assert($onehot(sr_write));
-		else if (S_AXI_ARESETN)
+		end else if (S_AXI_ARESETN)
 			assert(sr_write == 0);
 
 		always @(*)
@@ -549,8 +547,7 @@ module	axi3reorder #(
 		//
 		//
 
-		always @(*)
-			read_awid_fifo = (!M_AXI_WVALID || M_AXI_WREADY)
+		assign read_awid_fifo = (!M_AXI_WVALID || M_AXI_WREADY)
 				&& (!cid_valid
 				|| (read_beat_fifo && wbfifo_last[current_id]));
 		// Write packets associated with the current ID can move forward
