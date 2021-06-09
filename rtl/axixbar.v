@@ -633,7 +633,7 @@ module	axixbar #(
 			begin
 				if (!slave_awready[mwindex[N]])
 					slave_awaccepts[N] = 1'b0;
-			end else if (!berr_valid[N] || !bskd_ready[N])
+			end else if (berr_valid[N] && !bskd_ready[N])
 			begin
 				// Can't accept an write address channel request
 				// for the no-address-mapped channel if the
