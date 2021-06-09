@@ -936,26 +936,26 @@ module axi2axilsub #(
 			// }}}
 			// Read address
 			// {{{
-			.i_axi_arready(skids_arready),
-			.i_axi_arid(   skids_arid),
-			.i_axi_araddr( skids_araddr),
-			.i_axi_arlen(  skids_arlen),
-			.i_axi_arsize( skids_arsize),
-			.i_axi_arburst(skids_arburst),
+			.i_axi_arvalid(1'b0),
+			.i_axi_arready(1'b0),
+			.i_axi_arid(   skids_awid),
+			.i_axi_araddr( skids_awaddr),
+			.i_axi_arlen(  skids_awlen),
+			.i_axi_arsize( skids_awsize),
+			.i_axi_arburst(skids_awburst),
 			.i_axi_arlock( 0),
 			.i_axi_arcache(0),
 			.i_axi_arprot( 0),
 			.i_axi_arqos(  0),
-			.i_axi_arvalid(skids_arvalid),
 			// }}}
 			// Read response
 			// {{{
+			.i_axi_rvalid( 1'b0),
+			.i_axi_rready( 1'b0),
 			.i_axi_rid(    S_AXI_RID),
-			.i_axi_rresp(  S_AXI_RRESP),
-			.i_axi_rvalid( S_AXI_RVALID),
 			.i_axi_rdata(  S_AXI_RDATA),
 			.i_axi_rlast(  S_AXI_RLAST),
-			.i_axi_rready( S_AXI_RREADY),
+			.i_axi_rresp(  S_AXI_RRESP),
 			// }}}
 			// Formal property data
 			// {{{
@@ -1046,7 +1046,7 @@ module axi2axilsub #(
 		always @(*)
 			assert(faxil_rd_outstanding == 0);
 		always @(*)
-			assert(faxil_awr_outstanding == wfifo_count - (M_AXI_AWVALID&&!bfifo_write) ? 1:0));
+			assert(faxil_awr_outstanding == wfifo_count - ((M_AXI_AWVALID&&!bfifo_write) ? 1:0));
 		// }}}
 		////////////////////////////////////////////////////////////////
 		//
@@ -1384,7 +1384,7 @@ module axi2axilsub #(
 		assign	slv_arvalid = (slv_rlen > 0);
 `ifdef	FORMAL
 		always @(*)
-			assert(slv_arlast == (skids_rlen <= 1));
+			assert(slv_arlast == (slv_rlen <= 1));
 		always @(*)
 			assert(slv_rlen <= (skids_arlen + 1));
 `endif
@@ -1408,7 +1408,7 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		// slv_arvalid, slv_arbeats
+		// slv_arbeats
 		// {{{
 		always @(*)
 		if (slv_rlen > 0)
@@ -1694,32 +1694,32 @@ module axi2axilsub #(
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address
 			// {{{
-			.i_axi_awready(skids_awready),
-			.i_axi_awid(   skids_awid),
-			.i_axi_awaddr( skids_awaddr),
-			.i_axi_awlen(  skids_awlen),
-			.i_axi_awsize( skids_awsize),
-			.i_axi_awburst(skids_awburst),
+			.i_axi_awvalid(1'b0),
+			.i_axi_awready(1'b0),
+			.i_axi_awid(   skids_arid),
+			.i_axi_awaddr( skids_araddr),
+			.i_axi_awlen(  8'h0),
+			.i_axi_awsize( 3'h0),
+			.i_axi_awburst(2'h0),
 			.i_axi_awlock( 0),
 			.i_axi_awcache(0),
 			.i_axi_awprot( 0),
 			.i_axi_awqos(  0),
-			.i_axi_awvalid(skids_awvalid),
 			// }}}
 			// Write data
 			// {{{
-			.i_axi_wready( skids_wready),
-			.i_axi_wdata(  skids_wdata),
-			.i_axi_wstrb(  skids_wstrb),
-			.i_axi_wlast(  skids_wlast),
-			.i_axi_wvalid( skids_wvalid),
+			.i_axi_wvalid( 1'b0),
+			.i_axi_wready( 1'b0),
+			.i_axi_wdata(  {(C_S_AXI_DATA_WIDTH  ){1'b0}}),
+			.i_axi_wstrb(  {(C_S_AXI_DATA_WIDTH/8){1'b0}}),
+			.i_axi_wlast(  1'b0),
 			// }}}
 			// Write return response
 			// {{{
+			.i_axi_bvalid( 1'b0),
+			.i_axi_bready( 1'b0),
 			.i_axi_bid(    S_AXI_BID),
-			.i_axi_bresp(  S_AXI_BRESP),
-			.i_axi_bvalid( S_AXI_BVALID),
-			.i_axi_bready( S_AXI_BREADY),
+			.i_axi_bresp(  2'b00),
 			// }}}
 			// Read address
 			// {{{
@@ -1789,23 +1789,23 @@ module axi2axilsub #(
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address channel
 			// {{{
-			.i_axi_awvalid(M_AXI_AWVALID),
-			.i_axi_awready(M_AXI_AWREADY),
+			.i_axi_awvalid(1'b0),
+			.i_axi_awready(1'b0),
 			.i_axi_awaddr( M_AXI_AWADDR),
-			.i_axi_awprot( M_AXI_AWPROT),
+			.i_axi_awprot( 3'h0),
 			// }}}
 			// Write data
 			// {{{
-			.i_axi_wvalid( skidm_wvalid),
-			.i_axi_wready( skidm_wready),
-			.i_axi_wdata(  skidm_wdata),
-			.i_axi_wstrb(  skidm_wstrb),
+			.i_axi_wvalid( 1'b0),
+			.i_axi_wready( 1'b0),
+			.i_axi_wdata(  {(C_M_AXI_DATA_WIDTH  ){1'b0}}),
+			.i_axi_wstrb(  {(C_M_AXI_DATA_WIDTH/8){1'b0}}),
 			// }}}
 			// Write response
 			// {{{
-			.i_axi_bvalid( skidm_bvalid),
-			.i_axi_bready( skidm_bready),
-			.i_axi_bresp(  skidm_bresp),
+			.i_axi_bvalid( 1'b0),
+			.i_axi_bready( 1'b0),
+			.i_axi_bresp(  2'b00),
 			// }}}
 			// Read address
 			// {{{
