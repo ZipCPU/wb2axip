@@ -106,7 +106,7 @@ module	fapb_master #(
 	always @(posedge PCLK)
 	if (!f_past_valid && !F_OPT_ASYNC_RESET)
 	begin
-		`SLAVE_ASSUME(!PENABLE || F_OPT_INITIAL);
+		`SLAVE_ASSUME(!PENABLE || !F_OPT_INITIAL);
 	end else if (!$past(PRESETn) || (F_OPT_ASYNC_RESET && !PRESETn))
 	begin
 		`SLAVE_ASSUME(!PENABLE);
