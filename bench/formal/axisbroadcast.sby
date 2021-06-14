@@ -1,0 +1,22 @@
+[tasks]
+prf
+
+[options]
+prf: mode prove
+prf: depth 4
+# cvr: mode cover
+# cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+read -formal sfifo.v
+read -formal skidbuffer.v
+read -formal axisbroadcast.v
+prep -top axisbroadcast
+
+[files]
+../../rtl/axisbroadcast.v
+../../rtl/sfifo.v
+../../rtl/skidbuffer.v

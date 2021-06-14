@@ -39,7 +39,7 @@ HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
-AXISTREAM := xlnxstream_2018_3 axisswitch.v axisrandom.v
+AXISTREAM := xlnxstream_2018_3 axisswitch.v axisrandom.v axisbroadcast
 AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty # demofull xlnxfull axiempty
 AXIMASTERS := # axis2mm aximm2s axidma axivfifo axivcamera axivdisplay
 FIREWALLS := wbsafety axilsafety axissafety # axisafety
@@ -89,6 +89,7 @@ XILINXDEMO := xlnxdemo
 XLNXSTREAM := xlnxstream_2018_3
 AXISRANDOM := axisrandom
 AXISSWITCH := axisswitch
+AXISBROAD  := axisbroadcast
 ## }}}
 #
 # Bridges
@@ -885,6 +886,13 @@ $(AXISSWITCH)_prf/PASS: $(AXISSWITCH).sby $(RTL)/$(AXISSWITCH).v
 	sby -f $(AXISSWITCH).sby prf
 ## }}}
 
+.PHONY: $(AXISBROAD)
+## {{{
+$(AXISBROAD): $(AXISBROAD)_prf/PASS
+$(AXISBROAD)_prf/PASS: $(AXISBROAD).sby $(RTL)/$(AXISBROAD).v $(RTL)/sfifo.v $(RTL)/skidbuffer.v
+	sby -f $(AXISSWITCH).sby prf
+## }}}
+
 ################################################################################
 ##
 
@@ -905,7 +913,7 @@ clean:
 	rm -rf  $(WBSAFETY)_*/   $(AXILSAFETY)_*/
 	rm -rf  $(AXIPERF)_*/    $(AXIL2AXIS)_*/
 	rm -rf  $(AXIL2APB)_*/   $(APBSLAVE)_*/
-	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/
+	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/	$(AXISBROAD)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/

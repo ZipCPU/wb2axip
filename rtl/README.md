@@ -8,6 +8,14 @@
 
 - [Skidbuffer](skidbuffer.v)
 
+## Demo AXI-stream designs
+
+- [AXIS Broadcast](axisbroadcast.v): Accepts one stream input, duplicates that
+	stream to an arbitrary number of output streams
+- [AXISRANDOM](axisrandom.v): Generates a pseudorandom AXI-Stream output
+- [AXISSWITCH](axisswitch.v): Switches a stream from among many input streams,
+	with an AXI-lite control input for switching between them.
+
 ## Crossbars
 
 See [this post for a discussion of these

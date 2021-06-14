@@ -43,9 +43,9 @@ module	axisrandom #(
 		input	wire					S_AXI_ACLK,
 		input	wire					S_AXI_ARESETN,
 		//
-		input	reg					M_AXIS_TVALID,
-		output	wire					M_AXIS_TREADY,
-		input	reg	[C_AXIS_DATA_WIDTH-1:0]		M_AXIS_TDATA
+		output	reg					M_AXIS_TVALID,
+		input	wire					M_AXIS_TREADY,
+		output	reg	[C_AXIS_DATA_WIDTH-1:0]		M_AXIS_TDATA
 		// }}}
 	);
 
