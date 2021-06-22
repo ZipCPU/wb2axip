@@ -415,7 +415,7 @@ module	axiperf #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	localparam	ADDRLSB = $clog2(C_AXI_DATA_WIDTH)-3;
+	localparam	ADDRLSB = $clog2(C_AXIL_DATA_WIDTH/8);
 	wire	i_reset = !S_AXI_ARESETN;
 
 	// AXI signaling
