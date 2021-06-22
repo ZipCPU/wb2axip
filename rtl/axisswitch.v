@@ -34,10 +34,9 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-// }}}
 //
 `default_nettype none
-//
+// }}}
 module	axisswitch #(
 		// {{{
 		//
@@ -286,16 +285,22 @@ module	axisswitch #(
 	// {{{
 	generate for(gk=0; gk<NUM_STREAMS; gk=gk+1)
 	begin
-		skidbuffer #(.OPT_OUTREG(0),
-				.OPT_LOWPOWER(OPT_LOWPOWER),
-				.DW(C_AXIS_DATA_WIDTH+1))
-		skdswitch(//
+		skidbuffer #(
+			// {{{
+			.OPT_OUTREG(0),
+			.OPT_LOWPOWER(OPT_LOWPOWER),
+			.DW(C_AXIS_DATA_WIDTH+1)
+			// }}}
+		) skdswitch(//
+			// {{{
 			.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 			.i_valid(S_AXIS_TVALID[gk]),.o_ready(S_AXIS_TREADY[gk]),
 			.i_data({ S_AXIS_TDATA[gk*C_AXIS_DATA_WIDTH
 				+: C_AXIS_DATA_WIDTH], S_AXIS_TLAST[gk] }),
 			.o_valid(skd_valid[gk]), .i_ready(skd_switch_ready[gk]),
-			.o_data({ skd_data[gk], skd_last[gk] }));
+			.o_data({ skd_data[gk], skd_last[gk] })
+			// }}}
+		);
 
 		
 	end endgenerate
@@ -426,7 +431,6 @@ module	axisswitch #(
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awaddr( S_AXI_AWADDR),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( S_AXI_AWPROT),
 		//
 		.i_axi_wvalid(S_AXI_WVALID),
@@ -441,7 +445,6 @@ module	axisswitch #(
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_araddr( S_AXI_ARADDR),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot( S_AXI_ARPROT),
 		//
 		.i_axi_rvalid(S_AXI_RVALID),
@@ -453,7 +456,7 @@ module	axisswitch #(
 		.f_axi_wr_outstanding(faxil_wr_outstanding),
 		.f_axi_awr_outstanding(faxil_awr_outstanding)
 		// }}}
-		);
+	);
 
 	always @(*)
 	begin
@@ -494,8 +497,19 @@ module	axisswitch #(
 	//
 	//
 
-	// Stream properties are captured by the skid buffers, and so don't
-	// need to be repeated here.
+	generate for(gk=0; gk<NUM_STREAMS; gk=gk+1)
+	begin : S_STREAM_ASSUMPTIONS
+
+		always @(posedge S_AXI_ACLK)
+		if (!f_past_valid || $past(!S_AXI_ARESETN))
+			assume(S_AXIS_TVALID[gk] == 0);
+		else if ($past(S_AXIS_TVALID[gk] && !S_AXIS_TREADY[gk]))
+		begin
+			assume(S_AXIS_TVALID[gk]);
+			assume($stable(S_AXIS_TDATA[gk*C_AXIS_DATA_WIDTH +: C_AXIS_DATA_WIDTH]));
+			assume($stable(S_AXIS_TLAST[gk]));
+		end
+	end endgenerate
 
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || $past(!S_AXI_ARESETN))

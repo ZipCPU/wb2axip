@@ -346,7 +346,7 @@ module wbm2axisp #(
 		if (!o_axi_wvalid || i_axi_wready)
 			// Verilator lint_off WIDTH
 			o_axi_wstrb   <= m_sel << ((DW/8) * m_addr[SUBW-1:0]);
-			// Verilator lint_on WIDTH
+			// Verilator lint_on  WIDTH
 		// }}}
 	end else begin : BIG_ENDIAN_WSTRB
 		// {{{
@@ -359,7 +359,7 @@ module wbm2axisp #(
 		if (!o_axi_wvalid || i_axi_wready)
 			// Verilator lint_off WIDTH
 			o_axi_wstrb   <= m_sel << ((DW/8)* neg_addr);
-			// Verilator lint_on WIDTH
+			// Verilator lint_on  WIDTH
 		// }}}
 	end endgenerate
 	// }}}
@@ -504,9 +504,9 @@ module wbm2axisp #(
 			o_wb_data <= return_data[DW-1:0];
 
 		// Make Verilator happy here
+		// verilator lint_off UNUSED
 		if (C_AXI_DATA_WIDTH > DW)
 		begin : UNUSED_DATA
-			// verilator lint_off UNUSED
 			wire	unused_data;
 			assign	unused_data = &{ 1'b0,
 					return_data[C_AXI_DATA_WIDTH-1:DW] };

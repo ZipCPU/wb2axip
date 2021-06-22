@@ -39,9 +39,9 @@ HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
-AXISTREAM := xlnxstream_2018_3 axisswitch.v axisrandom.v axisbroadcast
+AXISTREAM := xlnxstream_2018_3 axisswitch axisrandom axisbroadcast
 AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty # demofull xlnxfull axiempty
-AXIMASTERS := # axis2mm aximm2s axidma axivfifo axivcamera axivdisplay
+AXIMASTERS := # axidma aximm2s axis2mm axisgfsm axivfifo axivcamera axivdisplay
 FIREWALLS := wbsafety axilsafety axissafety # axisafety
 TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS) apbslave
 .PHONY: $(TESTS)
@@ -82,6 +82,8 @@ XILINXDEMO := xlnxdemo
 # AXIVCAMERA
 # AXIVDISPLAY
 # AXIVFIFO
+#
+# AXISGFSM
 ## }}}
 #
 # AXI Stream cores
@@ -890,7 +892,7 @@ $(AXISSWITCH)_prf/PASS: $(AXISSWITCH).sby $(RTL)/$(AXISSWITCH).v
 ## {{{
 $(AXISBROAD): $(AXISBROAD)_prf/PASS
 $(AXISBROAD)_prf/PASS: $(AXISBROAD).sby $(RTL)/$(AXISBROAD).v $(RTL)/sfifo.v $(RTL)/skidbuffer.v
-	sby -f $(AXISSWITCH).sby prf
+	sby -f $(AXISBROAD).sby prf
 ## }}}
 
 ################################################################################
