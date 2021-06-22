@@ -118,6 +118,12 @@ module	axidma #(
 		// address width.
 		parameter	LGLEN = C_AXI_ADDR_WIDTH,
 		//
+		// OPT_LOWPOWER:
+		parameter [0:0]	OPT_LOWPOWER = 1'b0,
+		//
+		// OPT_CLKGATE:
+		parameter [0:0]	OPT_CLKGATE = OPT_LOWPOWER,
+		//
 		// AXI uses ID's to transfer information.  This core rather
 		// ignores them.  Instead, it uses a constant ID for all
 		// transfers.  The following two parameters control that ID.
@@ -137,6 +143,12 @@ module	axidma #(
 		// {{{
 		input	wire	S_AXI_ACLK,
 		input	wire	S_AXI_ARESETN,
+		// AXI low-power interface
+		// {{{
+		input	wire	S_AXI_CSYSREQ,	// = 1'b1 (default, no gating)
+		output	wire	S_AXI_CACTIVE,
+		output	wire	S_AXI_CSYSACK,
+		// }}}
 		//
 		// The AXI4-lite control interface
 		input	wire				S_AXIL_AWVALID,
@@ -225,6 +237,8 @@ module	axidma #(
 		// }}}
 	);
 
+	// Local declarations
+	// {{{
 	// The number of beats in this maximum burst size is
 	// automatically determined from LGMAXBURST, and so its
 	// forced to be a power of two this way.
@@ -246,7 +260,8 @@ module	axidma #(
 				CTRL_ERR_BIT   = 4;
 	localparam	[1:0]	AXI_INCR = 2'b01, AXI_OKAY = 2'b00;
 
-	wire	i_clk   = S_AXI_ACLK;
+	wire	clk_gate, gated_clk;
+	wire	i_clk   = gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
 	reg	axil_write_ready, axil_read_ready;
@@ -316,20 +331,19 @@ module	axidma #(
 					first_write_burst;
 	reg	[LGMAXBURST:0]		initial_write_distance_to_boundary_w,
 					first_write_len_w;
-
-
-
-
-
-
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-Lite control interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
+
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI-lite control write interface
+	// {{{
 	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilawskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
@@ -351,10 +365,12 @@ module	axidma #(
 		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;;
 		if (!awskd_valid || !wskd_valid)
 			axil_write_ready = 0;
+		if (!clk_gate)
+			axil_write_ready = 0;
 	end
 
 	initial	S_AXIL_BVALID = 1'b0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		S_AXIL_BVALID <= 1'b0;
 	else if (!S_AXIL_BVALID || S_AXIL_BREADY)
@@ -373,7 +389,7 @@ module	axidma #(
 			w_start = 0;
 	end
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		r_err <= 1'b0;
 	else if (!r_busy && axil_write_ready)
@@ -394,7 +410,7 @@ module	axidma #(
 	end
 
 	initial	r_busy = 1'b0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		r_busy <= 1'b0;
 	else if (!r_busy && axil_write_ready)
@@ -407,7 +423,7 @@ module	axidma #(
 			r_busy <= 1'b0;
 	end
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_int_enable || !r_busy)
 		o_int <= 0;
 	else if (r_done)
@@ -415,7 +431,7 @@ module	axidma #(
 	else
 		o_int <= (last_write_ack && M_AXI_BVALID && M_AXI_BREADY);
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		r_int <= 0;
 	else if (!r_busy)
@@ -434,7 +450,7 @@ module	axidma #(
 		r_int <= (last_write_ack && M_AXI_BVALID && M_AXI_BREADY);
 
 	initial	r_abort = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		r_abort <= 1'b0;
 	else if (!r_busy)
@@ -527,7 +543,7 @@ module	axidma #(
 	initial	zero_len = 1;
 	initial	r_src_addr = 0;
 	initial	r_dst_addr = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 	begin
 		r_len <= 0;
@@ -604,11 +620,11 @@ module	axidma #(
 				: prior_data[k*8 +: 8];
 		end
 	endfunction
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite control read interface
-	//
+	// {{{
 	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
 	axilarskid(//
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
@@ -622,16 +638,18 @@ module	axidma #(
 		axil_read_ready = !S_AXIL_RVALID || S_AXIL_RREADY;
 		if (!arskd_valid)
 			axil_read_ready = 1'b0;
+		if (!clk_gate)
+			axil_read_ready = 1'b0;
 	end
 
 	initial	S_AXIL_RVALID = 1'b0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		S_AXIL_RVALID <= 1'b0;
 	else if (!S_AXIL_RVALID || S_AXIL_RREADY)
 		S_AXIL_RVALID <= axil_read_ready;
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		S_AXIL_RDATA <= 0;
 	else if (!S_AXIL_RVALID || S_AXIL_RREADY)
@@ -665,19 +683,23 @@ module	axidma #(
 	end
 
 	assign	S_AXIL_RRESP = AXI_OKAY;
+	// }}}
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI read processing
-	//
-	// Read data into our FIFO
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
 
+	//
+	// Read data into our FIFO
+	//
 
-	always @(posedge S_AXI_ACLK)
+
+	always @(posedge i_clk)
 	if (!r_busy)
 		read_address <= { 1'b0, r_src_addr };
 	else if (phantom_read)
@@ -690,13 +712,13 @@ module	axidma #(
 	end
 
 	// Verilator lint_off WIDTH
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		reads_remaining_w <= readlen_b[LGLEN:ADDRLSB];
 	else if (phantom_read)
 		reads_remaining_w <= reads_remaining_w - (M_AXI_ARLEN+1);
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		reads_remaining_nonzero <= 1;
 	else if (phantom_read)
@@ -704,14 +726,14 @@ module	axidma #(
 				<= (reads_remaining_w != (M_AXI_ARLEN+1));
 	// Verilator lint_on WIDTH
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		read_beats_remaining_w <= readlen_b[LGLEN:ADDRLSB];
 	else if (M_AXI_RVALID && M_AXI_RREADY)
 		read_beats_remaining_w <= read_beats_remaining_w - 1;
 
 	initial	read_bursts_outstanding = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		read_bursts_outstanding <= 0;
@@ -722,7 +744,7 @@ module	axidma #(
 	endcase
 
 	initial	no_read_bursts_outstanding = 1;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		no_read_bursts_outstanding <= 1;
@@ -732,12 +754,17 @@ module	axidma #(
 	default: begin end
 	endcase
 
-	always @(posedge S_AXI_ACLK)
+	// M_AXI_ARADDR
+	// {{{
+	always @(posedge i_clk)
 	if (!r_busy)
 		M_AXI_ARADDR <= r_src_addr;
 	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
 		M_AXI_ARADDR <= read_address[C_AXI_ADDR_WIDTH-1:0];
+	// }}}
 
+	// readlen_b
+	// {{{
 	always @(*)
 	if (OPT_UNALIGNED)
 		readlen_b = r_len + { {(C_AXI_ADDR_WIDTH-ADDRLSB){1'b0}},
@@ -748,14 +775,20 @@ module	axidma #(
 		readlen_b = { 1'b0, r_len };
 		readlen_b[ADDRLSB-1:0] = 0;
 	end
+	// }}}
 
+	// read_distance_to_boundary_b
+	// {{{
 	always @(*)
 	begin
 		read_distance_to_boundary_b = 0;
 		read_distance_to_boundary_b[ADDRLSB +: LGMAXBURST]
 					= -r_src_addr[ADDRLSB +: LGMAXBURST];
 	end
+	// }}}
 
+	// initial_readlen_w
+	// {{{
 	always @(*)
 	begin
 		initial_readlen_w = 0;
@@ -769,9 +802,12 @@ module	axidma #(
 				readlen_b[ADDRLSB +: LGMAXBURST] };
 		initial_readlen_w[LGLENW-1:LGMAXBURST+1] = 0;
 	end
+	// }}}
 
+	// readlen_w
+	// {{{
 	// Verilator lint_off WIDTH
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 	begin
 		readlen_w <= initial_readlen_w;
@@ -800,7 +836,7 @@ module	axidma #(
 
 	initial	M_AXI_ARVALID = 1'b0;
 	initial	phantom_read  = 1'b0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		M_AXI_ARVALID <= 0;
@@ -812,7 +848,7 @@ module	axidma #(
 	end else
 		phantom_read  <= 0;
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 		M_AXI_ARLEN <= 0;
 	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
@@ -831,11 +867,11 @@ module	axidma #(
 	assign	M_AXI_ARQOS   = r_qos;
 		//
 	assign	M_AXI_RREADY = !no_read_bursts_outstanding;
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The intermediate FIFO
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -844,6 +880,7 @@ module	axidma #(
 
 	generate if (OPT_UNALIGNED)
 	begin : REALIGNMENT_FIFO
+		// {{{
 		reg	[ADDRLSB-1:0]		inbyte_shift, outbyte_shift,
 						remaining_read_realignment;
 		reg	[ADDRLSB+3-1:0]		inshift_down, outshift_down,
@@ -859,7 +896,7 @@ module	axidma #(
 		///////////////////
 
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			inbyte_shift <= r_src_addr[ADDRLSB-1:0];
@@ -879,7 +916,7 @@ module	axidma #(
 		// In other words, if the number of writes to the FIFO is
 		// greater than the number of read beats
 		//			- (src_addr unaligned?1:0)
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			extra_realignment_read <= (remaining_read_realignment
@@ -891,7 +928,7 @@ module	axidma #(
 		end else if ((!r_write_fifo || !fifo_full) && clear_read_pipeline)
 			extra_realignment_read <= 1'b0;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy || !extra_realignment_read || clear_read_pipeline)
 			clear_read_pipeline <= 0;
 		else if (!r_write_fifo || !fifo_full)
@@ -915,7 +952,7 @@ module	axidma #(
 		end
 `endif
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_partial_in_valid <= (r_src_addr[ADDRLSB-1:0] == 0);
 		else if (M_AXI_RVALID)
@@ -927,14 +964,14 @@ module	axidma #(
 			// that ...
 			r_partial_in_valid <= 0;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset || (inbyte_shift == 0))
 			r_partial_inword <= 0;
 		else if (M_AXI_RVALID)
 			r_partial_inword <= M_AXI_RDATA >> inshift_down;
 
 		initial	r_write_fifo = 0;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_write_fifo <= 0;
 		else if (M_AXI_RVALID || clear_read_pipeline)
@@ -942,7 +979,7 @@ module	axidma #(
 		else if (!fifo_full)
 			r_write_fifo <= 0;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_realigned_incoming <= 0;
 		else if (M_AXI_RVALID)
@@ -958,7 +995,7 @@ module	axidma #(
 					fifo_full, fifo_fill,
 				r_read_fifo, fifo_data, fifo_empty);
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			outbyte_shift <= r_dst_addr[ADDRLSB-1:0];
@@ -970,7 +1007,7 @@ module	axidma #(
 			outshift_up   = {  outbyte_shift, 3'b000 };
 
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_partial_outword <= 0;
 		else if (r_read_fifo && outshift_up != 0)
@@ -979,7 +1016,7 @@ module	axidma #(
 		else if (M_AXI_WVALID && M_AXI_WREADY)
 			r_partial_outword <= 0;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_partial_outvalid <= 0;
 		else if (r_read_fifo && !fifo_empty)
@@ -987,7 +1024,7 @@ module	axidma #(
 		else if (fifo_empty && M_AXI_WVALID && M_AXI_WREADY)
 			r_partial_outvalid <= extra_realignment_write;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (fifo_reset)
 			r_outword <= 0;
 		else if (!r_partial_outvalid || (M_AXI_WVALID && M_AXI_WREADY))
@@ -1022,7 +1059,7 @@ module	axidma #(
 		//
 		//
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			if (r_len[(LGLEN-1):(ADDRLSB+1)] != 0)
@@ -1034,7 +1071,7 @@ module	axidma #(
 		end
 
 		initial	r_first_wstrb = 0;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			if (r_len[LGLEN-1:ADDRLSB] != 0)
@@ -1046,7 +1083,7 @@ module	axidma #(
 		always @(*)
 			r_last_write_addr = r_dst_addr[ADDRLSB-1:0] + r_len[ADDRLSB-1:0];
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 		begin
 			if (r_last_write_addr[ADDRLSB-1:0] == 0)
@@ -1055,13 +1092,13 @@ module	axidma #(
 				r_last_wstrb <= (1<<r_last_write_addr)-1;
 		end
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!r_busy)
 			r_firstword <= 1;
 		else if (M_AXI_WVALID && M_AXI_WREADY)
 			r_firstword <= 0;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!M_AXI_WVALID || M_AXI_WREADY)
 		begin
 			if (r_oneword)
@@ -1078,9 +1115,9 @@ module	axidma #(
 			if (r_err || r_abort)
 				M_AXI_WSTRB <= 0;
 		end
-
+		// }}}
 	end else begin : ALIGNED_FIFO
-
+		// {{{
 		always @(*)
 		begin
 			r_first_wstrb = -1;
@@ -1101,7 +1138,7 @@ module	axidma #(
 
 
 		initial	M_AXI_WSTRB = -1;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!S_AXI_ARESETN || !r_busy)
 			M_AXI_WSTRB <= -1;
 		else if (!M_AXI_WVALID || M_AXI_WREADY)
@@ -1109,10 +1146,10 @@ module	axidma #(
 
 		always @(*)
 			extra_realignment_read <= 0;
-
+		// }}}
 	end endgenerate
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (fifo_reset)
 		fifo_space_available <= (1<<LGFIFO)
 		// space for r_partial_outvalid
@@ -1144,7 +1181,7 @@ module	axidma #(
 	end else
 		write_realignment = 0;
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!OPT_UNALIGNED)
 		extra_realignment_write <= 1'b0;
 	else if (!r_busy)
@@ -1157,7 +1194,7 @@ module	axidma #(
 	end else if (M_AXI_WVALID && M_AXI_WREADY && fifo_empty)
 		extra_realignment_write <= 1'b0;
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		last_read_beat <= 1'b0;
 	else
@@ -1180,23 +1217,26 @@ module	axidma #(
 	end
 
 	initial	fifo_data_available = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy || r_done)
 		fifo_data_available <= 0;
 	else
 		fifo_data_available <= next_fifo_data_available;
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI write processing
-	//
-	// Write data from the FIFO to the AXI bus
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	always @(posedge S_AXI_ACLK)
+
+	//
+	// Write data from the FIFO to the AXI bus
+	//
+
+	always @(posedge i_clk)
 	if (!r_busy)
 		write_address <= { 1'b0, r_dst_addr };
 	else if (phantom_write)
@@ -1212,7 +1252,7 @@ module	axidma #(
 	always @(*)
 		w_writes_remaining_w = writes_remaining_w - (M_AXI_AWLEN+1);
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		writes_remaining_w <= writelen_b[LGLEN:ADDRLSB];
@@ -1224,7 +1264,7 @@ module	axidma #(
 			<= |w_writes_remaining_w[LGLENW:LGMAXBURST];
 	end
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		write_beats_remaining <= writelen_b[LGLEN:ADDRLSB];
@@ -1232,7 +1272,7 @@ module	axidma #(
 		write_beats_remaining <= write_beats_remaining - 1;
 
 	initial	write_requests_remaining = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		write_requests_remaining <= 1'b0;
 	else if (!r_busy)
@@ -1242,7 +1282,7 @@ module	axidma #(
 	// Verilator lint_on WIDTH
 
 	initial	write_bursts_outstanding = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		write_bursts_outstanding <= 0;
@@ -1253,7 +1293,7 @@ module	axidma #(
 	endcase
 
 	// Verilator lint_off  WIDTH
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		last_write_ack <= 0;
 	else if (writes_remaining_w > ((phantom_write) ? (M_AXI_AWLEN+1) : 0))
@@ -1263,7 +1303,7 @@ module	axidma #(
 			== (phantom_write ? 0:1) + (M_AXI_BVALID ? 1:0));
 	// Verilator lint_on  WIDTH
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy || M_AXI_ARVALID || M_AXI_AWVALID)
 		r_done <= 0;
 	else if (read_bursts_outstanding > 0)
@@ -1295,7 +1335,7 @@ module	axidma #(
 		initial_write_distance_to_boundary_w[LGMAXBURST] = 1'b0;
 	end
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 	begin
 		first_write_burst <= 1'b1;
@@ -1330,7 +1370,7 @@ module	axidma #(
 	// Verilator lint_on WIDTH
 
 	initial	write_count = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 		write_count <= 0;
 	else if (w_write_start)
@@ -1339,7 +1379,7 @@ module	axidma #(
 		write_count <= write_count - 1;
 
 	initial	M_AXI_WLAST = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		M_AXI_WLAST <= 0;
@@ -1384,7 +1424,7 @@ module	axidma #(
 
 	initial	M_AXI_AWVALID = 0;
 	initial	phantom_write = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 	begin
 		M_AXI_AWVALID <= 0;
@@ -1397,7 +1437,7 @@ module	axidma #(
 		phantom_write <= 0;
 
 	initial	M_AXI_WVALID = 1'b0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset)
 		M_AXI_WVALID <= 0;
 	else if (!M_AXI_WVALID || M_AXI_WREADY)
@@ -1410,7 +1450,7 @@ module	axidma #(
 	end
 
 	initial	M_AXI_AWLEN = 0;
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 		M_AXI_AWLEN <= 0;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
@@ -1424,7 +1464,7 @@ module	axidma #(
 `endif
 	end
 
-	always @(posedge S_AXI_ACLK)
+	always @(posedge i_clk)
 	if (!r_busy)
 		M_AXI_AWADDR <= r_dst_addr;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
@@ -1446,7 +1486,71 @@ module	axidma #(
 `endif
 		M_AXI_BREADY = !r_done;
 	end
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (Optional) Clock gating
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
+	generate if (OPT_CLKGATE)
+	begin : CLK_GATING
+		// {{{
+		reg	gatep, gaten, clk_active;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			clk_active <= 1'b0;
+		else begin
+			clk_active <= 1'b0;
+
+			if (r_busy)
+				clk_active <= 1'b1;
+			if (S_AXIL_AWVALID || S_AXIL_WVALID || S_AXIL_ARVALID)
+				clk_active <= 1'b1;
+			if (S_AXIL_BVALID || S_AXIL_RVALID)
+				clk_active <= 1'b1;
+			if (!S_AXIL_AWREADY || !S_AXIL_WREADY || !S_AXIL_ARREADY)
+				clk_active <= 1'b1;
+		end
+
+		assign	S_AXI_CACTIVE = clk_active
+			|| (S_AXIL_AWVALID || S_AXIL_WVALID || S_AXIL_ARVALID);
+
+		assign	S_AXI_CSYSACK = S_AXI_CACTIVE || S_AXI_CSYSREQ;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gatep <= 1'b1;
+		else
+			gatep <= S_AXI_CACTIVE || S_AXI_CSYSREQ || S_AXI_CSYSACK;
+
+		always @(negedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gaten <= 1'b1;
+		else
+			gaten <= gatep;
+
+		assign	gated_clk = S_AXI_ACLK && clk_gate;
+		assign	clk_gate  = gaten;
+		// }}}
+	end else begin : NO_CLK_GATING
+		// {{{
+		// Always active
+		assign	S_AXI_CACTIVE = 1'b1;
+		assign	S_AXI_CSYSACK = 1'b1;
+		assign	clk_gate  = 1'b1;
+		assign	gated_clk = S_AXI_ACLK;
+
+		// Verilator lint_off UNUSED
+		wire	unused_clkgate;
+		assign	unused_clkgate = &{ 1'b0, S_AXI_CSYSREQ };
+		// Verilator lint_on  UNUSED
+		// }}}
+	end endgenerate
+	// }}}
 	// Keep Verilator happy
 	// Verilator lint_off UNUSED
 	wire	unused;
