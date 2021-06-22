@@ -447,6 +447,7 @@ module sfifo #(
 	// Verilator lint_off UNUSED
 	wire	unused_formal;
 	assign	unused_formal = &{ 1'b0, f_next[LGFLEN], f_empty };
+	// Verilator lint_on  UNUSED
 `endif // FORMAL
 // }}}
 endmodule

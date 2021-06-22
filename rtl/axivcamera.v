@@ -844,7 +844,7 @@ module	axivcamera #(
 			// verilator lint_off WIDTH
 			req_addr <= req_line_addr + cfg_line_step;
 			req_line_addr  <= req_line_addr + cfg_line_step;
-			// verilator lint_on WIDTH
+			// verilator lint_on  WIDTH
 			req_line_words <= cfg_line_words;
 			req_needs_alignment <= line_needs_alignment;
 			req_multiple_bursts <= line_multiple_bursts;
@@ -1077,7 +1077,7 @@ module	axivcamera #(
 		else
 			req_hlast <= (req_line_words - (M_AXI_AWLEN+1)
 							<= (1<<LGMAXBURST));
-	// Verilator lint_on WIDTH
+	// Verilator lint_on  WIDTH
 	end
 	// }}}
 
@@ -1162,8 +1162,9 @@ module	axivcamera #(
 	// End AXI protocol section
 	// }}}
 
-	// Verilator lint_off UNUSED
+	// Make Verilator happy
 	// {{{
+	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
 			M_AXI_BRESP[0], fifo_empty,

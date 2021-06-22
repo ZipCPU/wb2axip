@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	aximm2s
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Converts an AXI (full) memory port to an AXI-stream
@@ -115,7 +115,7 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
+// }}}
 // Copyright (C) 2019-2021, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
@@ -925,7 +925,7 @@ module	aximm2s #(
 		ar_none_remaining <= (ar_next_remaining == 0);
 		ar_multiple_bursts_remaining
 			<= |ar_next_remaining[LGLENWA-1:LGMAXBURST+1];
-		// Verilator lint_on WIDTH
+		// Verilator lint_on  WIDTH
 	end
 	// }}}
 

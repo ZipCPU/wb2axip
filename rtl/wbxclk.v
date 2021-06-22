@@ -108,7 +108,7 @@ module	wbxclk #(
 	//
 	// Verilator lint_off SYNCASYNCNET
 	reg		bus_abort;
-	// Verilator lint_on SYNCASYNCNET
+	// Verilator lint_on  SYNCASYNCNET
 	//
 	wire		req_stb, req_fifo_empty;
 	reg		xclk_err_state, ign_ackfifo_stall;
@@ -318,7 +318,7 @@ module	wbxclk #(
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, req_fifo_stall, ign_ackfifo_stall };
-	// Verilator lint_on UNUSED
+	// Verilator lint_on  UNUSED
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

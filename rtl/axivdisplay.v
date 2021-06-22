@@ -736,7 +736,7 @@ module	axivdisplay #(
 					+ (r_line_step << M_AXI_ARSIZE);
 			req_line_addr  <= req_line_addr
 					+ (r_line_step << M_AXI_ARSIZE);
-			// verilator lint_on WIDTH
+			// verilator lint_on  WIDTH
 			req_line_words <= r_line_words;
 		end else begin
 			// verilator lint_off WIDTH
@@ -957,7 +957,7 @@ module	axivdisplay #(
 		// Verilator lint_off WIDTH
 		if (till_boundary > 0 && max_burst <= till_boundary)
 			axi_arlen <= max_burst-1;
-		// Verilator lint_on WIDTH
+		// Verilator lint_on  WIDTH
 		else
 			axi_arlen <= till_boundary;
 	end
@@ -974,7 +974,7 @@ module	axivdisplay #(
 			req_hlast <= 0;
 		if (req_line_words > max_burst)
 			req_hlast <= 0;
-		// Verilator lint_on WIDTH
+		// Verilator lint_on  WIDTH
 	end
 
 `ifdef	FORMAL
@@ -1059,8 +1059,9 @@ module	axivdisplay #(
 	// End AXI protocol section
 	// }}}
 
-	// Verilator lint_off UNUSED
+	// Make Verilator happy
 	// {{{
+	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_RID,
 			M_AXI_RRESP[0], fifo_full, wskd_strb[2:0],
