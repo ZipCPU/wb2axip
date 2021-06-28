@@ -1,0 +1,21 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 4
+cvr: mode cover
+cvr: depth 40
+
+[engines]
+smtbmc
+
+[script]
+# read -formal skidbuffer.v
+read -formal axispacker.v
+prep -top axispacker
+
+[files]
+../../rtl/axispacker.v
+# ../../rtl/skidbuffer.v

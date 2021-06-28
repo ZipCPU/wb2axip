@@ -12,6 +12,7 @@ axil2axis_*/
 axil2apb_*/
 axildouble_*/
 axilempty_*/
+axilgpio_*/
 axilite2axi_*/
 axilwr2wbsp_*/
 axilrd2wbsp_*/
@@ -29,6 +30,7 @@ axis2mm_*/
 axisafety_*/
 axisgfsm_*/
 axisbroadcast_*/
+axispacker_*/
 axisrandom_*/
 axissafety_*/
 axisswitch_*/

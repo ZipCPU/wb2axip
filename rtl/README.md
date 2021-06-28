@@ -5,6 +5,7 @@
 - [Demonstration AXI4(Full) slave](demofull.v)
   -- [AXI Addr](axi_addr.v) is a helper core used for calculating the "next" address in a burst sequence.  It's based upon [the algorithm discussed here](https://zipcpu.com/blog/2019/04/27/axi-addr.html).
 - [A simplified AXI-lite slave](easyaxil.v)
+- [A basic AXI-lite GPIO controller](axilgpio.v)
 
 - [Skidbuffer](skidbuffer.v)
 
@@ -12,6 +13,7 @@
 
 - [AXIS Broadcast](axisbroadcast.v): Accepts one stream input, duplicates that
 	stream to an arbitrary number of output streams
+- [AXISPACKER](axispacker.v): Removes NULL bytes from an AXI Stream
 - [AXISRANDOM](axisrandom.v): Generates a pseudorandom AXI-Stream output
 - [AXISSWITCH](axisswitch.v): Switches a stream from among many input streams,
 	with an AXI-lite control input for switching between them.

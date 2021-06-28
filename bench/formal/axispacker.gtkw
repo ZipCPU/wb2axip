@@ -1,0 +1,86 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Mon Jun 28 12:15:13 2021
+[*]
+[dumpfile_mtime] "Mon Jun 28 02:19:53 2021"
+[dumpfile_size] 6992
+[timestart] 0
+[size] 1719 900
+[pos] 2837 -591
+*-6.075490 400 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 329
+[signals_width] 220
+[sst_expanded] 1
+[sst_vpaned_height] 248
+@28
+axispacker.S_AXI_ACLK
+axispacker.S_AXI_ARESETN
+@200
+-
+@28
+axispacker.S_AXIS_TVALID
+axispacker.S_AXIS_TREADY
+@22
+axispacker.S_AXIS_TDATA[31:0]
+axispacker.S_AXIS_TSTRB[3:0]
+axispacker.S_AXIS_TKEEP[3:0]
+@28
+axispacker.S_AXIS_TLAST
+@200
+-
+@28
+axispacker.M_AXIS_TVALID
+axispacker.M_AXIS_TREADY
+@22
+axispacker.M_AXIS_TDATA[31:0]
+axispacker.M_AXIS_TSTRB[3:0]
+axispacker.M_AXIS_TKEEP[3:0]
+@28
+axispacker.M_AXIS_TLAST
+@200
+-
+@28
+axispacker.pre_tvalid
+axispacker.pre_tready
+@22
+axispacker.pre_tdata[31:0]
+axispacker.pre_tstrb[3:0]
+axispacker.pre_tkeep[3:0]
+@29
+axispacker.pre_tlast
+@200
+-
+@22
+axispacker.pck_tdata[31:0]
+axispacker.pck_tkeep[3:0]
+axispacker.pck_tstrb[3:0]
+@28
+axispacker.pck_tlast
+@200
+-
+@22
+axispacker.mid_fill[3:0]
+axispacker.mid_keep[3:0]
+axispacker.mid_data[31:0]
+axispacker.mid_strb[3:0]
+@28
+axispacker.mid_last
+@200
+-
+@22
+axispacker.w_packed_data[63:0]
+axispacker.w_packed_keep[7:0]
+axispacker.w_packed_strb[7:0]
+@200
+-
+@22
+axispacker.skd_data[31:0]
+axispacker.skd_keep[3:0]
+@28
+axispacker.skd_last
+@22
+axispacker.skd_strb[3:0]
+@28
+axispacker.skd_valid
+[pattern_trace] 1
+[pattern_trace] 0

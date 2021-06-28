@@ -1,7 +1,7 @@
 ################################################################################
 ##
 ## Filename:	Makefile
-##
+## {{{
 ## Project:	WB2AXIPSP: bus bridges and other odds and ends
 ##
 ## Purpose:	To describe how to build the Verilator libraries from the
@@ -16,18 +16,18 @@
 ##		Gisselquist Technology, LLC
 ##
 ################################################################################
-##
+## }}}
 ## Copyright (C) 2016-2021, Gisselquist Technology, LLC
-##
+## {{{
 ## This file is part of the WB2AXIP project.
 ##
 ## The WB2AXIP project contains free software and gateware, licensed under the
 ## Apache License, Version 2.0 (the "License").  You may not use this project,
 ## or this file, except in compliance with the License.  You may obtain a copy
 ## of the License at
-##
+## }}}
 ##	http://www.apache.org/licenses/LICENSE-2.0
-##
+## {{{
 ## Unless required by applicable law or agreed to in writing, software
 ## distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 ## WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -36,7 +36,7 @@
 ##
 ################################################################################
 ##
-##
+## }}}
 all:	test
 YYMMDD=`date +%Y%m%d`
 CXX   := g++
@@ -55,8 +55,9 @@ test: testwb testaxi testaxil testapb testaxis
 .PHONY: axim2wbsp axim2wbsp wbm2axilite axilrd2wbsp axilwr2wbsp axlite2wbsp
 .PHONY: axixbar axilxbar wbxbar axis2mm aximm2s axidma axim2wbsp aximrd2wbsp
 .PHONY: aximwr2wbsp axixclk axiperf demoaxi demofull easyaxil sfifo skidbuffer
+.PHONY: axilgpio
 .PHONY: axilsafety axisafety wbsafety axivfifo axil2apb apbslave
-.PHONY: axisrandom axisswitch axisbroadcast
+.PHONY: axisrandom axisswitch axisbroadcast axispacker
 
 axim2wbsp:   $(VDIRFB)/Vwbm2axisp__ALL.a    $(IVCHECK)/axim2wbsp
 axim2wbsp:   $(VDIRFB)/Vaxim2wbsp__ALL.a
@@ -66,6 +67,7 @@ axilwr2wbsp: $(VDIRFB)/Vaxilwr2wbsp__ALL.a  $(IVCHECK)/axilwr2wbsp
 axlite2wbsp: $(VDIRFB)/Vaxlite2wbsp__ALL.a  $(IVCHECK)/axlite2wbsp
 axiempty:    $(VDIRFB)/Vaxiempty__ALL.a     $(IVCHECK)/axiempty
 axilempty:   $(VDIRFB)/Vaxilempty__ALL.a    $(IVCHECK)/axilempty
+axilgpio:    $(VDIRFB)/Vaxilgpio__ALL.a     $(IVCHECK)/axilgpio
 axivcamera:  $(VDIRFB)/Vaxivcamera__ALL.a   $(IVCHECK)/axivcamera
 axivdisplay: $(VDIRFB)/Vaxivdisplay__ALL.a  $(IVCHECK)/axivdisplay
 axivfifo:    $(VDIRFB)/Vaxivfifo__ALL.a     $(IVCHECK)/axivfifo
@@ -91,17 +93,18 @@ wbsafety:    $(VDIRFB)/Vwbsafety__ALL.a     $(IVCHECK)/wbsafety
 axil2apb:    $(VDIRFB)/Vaxil2apb__ALL.a     $(IVCHECK)/axil2apb
 apbslave:    $(VDIRFB)/Vapbslave__ALL.a     $(IVCHECK)/apbslave
 axisbroadcast: $(VDIRFB)/Vaxisbroadcast__ALL.a $(IVCHECK)/axisbroadcast
-axisswitch:  $(VDIRFB)/Vaxisswitch__ALL.a   $(IVCHECK)/axisswitch
+axispacker:  $(VDIRFB)/Vaxispacker__ALL.a   $(IVCHECK)/axispacker
 axisrandom:  $(VDIRFB)/Vaxisrandom__ALL.a   $(IVCHECK)/axisrandom
+axisswitch:  $(VDIRFB)/Vaxisswitch__ALL.a   $(IVCHECK)/axisswitch
 
 testwb: wbsafety wbm2axilite wbxbar sfifo wbsafety wbxbar wbsafety
 testaxi: axim2wbsp axixbar axixclk demofull axiempty
 testaxi: aximrd2wbsp axim2wbsp aximwr2wbsp axisafety
 testaxi: axis2mm aximm2s axidma axivfifo axivdisplay axivcamera
 testaxil: axilrd2wbsp axilwr2wbsp axlite2wbsp axilxbar demoaxi easyaxil
-testaxil: skidbuffer axiperf axilempty
+testaxil: skidbuffer axiperf axilempty axilgpio
 testapb: axil2apb apbslave
-testaxis: axisbroadcast axisswitch axisrandom
+testaxis: axisbroadcast axisswitch axisrandom axispacker
 
 .PHONY: wbm2axisp
 wbm2axisp: $(VDIRFB)/Vwbm2axisp__ALL.a
@@ -138,6 +141,10 @@ $(VDIRFB)/Vaxiempty.h $(VDIRFB)/Vaxiempty.cpp $(VDIRFB)/Vaxiempty.mk: axiempty.v
 $(VDIRFB)/Vaxilempty__ALL.a: $(VDIRFB)/Vaxilempty.h $(VDIRFB)/Vaxilempty.cpp
 $(VDIRFB)/Vaxilempty__ALL.a: $(VDIRFB)/Vaxilempty.mk
 $(VDIRFB)/Vaxilempty.h $(VDIRFB)/Vaxilempty.cpp $(VDIRFB)/Vaxilempty.mk: axilempty.v skidbuffer.v
+
+$(VDIRFB)/Vaxilgpio__ALL.a: $(VDIRFB)/Vaxilgpio.h $(VDIRFB)/Vaxilgpio.cpp
+$(VDIRFB)/Vaxilgpio__ALL.a: $(VDIRFB)/Vaxilgpio.mk
+$(VDIRFB)/Vaxilgpio.h $(VDIRFB)/Vaxilgpio.cpp $(VDIRFB)/Vaxilgpio.mk: axilgpio.v skidbuffer.v
 
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.h $(VDIRFB)/Vaxim2wbsp.cpp
 $(VDIRFB)/Vaxim2wbsp__ALL.a: $(VDIRFB)/Vaxim2wbsp.mk
@@ -264,6 +271,10 @@ $(IVCHECK)/axilempty: axilempty.v skidbuffer.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 
+$(IVCHECK)/axilgpio: axilgpio.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
 $(IVCHECK)/demoaxi: demoaxi.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
@@ -305,6 +316,10 @@ $(IVCHECK)/apbslave: apbslave.v
 	$(IVERILOG) -g2012 $^ -o $@
 
 $(IVCHECK)/axisbroadcast: axisbroadcast.v sfifo.v skidbuffer.v
+	$(mk-ivcheck)
+	$(IVERILOG) -g2012 $^ -o $@
+
+$(IVCHECK)/axispacker: axispacker.v skidbuffer.v
 	$(mk-ivcheck)
 	$(IVERILOG) -g2012 $^ -o $@
 

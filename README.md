@@ -300,14 +300,6 @@ throughput capabilities.
 
   *This core has been formally verified.*
 
-- [AXISSWITCH](rtl/axisswitch.v) is a quick switch for AXI streams.  Given
-  `N` stream inputs, select from among them to produce a stream output.
-   Guarantees that the switch takes place at packet boundaries.  Provides an
-   AXI-lite interface for controlling which AXI stream gets forwarded
-   downstream.
-
-  *This core has been formally verified.*
-
 - [EASYAXIL](rtl/easyaxil.v) is a [second demonstration AXI-lite slave core,
   only this time re-engineered to look and feel
   simpler](https://zipcpu.com/blog/2020/03/08/easyaxil.html) than the
@@ -320,7 +312,12 @@ throughput capabilities.
   separated into an external module.
 
   *This core has been formally verified.  While not used in any designs per se
-  it has formed the basis for many AXI-lite designs.*
+  it has formed the basis for many successful AXI-lite designs.*
+
+- [AXILGPIO](rtl/axilgpio.v) is a basic GPIO controller derived from the
+  [EASYAXIL](https://zipcpu.com/blog/2020/03/08/easyaxil.html) design above.
+
+  *This core has been formally verified.*
 
 - [DEMOFULL](rtl/demofull.v) is a [fully capable AXI4 demonstration slave
   core](https://zipcpu.com/blog/2019/05/29/demoaxi.html)
@@ -453,9 +450,6 @@ throughput capabilities.
   applied to each of the AXI channels.  The asynchronous FIFOs have been
   formally verified,
 
-- [AXISRANDOM](rtl/axisrandom.v) is a quick AXI stream source generating random
-  numbers via a linear feedback shift register.
-
 - [AXIPERF](rtl/axiperf.v) is an AXI4 performance measurement peripheral.
   It has an AXI4 monitor interface, for use with monitoring an AXI4 (full) bus.
   A second AXI4-lite interface allows you to start, stop, or clear the data
@@ -464,6 +458,32 @@ throughput capabilities.
   as to gain other valuable insights from any monitored AXI4 interface.
 
   *This core has been [demonstrated in simulation](https://github.com/ZipCPU/axidmacheck).  The AXI-lite interface has been formally verified.*
+
+# AXI Stream
+
+- [AXISBROADCAST](rtl/axisbroadcast.v) is a quick AXI stream processing engine
+  that takes a single AXI-stream source, and "broadcasts" it to multiple
+  downstream AXI-stream sinks.
+
+  *This core has been formally verified.*
+
+- [AXISPACKER](rtl/axispacker.v) packs AXI stream beats by removing bytes
+  where TKEEP is zero.
+
+  *This core has been formally verified.*
+
+- [AXISRANDOM](rtl/axisrandom.v) is a quick AXI stream source generating random
+  numbers via a linear feedback shift register.
+
+  *This core has been formally verified.*
+
+- [AXISSWITCH](rtl/axisswitch.v) is a quick switch for AXI streams.  Given
+  `N` stream inputs, select from among them to produce a stream output.
+   Guarantees that the switch takes place at packet boundaries.  Provides an
+   AXI-lite interface for controlling which AXI stream gets forwarded
+   downstream.
+
+  *This core has been formally verified.*
 
 # APB
 

@@ -39,8 +39,8 @@ HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
-AXISTREAM := xlnxstream_2018_3 axisswitch axisrandom axisbroadcast
-AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty # demofull xlnxfull axiempty
+AXISTREAM := xlnxstream_2018_3 axisswitch axisrandom axisbroadcast axispacker
+AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty axilgpio # demofull xlnxfull axiempty
 AXIMASTERS := # axidma aximm2s axis2mm axisgfsm axivfifo axivcamera axivdisplay
 FIREWALLS := wbsafety axilsafety axissafety # axisafety
 TESTS := $(HELPERS) $(AXISLAVES) $(AXISTREAM) $(FIREWALLS) $(BRIDGES) $(CROSSCLOCK) $(CROSSBARS) $(AXIMASTERS) apbslave
@@ -69,6 +69,7 @@ AXIPERF    := axiperf
 APBSLAVE   := apbslave
 DEMOAXI    := demoaxi
 EASYAXIL   := easyaxil
+AXILGPIO   := axilgpio
 # DEMOFULL
 XILINXDEMO := xlnxdemo
 # XILINXFULL
@@ -92,6 +93,7 @@ XLNXSTREAM := xlnxstream_2018_3
 AXISRANDOM := axisrandom
 AXISSWITCH := axisswitch
 AXISBROAD  := axisbroadcast
+AXISPACK   := axispacker
 ## }}}
 #
 # Bridges
@@ -320,6 +322,24 @@ $(EASYAXIL)_prfskdlp/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXI
 	sby -f $(EASYAXIL).sby prfskdlp
 $(EASYAXIL)_cvrskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL)
 	sby -f $(EASYAXIL).sby cvrskd
+## }}}
+
+.PHONY: $(AXILGPIO)
+## {{{
+$(AXILGPIO): $(AXILGPIO)_prfreg/PASS $(AXILGPIO)_prfreglp/PASS $(AXILGPIO)_cvrreg/PASS
+$(AXILGPIO): $(AXILGPIO)_prfskd/PASS $(AXILGPIO)_prfskdlp/PASS $(AXILGPIO)_cvrskd/PASS
+$(AXILGPIO)_prfreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby prfreg
+$(AXILGPIO)_prfreglp/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby prfreglp
+$(AXILGPIO)_cvrreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby cvrreg
+$(AXILGPIO)_prfskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby prfskd
+$(AXILGPIO)_prfskdlp/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby prfskdlp
+$(AXILGPIO)_cvrskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+	sby -f $(AXILGPIO).sby cvrskd
 ## }}}
 
 .PHONY: $(AXILEMPTY)
@@ -895,6 +915,15 @@ $(AXISBROAD)_prf/PASS: $(AXISBROAD).sby $(RTL)/$(AXISBROAD).v $(RTL)/sfifo.v $(R
 	sby -f $(AXISBROAD).sby prf
 ## }}}
 
+.PHONY: $(AXISPACK)
+## {{{
+$(AXISPACK): $(AXISPACK)_prf/PASS $(AXISPACK)_cvr/PASS
+$(AXISPACK)_prf/PASS: $(AXISPACK).sby $(RTL)/$(AXISPACK).v $(RTL)/skidbuffer.v
+	sby -f $(AXISPACK).sby prf
+$(AXISPACK)_cvr/PASS: $(AXISPACK).sby $(RTL)/$(AXISPACK).v $(RTL)/skidbuffer.v
+	sby -f $(AXISPACK).sby cvr
+## }}}
+
 ################################################################################
 ##
 
@@ -915,7 +944,8 @@ clean:
 	rm -rf  $(WBSAFETY)_*/   $(AXILSAFETY)_*/
 	rm -rf  $(AXIPERF)_*/    $(AXIL2AXIS)_*/
 	rm -rf  $(AXIL2APB)_*/   $(APBSLAVE)_*/
-	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/	$(AXISBROAD)_*/
+	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/
+	rm -rf	$(AXISBROAD)_*/  $(AXISPACK)_*/
 	@# The three broken cores, to include Xilinx's
 	rm -rf  $(XILINXDEMO)_*/
 	rm -rf  $(XLNXSTREAM)_*/
