@@ -698,7 +698,8 @@ module	axidma #(
 	// Read data into our FIFO
 	//
 
-
+	// read_address
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 		read_address <= { 1'b0, r_src_addr };
@@ -710,7 +711,10 @@ module	axidma #(
 	// Verilator lint_on WIDTH
 		read_address[ADDRLSB-1:0] <= 0;
 	end
+	// }}}
 
+	// reads_remaining_w, reads_remaining_nonzero
+	// {{{
 	// Verilator lint_off WIDTH
 	always @(posedge i_clk)
 	if (!r_busy)
@@ -725,13 +729,19 @@ module	axidma #(
 		reads_remaining_nonzero
 				<= (reads_remaining_w != (M_AXI_ARLEN+1));
 	// Verilator lint_on WIDTH
+	// }}}
 
+	// read_beats_remaining_w
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 		read_beats_remaining_w <= readlen_b[LGLEN:ADDRLSB];
 	else if (M_AXI_RVALID && M_AXI_RREADY)
 		read_beats_remaining_w <= read_beats_remaining_w - 1;
+	// }}}
 
+	// read_bursts_outstanding, no_read_bursts_outstanding
+	// {{{
 	initial	read_bursts_outstanding = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -753,6 +763,7 @@ module	axidma #(
 	2'b10: no_read_bursts_outstanding <= 0;
 	default: begin end
 	endcase
+	// }}}
 
 	// M_AXI_ARADDR
 	// {{{
@@ -867,6 +878,7 @@ module	axidma #(
 	assign	M_AXI_ARQOS   = r_qos;
 		//
 	assign	M_AXI_RREADY = !no_read_bursts_outstanding;
+	// }}}
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1236,6 +1248,8 @@ module	axidma #(
 	// Write data from the FIFO to the AXI bus
 	//
 
+	// write_address
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 		write_address <= { 1'b0, r_dst_addr };
@@ -1246,9 +1260,11 @@ module	axidma #(
 		// Verilator lint_on WIDTH
 		write_address[ADDRLSB-1:0] <= 0;
 	end
+	// }}}
 
+	// writes_remaining_w, multiple_write_bursts_remaining
+	// {{{
 	// Verilator lint_off WIDTH
-
 	always @(*)
 		w_writes_remaining_w = writes_remaining_w - (M_AXI_AWLEN+1);
 
@@ -1263,14 +1279,22 @@ module	axidma #(
 		multiple_write_bursts_remaining
 			<= |w_writes_remaining_w[LGLENW:LGMAXBURST];
 	end
+	// Verilator lint_on WIDTH
+	// }}}
 
+	// write_beats_remaining
+	// {{{
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 	begin
 		write_beats_remaining <= writelen_b[LGLEN:ADDRLSB];
 	end else if (M_AXI_WVALID && M_AXI_WREADY)
 		write_beats_remaining <= write_beats_remaining - 1;
+	// }}}
 
+	// write_requests_remaining
+	// {{{
+	// Verilator lint_off WIDTH
 	initial	write_requests_remaining = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -1280,7 +1304,10 @@ module	axidma #(
 	else if (phantom_write)
 		write_requests_remaining <= (writes_remaining_w != (M_AXI_AWLEN+1));
 	// Verilator lint_on WIDTH
+	// }}}
 
+	// write_bursts_outstanding
+	// {{{
 	initial	write_bursts_outstanding = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -1291,7 +1318,10 @@ module	axidma #(
 	2'b10: write_bursts_outstanding <= write_bursts_outstanding + 1;
 	default: begin end
 	endcase
+	// }}}
 
+	// last_write_ack
+	// {{{
 	// Verilator lint_off  WIDTH
 	always @(posedge i_clk)
 	if (!r_busy)
@@ -1302,7 +1332,10 @@ module	axidma #(
 		last_write_ack <= (write_bursts_outstanding
 			== (phantom_write ? 0:1) + (M_AXI_BVALID ? 1:0));
 	// Verilator lint_on  WIDTH
+	// }}}
 
+	// r_done
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy || M_AXI_ARVALID || M_AXI_AWVALID)
 		r_done <= 0;
@@ -1316,7 +1349,10 @@ module	axidma #(
 		r_done <= 0;
 	else
 		r_done <= 1;
+	// }}}
 
+	// writelen_b
+	// {{{
 	always @(*)
 	if (OPT_UNALIGNED)
 		writelen_b = { 1'b0, r_len } + { {(LGLEN+1-ADDRLSB){1'b0}},
@@ -1327,14 +1363,20 @@ module	axidma #(
 		writelen_b = { 1'b0, r_len };
 		writelen_b[ADDRLSB-1:0] = 0;
 	end
+	// }}}
 
+	// initial_write_distance_to_boundary_w
+	// {{{
 	always @(*)
 	begin
 		initial_write_distance_to_boundary_w
 			= - { 1'b0, write_address[ADDRLSB +: LGMAXBURST] };
 		initial_write_distance_to_boundary_w[LGMAXBURST] = 1'b0;
 	end
+	// }}}
 
+	// first_write_burst, first_write_len_w
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 	begin
@@ -1354,7 +1396,10 @@ module	axidma #(
 				> initial_write_distance_to_boundary_w)
 			first_write_len_w<=initial_write_distance_to_boundary_w;
 	end
+	// }}}
 
+	// write_burst_length
+	// {{{
 	// Verilator lint_off WIDTH
 	always @(*)
 	if (first_write_burst)
@@ -1368,7 +1413,10 @@ module	axidma #(
 			write_burst_length = writes_remaining_w;
 	end
 	// Verilator lint_on WIDTH
+	// }}}
 
+	// write_count
+	// {{{
 	initial	write_count = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -1377,7 +1425,10 @@ module	axidma #(
 		write_count <= write_burst_length[LGMAXBURST:0];
 	else if (M_AXI_WVALID && M_AXI_WREADY)
 		write_count <= write_count - 1;
+	// }}}
 
+	// M_AXI_WLAST
+	// {{{
 	initial	M_AXI_WLAST = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -1395,7 +1446,10 @@ module	axidma #(
 			M_AXI_WLAST <= (write_burst_length[7:0] == 1);
 `endif
 	end
+	// }}}
 
+	// w_write_start
+	// {{{
 	always @(*)
 		last_write_burst = (write_burst_length == writes_remaining_w);
 
@@ -1421,7 +1475,10 @@ module	axidma #(
 		if (i_reset || r_err || r_abort || !r_busy)
 			w_write_start = 0;
 	end
+	// }}}
 
+	// M_AXI_AWVALID, phantom_write
+	// {{{
 	initial	M_AXI_AWVALID = 0;
 	initial	phantom_write = 0;
 	always @(posedge i_clk)
@@ -1435,7 +1492,10 @@ module	axidma #(
 		phantom_write <= w_write_start;
 	end else
 		phantom_write <= 0;
+	// }}}
 
+	// M_AXI_WVALID
+	// {{{
 	initial	M_AXI_WVALID = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -1448,7 +1508,10 @@ module	axidma #(
 		if (w_write_start)
 			M_AXI_WVALID <= 1;
 	end
+	// }}}
 
+	// M_AXI_AWLEN
+	// {{{
 	initial	M_AXI_AWLEN = 0;
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
@@ -1463,13 +1526,16 @@ module	axidma #(
 			M_AXI_AWLEN <= write_burst_length[7:0]-1;
 `endif
 	end
+	// }}}
 
+	// M_AXI_AWADDR
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 		M_AXI_AWADDR <= r_dst_addr;
 	else if (!M_AXI_AWVALID || M_AXI_AWREADY)
 		M_AXI_AWADDR <= write_address[C_AXI_ADDR_WIDTH-1:0];
-
+	// }}}
 
 	always @(*)
 	begin
@@ -1498,7 +1564,7 @@ module	axidma #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, gaten, clk_active;
+		reg	gatep, gaten, clk_active, r_gate;
 
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1508,11 +1574,9 @@ module	axidma #(
 
 			if (r_busy)
 				clk_active <= 1'b1;
-			if (S_AXIL_AWVALID || S_AXIL_WVALID || S_AXIL_ARVALID)
+			if (awskd_valid || wskd_valid || arskd_valid)
 				clk_active <= 1'b1;
 			if (S_AXIL_BVALID || S_AXIL_RVALID)
-				clk_active <= 1'b1;
-			if (!S_AXIL_AWREADY || !S_AXIL_WREADY || !S_AXIL_ARREADY)
 				clk_active <= 1'b1;
 		end
 
@@ -1533,8 +1597,15 @@ module	axidma #(
 		else
 			gaten <= gatep;
 
-		assign	gated_clk = S_AXI_ACLK && clk_gate;
-		assign	clk_gate  = gaten;
+		assign	gated_clk = S_AXI_ACLK && gaten;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_gate <= 1'b1;
+		else
+			r_gate <= gatep;
+
+		assign	clk_gate  = r_gate;
 		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{
@@ -1552,6 +1623,7 @@ module	axidma #(
 	end endgenerate
 	// }}}
 	// Keep Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
@@ -1576,12 +1648,12 @@ module	axidma #(
 			new_widedst[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
 	end endgenerate
 	// Verilator lint_on UNUSED
-
+	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal property section
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
@@ -1618,7 +1690,7 @@ module	axidma #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The control interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -1682,11 +1754,11 @@ module	axidma #(
 	if (!i_reset && !OPT_UNALIGNED)
 		assert(r_dst_addr[ADDRLSB-1:0] == 0);
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The main AXI data interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -1765,11 +1837,11 @@ module	axidma #(
 			assert(!M_AXI_ARVALID);
 		end
 	end
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Internal assertions (Induction)
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -2380,7 +2452,7 @@ module	axidma #(
 
 	end endgenerate
 
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// FIFO checks
@@ -2431,7 +2503,7 @@ module	axidma #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Initial (only) constraints
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -2467,11 +2539,11 @@ module	axidma #(
 
 	always @(*)
 		assert(ADDRLSB + LGMAXBURST <= 12);
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Formal contract checking
-	//
+	// {{{
 	// Given an arbitrary address within the source address range, and an
 	// arbitrary piece of data at that source address, prove that said
 	// piece of data will get properly written to the destination address
@@ -2625,11 +2697,11 @@ module	axidma #(
 		//
 
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover checks
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
@@ -2832,7 +2904,7 @@ module	axidma #(
 		end
 
 	end endgenerate
-
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Careless assumptions (i.e. constraints)
@@ -2843,4 +2915,5 @@ module	axidma #(
 
 	// None (currently)
 `endif
+// }}}
 endmodule
