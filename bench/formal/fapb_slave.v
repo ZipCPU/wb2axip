@@ -76,7 +76,7 @@ module	fapb_slave #(
 	always @(posedge PCLK)
 		f_past_valid <= 1'b1;
 
-	always @(posedge PCLK)
+	always @(*)
 	if (!f_past_valid)
 		`SLAVE_ASSUME(!PRESETn);
 
