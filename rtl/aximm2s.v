@@ -134,10 +134,9 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-// }}}
 //
 `default_nettype none
-//
+// }}}
 module	aximm2s #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 32,
@@ -359,13 +358,13 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite signaling
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	// This is mostly the skidbuffer logic, and handling of the VALID
 	// and READY signals for the AXI-lite control logic in the next
 	// section.
-	// {{{
+	//
 
 	//
 	// Write signaling
@@ -438,10 +437,10 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// AXI-lite controlled logic
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// Abort transaction
@@ -716,10 +715,10 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The data FIFO section
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	assign	reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
 
 	// Realign the data (if OPT_UNALIGN) before sending it to the FIFO
@@ -858,11 +857,11 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The incoming AXI (full) protocol section
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// {{{
+	//
 
 	// Some counters to keep track of our state
 	// {{{
@@ -1055,6 +1054,7 @@ module	aximm2s #(
 	generate if (OPT_UNALIGNED)
 	begin
 		reg	r_partial_burst_requested;
+
 		initial	r_partial_burst_requested = 1'b1;
 		always @(posedge i_clk)
 		if (!r_busy)
@@ -1202,7 +1202,11 @@ module	aximm2s #(
 	assign	M_AXI_ARQOS  = 0;
 
 	assign	M_AXI_RREADY = 1;
+	// }}}
 
+	// Keep Verilator happy
+	// {{{
+	// Verilator coverage_off
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_RID,
@@ -1212,8 +1216,18 @@ module	aximm2s #(
 			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
 			new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN],
 			new_widelen[AXILLSB-1:0] };
+	// Verilator coverage_on
 	// Verilator lint_on  UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Formal properties
+// {{{
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	//
 	// The formal properties for this unit are maintained elsewhere.
@@ -1242,10 +1256,10 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI-lite control interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 	faxil_slave #(
 		// {{{
 		.C_AXI_DATA_WIDTH(C_AXIL_DATA_WIDTH),
@@ -1260,7 +1274,6 @@ module	aximm2s #(
 		.i_axi_awvalid(S_AXIL_AWVALID),
 		.i_axi_awready(S_AXIL_AWREADY),
 		.i_axi_awaddr( S_AXIL_AWADDR),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( S_AXIL_AWPROT),
 		//
 		.i_axi_wvalid(S_AXIL_WVALID),
@@ -1275,13 +1288,12 @@ module	aximm2s #(
 		.i_axi_arvalid(S_AXIL_ARVALID),
 		.i_axi_arready(S_AXIL_ARREADY),
 		.i_axi_araddr( S_AXIL_ARADDR),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot( S_AXIL_ARPROT),
 		//
 		.i_axi_rvalid(S_AXIL_RVALID),
 		.i_axi_rready(S_AXIL_RREADY),
 		.i_axi_rdata( S_AXIL_RDATA),
-		.i_axi_rresp( S_AXIL_RRESP));
+		.i_axi_rresp( S_AXIL_RRESP),
 		//
 		// ...
 		// }}}
@@ -1313,10 +1325,10 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// The AXI master memory interface
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// ...
@@ -1376,7 +1388,7 @@ module	aximm2s #(
 		.i_axi_rready(M_AXI_RREADY),
 		.i_axi_rdata( M_AXI_RDATA),
 		.i_axi_rlast( M_AXI_RLAST),
-		.i_axi_rresp( M_AXI_RRESP));
+		.i_axi_rresp( M_AXI_RRESP),
 		//
 		// ...
 		//
@@ -1414,8 +1426,9 @@ module	aximm2s #(
 	if (r_busy)
 	begin
 		if (!OPT_UNALIGNED)
+		begin
 			assert(M_AXI_ARADDR[ADDRLSB-1:0] == 0);
-		else
+		end else
 			assert((M_AXI_ARADDR[ADDRLSB-1:0] == 0)
 				||(M_AXI_ARADDR == fv_start_addr));
 	end
@@ -1463,10 +1476,10 @@ module	aximm2s #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Other formal properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
+	//
 
 	//
 	// Define some helper metrics
@@ -1517,8 +1530,9 @@ module	aximm2s #(
 	if (r_busy)
 	begin
 		if (!axi_abort_pending)
+		begin
 			assert(fv_ar_requests_remaining == ar_requests_remaining);
-		else
+		end else
 			assert((ar_requests_remaining == 0)
 				||(fv_ar_requests_remaining
 					== ar_requests_remaining));
@@ -1666,7 +1680,7 @@ module	aximm2s #(
 		assert(r_max_burst <= (1<<LGMAXBURST));
 
 	always @(*)
-	if (r_busy)
+	if (r_busy && !r_pre_start)
 		assert((r_max_burst > 0) || (ar_requests_remaining == 0));
 
 
@@ -1681,9 +1695,6 @@ module	aximm2s #(
 		assert(M_AXI_ARLEN == $past(r_max_burst)-1);
 	end
 
-	always @(*)
-	if (r_busy)
-		assert(initial_burstlen > 0);
 
 
 	//
@@ -1695,8 +1706,9 @@ module	aximm2s #(
 	if (r_busy)
 	begin
 		if (r_increment && r_continuous)
+		begin
 			assert(cmd_addr == axi_raddr);
-		else
+		end else
 			assert(cmd_addr == fv_start_addr);
 	end
 
@@ -1779,11 +1791,23 @@ module	aximm2s #(
 	// }}}
 
 	//
+	// Some (fairly) random/unsorted  properties
+	// {{{
+
+	always @(*)
+	begin
+		assert(ar_multiple_full_bursts
+			== |cmd_length_w[LGLENW-1:LGMAXBURST]);
+		assert(ar_multiple_fixed_bursts
+			== |cmd_length_w[LGLENW-1:LGMAX_FIXED_BURST]);
+	end
+	//
 	// Match axi_raddr to the faxi_ values
 	//
 	// ...
 	//
 
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Contract checks
@@ -1796,7 +1820,7 @@ module	aximm2s #(
 	//	none skipped
 	//	Captured in logic above(?)
 	//
-	// 2. No addresses skipped.  Check the write address against the 
+	// 2. No addresses skipped.  Check the write address against the
 	//	write address we are expecting
 	//
 	// ...
@@ -1812,8 +1836,9 @@ module	aximm2s #(
 	// (and only one) cycle
 	always @(posedge i_clk)
 	if (!f_past_valid || $past(!S_AXI_ARESETN))
+	begin
 		assert(!o_int);
-	else
+	end else
 		assert(o_int == $fell(r_busy));
 
 	//
@@ -1822,8 +1847,9 @@ module	aximm2s #(
 
 
 	// 5. Pick an incoming data value.  Choose whether or not to restrict
-	// incoming data not to be that value.  If the incoming data is so restricted
-	// then assert that the stream output will contain that value.
+	// incoming data not to be that value.  If the incoming data is so
+	// restricted then assert that the stream output will never contain that
+	// value.
 	(* anyconst *)	reg	f_restrict_data;
 	(* anyconst *)	reg	[C_AXI_DATA_WIDTH-1:0]	f_restricted;
 
@@ -1977,9 +2003,6 @@ module	aximm2s #(
 
 
 	// }}}
-	// }}}
 `endif
+// }}}
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif
