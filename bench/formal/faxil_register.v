@@ -46,8 +46,10 @@ module	faxil_register #(
 		parameter		DW = 32,
 		parameter [AW-1:0]	ADDR = 0,
 		parameter [DW-1:0]	MASK = -1,
+		parameter [DW-1:0]	FIXED_BIT_MASK = 0,
 		localparam		AXILLSB = $clog2(DW/8),
-		parameter [0:0]		OPT_ASYNC_RESET = 1'b0
+		parameter [0:0]		OPT_ASYNC_RESET = 1'b0,
+		parameter [0:0]		OPT_INITIAL = 1'b0
 		// }}}
 	) (
 		// {{{
@@ -72,6 +74,9 @@ module	faxil_register #(
 	reg		f_past_valid;
 	reg [DW-1:0]	f_reg;
 	integer		ik;
+	reg [DW-1:0]	non_ro_write;
+	wire	[31:0]	error_mask;
+
 
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -80,23 +85,35 @@ module	faxil_register #(
 	always @(*)
 	if (!f_past_valid)
 		assume(!S_AXI_ARESETN);
+
+	always @(*)
+		assert((MASK & FIXED_BIT_MASK) == 0);
 	// }}}
 
 	// f_reg -- A formal copy of the register of interest
 	// {{{
-	generate if (OPT_ASYNC_RESET)
+	always @(*)
 	begin
+		non_ro_write = f_reg;
+		for(ik=0; ik < DW/8; ik=ik+1)
+		if (S_AXIL_WSTRB[ik])
+			non_ro_write[ik*8 +: 8] = S_AXIL_WDATA[ik*8 +: 8];
+
+		non_ro_write = (non_ro_write & ~FIXED_BIT_MASK)
+				| (f_reg & FIXED_BIT_MASK);
+	end
+
+	generate if (OPT_ASYNC_RESET)
+	begin : OPT_ASYNC
 		always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN)
 		if (!S_AXI_ARESETN)
 			f_reg <= i_register;
 		else if (S_AXIL_AWW
 			&& S_AXIL_AWADDR[AW-1:AXILLSB] == ADDR[AW-1:AXILLSB])
 		begin
-			for(ik=0; ik < DW/8; ik=ik+1)
-			if (S_AXIL_WSTRB[ik])
-				f_reg[ik*8 +: 8] <= S_AXIL_WDATA[ik*8 +: 8];
+			f_reg <= non_ro_write;
 		end
-	end else begin
+	end else begin : SYNC_RESET
 		reg	last_reset;
 
 		initial	last_reset = 1'b1;
@@ -109,9 +126,7 @@ module	faxil_register #(
 		else if (S_AXIL_AWW
 			&& S_AXIL_AWADDR[AW-1:AXILLSB] == ADDR[AW-1:AXILLSB])
 		begin
-			for(ik=0; ik < DW/8; ik=ik+1)
-			if (S_AXIL_WSTRB[ik])
-				f_reg[ik*8 +: 8] <= S_AXIL_WDATA[ik*8 +: 8];
+			f_reg <= non_ro_write;
 		end
 
 	end endgenerate
@@ -119,9 +134,11 @@ module	faxil_register #(
 
 	// Comparing f_reg against i_register
 	// {{{
+	assign	error_mask = (f_reg ^ i_register) & MASK;
+
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARESETN && $past(S_AXI_ARESETN))
-		assert(((f_reg ^ i_register) & MASK) == 0);
+		assert(error_mask == 0);
 	// }}}
 
 	// Verifying S_AXIL_BVALID && S_AXIL_RVALID
@@ -133,7 +150,7 @@ module	faxil_register #(
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || !$past(S_AXI_ARESETN)
 			|| (OPT_ASYNC_RESET && !S_AXI_ARESETN))
-		assert(!S_AXIL_BVALID);
+		assert(!S_AXIL_BVALID || (!f_past_valid && !OPT_INITIAL));
 	else if ($past(S_AXIL_AWW
 			&& S_AXIL_AWADDR[AW-1:AXILLSB] == ADDR[AW-1:AXILLSB]))
 		assert(S_AXIL_BVALID);
@@ -141,7 +158,7 @@ module	faxil_register #(
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || !$past(S_AXI_ARESETN)
 			|| (OPT_ASYNC_RESET && !S_AXI_ARESETN))
-		assert(!S_AXIL_RVALID);
+		assert(!S_AXIL_RVALID || (!f_past_valid && !OPT_INITIAL));
 	else if ($past(S_AXIL_AR
 			&& S_AXIL_ARADDR[AW-1:AXILLSB] == ADDR[AW-1:AXILLSB]))
 		assert(S_AXIL_RVALID);
