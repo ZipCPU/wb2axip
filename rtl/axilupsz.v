@@ -134,7 +134,7 @@ module	axilupsz #(
 		assign	S_AXIL_RDATA  = M_AXIL_RDATA;
 		assign	S_AXIL_RRESP  = M_AXIL_RRESP;
 		// }}}
-	end else begin
+	end else begin : UPSIZE_BUS_DATA_WIDTH
 		// {{{
 		// Signal declarations
 		// {{{

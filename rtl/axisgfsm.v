@@ -675,7 +675,6 @@ module	axisgfsm #(
 		.i_axi_awvalid(o_dmac_wvalid),
 		.i_axi_awready(i_dmac_wready),
 		.i_axi_awaddr(o_dmac_waddr),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( 3'h0),
 		//
 		.i_axi_wvalid(o_dmac_wvalid),
@@ -690,13 +689,12 @@ module	axisgfsm #(
 		.i_axi_arvalid(f_dma_arvalid),
 		.i_axi_arready(f_dma_arready),
 		.i_axi_araddr(DMA_CONTROL),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot(3'h0),
 		//
 		.i_axi_rvalid(f_dma_rvalid),
 		.i_axi_rready(1'b1),
-		.i_axi_rresp(2'b00),
 		.i_axi_rdata(i_dmac_rdata),
+		.i_axi_rresp(2'b00),
 		//
 		.f_axi_rd_outstanding(fdma_rd_outstanding),
 		.f_axi_wr_outstanding(fdma_wr_outstanding),
