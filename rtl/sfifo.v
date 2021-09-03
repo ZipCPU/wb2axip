@@ -13,7 +13,7 @@
 //
 // Written and distributed by Gisselquist Technology, LLC
 // }}}
-// This program is hereby granted to the public domain.
+// This design is hereby granted to the public domain.
 // {{{
 // This program is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY or
