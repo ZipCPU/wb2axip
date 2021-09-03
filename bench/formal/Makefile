@@ -310,17 +310,17 @@ $(DEMOAXI)_cvr/PASS: $(RTL)/$(DEMOAXI).v $(DEMOAXI).sby $(AXIL)
 ## {{{
 $(EASYAXIL): $(EASYAXIL)_prfreg/PASS $(EASYAXIL)_prfreglp/PASS $(EASYAXIL)_cvrreg/PASS
 $(EASYAXIL): $(EASYAXIL)_prfskd/PASS $(EASYAXIL)_prfskdlp/PASS $(EASYAXIL)_cvrskd/PASS
-$(EASYAXIL)_prfreg/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_prfreg/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby prfreg
-$(EASYAXIL)_prfreglp/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_prfreglp/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby prfreglp
-$(EASYAXIL)_cvrreg/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_cvrreg/PASS: $(RTL)/$(EASYAXIL).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby cvrreg
-$(EASYAXIL)_prfskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_prfskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby prfskd
-$(EASYAXIL)_prfskdlp/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_prfskdlp/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby prfskdlp
-$(EASYAXIL)_cvrskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL)
+$(EASYAXIL)_cvrskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL).sby $(AXIL) faxil_register.v
 	sby -f $(EASYAXIL).sby cvrskd
 ## }}}
 
@@ -328,17 +328,17 @@ $(EASYAXIL)_cvrskd/PASS: $(RTL)/$(EASYAXIL).v $(RTL)/$(SKIDBUFFER).v $(EASYAXIL)
 ## {{{
 $(AXILGPIO): $(AXILGPIO)_prfreg/PASS $(AXILGPIO)_prfreglp/PASS $(AXILGPIO)_cvrreg/PASS
 $(AXILGPIO): $(AXILGPIO)_prfskd/PASS $(AXILGPIO)_prfskdlp/PASS $(AXILGPIO)_cvrskd/PASS
-$(AXILGPIO)_prfreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_prfreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby prfreg
-$(AXILGPIO)_prfreglp/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_prfreglp/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby prfreglp
-$(AXILGPIO)_cvrreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_cvrreg/PASS: $(RTL)/$(AXILGPIO).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby cvrreg
-$(AXILGPIO)_prfskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_prfskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby prfskd
-$(AXILGPIO)_prfskdlp/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_prfskdlp/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby prfskdlp
-$(AXILGPIO)_cvrskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL)
+$(AXILGPIO)_cvrskd/PASS: $(RTL)/$(AXILGPIO).v $(RTL)/$(SKIDBUFFER).v $(AXILGPIO).sby $(AXIL) faxil_register.v
 	sby -f $(AXILGPIO).sby cvrskd
 ## }}}
 
