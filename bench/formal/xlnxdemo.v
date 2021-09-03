@@ -1074,7 +1074,7 @@ module xlnxdemo #
 		cover(fw_wrcover[23]);
 		cover(fw_wrcover[24]);
 	end
-`endif
+
 	//
 	//
 	// Bug fixes section
@@ -1105,4 +1105,5 @@ module xlnxdemo #
 	assign	unused = &{ 1'b0, S_AXI_ARPROT, S_AXI_AWPROT,
 	       axi_awaddr[1:0], axi_araddr[1:0]	};
 	// verilator lint_on UNUSED
+`endif
 endmodule
