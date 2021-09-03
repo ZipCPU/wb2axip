@@ -829,7 +829,10 @@ module	axidma #(
 			readlen_w <= MAXBURST;
 	end
 	// Verilator lint_on WIDTH
+	// }}}
 
+	// w_start_read
+	// {{{
 	always @(*)
 	begin
 		w_start_read = r_busy && reads_remaining_nonzero;
@@ -844,7 +847,10 @@ module	axidma #(
 		if (r_err || r_abort)
 			w_start_read = 0;
 	end
+	// }}}
 
+	// M_AXI_ARVALID, phantom_read
+	// {{{
 	initial	M_AXI_ARVALID = 1'b0;
 	initial	phantom_read  = 1'b0;
 	always @(posedge i_clk)
@@ -858,7 +864,10 @@ module	axidma #(
 		phantom_read  <= w_start_read;
 	end else
 		phantom_read  <= 0;
+	// }}}
 
+	// M_AXI_ARLEN
+	// {{{
 	always @(posedge i_clk)
 	if (i_reset || !r_busy)
 		M_AXI_ARLEN <= 0;
@@ -879,6 +888,7 @@ module	axidma #(
 		//
 	assign	M_AXI_RREADY = !no_read_bursts_outstanding;
 	// }}}
+
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1000,12 +1010,20 @@ module	axidma #(
 		else if (!r_write_fifo || !fifo_full)
 			r_realigned_incoming <= r_partial_inword;
 
-		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO),
-						.OPT_ASYNC_READ(1'b1))
-		middata(i_clk, fifo_reset,
+		sfifo #(
+			// {{{
+			.BW(C_AXI_DATA_WIDTH),
+			.LGFLEN(LGFIFO),
+			.OPT_ASYNC_READ(1'b1)
+			// }}}
+		) middata(
+			// {{{
+			i_clk, fifo_reset,
 				r_write_fifo, r_realigned_incoming,
 					fifo_full, fifo_fill,
-				r_read_fifo, fifo_data, fifo_empty);
+				r_read_fifo, fifo_data, fifo_empty
+			// }}}
+		);
 
 		always @(posedge i_clk)
 		if (!r_busy)
@@ -1143,10 +1161,19 @@ module	axidma #(
 			clear_read_pipeline = 1'b0;
 		end
 
-		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO), .OPT_ASYNC_READ(1'b1))
-		middata(i_clk, fifo_reset,
+		sfifo #(
+			// {{{
+			.BW(C_AXI_DATA_WIDTH),
+			.LGFLEN(LGFIFO),
+			.OPT_ASYNC_READ(1'b1)
+			// }}}
+		) middata(
+			// {{{
+			i_clk, fifo_reset,
 				r_write_fifo, M_AXI_RDATA, fifo_full, fifo_fill,
-				r_read_fifo,  M_AXI_WDATA, fifo_empty);
+				r_read_fifo,  M_AXI_WDATA, fifo_empty
+			// }}}
+		);
 
 
 		initial	M_AXI_WSTRB = -1;
@@ -1176,7 +1203,10 @@ module	axidma #(
 	// Verilator lint_on  WIDTH
 	default: begin end
 	endcase
+	// }}}
 
+	// write_realignment
+	// {{{
 	always @(*)
 	if (OPT_UNALIGNED)
 	begin
@@ -1192,7 +1222,10 @@ module	axidma #(
 		// Verilator lint_on  WIDTH
 	end else
 		write_realignment = 0;
+	// }}}
 
+	// extra_realignment_write
+	// {{{
 	always @(posedge i_clk)
 	if (!OPT_UNALIGNED)
 		extra_realignment_write <= 1'b0;
@@ -1205,6 +1238,7 @@ module	axidma #(
 			extra_realignment_write <= 1'b0;
 	end else if (M_AXI_WVALID && M_AXI_WREADY && fifo_empty)
 		extra_realignment_write <= 1'b0;
+	// }}}
 
 	always @(posedge i_clk)
 	if (!r_busy)
@@ -1212,7 +1246,10 @@ module	axidma #(
 	else
 		last_read_beat <= M_AXI_RVALID && M_AXI_RREADY
 				&& (read_beats_remaining_w == 1);
+	// }}}
 
+	// next_fifo_data_available
+	// {{{
 	always @(*)
 	begin
 		next_fifo_data_available = fifo_data_available;
@@ -1227,13 +1264,17 @@ module	axidma #(
 			next_fifo_data_available = next_fifo_data_available + 1;
 		// Verilator lint_on  WIDTH
 	end
+	// }}}
 
+	// fifo_data_available
+	// {{{
 	initial	fifo_data_available = 0;
 	always @(posedge i_clk)
 	if (!r_busy || r_done)
 		fifo_data_available <= 0;
 	else
 		fifo_data_available <= next_fifo_data_available;
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1422,8 +1463,10 @@ module	axidma #(
 	if (i_reset || !r_busy)
 		write_count <= 0;
 	else if (w_write_start)
-		write_count <= write_burst_length[LGMAXBURST:0];
-	else if (M_AXI_WVALID && M_AXI_WREADY)
+	begin
+		write_count <= 0;
+		write_count[LGMAXBURST:0] <= write_burst_length[LGMAXBURST:0];
+	end else if (M_AXI_WVALID && M_AXI_WREADY)
 		write_count <= write_count - 1;
 	// }}}
 
@@ -1564,7 +1607,8 @@ module	axidma #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, gaten, clk_active, r_gate;
+		reg	gatep, clk_active, r_gate;
+		reg	gaten /* verilator clock_enable */;
 
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1625,6 +1669,7 @@ module	axidma #(
 	// Keep Verilator happy
 	// {{{
 	// Verilator lint_off UNUSED
+	// Verilator coverage_off
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
 			M_AXI_RID, M_AXI_BRESP[0], M_AXI_RRESP[0],
@@ -1647,13 +1692,17 @@ module	axidma #(
 			new_widesrc[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
 			new_widedst[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH] };
 	end endgenerate
+
+	// Verilator coverage_on
 	// Verilator lint_on UNUSED
 	// }}}
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Formal property section
 // {{{
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
