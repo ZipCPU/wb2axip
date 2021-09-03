@@ -656,6 +656,7 @@ module axi2axilite #(
 		axi_addr #(
 			// {{{
 			.AW(C_AXI_ADDR_WIDTH), .DW(C_AXI_DATA_WIDTH)
+			// }}}
 		) calcrdaddr(
 			// {{{
 			axi_araddr, axi_arsize, axi_arburst,

@@ -747,17 +747,14 @@ module axi2axilsub #(
 			bresp <= OKAY;
 		else if (skidm_bvalid && skidm_bready)
 		begin
-			if (skidm_bvalid && skidm_bready)
-			begin
-				// Let SLVERR take priority over DECERR
-				casez({ bresp, skidm_bresp })
-				4'b??0?: bresp <= bresp;
-				4'b0?1?: bresp <= skidm_bresp;
-				4'b1?10: bresp <= SLVERR;
-				4'b1011: bresp <= SLVERR;
-				4'b1111: bresp <= skidm_bresp;
-				endcase
-			end
+			// Let SLVERR take priority over DECERR
+			casez({ bresp, skidm_bresp })
+			4'b??0?: bresp <= bresp;
+			4'b0?1?: bresp <= skidm_bresp;
+			4'b1?10: bresp <= SLVERR;
+			4'b1011: bresp <= SLVERR;
+			4'b1111: bresp <= skidm_bresp;
+			endcase
 
 			if (blast)
 				bresp <= OKAY;
