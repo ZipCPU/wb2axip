@@ -265,7 +265,7 @@ module skidbuffer #(
 `define	FORMAL_VERIFIC
 	// Reset properties
 	property RESET_CLEARS_IVALID;
-		@(posedge i_clk) i_reset |=> !i_valid;
+		@(posedge i_clk) i_reset |-> !i_valid;
 	endproperty
 
 	property IDATA_HELD_WHEN_NOT_READY;
@@ -274,8 +274,10 @@ module skidbuffer #(
 	endproperty
 
 `ifdef	SKIDBUFFER
+	assume	property (RESET_CLEARS_IVALID);
 	assume	property (IDATA_HELD_WHEN_NOT_READY);
 `else
+	assert	property (RESET_CLEARS_IVALID);
 	assert	property (IDATA_HELD_WHEN_NOT_READY);
 `endif
 `endif
