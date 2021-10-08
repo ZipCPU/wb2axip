@@ -145,9 +145,8 @@ module	axidma #(
 		input	wire	S_AXI_ARESETN,
 		// AXI low-power interface
 		// {{{
-		input	wire	S_AXI_CSYSREQ,	// = 1'b1 (default, no gating)
-		output	wire	S_AXI_CACTIVE,
-		output	wire	S_AXI_CSYSACK,
+		// This has been removed, due to a lack of definition from the
+		// AXI standard for these wires.
 		// }}}
 		//
 		// The AXI4-lite control interface
@@ -1624,16 +1623,11 @@ module	axidma #(
 				clk_active <= 1'b1;
 		end
 
-		assign	S_AXI_CACTIVE = clk_active
-			|| (S_AXIL_AWVALID || S_AXIL_WVALID || S_AXIL_ARVALID);
-
-		assign	S_AXI_CSYSACK = S_AXI_CACTIVE || S_AXI_CSYSREQ;
-
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gatep <= 1'b1;
 		else
-			gatep <= S_AXI_CACTIVE || S_AXI_CSYSREQ || S_AXI_CSYSACK;
+			gatep <= clk_active;
 
 		always @(negedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
@@ -1654,15 +1648,8 @@ module	axidma #(
 	end else begin : NO_CLK_GATING
 		// {{{
 		// Always active
-		assign	S_AXI_CACTIVE = 1'b1;
-		assign	S_AXI_CSYSACK = 1'b1;
 		assign	clk_gate  = 1'b1;
 		assign	gated_clk = S_AXI_ACLK;
-
-		// Verilator lint_off UNUSED
-		wire	unused_clkgate;
-		assign	unused_clkgate = &{ 1'b0, S_AXI_CSYSREQ };
-		// Verilator lint_on  UNUSED
 		// }}}
 	end endgenerate
 	// }}}
