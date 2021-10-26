@@ -1472,9 +1472,12 @@ module	axis2mm #(
 	end
 	// }}}
 
+	// axi_wstrb
+	// {{{
 	always @(posedge i_clk)
 	if (!M_AXI_WVALID || M_AXI_WREADY)
 		axi_wstrb <= (axi_abort_pending) ? 0:-1;
+	// }}}
 
 	// Fixed bus values
 	// {{{
@@ -1632,7 +1635,6 @@ module	axis2mm #(
 		.i_axi_awvalid(S_AXIL_AWVALID),
 		.i_axi_awready(S_AXIL_AWREADY),
 		.i_axi_awaddr( S_AXIL_AWADDR),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot( S_AXIL_AWPROT),
 		//
 		.i_axi_wvalid(S_AXIL_WVALID),
@@ -1647,7 +1649,6 @@ module	axis2mm #(
 		.i_axi_arvalid(S_AXIL_ARVALID),
 		.i_axi_arready(S_AXIL_ARREADY),
 		.i_axi_araddr( S_AXIL_ARADDR),
-		.i_axi_arcache(4'h0),
 		.i_axi_arprot( S_AXIL_ARPROT),
 		//
 		.i_axi_rvalid(S_AXIL_RVALID),
@@ -1659,7 +1660,7 @@ module	axis2mm #(
 		.f_axi_wr_outstanding(faxil_wr_outstanding),
 		.f_axi_awr_outstanding(faxil_awr_outstanding)
 		// }}}
-		);
+	);
 
 	always @(*)
 	begin
