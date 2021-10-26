@@ -57,6 +57,7 @@ module axi2axilite #(
 		parameter integer C_AXI_ADDR_WIDTH	= 6,
 		parameter	 [0:0]	OPT_WRITES	= 1,
 		parameter	 [0:0]	OPT_READS	= 1,
+		parameter	 [0:0]	OPT_LOWPOWER    = 0,
 		// Log (based two) of the maximum number of outstanding AXI
 		// (not AXI-lite) transactions.  If you multiply 2^LGFIFO * 256,
 		// you'll get the maximum number of outstanding AXI-lite
@@ -651,7 +652,11 @@ module axi2axilite #(
 			axi_arsize  <= skids_arsize;
 			axi_rlen    <= skids_arlen;
 		end else if (M_AXI_ARREADY)
+		begin
 			axi_araddr <= next_read_addr;
+			if (OPT_LOWPOWER && axi_arlen == 0)
+				axi_araddr <= 0;
+		end
 
 		axi_addr #(
 			// {{{
