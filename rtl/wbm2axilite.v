@@ -112,9 +112,17 @@ module wbm2axilite #(
 	reg	[3:0]	reset_count;
 	reg			pending;
 	reg	[LGFIFOLN-1:0]	outstanding, err_pending;
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Master bridge logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
-
-// Master bridge logic
+	// o_wb_stall
+	// {{{
 	assign	o_wb_stall = (full_fifo)
 			||((!i_wb_we)&&( wb_we)&&(pending))
 			||(( i_wb_we)&&(!wb_we)&&(pending))
@@ -122,7 +130,10 @@ module wbm2axilite #(
 			||(o_axi_arvalid)&&(!i_axi_arready)
 			||(o_axi_awvalid)&&(!i_axi_awready)
 			||(o_axi_wvalid)&&(!i_axi_wready);
+	// }}}
 
+	// reset_count, axi_reset_state
+	// {{{
 	initial	axi_reset_state = 1'b1;
 	initial	reset_count = 4'hf;
 	always @(posedge i_clk)
@@ -137,8 +148,10 @@ module wbm2axilite #(
 		axi_reset_state <= 1'b0;
 		reset_count <= 4'hf;
 	end
+	// }}}
 
-	// Count outstanding transactions
+	// pending, outstanding, full_fifo: Count outstanding transactions
+	// {{{
 	initial	pending = 0;
 	initial	outstanding = 0;
 	always @(posedge i_clk)
@@ -165,15 +178,21 @@ module wbm2axilite #(
 		end
 	default: begin end
 	endcase
+	// }}}
 
 	always @(posedge i_clk)
 	if ((i_wb_stb)&&(!o_wb_stall))
 		wb_we <= i_wb_we;
-
-	//
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Write address logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
+
+	// o_axi_awvalid
+	// {{{
 	initial	o_axi_awvalid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -181,15 +200,27 @@ module wbm2axilite #(
 	else
 		o_axi_awvalid <= (!o_wb_stall)&&(i_wb_stb)&&(i_wb_we)
 			||(o_axi_awvalid)&&(!i_axi_awready);
+	// }}}
 
+
+	// o_axi_awaddr
+	// {{{
 	always @(posedge i_clk)
 	if (!o_wb_stall)
 		o_axi_awaddr <= { i_wb_addr, 2'b00 };
+	// }}}
 
-	//
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Read address logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// o_axi_arvalid
+	// {{{
 	initial	o_axi_arvalid = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -197,21 +228,35 @@ module wbm2axilite #(
 	else
 		o_axi_arvalid <= (!o_wb_stall)&&(i_wb_stb)&&(!i_wb_we)
 			||((o_axi_arvalid)&&(!i_axi_arready));
+	// }}}
+
+	// o_axi_araddr
+	// {{{
 	always @(posedge i_clk)
 	if (!o_wb_stall)
 		o_axi_araddr <= { i_wb_addr, 2'b00 };
-
-	//
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
 	//
 	// Write data logic
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
+	//
+
+	// o_axi_wdata, o_axi_wstrb
+	// {{{
 	always @(posedge i_clk)
 	if (!o_wb_stall)
 	begin
 		o_axi_wdata <= i_wb_data;
 		o_axi_wstrb <= i_wb_sel;
 	end
+	// }}}
 
+	// o_axi_wvalid
+	// {{{
 	initial	o_axi_wvalid = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -219,7 +264,10 @@ module wbm2axilite #(
 	else
 		o_axi_wvalid <= ((!o_wb_stall)&&(i_wb_stb)&&(i_wb_we))
 			||((o_axi_wvalid)&&(!i_axi_wready));
+	// }}}
 
+	// o_wb_ack
+	// {{{
 	initial	o_wb_ack = 1'b0;
 	always @(posedge i_clk)
 	if ((i_reset)||(!i_wb_cyc)||(err_state))
@@ -232,14 +280,20 @@ module wbm2axilite #(
 		o_wb_ack <= 1'b1;
 	else
 		o_wb_ack <= 1'b0;
+	// }}}
 
+	// o_wb_data
+	// {{{
 	always @(posedge i_clk)
 		o_wb_data <= i_axi_rdata;
-
+	// }}}
+	// }}}
 	// Read data channel / response logic
 	assign	o_axi_rready = 1'b1;
 	assign	o_axi_bready = 1'b1;
 
+	// o_wb_err
+	// {{{
 	initial	o_wb_err = 1'b0;
 	always @(posedge i_clk)
 	if ((i_reset)||(!i_wb_cyc)||(err_state))
@@ -250,7 +304,10 @@ module wbm2axilite #(
 		o_wb_err <= 1'b1;
 	else
 		o_wb_err <= 1'b0;
+	// }}}
 
+	// err_state
+	// {{{
 	initial	err_state = 1'b0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -263,7 +320,10 @@ module wbm2axilite #(
 		err_state <= 1'b1;
 	else if (err_pending == 0)
 		err_state <= 0;
+	// }}}
 
+	// err_pending
+	// {{{
 	initial	err_pending = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -274,23 +334,25 @@ module wbm2axilite #(
 	2'b10: err_pending <= err_pending + 1'b1;
 	default: begin end
 	endcase
+	// }}}
 
 	// Make verilator happy
+	// {{{
 	// verilator lint_off UNUSED
 	wire	[2:0]	unused;
 	assign	unused = { i_wb_cyc, i_axi_bresp[0], i_axi_rresp[0] };
 	// verilator lint_on  UNUSED
-
+	// }}}
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 //
-//
-//
 // Formal methods section
-//
+// {{{
 // These are only relevant when *proving* that this translator works
-//
-//
-//
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 	localparam	FIFOLN = (1<<LGFIFOLN);
@@ -315,76 +377,81 @@ module wbm2axilite #(
 	if (!f_past_valid)
 		`ASSUME(i_reset);
 
-	//////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Bus properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// Assumptions about the WISHBONE inputs
-	//
-	//
-	//////////////////////////////////////////////
 	always @(*)
 		assume(f_past_valid || i_reset);
 
 	wire	[(LGFIFOLN-1):0]	f_wb_nreqs, f_wb_nacks,f_wb_outstanding;
-	fwb_slave #(.DW(DW),.AW(AW),
-			.F_MAX_STALL(0),
-			.F_MAX_ACK_DELAY(0),
-			.F_LGDEPTH(LGFIFOLN),
-			.F_MAX_REQUESTS(FIFOLN-2))
-		f_wb(i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr,
+	fwb_slave #(
+		// {{{
+		.DW(DW),.AW(AW),
+		.F_MAX_STALL(0),
+		.F_MAX_ACK_DELAY(0),
+		.F_LGDEPTH(LGFIFOLN),
+		.F_MAX_REQUESTS(FIFOLN-2)
+		// }}}
+	) f_wb(
+		// {{{
+		i_clk, i_reset, i_wb_cyc, i_wb_stb, i_wb_we, i_wb_addr,
 					i_wb_data, i_wb_sel,
 				o_wb_ack, o_wb_stall, o_wb_data, o_wb_err,
-			f_wb_nreqs, f_wb_nacks, f_wb_outstanding);
+			f_wb_nreqs, f_wb_nacks, f_wb_outstanding
+		// }}}
+	);
 
 	wire	[(LGFIFOLN-1):0]	f_axi_rd_outstanding,
 					f_axi_wr_outstanding,
 					f_axi_awr_outstanding;
 
 	faxil_master #(
+		// {{{
 		// .C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 		.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
 		.F_LGDEPTH(LGFIFOLN),
 		.F_AXI_MAXWAIT(3),
-		.F_AXI_MAXDELAY(3))
-		f_axil(.i_clk(i_clk),
-			.i_axi_reset_n((!i_reset)&&(!axi_reset_state)),
-			// Write address channel
-			.i_axi_awvalid(o_axi_awvalid), 
-			.i_axi_awready(i_axi_awready), 
-			.i_axi_awaddr( o_axi_awaddr), 
-			.i_axi_awprot( o_axi_awprot), 
-			// Write data channel
-			.i_axi_wvalid( o_axi_wvalid),
-			.i_axi_wready( i_axi_wready),
-			.i_axi_wdata(  o_axi_wdata),
-			.i_axi_wstrb(  o_axi_wstrb),
-			// Write response channel
-			.i_axi_bvalid( i_axi_bvalid),
-			.i_axi_bready( o_axi_bready),
-			.i_axi_bresp(  i_axi_bresp),
-			// Read address channel
-			.i_axi_arvalid(o_axi_arvalid),
-			.i_axi_arready(i_axi_arready),
-			.i_axi_araddr( o_axi_araddr),
-			.i_axi_arprot( o_axi_arprot),
-			// Read data channel
-			.i_axi_rvalid( i_axi_rvalid),
-			.i_axi_rready( o_axi_rready),
-			.i_axi_rdata(  i_axi_rdata),
-			.i_axi_rresp(  i_axi_rresp),
-			// Counts
-			.f_axi_rd_outstanding( f_axi_rd_outstanding),
-			.f_axi_wr_outstanding( f_axi_wr_outstanding),
-			.f_axi_awr_outstanding( f_axi_awr_outstanding)
-		);
-
-	//////////////////////////////////////////////
-	//
-	//
-	// Assumptions about the AXI inputs
-	//
-	//
-	//////////////////////////////////////////////
+		.F_AXI_MAXDELAY(3)
+		// }}}
+	) f_axil(
+		// {{{
+		.i_clk(i_clk),
+		.i_axi_reset_n((!i_reset)&&(!axi_reset_state)),
+		// Write address channel
+		.i_axi_awvalid(o_axi_awvalid),
+		.i_axi_awready(i_axi_awready),
+		.i_axi_awaddr( o_axi_awaddr),
+		.i_axi_awprot( o_axi_awprot),
+		// Write data channel
+		.i_axi_wvalid( o_axi_wvalid),
+		.i_axi_wready( i_axi_wready),
+		.i_axi_wdata(  o_axi_wdata),
+		.i_axi_wstrb(  o_axi_wstrb),
+		// Write response channel
+		.i_axi_bvalid( i_axi_bvalid),
+		.i_axi_bready( o_axi_bready),
+		.i_axi_bresp(  i_axi_bresp),
+		// Read address channel
+		.i_axi_arvalid(o_axi_arvalid),
+		.i_axi_arready(i_axi_arready),
+		.i_axi_araddr( o_axi_araddr),
+		.i_axi_arprot( o_axi_arprot),
+		// Read data channel
+		.i_axi_rvalid( i_axi_rvalid),
+		.i_axi_rready( o_axi_rready),
+		.i_axi_rdata(  i_axi_rdata),
+		.i_axi_rresp(  i_axi_rresp),
+		// Counts
+		.f_axi_rd_outstanding( f_axi_rd_outstanding),
+		.f_axi_wr_outstanding( f_axi_wr_outstanding),
+		.f_axi_awr_outstanding( f_axi_awr_outstanding)
+		// }}}
+	);
+	// }}}
 
 
 	//////////////////////////////////////////////
@@ -601,6 +668,7 @@ module wbm2axilite #(
 			&& $past(o_wb_ack)&&$past(o_wb_ack,2));
 
 `endif
+// }}}
 endmodule
 `ifndef	YOSYS
 `default_nettype wire

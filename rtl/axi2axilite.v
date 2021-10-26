@@ -597,7 +597,6 @@ module axi2axilite #(
 	generate if (OPT_READS)
 	begin : IMPLEMENT_READS
 		// {{{
-		//
 		// S_AXI_AR* skid buffer
 		// {{{
 		skidbuffer #(

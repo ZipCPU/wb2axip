@@ -7,7 +7,6 @@
 // Purpose:	Convert the three AXI4 write channels to a single wishbone
 //		channel to write the results.
 //
-//
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
