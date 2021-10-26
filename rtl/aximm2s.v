@@ -169,6 +169,9 @@ module	aximm2s #(
 		// constant 1'b1.
 		parameter [0:0]	OPT_TLAST = 1'b0,
 		//
+		parameter [0:0]	OPT_LOWPOWER = 1'b0,
+		parameter [0:0]	OPT_CLKGATE = OPT_LOWPOWER,
+		//
 		// ABORT_KEY is the value that, when written to the top 8-bits
 		// of the control word, will abort any ongoing operation.
 		parameter [7:0]	ABORT_KEY = 8'h6d,
@@ -252,6 +255,7 @@ module	aximm2s #(
 		output	reg				o_int
 		// }}}
 	);
+
 	// Local parameter declarations
 	// {{{
 	localparam [2:0]	CMD_CONTROL   = 3'b000,
@@ -276,7 +280,8 @@ module	aximm2s #(
 	// localparam [ADDRLSB-1:0] LSBZEROS = 0;
 	// }}}
 
-	wire	i_clk   =  S_AXI_ACLK;
+	wire	clk_gate, gated_clk;
+	wire	i_clk   = gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
 	// Signal declarations
@@ -371,23 +376,39 @@ module	aximm2s #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilawskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0),
+		.OPT_LOWPOWER(OPT_LOWPOWER),
+		.DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilawskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_AWVALID), .o_ready(S_AXIL_AWREADY),
 		.i_data(S_AXIL_AWADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(awskd_valid), .i_ready(axil_write_ready),
-		.o_data(awskd_addr));
+		.o_data(awskd_addr)
+		// }}}
+	);
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8))
-	axilwskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0),
+		.OPT_LOWPOWER(OPT_LOWPOWER),
+		.DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8)
+		// }}}
+	) axilwskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_WVALID), .o_ready(S_AXIL_WREADY),
 		.i_data({ S_AXIL_WDATA, S_AXIL_WSTRB }),
 		.o_valid(wskd_valid), .i_ready(axil_write_ready),
-		.o_data({ wskd_data, wskd_strb }));
+		.o_data({ wskd_data, wskd_strb })
+		// }}}
+	);
 
-	assign	axil_write_ready = awskd_valid && wskd_valid
+	assign	axil_write_ready = clk_gate && awskd_valid && wskd_valid
 			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
 
 	initial	axil_bvalid = 0;
@@ -408,15 +429,23 @@ module	aximm2s #(
 	//
 	// {{{
 
-	skidbuffer #(.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB))
-	axilarskid(//
+	skidbuffer #(
+		// {{{
+		.OPT_OUTREG(0),
+		.OPT_LOWPOWER(OPT_LOWPOWER),
+		.DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		// }}}
+	) axilarskid(
+		// {{{
 		.i_clk(S_AXI_ACLK), .i_reset(i_reset),
 		.i_valid(S_AXIL_ARVALID), .o_ready(S_AXIL_ARREADY),
 		.i_data(S_AXIL_ARADDR[C_AXIL_ADDR_WIDTH-1:AXILLSB]),
 		.o_valid(arskd_valid), .i_ready(axil_read_ready),
-		.o_data(arskd_addr));
+		.o_data(arskd_addr)
+		// }}}
+	);
 
-	assign	axil_read_ready = arskd_valid
+	assign	axil_read_ready = clk_gate && arskd_valid
 				&& (!axil_read_valid || S_AXIL_RREADY);
 
 	initial	axil_read_valid = 1'b0;
@@ -442,9 +471,8 @@ module	aximm2s #(
 	//
 	//
 
-	//
-	// Abort transaction
-	//
+	// w_cmd_abort, cmd_abort : Abort transaction
+	// {{{
 	always @(*)
 	begin
 		w_cmd_abort = 0;
@@ -460,10 +488,10 @@ module	aximm2s #(
 		cmd_abort <= 0;
 	else
 		cmd_abort <= (cmd_abort && r_busy)||w_cmd_abort;
+	// }}}
 
-	//
-	// Start command
-	//
+	// w_cmd_start: Start command
+	// {{{
 	always @(*)
 	if (r_busy)
 		w_cmd_start = 0;
@@ -480,10 +508,10 @@ module	aximm2s #(
 				&& wskd_data[CBIT_INCREMENT])
 			w_cmd_start = 0;
 	end
+	// }}}
 
-	//
-	// Calculate busy or complete flags
-	//
+	// r_busy, r_complete: Calculate busy or complete flags
+	// {{{
 	initial	r_busy     = 0;
 	initial	r_complete = 0;
 	always @(posedge i_clk)
@@ -507,20 +535,20 @@ module	aximm2s #(
 			r_busy <= 1'b0;
 		end
 	end
+	// }}}
 
-	//
-	// Interrupts
-	//
+	// o_int: Interrupts
+	// {{{
 	initial	o_int = 0;
 	always @(posedge i_clk)
 	if (i_reset)
 		o_int <= 0;
 	else
 		o_int <= (r_busy && w_complete);
+	// }}}
 
-	//
-	// Error conditions
-	//
+	// r_err : Error conditions
+	// {{{
 	always @(posedge i_clk)
 	if (i_reset)
 		r_err <= 0;
@@ -543,7 +571,10 @@ module	aximm2s #(
 		if (M_AXI_RVALID && M_AXI_RREADY && M_AXI_RRESP[1])
 			r_err <= 1'b1;
 	end
+	// }}}
 
+	// r_continuous
+	// {{{
 	initial	r_continuous = 0;
 	always @(posedge i_clk)
 	if (i_reset)
@@ -553,7 +584,10 @@ module	aximm2s #(
 			&& !w_cmd_abort)
 			r_continuous <= wskd_strb[3] && wskd_data[CBIT_CONTINUOUS];
 	end
+	// }}}
 
+	// wide_address, wide_length
+	// {{{
 	always @(*)
 	begin
 		wide_address = 0;
@@ -564,7 +598,10 @@ module	aximm2s #(
 		wide_length  = 0;
 		wide_length[ADDRLSB +: LGLENW] = cmd_length_w;
 	end
+	// }}}
 
+	// new_cmdaddr*
+	// {{{
 	assign	new_cmdaddrlo = apply_wstrb(
 			wide_address[C_AXIL_DATA_WIDTH-1:0],
 			wskd_data, wskd_strb);
@@ -572,7 +609,10 @@ module	aximm2s #(
 	assign	new_cmdaddrhi = apply_wstrb(
 			wide_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
 			wskd_data, wskd_strb);
+	// }}}
 
+	// new_length*
+	// {{{
 	assign	new_lengthlo = apply_wstrb(
 			wide_length[C_AXIL_DATA_WIDTH-1:0],
 			wskd_data, wskd_strb);
@@ -580,6 +620,7 @@ module	aximm2s #(
 	assign	new_lengthhi = apply_wstrb(
 			wide_length[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
 			wskd_data, wskd_strb);
+	// }}}
 
 	always @(*)
 	begin
@@ -673,6 +714,8 @@ module	aximm2s #(
 			unaligned_cmd_addr <= 0;
 	end
 
+	// w_status_word
+	// {{{
 	always @(*)
 	begin
 		w_status_word = 0;
@@ -683,7 +726,10 @@ module	aximm2s #(
 		w_status_word[CBIT_INCREMENT]	= !r_increment;
 		w_status_word[20:16] = LGFIFO;
 	end
+	// }}}
 
+	// axil_read_data
+	// {{{
 	always @(posedge i_clk)
 	if (!axil_read_valid || S_AXIL_RREADY)
 	begin
@@ -696,9 +742,14 @@ module	aximm2s #(
 		CMD_LENHI:	axil_read_data <= wide_length[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH];
 		default		axil_read_data <= 0;
 		endcase
+
+		if (OPT_LOWPOWER && !axil_read_ready)
+			axil_read_data <= 0;
 	end
+	// }}}
 
 	function [C_AXIL_DATA_WIDTH-1:0]	apply_wstrb;
+		// {{{
 		input	[C_AXIL_DATA_WIDTH-1:0]		prior_data;
 		input	[C_AXIL_DATA_WIDTH-1:0]		new_data;
 		input	[C_AXIL_DATA_WIDTH/8-1:0]	wstrb;
@@ -710,6 +761,7 @@ module	aximm2s #(
 				= wstrb[k] ? new_data[k*8 +: 8] : prior_data[k*8 +: 8];
 		end
 	endfunction
+	// }}}
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -738,14 +790,14 @@ module	aximm2s #(
 			realignment = cmd_addr[ADDRLSB-1:0];
 
 		initial	last_data = 0;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (reset_fifo || !unaligned_cmd_addr)
 			last_data <= 0;
 		else if (M_AXI_RVALID && M_AXI_RREADY)
 			last_data <= M_AXI_RDATA >> (realignment * 8);
 
 		initial	last_valid = 1'b0;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (reset_fifo)
 			last_valid <= 0;
 		else if (M_AXI_RVALID && M_AXI_RREADY)
@@ -758,7 +810,7 @@ module	aximm2s #(
 		always @(*)
 			corollary_shift = -realignment;
 
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (M_AXI_RVALID && M_AXI_RREADY)
 			r_write_data <= (M_AXI_RDATA << (corollary_shift*8))
 					| last_data;
@@ -766,7 +818,7 @@ module	aximm2s #(
 			r_write_data <= last_data;
 
 		initial	r_write_to_fifo = 1'b0;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (reset_fifo)
 			r_write_to_fifo <= 1'b0;
 		else if (M_AXI_RVALID && M_AXI_RREADY)
@@ -832,26 +884,38 @@ module	aximm2s #(
 		end
 
 
-		sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO))
-		sfifo(i_clk, reset_fifo,
+		sfifo #(
+			// {{{
+			.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO)
+			// }}}
+		) sfifo(
+			// {{{
+			i_clk, reset_fifo,
 			write_to_fifo, { tlast, write_data }, fifo_full, fifo_fill,
-			read_from_fifo, { M_AXIS_TLAST, M_AXIS_TDATA }, fifo_empty);
+			read_from_fifo, { M_AXIS_TLAST, M_AXIS_TDATA }, fifo_empty
+			// }}}
+		);
 		// }}}
 	end else begin : NO_TLAST_FIFO
 
 		// FIFO section, where TLAST is held at 1'b1
 		// {{{
-		sfifo #(.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-		sfifo(i_clk, reset_fifo,
+		sfifo #(
+			// {{{
+			.BW(C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO)
+			// }}}
+		) sfifo(
+			// {{{
+			i_clk, reset_fifo,
 			write_to_fifo, write_data, fifo_full, fifo_fill,
-			read_from_fifo, M_AXIS_TDATA, fifo_empty);
+			read_from_fifo, M_AXIS_TDATA, fifo_empty
+			// }}}
+		);
 
 		assign	M_AXIS_TLAST = 1'b1;
 		// }}}
 	end endgenerate
 	// }}}
-
-
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -899,7 +963,6 @@ module	aximm2s #(
 				ar_needs_alignment <= 1;
 		end
 	end
-
 
 	initial	ar_none_remaining = 1;
 	initial	ar_requests_remaining = 0;
@@ -1119,6 +1182,8 @@ module	aximm2s #(
 	//
 	// }}}
 
+	// start_burst, phantom_start
+	// {{{
 	always @(*)
 	begin
 		start_burst = !ar_none_remaining;
@@ -1202,6 +1267,66 @@ module	aximm2s #(
 	assign	M_AXI_ARQOS  = 0;
 
 	assign	M_AXI_RREADY = 1;
+	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (Optional) clock gating
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	generate if (OPT_CLKGATE)
+	begin : CLK_GATING
+		// {{{
+		reg	gatep, clk_active, r_gate;
+		reg	gaten /* verilator clock_enable */;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			clk_active <= 1'b0;
+		else begin
+			clk_active <= 1'b0;
+			if (r_busy)
+				clk_active <= 1'b1;
+			if (awskd_valid || wskd_valid || arskd_valid)
+				clk_active <= 1'b1;
+			if (S_AXIL_BVALID || S_AXIL_RVALID)
+				clk_active <= 1'b1;
+
+			if (M_AXIS_TVALID)
+				clk_active <= 1'b1;
+		end
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gatep <= 1'b1;
+		else
+			gatep <= clk_active;
+
+		always @(negedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gaten <= 1'b1;
+		else
+			gaten <= gatep;
+
+		assign	gated_clk = S_AXI_ACLK && gaten;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_gate <= 1'b1;
+		else
+			r_gate <= gatep;
+
+		assign	clk_gate = r_gate;
+		// }}}
+	end else begin : NO_CLK_GATING
+		// {{{
+		assign	clk_gate  = 1'b1;
+		assign	gated_clk = S_AXI_ACLK;
+		// }}}
+	end endgenerate
 	// }}}
 
 	// Keep Verilator happy

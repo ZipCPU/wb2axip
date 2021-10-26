@@ -245,6 +245,9 @@ module	axis2mm #(
 		// UNALIGNED ADDRESSING IS NOT CURRENTLY SUPPORTED.)
 		localparam [0:0]	OPT_UNALIGNED = 0,
 		//
+		parameter	[0:0]	OPT_LOWPOWER  = 1'b0,
+		parameter	[0:0]	OPT_CLKGATE   = OPT_LOWPOWER,
+		//
 		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
 		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
 		// we only ever have 4 configuration words.
@@ -355,7 +358,8 @@ module	axis2mm #(
 
 	// Signal declarations
 	// {{{
-	wire	i_clk   =  S_AXI_ACLK;
+	wire	clk_gate, gated_clk;
+	wire	i_clk   =  gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
@@ -453,7 +457,8 @@ module	axis2mm #(
 
 	skidbuffer #(
 		// {{{
-		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB),
+		.OPT_LOWPOWER(OPT_LOWPOWER)
 		// }}}
 	) axilawskid(
 		// {{{
@@ -467,7 +472,8 @@ module	axis2mm #(
 
 	skidbuffer #(
 		// {{{
-		.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8)
+		.OPT_OUTREG(0), .DW(C_AXIL_DATA_WIDTH+C_AXIL_DATA_WIDTH/8),
+		.OPT_LOWPOWER(OPT_LOWPOWER)
 		// }}}
 	) axilwskid(
 		// {{{
@@ -479,7 +485,7 @@ module	axis2mm #(
 		// }}}
 	);
 
-	assign	axil_write_ready = awskd_valid && wskd_valid
+	assign	axil_write_ready = clk_gate && awskd_valid && wskd_valid
 			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
 
 	initial	axil_bvalid = 0;
@@ -502,7 +508,8 @@ module	axis2mm #(
 
 	skidbuffer #(
 		// {{{
-		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB)
+		.OPT_OUTREG(0), .DW(C_AXIL_ADDR_WIDTH-AXILLSB),
+		.OPT_LOWPOWER(OPT_LOWPOWER)
 		// }}}
 	) axilarskid(
 		// {{{
@@ -514,7 +521,7 @@ module	axis2mm #(
 		// }}}
 	);
 
-	assign	axil_read_ready = arskd_valid
+	assign	axil_read_ready = clk_gate && arskd_valid
 				&& (!axil_read_valid || S_AXIL_RREADY);
 
 	initial	axil_read_valid = 1'b0;
@@ -992,7 +999,7 @@ module	axis2mm #(
 	// 	if we are ever out of synchronization--then we can ignore data
 	//		until the next TLAST comes, where we must realign
 	//		ourselves
-	assign	S_AXIS_TREADY  = !fifo_full && (OPT_TREADY_WHILE_IDLE
+	assign	S_AXIS_TREADY  = clk_gate && !fifo_full && (OPT_TREADY_WHILE_IDLE
 					|| !reset_fifo || !r_tlast_syncd);
 
 	generate if (OPT_TLAST_SYNC)
@@ -1009,7 +1016,7 @@ module	axis2mm #(
 		// Note, this doesn't catch the case where the FIFO can't keep
 		// up.  Lost data (might be) caught by overflow below.
 		initial	r_tlast_syncd = 1;
-		always @(posedge S_AXI_ACLK)
+		always @(posedge i_clk)
 		if (!S_AXI_ARESETN)
 			r_tlast_syncd <= 1;
 		else if (S_AXIS_TVALID && S_AXIS_TREADY && S_AXIS_TLAST)
@@ -1468,8 +1475,8 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (!M_AXI_WVALID || M_AXI_WREADY)
 		axi_wstrb <= (axi_abort_pending) ? 0:-1;
-	// }}}
 
+	// Fixed bus values
 	// {{{
 	assign	M_AXI_AWVALID= axi_awvalid;
 	assign	M_AXI_AWID   = AXI_ID;
@@ -1490,7 +1497,76 @@ module	axis2mm #(
 	// M_AXI_WLAST = ??
 
 	assign	M_AXI_BREADY = 1;
+	// }}}
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// (Optional) clock gating
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	generate if (OPT_CLKGATE)
+	begin : CLK_GATING
+		// {{{
+		reg	gatep, clk_active, r_gate;
+		reg	gaten /* verilator clock_enable */;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			clk_active <= 1'b0;
+		else begin
+			clk_active <= 1'b0;
+			if (r_busy)
+				clk_active <= 1'b1;
+			if (awskd_valid || wskd_valid || arskd_valid)
+				clk_active <= 1'b1;
+			if (S_AXIL_BVALID || S_AXIL_RVALID)
+				clk_active <= 1'b1;
+
+			// Activate the clock on incoming data
+				// reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
+				// !reset_fifo= r_busy || (r_continuous && !r_err)
+				// !reset_fifo= (r_continuous && !r_err)
+			if (S_AXIS_TVALID && !fifo_full
+				&& (!r_tlast_syncd || (r_continuous && !r_err)))
+				clk_active <= 1'b1;
+		end
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gatep <= 1'b1;
+		else
+			gatep <= clk_active;
+
+		always @(negedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			gaten <= 1'b1;
+		else
+			gaten <= gatep;
+
+		assign	gated_clk = S_AXI_ACLK && gaten;
+
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			r_gate <= 1'b1;
+		else
+			r_gate <= gatep;
+
+		assign	clk_gate = r_gate;
+		// }}}
+	end else begin : NO_CLK_GATING
+		// {{{
+		assign	clk_gate  = 1'b1;
+		assign	gated_clk = S_AXI_ACLK;
+		// }}}
+	end endgenerate
+	// }}}
+
+	// Keep Verilator happy
+	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
