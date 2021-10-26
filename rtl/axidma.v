@@ -150,6 +150,7 @@ module	axidma #(
 		// }}}
 		//
 		// The AXI4-lite control interface
+		// {{{
 		input	wire				S_AXIL_AWVALID,
 		output	wire				S_AXIL_AWREADY,
 		input	wire [C_AXIL_ADDR_WIDTH-1:0]	S_AXIL_AWADDR,
@@ -173,9 +174,9 @@ module	axidma #(
 		input	wire				S_AXIL_RREADY,
 		output	reg [C_AXIL_DATA_WIDTH-1:0]	S_AXIL_RDATA,
 		output	wire	[1:0]			S_AXIL_RRESP,
-		//
-		//
+		// }}}
 		// The AXI Master (DMA) interface
+		// {{{
 		output	reg				M_AXI_AWVALID,
 		input	wire				M_AXI_AWREADY,
 		output	reg	[C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
@@ -231,7 +232,7 @@ module	axidma #(
 		input	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_RDATA,
 		input	wire				M_AXI_RLAST,
 		input	wire	[1:0]			M_AXI_RRESP,
-		//
+		// }}}
 		output	reg				o_int
 		// }}}
 	);
@@ -259,7 +260,7 @@ module	axidma #(
 				CTRL_ERR_BIT   = 4;
 	localparam	[1:0]	AXI_INCR = 2'b01, AXI_OKAY = 2'b00;
 
-	wire	clk_gate, gated_clk;
+	wire	clk_gate, gated_clk, clk_active;
 	wire	i_clk   = gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
@@ -545,6 +546,7 @@ module	axidma #(
 	always @(posedge i_clk)
 	if (i_reset)
 	begin
+		// {{{
 		r_len <= 0;
 		zero_len <= 1;
 		r_prot <= 0;
@@ -552,8 +554,10 @@ module	axidma #(
 		r_src_addr <= 0;
 		r_dst_addr <= 0;
 		r_int_enable <= 0;
+		// }}}
 	end else if (!r_busy && axil_write_ready)
 	begin
+		// {{{
 		case(awskd_addr)
 		CTRL_ADDR: begin
 				if (wskd_strb[2])
@@ -586,8 +590,10 @@ module	axidma #(
 			end
 		default: begin end
 		endcase
+		// }}}
 	end else if (r_busy)
 	begin
+		// {{{
 		r_dst_addr <= write_address[C_AXI_ADDR_WIDTH-1:0];
 		if (writes_remaining_w[LGLENW])
 			r_len <= -1;
@@ -605,9 +611,11 @@ module	axidma #(
 				<= r_src_addr[C_AXI_ADDR_WIDTH-1:ADDRLSB]+1;
 			r_src_addr[ADDRLSB-1:0] <= 0;
 		end
+		// }}}
 	end
 
 	function [C_AXIL_DATA_WIDTH-1:0]	apply_wstrb;
+	// {{{
 		input [C_AXIL_DATA_WIDTH-1:0]	prior_data;
 		input [C_AXIL_DATA_WIDTH-1:0]	new_data;
 		input [C_AXIL_DATA_WIDTH/8-1:0]	wstrb;
@@ -619,6 +627,8 @@ module	axidma #(
 				: prior_data[k*8 +: 8];
 		end
 	endfunction
+	// }}}
+
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -767,10 +777,20 @@ module	axidma #(
 	// M_AXI_ARADDR
 	// {{{
 	always @(posedge i_clk)
-	if (!r_busy)
-		M_AXI_ARADDR <= r_src_addr;
-	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+	if (!S_AXI_ARESETN && OPT_LOWPOWER)
+		M_AXI_ARADDR <= 0;
+	else if (!r_busy)
+	begin
+		if (!OPT_LOWPOWER || w_start_read)
+			M_AXI_ARADDR <= r_src_addr;
+		else
+			M_AXI_ARADDR <= 0;
+	end else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+	begin
 		M_AXI_ARADDR <= read_address[C_AXI_ADDR_WIDTH-1:0];
+		if (OPT_LOWPOWER && !w_start_read)
+			M_AXI_ARADDR <= 0;
+	end
 	// }}}
 
 	// readlen_b
@@ -871,11 +891,16 @@ module	axidma #(
 	if (i_reset || !r_busy)
 		M_AXI_ARLEN <= 0;
 	else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+	begin
 `ifdef	AXI3
 		M_AXI_ARLEN <= readlen_w[3:0] - 4'h1;
 `else
 		M_AXI_ARLEN <= readlen_w[7:0] - 8'h1;
 `endif
+		if (OPT_LOWPOWER && !w_start_read)
+			M_AXI_ARLEN <= 0;
+	end
+	// }}}
 
 	assign	M_AXI_ARID    = AXI_READ_ID;
 	assign	M_AXI_ARBURST = AXI_INCR;
@@ -886,8 +911,6 @@ module	axidma #(
 	assign	M_AXI_ARQOS   = r_qos;
 		//
 	assign	M_AXI_RREADY = !no_read_bursts_outstanding;
-	// }}}
-
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1187,6 +1210,8 @@ module	axidma #(
 		// }}}
 	end endgenerate
 
+	// fifo_space_available
+	// {{{
 	always @(posedge i_clk)
 	if (fifo_reset)
 		fifo_space_available <= (1<<LGFIFO)
@@ -1239,6 +1264,8 @@ module	axidma #(
 		extra_realignment_write <= 1'b0;
 	// }}}
 
+	// last_read_beat
+	// {{{
 	always @(posedge i_clk)
 	if (!r_busy)
 		last_read_beat <= 1'b0;
@@ -1606,23 +1633,29 @@ module	axidma #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, clk_active, r_gate;
+		reg	gatep, r_clk_active, r_gate;
 		reg	gaten /* verilator clock_enable */;
 
+		// clk_active
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b1;
 		else begin
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b0;
 
 			if (r_busy)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (awskd_valid || wskd_valid || arskd_valid)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (S_AXIL_BVALID || S_AXIL_RVALID)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 		end
 
+		assign	clk_active = r_clk_active;
+		// }}}
+		// Gate the clock here locally
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gatep <= 1'b1;
@@ -1645,9 +1678,11 @@ module	axidma #(
 
 		assign	clk_gate  = r_gate;
 		// }}}
+		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{
 		// Always active
+		assign	clk_active = 1'b1;
 		assign	clk_gate  = 1'b1;
 		assign	gated_clk = S_AXI_ACLK;
 		// }}}
