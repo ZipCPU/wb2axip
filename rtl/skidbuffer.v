@@ -5,7 +5,7 @@
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	A basic SKID buffer.
-//
+// {{{
 //	Skid buffers are required for high throughput AXI code, since the AXI
 //	specification requires that all outputs be registered.  This means
 //	that, if there are any stall conditions calculated, it will take a clock
@@ -28,8 +28,9 @@
 //	the incoming data is placed into a buffer.  Internally, that buffer
 //	is held in r_data with the r_valid flag used to indicate that valid
 //	data is within it.
-//
+// }}}
 // Parameters:
+// {{{
 //	DW or data width
 //		In order to make this core generic, the width of the data in the
 //		skid buffer is parameterized
@@ -50,7 +51,7 @@
 //	OPT_PASSTHROUGH
 //		Turns the skid buffer into a passthrough.  Used for formal
 //		verification only.
-//
+// }}}
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //

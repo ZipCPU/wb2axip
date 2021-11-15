@@ -280,12 +280,12 @@ module	aximm2s #(
 	// localparam [ADDRLSB-1:0] LSBZEROS = 0;
 	// }}}
 
-	wire	clk_gate, gated_clk;
+	// Signal declarations
+	// {{{
+	wire	clk_active, gated_clk;
 	wire	i_clk   = gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
-	// Signal declarations
-	// {{{
 	reg	r_busy, r_err, r_complete, r_continuous, r_increment,
 		cmd_abort, zero_length,
 		w_cmd_start, w_complete, w_cmd_abort, r_pre_start;
@@ -408,7 +408,7 @@ module	aximm2s #(
 		// }}}
 	);
 
-	assign	axil_write_ready = clk_gate && awskd_valid && wskd_valid
+	assign	axil_write_ready = clk_active && awskd_valid && wskd_valid
 			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
 
 	initial	axil_bvalid = 0;
@@ -445,7 +445,7 @@ module	aximm2s #(
 		// }}}
 	);
 
-	assign	axil_read_ready = clk_gate && arskd_valid
+	assign	axil_read_ready = clk_active && arskd_valid
 				&& (!axil_read_valid || S_AXIL_RREADY);
 
 	initial	axil_read_valid = 1'b0;
@@ -1280,25 +1280,32 @@ module	aximm2s #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, clk_active, r_gate;
+		reg	gatep, r_clk_active;
 		reg	gaten /* verilator clock_enable */;
 
+		// clk_active
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b1;
 		else begin
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b0;
+
 			if (r_busy)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (awskd_valid || wskd_valid || arskd_valid)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (S_AXIL_BVALID || S_AXIL_RVALID)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 
 			if (M_AXIS_TVALID)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 		end
 
+		assign	clk_active = r_clk_active;
+		// }}}
+		// Gate the clock here locally
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gatep <= 1'b1;
@@ -1313,17 +1320,13 @@ module	aximm2s #(
 
 		assign	gated_clk = S_AXI_ACLK && gaten;
 
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_gate <= 1'b1;
-		else
-			r_gate <= gatep;
-
-		assign	clk_gate = r_gate;
+		assign	clk_active = r_clk_active;
+		// }}}
 		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{
-		assign	clk_gate  = 1'b1;
+		// Always active
+		assign	clk_active = 1'b1;
 		assign	gated_clk = S_AXI_ACLK;
 		// }}}
 	end endgenerate

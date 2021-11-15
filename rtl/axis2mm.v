@@ -358,7 +358,7 @@ module	axis2mm #(
 
 	// Signal declarations
 	// {{{
-	wire	clk_gate, gated_clk;
+	wire	clk_active, gated_clk;
 	wire	i_clk   =  gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
@@ -485,7 +485,7 @@ module	axis2mm #(
 		// }}}
 	);
 
-	assign	axil_write_ready = clk_gate && awskd_valid && wskd_valid
+	assign	axil_write_ready = clk_active && awskd_valid && wskd_valid
 			&& (!S_AXIL_BVALID || S_AXIL_BREADY);
 
 	initial	axil_bvalid = 0;
@@ -521,7 +521,7 @@ module	axis2mm #(
 		// }}}
 	);
 
-	assign	axil_read_ready = clk_gate && arskd_valid
+	assign	axil_read_ready = clk_active && arskd_valid
 				&& (!axil_read_valid || S_AXIL_RREADY);
 
 	initial	axil_read_valid = 1'b0;
@@ -999,7 +999,7 @@ module	axis2mm #(
 	// 	if we are ever out of synchronization--then we can ignore data
 	//		until the next TLAST comes, where we must realign
 	//		ourselves
-	assign	S_AXIS_TREADY  = clk_gate && !fifo_full && (OPT_TREADY_WHILE_IDLE
+	assign	S_AXIS_TREADY  = clk_active && !fifo_full && (OPT_TREADY_WHILE_IDLE
 					|| !reset_fifo || !r_tlast_syncd);
 
 	generate if (OPT_TLAST_SYNC)
@@ -1505,7 +1505,7 @@ module	axis2mm #(
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
-	// (Optional) clock gating
+	// (Optional) Clock gating
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1514,20 +1514,23 @@ module	axis2mm #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, clk_active, r_gate;
+		reg	gatep, r_clk_active;
 		reg	gaten /* verilator clock_enable */;
 
+		// clk_active
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b1;
 		else begin
-			clk_active <= 1'b0;
+			r_clk_active <= 1'b0;
+
 			if (r_busy)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (awskd_valid || wskd_valid || arskd_valid)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 			if (S_AXIL_BVALID || S_AXIL_RVALID)
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 
 			// Activate the clock on incoming data
 				// reset_fifo = i_reset || (!r_busy && (!r_continuous || r_err));
@@ -1535,9 +1538,13 @@ module	axis2mm #(
 				// !reset_fifo= (r_continuous && !r_err)
 			if (S_AXIS_TVALID && !fifo_full
 				&& (!r_tlast_syncd || (r_continuous && !r_err)))
-				clk_active <= 1'b1;
+				r_clk_active <= 1'b1;
 		end
 
+		assign	clk_active = r_clk_active;
+		// }}}
+		// Gate the clock here locally
+		// {{{
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gatep <= 1'b1;
@@ -1552,17 +1559,13 @@ module	axis2mm #(
 
 		assign	gated_clk = S_AXI_ACLK && gaten;
 
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_gate <= 1'b1;
-		else
-			r_gate <= gatep;
-
-		assign	clk_gate = r_gate;
+		assign	clk_active = r_clk_active;
+		// }}}
 		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{
-		assign	clk_gate  = 1'b1;
+		// Always active
+		assign	clk_active = 1'b1;
 		assign	gated_clk = S_AXI_ACLK;
 		// }}}
 	end endgenerate
@@ -1570,6 +1573,7 @@ module	axis2mm #(
 
 	// Keep Verilator happy
 	// {{{
+	// Verilator coverage_off
 	// Verilator lint_off UNUSED
 	wire	unused;
 	assign	unused = &{ 1'b0, S_AXIL_AWPROT, S_AXIL_ARPROT, M_AXI_BID,
@@ -1578,6 +1582,7 @@ module	axis2mm #(
 			S_AXIL_AWADDR[AXILLSB-1:0],
 			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
 			new_widelen };
+	// Verilator coverage_on
 	// Verilator lint_on  UNUSED
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////

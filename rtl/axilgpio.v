@@ -64,7 +64,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// Copyright (C) 2021, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.

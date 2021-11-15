@@ -260,7 +260,7 @@ module	axidma #(
 				CTRL_ERR_BIT   = 4;
 	localparam	[1:0]	AXI_INCR = 2'b01, AXI_OKAY = 2'b00;
 
-	wire	clk_gate, gated_clk, clk_active;
+	wire	gated_clk, clk_active;
 	wire	i_clk   = gated_clk;
 	wire	i_reset = !S_AXI_ARESETN;
 
@@ -365,7 +365,7 @@ module	axidma #(
 		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;;
 		if (!awskd_valid || !wskd_valid)
 			axil_write_ready = 0;
-		if (!clk_gate)
+		if (!clk_active)
 			axil_write_ready = 0;
 	end
 
@@ -647,7 +647,7 @@ module	axidma #(
 		axil_read_ready = !S_AXIL_RVALID || S_AXIL_RREADY;
 		if (!arskd_valid)
 			axil_read_ready = 1'b0;
-		if (!clk_gate)
+		if (!clk_active)
 			axil_read_ready = 1'b0;
 	end
 
@@ -1633,7 +1633,7 @@ module	axidma #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, r_clk_active, r_gate;
+		reg	gatep, r_clk_active;
 		reg	gaten /* verilator clock_enable */;
 
 		// clk_active
@@ -1670,24 +1670,17 @@ module	axidma #(
 
 		assign	gated_clk = S_AXI_ACLK && gaten;
 
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			r_gate <= 1'b1;
-		else
-			r_gate <= gatep;
-
-		assign	clk_gate  = r_gate;
-		// }}}
+		assign	clk_active = r_clk_active;
 		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{
 		// Always active
 		assign	clk_active = 1'b1;
-		assign	clk_gate  = 1'b1;
 		assign	gated_clk = S_AXI_ACLK;
 		// }}}
 	end endgenerate
 	// }}}
+
 	// Keep Verilator happy
 	// {{{
 	// Verilator lint_off UNUSED
