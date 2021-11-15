@@ -345,7 +345,7 @@ module	axixbar #(
 	wire	[LGNM-1:0]		swindex	[0:NSFULL-1];
 	wire	[LGNM-1:0]		srindex	[0:NSFULL-1];
 
-	(* keep *) reg	[NM-1:0]		wdata_expected;
+	wire	[NM-1:0]		wdata_expected;
 
 	// The shadow buffers
 	wire	[NMFULL-1:0]	m_awvalid, m_arvalid;
@@ -1467,6 +1467,7 @@ module	axixbar #(
 		// has won arbitration and so has a grant to that slave.
 
 		// swgrant: write arbitration
+		initial	swgrant = 0;
 		always @(*)
 		begin
 			swgrant[M] = 0;
@@ -1475,6 +1476,7 @@ module	axixbar #(
 				swgrant[M] = 1;
 		end
 
+		initial	srgrant = 0;
 		// srgrant: read arbitration
 		always @(*)
 		begin
@@ -1985,8 +1987,7 @@ module	axixbar #(
 		default: begin end
 		endcase
 
-		always @(*)
-			wdata_expected[N] = r_wdata_expected;
+		assign	wdata_expected[N] = r_wdata_expected;
 
 		assign wlasts_pending[N] = wpending;
 		// }}}
