@@ -1040,12 +1040,14 @@ module	axidouble #(
 	generate if (OPT_EXCLUSIVE_ACCESS)
 	begin : EXCLUSIVE_ACCESS
 		// {{{
+		reg			r_lock_valid, r_locked_burst;
 		reg	[AW-1:0]	lock_addr, lock_last;
 		reg	[4-1:0]		lock_len;
 		reg	[3-1:0]		lock_size;
+		reg	[IW-1:0]	lock_id;
 
-		initial	lock_valid   = 1'b0;
-		initial	locked_burst = 1'b0;
+		initial	r_lock_valid   = 1'b0;
+		initial	r_locked_burst = 1'b0;
 		initial	locked_write = 1'b0;
 		always @(posedge S_AXI_ACLK)
 		begin
@@ -1063,13 +1065,15 @@ module	axidouble #(
 					+ ({ {(AW-4){1'b0}},awskid_awlen[3:0]} << S_AXI_AWSIZE)
 						>= lock_addr)
 					&&(S_AXI_AWADDR <= lock_last))
-					lock_valid <= 0;
+					r_lock_valid <= 0;
 			end
 
-			if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLOCK)
+			if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLOCK
+				&& S_AXI_ARBURST == 2'b01)
 			begin
-				lock_valid <= !locked_write;
+				r_lock_valid <= !locked_write;
 				lock_addr  <= S_AXI_ARADDR;
+				lock_id    <= S_AXI_ARID;
 				lock_size  <= S_AXI_ARSIZE;
 				lock_len   <= S_AXI_ARLEN[3:0];
 				lock_last  <= S_AXI_ARADDR
@@ -1079,18 +1083,22 @@ module	axidouble #(
 
 			if (awskid_valid && write_awskidready)
 			begin
-				locked_burst <= 1'b0;
+				r_locked_burst <= 1'b0;
 				locked_write <= awskid_awlock;
 
 				if (awskid_awlock)
 				begin
-					locked_burst <= lock_valid;
+					r_locked_burst <= r_lock_valid;
 					if (lock_addr != awskid_awaddr)
-						locked_burst <= 1'b0;
+						r_locked_burst <= 1'b0;
+					if (lock_id != awskid_awid)
+						r_locked_burst <= 1'b0;
 					if (lock_size != awskid_awsize)
-						locked_burst <= 1'b0;
-					if ({ 4'h0, lock_len } != awskid_awlen)
-						locked_burst <= 1'b0;
+						r_locked_burst <= 1'b0;
+					if (lock_len != awskid_awlen[3:0])
+						r_locked_burst <= 1'b0;
+					if (2'b01 != awskid_awburst)
+						r_locked_burst <= 1'b0;
 				end
 
 				// Write if !locked_write || write_burst
@@ -1098,14 +1106,17 @@ module	axidouble #(
 				// OKAY on all other writes where the slave
 				//   does not assert an error
 			end else if (S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST)
-				locked_burst <= 1'b0;
+				r_locked_burst <= 1'b0;
 
 			if (!S_AXI_ARESETN)
 			begin
-				lock_valid  <= 1'b0;
-				locked_burst <= 1'b0;
+				r_lock_valid  <= 1'b0;
+				r_locked_burst <= 1'b0;
 			end
 		end
+
+		assign	locked_burst = r_locked_burst;
+		assign	lock_valid = r_lock_valid;
 		// }}}
 	end else begin : NO_EXCLUSIVE_ACCESS
 		// {{{
@@ -1120,11 +1131,8 @@ module	axidouble #(
 		else if (S_AXI_WVALID && S_AXI_WREADY && S_AXI_WLAST)
 			locked_write <= 1'b0;
 
-		always @(*)
-			locked_burst <= 1'b0;
-
-		always @(*)
-			lock_valid = 1'b0;
+		assign	locked_burst = 0;
+		assign	lock_valid = 0;
 		// }}}
 	end endgenerate
 	// }}}
