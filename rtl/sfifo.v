@@ -47,6 +47,18 @@ module sfifo #(
 		input	wire		i_rd,
 		output	reg [(BW-1):0]	o_data,
 		output	reg		o_empty	// True if FIFO is empty
+`ifdef	FORMAL
+`ifdef	F_PEEK
+		, output wire	[LGFLEN:0]	f_first_addr,
+		output	wire	[LGFLEN:0]	f_second_addr,
+		output	reg	[BW-1:0]	f_first_data, f_second_data,
+
+		output	reg			f_first_in_fifo,
+						f_second_in_fifo,
+		output	reg	[LGFLEN:0]	f_distance_to_first,
+						f_distance_to_second
+`endif
+`endif
 		// }}}
 	);
 
@@ -309,17 +321,20 @@ module sfifo #(
 	//
 
 	// Verilator lint_off UNDRIVEN
-	(* anyconst *)	reg	[LGFLEN:0]	f_first_addr;
+	(* anyconst *)	reg	[LGFLEN:0]	fw_first_addr;
 	// Verilator lint_on  UNDRIVEN
-			reg	[LGFLEN:0]	f_second_addr;
+`ifndef	F_PEEK
+			wire	[LGFLEN:0]	f_first_addr;
+			wire	[LGFLEN:0]	f_second_addr;
 			reg	[BW-1:0]	f_first_data, f_second_data;
 
-	reg	f_first_addr_in_fifo,  f_first_in_fifo;
-	reg	f_second_addr_in_fifo, f_second_in_fifo;
+	reg	f_first_in_fifo, f_second_in_fifo;
 	reg	[LGFLEN:0]	f_distance_to_first, f_distance_to_second;
+`endif
+	reg	f_first_addr_in_fifo, f_second_addr_in_fifo;
 
-	always @(*)
-		f_second_addr = f_first_addr + 1;
+	assign f_first_addr  = fw_first_addr;
+	assign f_second_addr = f_first_addr + 1;
 
 	always @(*)
 	begin
