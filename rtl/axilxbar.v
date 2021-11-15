@@ -338,6 +338,7 @@ module	axilxbar #(
 	begin : DECODE_WRITE_REQUEST
 		// {{{
 		wire	[NS:0]		wdecode;
+		reg	r_mawvalid, r_mwvalid;
 
 		// awskid
 		// {{{
@@ -429,8 +430,6 @@ module	axilxbar #(
 		// }}}
 
 		// {{{
-		reg	r_mawvalid, r_mwvalid;
-
 		always @(*)
 		begin
 			r_mawvalid= dcd_awvalid[N] && !swfull[N];
@@ -460,6 +459,7 @@ module	axilxbar #(
 	begin : DECODE_READ_REQUEST
 		// {{{
 		wire	[NS:0]		rdecode;
+		reg	r_marvalid;
 
 		// arskid
 		// {{{
@@ -500,8 +500,6 @@ module	axilxbar #(
 
 		// m_arvalid[N]
 		// {{{
-		reg	r_marvalid;
-
 		always @(*)
 		begin
 			r_marvalid = dcd_arvalid[N] && !srfull[N];
@@ -621,6 +619,7 @@ module	axilxbar #(
 	generate for(M=0; M<NS; M=M+1)
 	begin
 		// {{{
+		initial	mwgrant[M] = 0;
 		always @(*)
 		begin
 			mwgrant[M] = 0;
@@ -1031,14 +1030,11 @@ module	axilxbar #(
 		//
 		reg			axi_bready;
 
-		reg	sawstall, swstall, mbstall;
+		wire	sawstall, swstall, mbstall;
 		// }}}
-		always @(*)
-			sawstall= (M_AXI_AWVALID[M]&& !M_AXI_AWREADY[M]);
-		always @(*)
-			swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
-		always @(*)
-			mbstall = (S_AXI_BVALID[mwindex[M]] && !S_AXI_BREADY[mwindex[M]]);
+		assign	sawstall= (M_AXI_AWVALID[M]&& !M_AXI_AWREADY[M]);
+		assign	swstall = (M_AXI_WVALID[M] && !M_AXI_WREADY[M]);
+		assign	mbstall = (S_AXI_BVALID[mwindex[M]] && !S_AXI_BREADY[mwindex[M]]);
 
 		// axi_awvalid
 		// {{{
@@ -1178,12 +1174,10 @@ module	axilxbar #(
 		//
 		reg				axi_rready;
 
-		reg	arstall, srstall;
+		wire	arstall, srstall;
 		// }}}
-		always @(*)
-			arstall= (M_AXI_ARVALID[M]&& !M_AXI_ARREADY[M]);
-		always @(*)
-			srstall = (S_AXI_RVALID[mrindex[M]]
+		assign	arstall= (M_AXI_ARVALID[M]&& !M_AXI_ARREADY[M]);
+		assign	srstall = (S_AXI_RVALID[mrindex[M]]
 						&& !S_AXI_RREADY[mrindex[M]]);
 
 		// axi_arvalid
@@ -1272,20 +1266,19 @@ module	axilxbar #(
 		reg		axi_bvalid;
 		reg	[1:0]	axi_bresp;
 		reg		i_axi_bvalid;
-		reg	[1:0]	i_axi_bresp;
-		reg		mbstall;
+		wire	[1:0]	i_axi_bresp;
+		wire		mbstall;
 
+		initial	i_axi_bvalid = 1'b0;
 		always @(*)
 		if (wgrant[N][NS])
 			i_axi_bvalid = m_wvalid[N] && slave_waccepts[N];
 		else
 			i_axi_bvalid = m_axi_bvalid[swindex[N]];
 
-		always @(*)
-			i_axi_bresp = m_axi_bresp[swindex[N]];
+		assign	i_axi_bresp = m_axi_bresp[swindex[N]];
 
-		always @(*)
-			mbstall = S_AXI_BVALID[N] && !S_AXI_BREADY[N];
+		assign	mbstall = S_AXI_BVALID[N] && !S_AXI_BREADY[N];
 
 		// r_bvalid
 		// {{{
@@ -1397,17 +1390,17 @@ module	axilxbar #(
 		reg			axi_rvalid;
 		reg	[1:0]		axi_rresp;
 		reg	[DW-1:0]	axi_rdata;
-		reg			srstall;
+		wire			srstall;
 		reg			i_axi_rvalid;
 
+		initial	i_axi_rvalid = 1'b0;
 		always @(*)
 		if (rgrant[N][NS])
 			i_axi_rvalid = m_arvalid[N] && slave_raccepts[N];
 		else
 			i_axi_rvalid = m_axi_rvalid[srindex[N]];
 
-		always @(*)
-			srstall = S_AXI_RVALID[N] && !S_AXI_RREADY[N];
+		assign	srstall = S_AXI_RVALID[N] && !S_AXI_RREADY[N];
 
 		initial	r_rvalid[N] = 0;
 		always @(posedge S_AXI_ACLK)
