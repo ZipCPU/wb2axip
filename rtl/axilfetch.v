@@ -37,7 +37,7 @@ module	axilfetch #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 32,
 		parameter	C_AXI_DATA_WIDTH = 64,
-		parameter	DATA_WIDTH=32,
+		parameter	INSN_WIDTH=32,
 		parameter	FETCH_LIMIT=16,
 		parameter [0:0]	SWAP_ENDIANNESS = 1'b1,
 		localparam	AW=C_AXI_ADDR_WIDTH
@@ -54,7 +54,7 @@ module	axilfetch #(
 		input	wire			i_clear_cache,
 		input	wire			i_ready,
 		input	wire	[AW-1:0]	i_pc,	// Ignd unls i_new_pc
-		output	wire [DATA_WIDTH-1:0]	o_insn,	// Insn read from bus
+		output	wire [INSN_WIDTH-1:0]	o_insn,	// Insn read from bus
 		output	reg	[AW-1:0]	o_pc,	// Addr of that insn
 		output	reg			o_valid,	// If valid
 		output	reg			o_illegal,	// Bus error
@@ -77,7 +77,8 @@ module	axilfetch #(
 	// Declarations
 	// {{{
 	localparam	AXILLSB = $clog2(C_AXI_DATA_WIDTH/8);
-	localparam	INSNS_PER_WORD = C_AXI_DATA_WIDTH / DATA_WIDTH;
+	localparam	INSNS_PER_WORD = C_AXI_DATA_WIDTH / INSN_WIDTH;
+	localparam	INSN_LSB = $clog2(INSN_WIDTH/8);
 	localparam	LGDEPTH = $clog2(FETCH_LIMIT)+4;
 	localparam	LGFIFO = $clog2(FETCH_LIMIT);
 	localparam	W = LGDEPTH;
@@ -88,7 +89,7 @@ module	axilfetch #(
 	reg	[W:0]			new_flushcount, outstanding,
 					next_outstanding, flushcount;
 	reg				flushing, flush_request, full_bus;
-	reg	[((AXILLSB>2)?(AXILLSB-3):0):0]	shift;
+	wire	[((AXILLSB>INSN_LSB) ? (AXILLSB-INSN_LSB-1):0):0]	shift;
 	wire				fifo_reset, fifo_wr, fifo_rd;
 	wire				ign_fifo_full, fifo_empty;
 	wire	[LGFIFO:0]		ign_fifo_fill;
@@ -209,11 +210,13 @@ module	axilfetch #(
 		//
 		// Throttle the number of requests we make
 		// Verilator lint_off CMPCONST
+		// Verilator lint_off WIDTH
 		//	out_fill will only capture 0 or 1 if DATA_WIDTH == 32
 		if (fill + (M_AXI_ARVALID ? 1:0)
 				+ ((o_valid &&(!i_ready || out_fill > 1)) ? 1:0)
 				>= FETCH_LIMIT)
 			M_AXI_ARVALID <= 1'b0;
+		// Verilator lint_on  WIDTH
 		// Verilator lint_on  CMPCONST
 		if (i_cpu_reset || i_clear_cache || full_bus)
 			M_AXI_ARVALID <= 1'b0;
@@ -268,26 +271,19 @@ module	axilfetch #(
 		o_pc <= i_pc;
 	else if (o_valid && i_ready && !o_illegal)
 	begin
-		o_pc[AW-1:2] <= o_pc[AW-1:2] + 1;
-		o_pc[1:0] <= 2'b00;
+		o_pc <= 0;
+		o_pc[AW-1:INSN_LSB] <= o_pc[AW-1:INSN_LSB] + 1;
 	end
 	// }}}
 
-	generate if (AXILLSB > 2)
+	generate if (AXILLSB > INSN_LSB)
 	begin : BIG_WORD
 		// {{{
-		always @(*)
-		begin
-			shift = o_pc[AXILLSB-1:2];
-
-			if (FETCH_LIMIT > 0 && o_valid)
-				shift = 0;
-		end
+		assign	shift = o_pc[AXILLSB-1:INSN_LSB];
 		// }}}
 	end else begin : NO_SHIFT
 		// {{{
-		always @(*)
-			shift = 0;
+		assign	shift = 0;
 		// }}}
 	end endgenerate
 
@@ -296,11 +292,12 @@ module	axilfetch #(
 		// {{{
 		genvar	gw, gb;	// Word count, byte count
 
-		for(gw=0; gw<C_AXI_DATA_WIDTH/32; gw=gw+1) // For each bus word
-		for(gb=0; gb<4; gb=gb+1) // For each bus byte
+		for(gw=0; gw<C_AXI_DATA_WIDTH/INSN_WIDTH; gw=gw+1) // For each bus word
+		for(gb=0; gb<(INSN_WIDTH/8); gb=gb+1) // For each bus byte
 		always @(*)
-			endian_swapped_rdata[gw*32+(3-gb)*8 +: 8]
-				= M_AXI_RDATA[gw*32+gb*8 +: 8];
+			endian_swapped_rdata[gw*INSN_WIDTH
+					+ ((INSN_WIDTH/8)-1-gb)*8 +: 8]
+				= M_AXI_RDATA[gw*INSN_WIDTH+gb*8 +: 8];
 		// }}}
 	end else begin : NO_ENDIAN_SWAP
 		// {{{
@@ -315,7 +312,9 @@ module	axilfetch #(
 		// No cache
 
 		// assign	fifo_rd    = fifo_wr;
+		// Verilator lint_off CMPCONST
 		assign	fifo_rd = !o_valid || (i_ready && (out_fill <= 1));
+		// Verilator lint_on  CMPCONST
 		assign	fifo_empty = !fifo_wr; //(out_fill <= (i_aready ? 1:0));
 		assign	fifo_data  = { M_AXI_RRESP[1], endian_swapped_rdata };
 
@@ -365,12 +364,19 @@ module	axilfetch #(
 		assign	fifo_rd = !o_valid || (i_ready && (out_fill <= 1));
 		// Verilator lint_on  CMPCONST
 
-		sfifo #(.BW(1+C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO))
-		fcache(.i_clk(S_AXI_ACLK), .i_reset(fifo_reset),
+		sfifo #(
+			// {{{
+			.BW(1+C_AXI_DATA_WIDTH), .LGFLEN(LGFIFO)
+			// }}}
+		) fcache(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(fifo_reset),
 			.i_wr(fifo_wr),
 			.i_data({M_AXI_RRESP[1], endian_swapped_rdata }),
 			.o_full(ign_fifo_full), .o_fill(ign_fifo_fill),
-			.i_rd(fifo_rd),.o_data(fifo_data),.o_empty(fifo_empty));
+			.i_rd(fifo_rd),.o_data(fifo_data),.o_empty(fifo_empty)
+			// }}}
+		);
 		// }}}
 	end endgenerate
 
@@ -387,15 +393,26 @@ module	axilfetch #(
 
 	// out_fill
 	// {{{
+	// == number of instructions in the fifo_data word that have not (yet)
+	//	been accepted by the CPU.
+	// == 0 when no data is available
+	// == INSN_PER_WORD on the first instruction of any word
+	// == 1 on the last instruction of any word
 	initial	out_fill = 0;
 	always @(posedge S_AXI_ACLK)
 	if (fifo_reset)
 		out_fill <= 0;
 	else if (fifo_rd)
-		// Verilator lint_off WIDTH
-		out_fill <= (fifo_empty) ? 0: (INSNS_PER_WORD - shift);
-		// Verilator lint_on  WIDTH
-	else if (i_ready && out_fill > 0)
+	begin
+		if (fifo_empty)
+			out_fill <= 0;
+		else if (o_valid)
+			out_fill <= INSNS_PER_WORD[FILLBITS:0];
+		else
+			// Verilator lint_off WIDTH
+			out_fill <= (INSNS_PER_WORD[FILLBITS:0] - shift);
+			// Verilator lint_on  WIDTH
+	end else if (i_ready && out_fill > 0)
 		out_fill <= out_fill - 1;
 	// }}}
 
@@ -403,12 +420,16 @@ module	axilfetch #(
 	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (fifo_rd)
-		out_data <= fifo_data[C_AXI_DATA_WIDTH-1:0]>>(DATA_WIDTH*shift);
-	else if (i_ready)
-		out_data <= out_data >> DATA_WIDTH;
+	begin
+		if (o_valid || (INSN_WIDTH == C_AXI_DATA_WIDTH))
+			out_data <= fifo_data[C_AXI_DATA_WIDTH-1:0];
+		else
+		out_data <= fifo_data[C_AXI_DATA_WIDTH-1:0]>>(INSN_WIDTH*shift);
+	end else if (i_ready)
+		out_data <= out_data >> INSN_WIDTH;
 	// }}}
 
-	assign	o_insn = out_data[DATA_WIDTH-1:0];
+	assign	o_insn = out_data[INSN_WIDTH-1:0];
 
 	// o_illegal
 	// {{{
