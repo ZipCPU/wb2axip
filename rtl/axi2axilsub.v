@@ -49,7 +49,6 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype	none
 //
 `ifdef	FORMAL
@@ -315,13 +314,15 @@ module axi2axilsub #(
 			// }}}
 		);
 
-		// }}}		
-	end else if (OPT_WRITES)
+		// }}}
+	end else begin : WDN
+	if (OPT_WRITES)
 	begin : IMPLEMENT_WRITES
 		// {{{
 
 		// Register declarations
 		// {{{
+		localparam	BIDFIFOBW = IW+1+(SLVSZ-MSTSZ+1);
 
 		//
 		// S_AXI_AW* skid buffer
@@ -339,7 +340,7 @@ module axi2axilsub #(
 		wire	[SLVDW-1:0]	skids_wdata;
 		wire	[SLVDW/8-1:0]	skids_wstrb;
 
-		wire					slv_awvalid,slv_awready;
+		wire			slv_awready, slv_wready;
 		reg	[SLVDW-1:0]	slv_wdata;
 		reg	[SLVDW/8-1:0]	slv_wstrb;
 
@@ -348,7 +349,6 @@ module axi2axilsub #(
 							slv_next_awaddr;
 		reg	[2:0]				slv_awsize;
 		reg	[1:0]				slv_awburst;
-		reg	[2:0]				slv_awprot;
 		reg	[7:0]				slv_awlen;
 		reg	[8:0]				slv_wlen;
 		reg					slv_awlast;
@@ -367,6 +367,7 @@ module axi2axilsub #(
 		reg				blast;
 		reg	[1:0]			s_axi_bresp, bresp;
 		reg				s_axi_bvalid;
+		reg				b_return_stall;
 		wire				read_from_wrfifo;
 		//
 		// S_AXI_B* skid buffer isn't needed
@@ -380,13 +381,10 @@ module axi2axilsub #(
 		wire	[1:0]		skidm_bresp;
 
 		reg				m_axi_wvalid;
-		reg	[MSTDW-1:0]		m_axi_wdata;
-		reg	[MSTDW/8-1:0]		m_axi_wstrb;
 		reg	[AW-1:0]		mst_awaddr;
 		reg	[2:0]			mst_awprot;
-		reg	[SLVSZ-MSTSZ:0]		slv_awbeats, mst_awbeats,
-						mst_wbeats;
-
+		reg	[SLVSZ-MSTSZ:0]		mst_awbeats,
+						mst_wbeats, next_slv_beats;
 		// }}}
 		////////////////////////////////////////////////////////////////
 		//
@@ -395,6 +393,11 @@ module axi2axilsub #(
 		////////////////////////////////////////////////////////////////
 		//
 		//
+
+		////////////////////////////////////////
+		//
+		// Clock #1: The skid buffer
+		// {{{
 
 		// The write address channel's skid buffer
 		// {{{
@@ -436,14 +439,24 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		assign	skids_awready = (slv_wlen <= (slv_awready ? 1:0));
-		assign	slv_awvalid = (slv_wlen > 0);
-		assign	slv_awready = (!M_AXI_AWVALID || M_AXI_AWREADY)
-					&& (mst_wbeats <= (M_AXI_WREADY ? 1:0))
-					&& (!bfifo_write || !wfifo_full);
+		assign	skids_awready = skids_wvalid && skids_wready
+					&& slv_awlast;
+
+		assign	skids_wready = slv_wready;
+		// }}}
+		////////////////////////////////////////
+		//
+		// Clock 2: slv_* clock
+		// {{{
+
+		// When are we ready for a next SLAVE beat?
+		assign	slv_awready = (skids_wvalid && skids_wready);
 
 		// slv_aw*
 		// {{{
+		// slv_awaddr is the address of the value *CURRENTLY* in the
+		// buffer, *NOT* the next address.
+		initial	slv_awlast = 1;
 		always @(posedge S_AXI_ACLK)
 		if (skids_awvalid && skids_awready)
 		begin
@@ -452,22 +465,66 @@ module axi2axilsub #(
 			slv_awlen   <= skids_awlen;
 			slv_awsize  <= skids_awsize;
 			slv_awburst <= skids_awburst;
-			slv_awprot  <= skids_awprot;
-			slv_wlen    <= skids_awlen + 1;
-			slv_awlast  <= (skids_awlen == 0);
 		end else if (slv_awready && slv_wlen > 0)
 		begin
-			slv_wlen   <= slv_wlen - 1;
+			// Step forward a full beat -- but only when we have
+			// the data to do so
 			slv_awaddr <= slv_next_awaddr;
-			slv_awlast <= (slv_wlen <= 2);
 		end
+		// }}}
+
+		// slv_awlast
+		// {{{
+		initial	slv_awlast = 1;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			slv_awlast <= 1;
+		else if (skids_awvalid && skids_awready)
+			slv_awlast  <= (skids_awlen == 0);
+		else if (skids_wvalid && skids_wready)
+			slv_awlast <= (slv_wlen <= 2);
+
 `ifdef	FORMAL
 		always @(*)
 			assert(slv_awlast == (slv_wlen <= 1));
-		always @(*)
-			assert(slv_wlen <= (slv_awlen + 1));
 `endif
 		// }}}
+
+		// slv_wlen = Number of beats remaining
+		// {{{
+		// ... in the slave's data space, to include the one we've
+		// just ingested.  Therefore, this is a 1-up counter.  If
+		// slv_wlen == 0, then we are idle.
+		initial	slv_wlen = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			slv_wlen <= 0;
+		else if (skids_awvalid && skids_awready)
+		begin
+			slv_wlen <= skids_awlen + 1;
+		end else if (skids_wvalid && skids_wready) // (slv_awready && slv_wlen > 0)
+		begin
+			slv_wlen <= slv_wlen - 1;
+`ifdef	FORMAL
+			assert(slv_wlen > 0);
+`endif
+		end else if (slv_wlen == 1 && slv_wready)
+			slv_wlen <= 0;
+		// }}}
+
+		// next_slv_beats
+		// {{{
+		always @(*)
+		begin
+			// Verilator lint_off WIDTH
+			next_slv_beats = (1<<(skids_awsize-MSTSZ[2:0]))
+				  - (skids_awaddr[SLVSZ-1:0] >> skids_awsize);
+			if (skids_awsize <= MSTSZ[2:0])
+				next_slv_beats = 1;
+			// Verilator lint_on  WIDTH
+		end
+		// }}}
+
 
 		// slv_next_awaddr
 		// {{{
@@ -487,47 +544,78 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		// slv_awbeats
+		assign	slv_wready = (mst_awbeats <= (M_AXI_AWREADY ? 1:0))
+					&& (mst_wbeats <= (M_AXI_WREADY ? 1:0))
+					&& (!bfifo_write || !wfifo_full);
+
+		// slv_wstrb, slv_wdata
 		// {{{
-		always @(*)
-		if (slv_awvalid)
+		always @(posedge S_AXI_ACLK)
+		if (OPT_LOWPOWER && !S_AXI_ARESETN)
+			{ slv_wstrb, slv_wdata } <= 0;
+		else if (skids_awready)
 		begin
-			// Master beats to turn this slave beat into
-			if (slv_awsize >= MSTSZ[2:0])
-				slv_awbeats = (1<<(slv_awsize-MSTSZ[2:0]))
-					- (slv_awaddr[MSTSZ-1:0] >> slv_awsize);
-			else
-				slv_awbeats = 1;
-		end else
-			slv_awbeats = 0;
+			slv_wstrb <= skids_wstrb >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW/8);
+			slv_wdata <= skids_wdata >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW);
+			if (OPT_LOWPOWER && !skids_awvalid)
+			begin
+				slv_wstrb <= 0;
+				slv_wdata <= 0;
+			end
+		end else if (skids_wready)
+		begin
+			slv_wstrb <= skids_wstrb >> (slv_next_awaddr[SLVSZ-1:MSTSZ]*MSTDW/8);
+			slv_wdata <= skids_wdata >> (slv_next_awaddr[SLVSZ-1:MSTSZ]*MSTDW);
+			if (OPT_LOWPOWER && !skids_wvalid)
+			begin
+				slv_wstrb <= 0;
+				slv_wdata <= 0;
+			end
+		end else if (M_AXI_WVALID && M_AXI_WREADY)
+		begin
+			slv_wstrb <= slv_wstrb >> (MSTDW/8);
+			slv_wdata <= slv_wdata >> (MSTDW);
+		end
 		// }}}
+
+		// }}}
+		////////////////////////////////////////
+		//
+		// Clock 2 (continued): mst_* = M_AXI_*
+		// {{{
 
 		// mst_awaddr, mst_awprot, mst_awbeats
 		// {{{
+		initial	mst_awaddr = 0;
+		initial	mst_awprot = 0;
 		always @(posedge S_AXI_ACLK)
 		begin
-			if (slv_awready)
+			if (!M_AXI_AWVALID || M_AXI_AWREADY)
 			begin
-				// {{{
-				mst_awaddr  <= slv_awaddr;
-				mst_awprot  <= slv_awprot;
-
-				// Beats to turn this beat into
-				mst_awbeats <= slv_awbeats;
-
-				if (OPT_LOWPOWER && !slv_awvalid)
+				if (skids_awvalid && skids_awready)
 				begin
-					mst_awaddr <= 0;
-					mst_awprot <= 0;
+					mst_awaddr <= skids_awaddr;
+					mst_awprot <= skids_awprot;
+					mst_awbeats<= next_slv_beats;
+				end else if (skids_wvalid && skids_wready)
+				begin
+					mst_awaddr <= slv_next_awaddr;
+					mst_awbeats<= 1;
+					if (slv_awsize >= MSTSZ[2:0])
+						mst_awbeats <= (1<<(slv_awsize - MSTSZ[2:0]));
+				end else begin
+					if (mst_awbeats > 1)
+					begin
+						mst_awaddr <= mst_awaddr + (1<<MSTSZ);
+						mst_awaddr[MSTSZ-1:0] <= 0;
+					end else if (OPT_LOWPOWER)
+					begin
+						mst_awaddr <= 0;
+					end
+
+					if (mst_awbeats > 0)
+						mst_awbeats <= mst_awbeats - 1;
 				end
-				// }}}
-			end else if ((mst_awbeats > 0)&&(!M_AXI_AWVALID || M_AXI_AWREADY))
-			begin
-				// {{{
-				mst_awaddr <= mst_awaddr + (1<<MSTSZ);
-				mst_awaddr[MSTSZ-1:0] <= 0;
-				mst_awbeats <= mst_awbeats - 1;
-				// }}}
 			end
 
 			if (!S_AXI_ARESETN)
@@ -544,18 +632,15 @@ module axi2axilsub #(
 		end
 `ifdef	FORMAL
 		always @(*)
-		if(OPT_LOWPOWER && mst_awbeats == 0)
+		if(S_AXI_ARESETN && OPT_LOWPOWER && mst_awbeats == 0)
 		begin
 			assert(mst_awaddr == 0);
-			assert(mst_awprot == 0);
 		end
-`endif
-		// }}}
 
-		// skids_wready
-		// {{{
-		assign	skids_wready = (mst_wbeats <= (M_AXI_WREADY ? 1:0))
-					&&((slv_awbeats > 0) || slv_awready);
+		always @(*)
+		if (S_AXI_ARESETN)
+			assert(m_axi_awvalid == (mst_awbeats > 0));
+`endif
 		// }}}
 
 		// m_axi_awvalid
@@ -564,30 +649,46 @@ module axi2axilsub #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			m_axi_awvalid <= 0;
-		else if (slv_awvalid && slv_awready)
-			m_axi_awvalid <= 1;
 		else if (!M_AXI_AWVALID || M_AXI_AWREADY)
-			m_axi_awvalid <= (mst_awbeats > 1);
+		begin
+			if (skids_wvalid && skids_wready)
+				m_axi_awvalid <= 1'b1;
+			else if (mst_awbeats == 1)
+				m_axi_awvalid <= 1'b0;
+		end
+		// }}}
 
 		assign	M_AXI_AWVALID = m_axi_awvalid;
-		// }}}
+		assign	M_AXI_AWVALID = m_axi_awvalid;
+		assign	M_AXI_AWADDR  = mst_awaddr;
+		assign	M_AXI_AWPROT  = mst_awprot;
 
 		// M_AXI_WVALID, mst_wbeats
 		// {{{
+		initial	m_axi_wvalid = 0;
+		initial	mst_wbeats   = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			m_axi_wvalid <= 0;
 			mst_wbeats   <= 0;
-		end else if (slv_awready)
+		end else if (!M_AXI_WVALID || M_AXI_WREADY)
 		begin
-			m_axi_wvalid <= slv_awvalid;
-			mst_wbeats   <= slv_awbeats;
-		end else if (M_AXI_WVALID && M_AXI_WREADY)
-		begin
-			m_axi_wvalid <= (mst_wbeats > 1);
-			if (mst_wbeats > 0)
-				mst_wbeats   <= mst_wbeats - 1;
+			if (skids_wvalid && skids_wready)
+			begin
+				m_axi_wvalid <= 1'b1;
+				if (skids_awvalid && skids_awready)
+					mst_wbeats   <= next_slv_beats;
+				else if (slv_awsize <= MSTSZ[2:0])
+					mst_wbeats <= 1;
+				else
+					mst_wbeats <= (1<<(slv_awsize - MSTSZ[2:0]));
+			end else begin
+				if (mst_wbeats <= 1)
+					m_axi_wvalid <= 1'b0;
+				if (mst_wbeats > 0)
+					mst_wbeats   <= mst_wbeats - 1;
+			end
 		end
 `ifdef	FORMAL
 		always @(*)
@@ -598,67 +699,84 @@ module axi2axilsub #(
 
 		// M_AXI_WDATA, M_AXI_WSTRB
 		// {{{
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-		begin
-			m_axi_wdata <= 0;
-			m_axi_wstrb <= 0;
-		end else if (!M_AXI_WVALID || M_AXI_WREADY)
-		begin
-			m_axi_wdata <= slv_wdata[MSTDW-1:0];
-			m_axi_wstrb <= slv_wstrb[MSTDW/8-1:0];
-
-			if (OPT_LOWPOWER && (mst_wbeats <= 1)
-				&& (!slv_awvalid || !slv_awready))
-			begin
-				m_axi_wdata <= 0;
-				m_axi_wstrb <= 0;
-			end
-		end
-		// }}}
-
-		// slv_wstrb, slv_wdata
-		// {{{
-		always @(posedge S_AXI_ACLK)
-		if (OPT_LOWPOWER && !S_AXI_ARESETN)
-			{ slv_wstrb, slv_wdata } <= 0;
-		else if (skids_wready)
-		begin
-			slv_wstrb <= skids_wstrb >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW/8);
-			slv_wdata <= skids_wdata >> (skids_awaddr[SLVSZ-1:MSTSZ]*MSTDW);
-			if (OPT_LOWPOWER && !skids_wvalid)
-			begin
-				slv_wstrb <= 0;
-				slv_wdata <= 0;
-			end
-		end else if (M_AXI_WVALID && M_AXI_WREADY)
-		begin
-			slv_wstrb <= slv_wstrb >> (MSTDW/8);
-			slv_wdata <= slv_wdata >> (MSTDW);
-		end
-`ifdef	FORMAL
-		always @(*)
-		if (OPT_LOWPOWER && S_AXI_ARESETN && !M_AXI_WVALID)
-		begin
-			assert(slv_wstrb == 0);
-			assert(slv_wdata == 0);
-		end
-`endif
+		assign	M_AXI_WDATA = slv_wdata[MSTDW-1:0];
+		assign	M_AXI_WSTRB = slv_wstrb[MSTDW/8-1:0];
 		// }}}
 
 		assign	M_AXI_WVALID = m_axi_wvalid;
-		assign	M_AXI_WDATA  = m_axi_wdata;
-		assign	M_AXI_WSTRB  = m_axi_wstrb;
+		assign	M_AXI_WDATA  = slv_wdata[MSTDW-1:0];
+		assign	M_AXI_WSTRB  = slv_wstrb[MSTDW/8-1:0];
+		// }}}
+		////////////////////////////////////////
+		//
+		// Clock 3: The B FIFO
+		// {{{
+
+		// bfifo_write
+		// {{{
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			bfifo_write <= 0;
+		else if (!bfifo_write || !wfifo_full)
+			bfifo_write <= skids_wvalid && skids_wready;
+		// }}}
+
+		// bfifo_wdata
+		// {{{
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN)
+			bfifo_wdata <= 0;
+		else if (skids_awvalid && skids_awready)
+		begin
+			bfifo_wdata[SLVSZ-MSTSZ:0] <= next_slv_beats;
+			bfifo_wdata[SLVSZ-MSTSZ+1] <= (skids_awlen == 0);
+			bfifo_wdata[SLVSZ-MSTSZ+2 +: IW] <= skids_awid;
+`ifdef	FORMAL
+			assert(skids_wvalid && skids_wready);
+`endif
+		end else if (skids_wvalid && skids_wready)
+		begin
+			bfifo_wdata[SLVSZ-MSTSZ+2 +: IW] <= slv_awid;
+			bfifo_wdata[SLVSZ-MSTSZ+1] <= (slv_wlen <= 2)
+						? 1'b1 : 1'b0;
+
+			if (slv_awsize <= MSTSZ[2:0])
+				bfifo_wdata[SLVSZ-MSTSZ:0] <= 1;
+			else
+				bfifo_wdata[SLVSZ-MSTSZ:0]
+					<= (1<<(slv_awsize - MSTSZ[2:0]));
+		end
+		// }}}
+
+		// BFIFO
+		// {{{
+		sfifo	#(
+			// {{{
+			.BW(BIDFIFOBW), .LGFLEN(LGFIFO)
+			// }}}
+		) bidlnfifo(
+			// {{{
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_wr(bfifo_write), .i_data(bfifo_wdata),
+				.o_full(wfifo_full), .o_fill(wfifo_count),
+			.i_rd(read_from_wrfifo),
+			.o_data({ wfifo_bid, wfifo_wlast,wfifo_subcount }),
+			.o_empty(wfifo_empty)
+		// }}}
 
 		// read_from_wrfifo
 		// {{{
 		assign	read_from_wrfifo = (bcounts <= 1)&&(!wfifo_empty)
 			    &&(skidm_bvalid && skidm_bready);
 		// }}}
+		// }}}
+		////////////////////////////////////////
+		//
+		// Return clock 1: the skid buffer
+		// {{{
 
 		//
 		// The downstream AXI-lite response (M_AXI_B*) skid buffer
-		// {{{
 		skidbuffer #(
 			// {{{
 			.DW(2),
@@ -674,41 +792,14 @@ module axi2axilsub #(
 				.o_data({ skidm_bresp })
 			// }}}
 		);
-		// }}}
 
-		// bfifo_write
-		// {{{
-		always @(posedge  S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			bfifo_write <= 0;
-		else
-			bfifo_write <= slv_awready && slv_wlen != 0;
+		assign	skidm_bready = ((bcounts > 0)||(!wfifo_empty))
+				&& !b_return_stall;
 		// }}}
-
-		// bfifo_wdata
+		////////////////////////////////////////
+		//
+		// Return staging: Counting returns
 		// {{{
-		always @(posedge  S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			bfifo_wdata <= 0;
-		else
-			bfifo_wdata <= { slv_awid, slv_awlast, slv_awbeats };
-		// }}}
-
-		// BFIFO
-		// {{{
-		sfifo	#(
-			// {{{
-			.BW(IW+1+(SLVSZ-MSTSZ+1)),
-			.LGFLEN(LGFIFO)
-			// }}}
-		) bidlnfifo(
-			// {{{
-			S_AXI_ACLK, !S_AXI_ARESETN,
-			bfifo_write, bfifo_wdata, wfifo_full, wfifo_count,
-			read_from_wrfifo,
-			{ wfifo_bid, wfifo_wlast,wfifo_subcount }, wfifo_empty);
-			// }}}
-		// }}}
 
 		// bcounts
 		// {{{
@@ -717,10 +808,22 @@ module axi2axilsub #(
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			bcounts <= 0;
-		else if (read_from_wrfifo)
-			bcounts <= wfifo_subcount + bcounts - 1;
 		else if (skidm_bvalid && skidm_bready)
-			bcounts <= bcounts - 1;
+		begin
+			if (read_from_wrfifo)
+			begin
+				/*
+				if (bcounts == 0 && wfifo_subcount <= 1
+						&& wfifo_wlast)
+					// Go straight to S_AXI_BVALID, no
+					// more bursts to count here
+					bcounts <= 0;
+				else
+				*/
+					bcounts <= wfifo_subcount + bcounts - 1;
+			end else
+				bcounts <= bcounts - 1;
+		end
 		// }}}
 
 		// blast
@@ -760,30 +863,58 @@ module axi2axilsub #(
 				bresp <= OKAY;
 		end
 		// }}}
+		// }}}
+		////////////////////////////////////////
+		//
+		// Return clock 2: S_AXI_* returns
+		// {{{
 
 		// s_axi_bid
 		// {{{
 		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_BVALID || S_AXI_BREADY)
 		begin
-			if (!skidm_bvalid || skidm_bready)
-				s_axi_bid <= (read_from_wrfifo && bcounts==0) ? wfifo_bid : bid;
-			if (OPT_LOWPOWER && !S_AXI_ARESETN)
-				s_axi_bid <= 0;
+			if (bcounts > 0 && blast)
+				s_axi_bid <= bid;
+			else if (read_from_wrfifo)
+				s_axi_bid <= wfifo_bid;
+			else
+				s_axi_bid <= bid;
 		end
 		// }}}
 
-		// s_axi_bvalid
+		// s_axi_bvalid, b_return_stall
 		// {{{
+		always @(*)
+		begin
+			// Force simulation evaluation on reset
+			if (!S_AXI_ARESETN)
+				b_return_stall = 0;
+
+			// Default: stalled if the output is stalled
+			b_return_stall = S_AXI_BVALID && !S_AXI_BREADY;
+
+			if (bcounts > 1)
+				b_return_stall = 0;
+			else if (bcounts == 1 && !blast)
+				b_return_stall = 0;
+			else if (bcounts == 0
+				&& (wfifo_subcount > 1 || !wfifo_wlast))
+				b_return_stall = 0;
+		end
+
 		initial	s_axi_bvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			s_axi_bvalid <= 0;
-		else if (skidm_bvalid && skidm_bready)
-			s_axi_bvalid <= ((bcounts == 1)&& blast)
-				||((bcounts == 0) && (!wfifo_empty)
-					&& (wfifo_subcount <= 1) && wfifo_wlast);
-		else if (S_AXI_BREADY)
+		else if (!S_AXI_BVALID || S_AXI_BREADY)
+		begin
 			s_axi_bvalid <= 0;
+			if (skidm_bvalid && skidm_bready)
+				s_axi_bvalid <= ((bcounts == 1)&& blast)
+					||((bcounts == 0) && (!wfifo_empty)
+						&& (wfifo_subcount <= 1)&& wfifo_wlast);
+		end
 		// }}}
 
 		// s_axi_bresp
@@ -806,39 +937,14 @@ module axi2axilsub #(
 			end else
 				s_axi_bresp <= bresp;
 		end
-`ifdef	FORMAL
-		(* anyconst *) reg	[1:0]	f_max_bresp;
-
-		always @(*)
-		begin
-			assume(skidm_bresp <= f_max_bresp);
-			assume(skidm_bresp != EXOKAY);
-
-			assert(bresp <= f_max_bresp);
-			assert(bresp != EXOKAY);
-			if (S_AXI_BVALID)
-			begin
-				assert(S_AXI_BRESP <= f_max_bresp);
-				assert(S_AXI_BRESP != EXOKAY);
-			end
-		end
-`endif
 		// }}}
 
-		// M_AXI_AW*
+		// S_AXI_B* assignments
 		// {{{
-		assign	M_AXI_AWVALID= m_axi_awvalid;
-		assign	M_AXI_AWADDR = mst_awaddr;
-		assign	M_AXI_AWPROT = mst_awprot;
-		// }}}
-
-		// skidm_bready, S_AXI_B*
-		// {{{
-		assign	skidm_bready = ((bcounts > 0)||(!wfifo_empty))
-				&& (!S_AXI_BVALID || S_AXI_BREADY || !blast);
 		assign	S_AXI_BID    = s_axi_bid;
 		assign	S_AXI_BRESP  = s_axi_bresp;
 		assign	S_AXI_BVALID = s_axi_bvalid;
+		// }}}
 		// }}}
 		// }}}
 		// Make Verilator happy
@@ -848,15 +954,15 @@ module axi2axilsub #(
 		assign	unused_write = &{ 1'b0, wfifo_count, S_AXI_WLAST };
 		// Verilator lint_on  UNUSED
 		// }}}
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Formal properties, write half
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		//
+		// Formal properties, write half
+		// {{{
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 		// These are only a subset of the formal properties used to
 		// verify this design.  While I will warrant that the full
@@ -876,7 +982,7 @@ module axi2axilsub #(
 		//
 		// ...
 		//
-	
+
 		localparam	F_AXIL_LGDEPTH = F_LGDEPTH;
 		wire	[F_AXIL_LGDEPTH-1:0]	faxil_rd_outstanding,
 						faxil_wr_outstanding,
@@ -904,6 +1010,7 @@ module axi2axilsub #(
 			.i_axi_reset_n(S_AXI_ARESETN),
 			// Write address
 			// {{{
+			.i_axi_awvalid(skids_awvalid),
 			.i_axi_awready(skids_awready),
 			.i_axi_awid(   skids_awid),
 			.i_axi_awaddr( skids_awaddr),
@@ -912,24 +1019,23 @@ module axi2axilsub #(
 			.i_axi_awburst(skids_awburst),
 			.i_axi_awlock( 0),
 			.i_axi_awcache(0),
-			.i_axi_awprot( 0),
+			.i_axi_awprot( skids_awprot),
 			.i_axi_awqos(  0),
-			.i_axi_awvalid(skids_awvalid),
 			// }}}
 			// Write data
 			// {{{
+			.i_axi_wvalid( skids_wvalid),
 			.i_axi_wready( skids_wready),
 			.i_axi_wdata(  skids_wdata),
 			.i_axi_wstrb(  skids_wstrb),
 			.i_axi_wlast(  S_AXI_WLAST),
-			.i_axi_wvalid( skids_wvalid),
 			// }}}
 			// Write return response
 			// {{{
-			.i_axi_bid(    S_AXI_BID),
-			.i_axi_bresp(  S_AXI_BRESP),
 			.i_axi_bvalid( S_AXI_BVALID),
 			.i_axi_bready( S_AXI_BREADY),
+			.i_axi_bid(    S_AXI_BID),
+			.i_axi_bresp(  S_AXI_BRESP),
 			// }}}
 			// Read address
 			// {{{
@@ -981,6 +1087,7 @@ module axi2axilsub #(
 		////////////////////////////////////////////////////////////////
 		//
 		//
+
 		faxil_master #(
 			// {{{
 			.C_AXI_DATA_WIDTH(MSTDW),
@@ -989,8 +1096,8 @@ module axi2axilsub #(
 			.F_AXI_MAXWAIT(5),
 			.F_AXI_MAXDELAY(4),
 			.F_AXI_MAXRSTALL(0),
-			.F_OPT_WRITE_ONLY(OPT_WRITES && !OPT_READS),
-			.F_OPT_READ_ONLY(!OPT_WRITES &&  OPT_READS),
+			.F_OPT_WRITE_ONLY(1),
+			.F_OPT_READ_ONLY(1'b0),
 			.F_LGDEPTH(F_AXIL_LGDEPTH)
 			// }}}
 		) faxil(
@@ -1041,9 +1148,29 @@ module axi2axilsub #(
 		);
 
 		always @(*)
+		if (S_AXI_ARESETN)
+		begin
 			assert(faxil_rd_outstanding == 0);
+
+			assert(faxil_awr_outstanding
+				+ ((mst_awbeats > 0) ? mst_awbeats : 0)
+				== f_wfifo_beats
+				+ (bfifo_write ? bfifo_wdata[SLVSZ-MSTSZ:0] : 0)
+				+ bcounts);
+
+			assert(faxil_wr_outstanding
+				+ ((mst_wbeats > 0) ? mst_wbeats : 0)
+				== f_wfifo_beats
+				+ (bfifo_write ? bfifo_wdata[SLVSZ-MSTSZ:0] : 0)
+				+ bcounts);
+		end
+
+
 		always @(*)
-			assert(faxil_awr_outstanding == wfifo_count - ((M_AXI_AWVALID&&!bfifo_write) ? 1:0));
+			assert(faxil_awr_outstanding <= { 1'b1, {(LGFIFO+8){1'b0}} } + bcounts);
+		always @(*)
+			assert(faxil_wr_outstanding  <= { 1'b1, {(LGFIFO+8){1'b0}} } + bcounts);
+
 		// }}}
 		////////////////////////////////////////////////////////////////
 		//
@@ -1095,7 +1222,7 @@ module axi2axilsub #(
 		//
 		assign	M_AXI_BREADY  = 0;
 		// }}}
-	end endgenerate
+	end end endgenerate
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -1227,8 +1354,9 @@ module axi2axilsub #(
 			// }}}
 		);
 
-		// }}}		
-	end else if (OPT_READS)
+		// }}}
+	end else begin : RDN
+	if (OPT_READS)
 	begin : IMPLEMENT_READS
 		// {{{
 
@@ -1322,6 +1450,9 @@ module axi2axilsub #(
 		);
 		// }}}
 
+		assign	skids_arready = (slv_rlen <= (slv_arready ? 1:0))
+					&&(mst_arbeats <=(M_AXI_ARREADY ? 1:0));
+
 		// slv_*
 		// {{{
 		always @(posedge S_AXI_ACLK)
@@ -1373,17 +1504,22 @@ module axi2axilsub #(
 				slv_arburst <= 0;
 				slv_arprot  <= 0;
 
-				slv_rlen    <= 0;
+				slv_arlast  <= 1;
 				// }}}
 			end
+
+			if (!S_AXI_ARESETN)
+				slv_rlen <= 0;
 		end
 
 		assign	slv_arvalid = (slv_rlen > 0);
 `ifdef	FORMAL
 		always @(*)
+		if (S_AXI_ARESETN)
+		begin
 			assert(slv_arlast == (slv_rlen <= 1));
-		always @(*)
-			assert(slv_rlen <= (skids_arlen + 1));
+			assert(slv_rlen <= (slv_arlen + 1));
+		end
 `endif
 		// }}}
 
@@ -1470,7 +1606,7 @@ module axi2axilsub #(
 		end
 `ifdef	FORMAL
 		always @(*)
-		if(OPT_LOWPOWER && mst_arbeats == 0)
+		if(OPT_LOWPOWER && S_AXI_ARESETN && mst_arbeats == 0)
 		begin
 			assert(mst_arid   == 0);
 			assert(mst_araddr == 0);
@@ -1494,16 +1630,13 @@ module axi2axilsub #(
 `ifdef	FORMAL
 		always @(*)
 		if (S_AXI_ARESETN)
-			assert(M_AXI_ARVALID == (mst_arbeats > 1));
+			assert(M_AXI_ARVALID == (mst_arbeats > 0));
 `endif
 		// }}}
 
-		assign	skids_arready = (slv_rlen <= (slv_arready ? 1:0))
-					&&(mst_arbeats <=(M_AXI_ARREADY ? 1:0));
 		assign	slv_arready = (mst_arbeats <= (M_AXI_ARREADY ? 1:0));
-		assign	read_from_rdfifo = skidm_rvalid && skidm_rready;
-					//&&(rfifo_rlast && rfifo_end_of_beat);
-					// && !rfifo_empty;
+		assign	read_from_rdfifo = skidm_rvalid && skidm_rready
+					&&(!S_AXI_RVALID || S_AXI_RREADY);
 
 		// Read ID FIFO
 		// {{{
@@ -1529,8 +1662,7 @@ module axi2axilsub #(
 		);
 		// }}}
 
-		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY
-				||!rfifo_rlast || !rfifo_end_of_beat)
+		assign	skidm_rready = (!S_AXI_RVALID || S_AXI_RREADY)
 				&& !rfifo_empty;
 
 		// s_axi_rvalid
@@ -1540,12 +1672,12 @@ module axi2axilsub #(
 		if (!S_AXI_ARESETN)
 			s_axi_rvalid <= 0;
 		else if (skidm_rvalid && skidm_rready && rfifo_end_of_beat)
-			s_axi_rvalid <= rfifo_rlast;
+			s_axi_rvalid <= 1'b1;
 		else if (S_AXI_RREADY)
 			s_axi_rvalid <= 0;
 		// }}}
 
-		// s_axi_rresp, s_axi_rdata
+		// s_axi_rdata
 		// {{{
 		always @(*)
 		begin
@@ -1557,11 +1689,18 @@ module axi2axilsub #(
 		end
 
 		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_RVALID || S_AXI_RREADY)
+		if (OPT_LOWPOWER && !S_AXI_ARESETN)
+			s_axi_rdata <= 0;
+		else if (!S_AXI_RVALID || S_AXI_RREADY)
 			s_axi_rdata <= next_rdata;
+		// }}}
 
+		// s_axi_rresp
+		// {{{
 		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_RVALID || S_AXI_RREADY)
+		if (!S_AXI_ARESETN)
+			s_axi_rresp <= OKAY;
+		else if (!S_AXI_RVALID || S_AXI_RREADY)
 		begin
 			if (S_AXI_RVALID)
 				s_axi_rresp <= (skidm_rvalid) ? skidm_rresp : OKAY;
@@ -1590,7 +1729,7 @@ module axi2axilsub #(
 		if (!S_AXI_RVALID || S_AXI_RREADY)
 		begin
 			if (read_from_rdfifo)
-				s_axi_rlast <= rfifo_rlast && rfifo_end_of_beat;
+				s_axi_rlast <= rfifo_rlast;
 			else
 				s_axi_rlast <= 0;
 		end
@@ -1601,8 +1740,8 @@ module axi2axilsub #(
 		initial	s_axi_rid = 0;
 		always @(posedge S_AXI_ACLK)
 		if ((S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
-				||(!S_AXI_RVALID && rfifo_rlast && rfifo_end_of_beat))
-			s_axi_rid <= (read_from_rdfifo && rfifo_rlast && rfifo_end_of_beat)?rfifo_rid : rid;
+				||(!S_AXI_RVALID && rfifo_end_of_beat))
+			s_axi_rid <= (read_from_rdfifo && rfifo_end_of_beat)?rfifo_rid : rid;
 		// }}}
 
 		// M_AXI_AR*
@@ -1637,15 +1776,15 @@ module axi2axilsub #(
 				};
 		// Verilator lint_on  UNUSED
 		// }}}
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Formal properties, read half
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		//
+		// Formal properties, read half
+		// {{{
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
+		////////////////////////////////////////////////////////////////
 `ifdef	FORMAL
 		// As with the write half, the following is a subset of the
 		// formal properties used to verify this section of the core.
@@ -1664,7 +1803,7 @@ module axi2axilsub #(
 		//
 		// ...
 		//
-	
+
 		localparam	F_AXIL_LGDEPTH = F_LGDEPTH;
 		wire	[F_AXIL_LGDEPTH-1:0]	faxil_rd_outstanding,
 						faxil_wr_outstanding,
@@ -1776,8 +1915,8 @@ module axi2axilsub #(
 			.F_AXI_MAXWAIT(5),
 			.F_AXI_MAXDELAY(4),
 			.F_AXI_MAXRSTALL(0),
-			.F_OPT_WRITE_ONLY(OPT_WRITES && !OPT_READS),
-			.F_OPT_READ_ONLY(!OPT_WRITES &&  OPT_READS),
+			.F_OPT_WRITE_ONLY(1'b0),
+			.F_OPT_READ_ONLY(1'b1),
 			.F_LGDEPTH(F_AXIL_LGDEPTH)
 			// }}}
 		) faxil(
@@ -1860,7 +1999,7 @@ module axi2axilsub #(
 				};
 		// Verilator lint_on  UNUSED
 		// }}}
-	end endgenerate
+	end end endgenerate
 	// }}}
 	// Minimal parameter validation
 	// {{{
@@ -1900,304 +2039,7 @@ module axi2axilsub #(
 	// file features are not violated, although not necessary true for
 	// actual operation
 	//
-	always @(*)
-		assert(s_axi_wready == (OPT_WRITES && faxi_wr_pending > 0));
 
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Write induction properties
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	// These are extra properties necessary to pass write induction
-	//
-
-	always @(*)
-	if ((bcounts == 0)&&(!read_from_wrfifo))
-		assert(!skidm_bvalid || !skidm_bready);
-
-	always @(*)
-	if (axi_awlen > 0)
-	begin
-		assert(m_axi_awvalid);
-		if (axi_awlen > 1)
-			assert(!skids_awready);
-		else if (wfifo_full)
-			assert(!skids_awready);
-		else if (M_AXI_AWVALID && !M_AXI_AWREADY)
-			assert(!skids_awready);
-	end
-
-
-	always @(*)
-		assert(axi_bresp != EXOKAY);
-
-	reg	[F_LGDEPTH-1:0]	f_wfifo_bursts, f_wfifo_bursts_minus_one,
-				f_wfifo_within, f_wfifo_within_minus_burst,
-				f_wfiid_bursts, f_wfiid_bursts_minus_one;
-	reg	[IW-1:0]	f_awid;
-	always @(posedge S_AXI_ACLK)
-	if (skids_awvalid && skids_awready)
-		f_awid = skids_awid;
-
-	initial f_wfifo_bursts = 0;
-	initial f_wfifo_within = 0;
-	initial f_wfiid_bursts = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || !OPT_WRITES)
-	begin
-		f_wfifo_bursts <= 0;
-		f_wfifo_within <= 0;
-		// ...
-	end else case({ skids_awvalid && skids_awready, read_from_wrfifo })
-	2'b00: begin end
-	2'b01: begin
-		f_wfifo_bursts <= f_wfifo_bursts - 1;
-		f_wfifo_within <= f_wfifo_within - wfifo_subcount - 1;;
-		// ...
-		end
-	2'b10: begin
-		f_wfifo_bursts <= f_wfifo_bursts + 1;
-		f_wfifo_within <= f_wfifo_within + skids_awlen + 1;
-		// ...
-		end
-	2'b11: begin
-		f_wfifo_bursts <= f_wfifo_bursts;
-		f_wfifo_within <= f_wfifo_within + skids_awlen - wfifo_subcount;
-		// ...
-		end
-	endcase
-
-	always @(*)
-		assert(f_wfifo_bursts == wfifo_count);
-	always @(*)
-		assert(f_wfifo_bursts <= f_wfifo_within);
-	// ...
-	always @(*)
-		assert(f_wfifo_within <= { f_wfifo_bursts, 8'h00 });
-
-	always @(*)
-		assert(faxi_awr_nbursts == f_wfifo_bursts
-			+ ((bcounts > 0) ? 1:0)
-			+  (S_AXI_BVALID ? 1:0));
-
-	//
-	// ...
-	//
-
-	always @(*)
-		assert(faxil_awr_outstanding
-			== f_wfifo_within + bcounts - axi_awlen
-				-(M_AXI_AWVALID ? 1:0));
-
-	always @(*)
-		assert(faxil_wr_outstanding
-			== f_wfifo_within + bcounts - faxi_wr_pending);
-
-	always @(*)
-		assert(f_wfifo_within + bcounts >= faxi_wr_pending);
-
-	//
-	// ...
-	//
-
-	always @(*)
-		f_wfifo_bursts_minus_one = f_wfifo_bursts - 1;
-
-	always @(*)
-		f_wfifo_within_minus_burst = f_wfifo_within - wfifo_subcount - 1;
-
-	//
-	// ...
-	//
-
-
-`ifdef	BMC
-`define	BMC_ASSERT	assert
-`else
-`define	BMC_ASSERT	assume
-`endif
-
-	always @(*)
-		assert(faxil_awr_outstanding <= { 1'b1, {(LGFIFO+8){1'b0}} } + bcounts);
-	always @(*)
-		assert(faxil_wr_outstanding  <= { 1'b1, {(LGFIFO+8){1'b0}} } + bcounts);
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Write FIFO assumptions
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	//
-	// ...
-	//
-
-	always @(*)
-	if (f_wfifo_bursts == 0)
-		`BMC_ASSERT(wfifo_empty);
-	else if (f_wfifo_bursts == f_wfifo_within)
-		`BMC_ASSERT(wfifo_subcount == 0);
-	else if ({f_wfifo_bursts, 8'h00 } == f_wfifo_within)
-		`BMC_ASSERT(wfifo_subcount == 8'hff);
-
-	always @(*)
-	if (!wfifo_empty)
-	begin
-		`BMC_ASSERT({ f_wfifo_bursts_minus_one, 8'h00 }
-			>= f_wfifo_within - wfifo_subcount - 1);
-
-		`BMC_ASSERT(wfifo_subcount <= f_wfifo_within-f_wfifo_bursts);
-	end
-
-	//
-	// ...
-	//
-
-	always @(*)
-	if (!wfifo_empty)
-		`BMC_ASSERT(wfifo_subcount <= (f_wfifo_within-f_wfifo_bursts));
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Read induction properties
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	always @(*)
-	if (S_AXI_RVALID && !S_AXI_RLAST)
-		assert(rid == S_AXI_RID);
-
-	always @(*)
-	if ((rcounts == 0)&&(!read_from_rdfifo))
-		assert(!skidm_rvalid || !skidm_rready);
-
-	always @(*)
-	if (axi_arlen > 0)
-	begin
-		assert(m_axi_arvalid);
-		assert(!skids_arready);
-	end
-
-	reg	[F_LGDEPTH-1:0]	f_rfifo_bursts, f_rfifo_bursts_minus_one,
-				f_rfifo_within,
-				f_rfiid_bursts, f_rfiid_bursts_minus_one,
-				f_rfiid_within,
-				f_rfino_bursts, f_rfino_bursts_minus_one,
-				f_rfino_within;
-	reg	[F_LGDEPTH-1:0]	f_rdpip_bursts, f_rdpip_outs,
-				f_rfign_bursts, f_rfign_outs;
-
-
-
-	reg	[IW-1:0]	f_arid;
-	always @(posedge S_AXI_ACLK)
-	if (skids_arvalid && skids_arready)
-		f_arid = skids_arid;
-
-	initial f_rfifo_bursts = 0;
-	initial f_rfifo_within = 0;
-	initial f_rfiid_bursts = 0;
-	initial f_rfiid_within = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || !OPT_READS)
-	begin
-		f_rfifo_bursts <= 0;
-		f_rfifo_within <= 0;
-		f_rfiid_bursts <= 0;
-		f_rfiid_within <= 0;
-	end else case({ skids_arvalid && skids_arready, read_from_rdfifo })
-	2'b00: begin end
-	2'b01: begin
-		f_rfifo_bursts <= f_rfifo_bursts - 1;
-		f_rfifo_within <= f_rfifo_within - rfifo_rcount - 1;
-		// ...
-		end
-	2'b10: begin
-		f_rfifo_bursts <= f_rfifo_bursts + 1;
-		f_rfifo_within <= f_rfifo_within + skids_arlen + 1;
-		// ...
-		end
-	2'b11: begin
-		f_rfifo_bursts <= f_rfifo_bursts;
-		f_rfifo_within <= f_rfifo_within + skids_arlen - rfifo_rcount;
-		// ...
-		end
-	endcase
-
-	//
-	// ...
-	//
-
-
-	always @(*)
-		assert(f_rfifo_bursts == rfifo_count);
-
-	//
-	// ...
-	//
-
-
-	//
-	// Correlate faxi_rd*_bursts with f_rfifo*bursts
-	always @(*)
-		assert(faxi_rd_nbursts == f_rfifo_bursts
-			+ ((rcounts > 0) ? 1:0)
-			+  (S_AXI_RVALID&&S_AXI_RLAST ? 1:0));
-
-	//
-	// ...
-	//
-
-	always @(*)
-		assert(faxil_rd_outstanding
-			== f_rfifo_within + rcounts - axi_arlen
-				-(M_AXI_ARVALID ? 1:0));
-
-	always @(*)
-		assert(faxi_rd_outstanding
-			== f_rfifo_within + rcounts + (S_AXI_RVALID ? 1:0));
-
-
-	//
-	// ...
-	//
-
-	always @(*)
-		f_rfifo_bursts_minus_one = f_rfifo_bursts - 1;
-
-	//
-	// ...
-	//
-
-	always @(*)
-		assert(rcounts <= 256);
-	// }}}
-	////////////////////////////////////////////////////////////////////////
-	//
-	// Read FIFO "assumptions"
-	// {{{
-	////////////////////////////////////////////////////////////////////////
-	//
-	//
-
-	//
-	// ...
-	//
-
-	always @(*)
-	if (rcounts == 0 && S_AXI_RVALID)
-		assert(S_AXI_RLAST);
-
-	//
-	// ...
-	//
-
-	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Select only write or only read operation
@@ -2209,12 +2051,11 @@ module axi2axilsub #(
 	begin
 		always @(*)
 		begin
-			assume(!skids_awvalid);
-			assume(!skids_wvalid);
-			assert(M_AXI_AWVALID == 0);
-			assert(faxil_awr_outstanding == 0);
-			assert(faxil_wr_outstanding == 0);
-			assert(!skidm_bvalid);
+			assume(!S_AXI_AWVALID);
+			assume(!S_AXI_WVALID);
+			assert(!M_AXI_AWVALID);
+			assert(!M_AXI_WVALID);
+			assume(!M_AXI_BVALID);
 			assert(!S_AXI_BVALID);
 		end
 	end endgenerate
@@ -2225,8 +2066,54 @@ module axi2axilsub #(
 		always @(*)
 		begin
 			assume(!S_AXI_ARVALID);
-			assert(M_AXI_ARVALID == 0);
-			assert(faxil_rd_outstanding == 0);
+			assert(!M_AXI_ARVALID);
+		end
+
+	end endgenerate
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Lowpower assertions
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
+
+	generate if (OPT_LOWPOWER)
+	begin : F_LOWPOWER
+
+		always @(*)
+		if (S_AXI_ARESETN)
+		begin
+			if (!M_AXI_AWVALID)
+			begin
+				// Not supported.
+				// assert(M_AXI_AWADDR == 0);
+				// assert(M_AXI_AWPROT == 0);
+			end
+
+			if (!M_AXI_WVALID)
+			begin
+				// assert(M_AXI_WDATA == 0);
+				// assert(M_AXI_WSTRB == 0);
+			end
+
+			if (!M_AXI_ARVALID)
+			begin
+				assert(M_AXI_ARADDR == 0);
+				assert(M_AXI_ARPROT == 0);
+			end
+
+			if (!S_AXI_RVALID)
+			begin
+				// These items build over the course of a
+				// returned burst, so they might not be
+				// zero when RVALID is zero.
+				//
+				// assert(S_AXI_RLAST == 0);
+				// assert(S_AXI_RDATA == 0);
+				// assert(S_AXI_RID == 0);
+			end
 		end
 
 	end endgenerate
@@ -2238,32 +2125,6 @@ module axi2axilsub #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	generate if (OPT_WRITES)
-	begin
-		// {{{
-		reg	[3:0]	cvr_write_count, cvr_write_count_simple;
-
-		initial	cvr_write_count = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			cvr_write_count_simple <= 0;
-		else if (S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN == 0)
-			cvr_write_count_simple <= cvr_write_count_simple + 1;
-
-		initial	cvr_write_count = 0;
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			cvr_write_count <= 0;
-		else if (S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN > 2)
-			cvr_write_count <= cvr_write_count + 1;
-
-		always @(*)
-			cover(cvr_write_count_simple > 6 && faxi_awr_nbursts == 0 && !S_AXI_BVALID);
-		always @(*)
-			cover(cvr_write_count > 2 && faxi_awr_nbursts == 0 && !S_AXI_BVALID);
-		// }}}
-	end endgenerate
-
 	generate if (OPT_READS)
 	begin
 		// {{{
@@ -2283,10 +2144,6 @@ module axi2axilsub #(
 		else if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLEN > 2)
 			cvr_read_count <= cvr_read_count + 1;
 
-		always @(*)
-			cover(cvr_read_count_simple > 6 && faxi_rd_nbursts == 0 && !S_AXI_RVALID);
-		always @(*)
-			cover(cvr_read_count > 2 && faxi_rd_nbursts == 0 && !S_AXI_RVALID);
 		// }}}
 	end endgenerate
 	// }}}
@@ -2296,17 +2153,7 @@ module axi2axilsub #(
 	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	reg	[4:0]	f_count_awwait;
-	initial	f_count_awwait = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || S_AXI_BVALID ||(faxi_wr_pending > 0))
-		f_count_awwait <= 0;
-	else if (skids_awvalid && !skids_awready && (!(&f_count_awwait)))
-		f_count_awwait <= f_count_awwait+1;
 
-	always @(*)
-	if (wfifo_full)
-		assume(f_count_awwait < 3);
 	// }}}
 `undef	BMC_ASSERT
 `endif
