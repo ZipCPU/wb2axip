@@ -187,6 +187,8 @@ module	axisgfsm #(
 	reg		dma_err, dma_abort, dma_done, dma_busy, dma_starting,
 			dma_aborting;
 	reg	[59:0]	r_pf_pc;
+	reg		dma_op_complete, dma_terminate;
+
 	// }}}
 
 	////////////////////////////////////////////////////////////////////////
@@ -196,8 +198,6 @@ module	axisgfsm #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-
-	reg	dma_op_complete, dma_terminate;
 
 	// o_pf_ready
 	// {{{
