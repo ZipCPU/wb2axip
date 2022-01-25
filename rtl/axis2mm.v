@@ -1611,7 +1611,7 @@ module	axis2mm #(
 	// Verilator lint_on  WIDTH
 	assign	M_AXI_AWBURST= { 1'b0, r_increment };
 	assign	M_AXI_AWLOCK = 0;
-	assign	M_AXI_AWCACHE= 0;
+	assign	M_AXI_AWCACHE= 4'h3;
 	assign	M_AXI_AWPROT = 0;
 	assign	M_AXI_AWQOS  = 0;
 
