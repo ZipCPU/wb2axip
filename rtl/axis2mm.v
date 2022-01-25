@@ -277,6 +277,14 @@ module	axis2mm #(
 		parameter	[0:0]	OPT_LOWPOWER  = 1'b0,
 		parameter	[0:0]	OPT_CLKGATE   = OPT_LOWPOWER,
 		//
+		// OPT_ASYNCMEM.  The default FIFO implementation uses an
+		// asynchronous memory read, which will return the result in
+		// the same clock it is requested within.  This forces the
+		// FIFO to use distributed RAM.  For those architectures that
+		// don't have distributed RAM, or those designs that need to
+		// use block RAM, this flag should be set to zero.
+		parameter	[0:0]	OPT_ASYNCMEM  = 1'b1,
+		//
 		// Size of the AXI-lite bus.  These are fixed, since 1) AXI-lite
 		// is fixed at a width of 32-bits by Xilinx def'n, and 2) since
 		// we only ever have 4 configuration words.
@@ -1132,7 +1140,7 @@ module	axis2mm #(
 		sfifo #(
 			// {{{
 			.BW(C_AXIS_TUSER_WIDTH + C_AXI_DATA_WIDTH),
-			.LGFLEN(LGFIFO)
+			.LGFLEN(LGFIFO), .OPT_ASYNC_READ(OPT_ASYNCMEM)
 			// }}}
 		) u_sfifo (
 			// {{{
@@ -1152,7 +1160,7 @@ module	axis2mm #(
 		sfifo #(
 			// {{{
 			.BW(C_AXI_DATA_WIDTH),
-			.LGFLEN(LGFIFO)
+			.LGFLEN(LGFIFO), .OPT_ASYNC_READ(OPT_ASYNCMEM)
 			// }}}
 		) u_sfifo (
 			// {{{
