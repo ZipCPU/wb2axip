@@ -271,7 +271,10 @@ module	aximm2s #(
 				CBIT_COMPLETE	= 29,
 				CBIT_CONTINUOUS	= 28,
 				CBIT_INCREMENT	= 27;
-	localparam	LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
+	localparam	TMP_LGMAXBURST=(LGFIFO > 8) ? 8 : LGFIFO-1;
+	localparam	LGMAXBURST = ((4096/(C_AXI_DATA_WIDTH/8))
+					> (1<<TMP_LGMAXBURST))
+			? TMP_LGMAXBURST : $clog2(4096 * 8 / C_AXI_DATA_WIDTH);
 	localparam	LGMAX_FIXED_BURST = (LGMAXBURST < 4) ? LGMAXBURST : 4,
 			MAX_FIXED_BURST = (1<<LGMAX_FIXED_BURST);
 	localparam	LGLENW  = LGLEN  - ($clog2(C_AXI_DATA_WIDTH)-3),
@@ -1004,8 +1007,12 @@ module	aximm2s #(
 			initial_burstlen = MAX_FIXED_BURST;
 			if (!ar_multiple_fixed_bursts
 				    && !cmd_length_aligned_w[LGMAX_FIXED_BURST])
-				initial_burstlen = { 5'b0, cmd_length_aligned_w[
-						LGMAX_FIXED_BURST-1:0] };
+			begin
+				initial_burstlen = 0;
+				initial_burstlen[LGMAX_FIXED_BURST-1:0]
+					= cmd_length_aligned_w[
+						LGMAX_FIXED_BURST-1:0];
+			end
 		end else if (ar_needs_alignment)
 			initial_burstlen = { 1'b0, addralign };
 		else if (!ar_multiple_full_bursts
@@ -1037,7 +1044,7 @@ module	aximm2s #(
 
 			if (!ar_multiple_bursts_remaining
 				&& ar_next_remaining[LGMAXBURST:0] < MAX_FIXED_BURST)
-				r_max_burst <= { 1'b0, ar_next_remaining[7:0] };
+				r_max_burst <= { 1'b0, ar_next_remaining[LGMAXBURST:0] };
 		end
 		// Verilator lint_on WIDTH
 	end
@@ -1212,12 +1219,34 @@ module	aximm2s #(
 
 	// Calculate ARLEN and ARADDR for the next ARVALID
 	// {{{
+	generate if (LGMAXBURST >= 8)
+	begin : GEN_BIG_AWLEN
+
+		always @(posedge i_clk)
+		if (!r_busy)
+			axi_arlen <= initial_burstlen - 1;
+		else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+			axi_arlen  <= r_max_burst - 8'd1;
+
+	end else begin : GEN_SHORT_AWLEN
+
+		always @(posedge i_clk)
+		begin
+			axi_arlen[7:LGMAXBURST] <= 0;
+			if (!r_busy)
+				axi_arlen[LGMAXBURST:0] <= initial_burstlen - 1;
+			else if (!M_AXI_ARVALID || M_AXI_ARREADY)
+				axi_arlen[LGMAXBURST:0] <= r_max_burst - 1;
+		end
+
+	end endgenerate
+	// }}}
+
+	// Calculate ARADDR for the next ARVALID
+	// {{{
 	initial	axi_araddr = 0;
 	always @(posedge i_clk)
 	begin
-		if (!M_AXI_ARVALID || M_AXI_ARREADY)
-			axi_arlen  <= r_max_burst[7:0] - 8'd1;
-
 		if (M_AXI_ARVALID && M_AXI_ARREADY)
 		begin
 			if (r_increment)
@@ -1232,7 +1261,6 @@ module	aximm2s #(
 
 		if (!r_busy)
 		begin
-			axi_arlen <= initial_burstlen[7:0] - 8'd1;
 			axi_araddr <= cmd_addr;
 		end
 
@@ -1342,8 +1370,8 @@ module	aximm2s #(
 			ar_none_outstanding, S_AXIL_AWADDR[AXILLSB-1:0],
 			S_AXIL_ARADDR[AXILLSB-1:0],
 			new_wideaddr[2*C_AXIL_DATA_WIDTH-1:C_AXI_ADDR_WIDTH],
-			new_widelen[2*C_AXIL_DATA_WIDTH-1:LGLEN],
-			new_widelen[AXILLSB-1:0] };
+			new_widelen
+			};
 	// Verilator coverage_on
 	// Verilator lint_on  UNUSED
 	// }}}
@@ -1871,14 +1899,6 @@ module	aximm2s #(
 	//
 	// ...
 	//
-
-	always @(posedge i_clk)
-	if (phantom_start)
-	begin
-		assert(axi_arlen == $past(r_max_burst[7:0]) - 8'd1);
-		if (!r_increment)
-			assert(M_AXI_ARADDR == fv_start_addr);
-	end
 
 	// Constrain rd_reads_remaining
 	//
