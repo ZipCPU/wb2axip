@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axisafety.v
+// Filename:	axisafety.v
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
@@ -78,6 +78,14 @@
 //		reset and will be able to interact with the rest of the bus
 //		again.
 //
+//	5) OPT_EXCLUSIVE	If clear, will prohibit the slave from ever
+//		receiving an exclusive access request.  This saves the logic
+//		in the firewall necessary to check that an EXOKAY response
+//		to a write request was truly an allowed response.  Since that
+//		logic can explode with the ID width, sparing it can be quite
+//		useful.  If set, provides full exclusive access checking in
+//		addition to the normal bus fault checking.
+//
 // Performance:	As mentioned above, this core can handle one read burst and one
 //		write burst at a time, no more.  Further, the core will delay
 //	an input path by one clock and the output path by another clock, so that
@@ -151,7 +159,10 @@ module axisafety #(
 	// OPT_SELF_RESET: Set to true if the downstream slave should be
 	// reset upon detecting an error and separate from the upstream reset
 	// domain
-	parameter [0:0] OPT_SELF_RESET  = 0,
+	parameter [0:0] OPT_SELF_RESET  = 1'b0,
+	// OPT_EXCLUSIVE: Set to true if the downstream slave might possibly
+	// offer an exclusive access capability
+	parameter [0:0] OPT_EXCLUSIVE  = 1'b0,
 	//
 	// I use the following abbreviations, IW, DW, and AW, to simplify
 	// the code below (and to help it fit within an 80 col terminal)
@@ -280,14 +291,14 @@ module axisafety #(
 	);
 
 	localparam	LGTIMEOUT = $clog2(OPT_TIMEOUT+1);
-	localparam	EXOKAY = 2'b01;
+	localparam [1:0]	OKAY = 2'b00, EXOKAY = 2'b01;
 	localparam	SLAVE_ERROR = 2'b10;
 	//
 	//
 	// Register declarations
 	// {{{
 	reg			faulty_write_return, faulty_read_return;
-	wire			clear_fault;
+	reg			clear_fault;
 	//
 	// Timer/timeout variables
 	reg	[LGTIMEOUT-1:0]	write_timer,   read_timer;
@@ -342,8 +353,8 @@ module axisafety #(
 
 	//
 	// Write FIFO data
-	reg	[IW-1:0]	wfifo_id;
-	reg			wfifo_lock;
+	wire	[IW-1:0]	wfifo_id;
+	wire			wfifo_lock;
 
 	//
 	// Read FIFO data
@@ -358,6 +369,10 @@ module axisafety #(
 	reg	[8:0]	m_wpending;
 	reg		m_wempty, m_wlastctr;
 	reg		waddr_valid, raddr_valid;
+
+	wire			lock_enabled, lock_failed;
+	wire	[(1<<IW)-1:0]	lock_active;
+	reg			rfifo_first, exread;
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
@@ -382,6 +397,45 @@ module axisafety #(
 	else if (!S_AXI_AWREADY)
 		S_AXI_AWREADY <= !S_AXI_AWREADY && S_AXI_BVALID && S_AXI_BREADY;
 	// }}}
+
+	generate if (OPT_EXCLUSIVE)
+	begin : GEN_LOCK_ENABLED
+		// {{{
+		reg	r_lock_enabled, r_lock_failed;
+
+		// lock_enabled
+		// {{{
+		initial	r_lock_enabled = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN || !OPT_EXCLUSIVE)
+			r_lock_enabled <= 0;
+		else if (S_AXI_AWVALID && S_AXI_AWREADY)
+			r_lock_enabled <= S_AXI_AWLOCK && lock_active[S_AXI_AWID];
+		else if (S_AXI_BVALID && S_AXI_BREADY)
+			r_lock_enabled <= 0;
+		// }}}
+
+		// lock_failed
+		// {{{
+		initial	r_lock_failed = 0;
+		always @(posedge S_AXI_ACLK)
+		if (!S_AXI_ARESETN || !OPT_EXCLUSIVE)
+			r_lock_failed <= 0;
+		else if (S_AXI_AWVALID && S_AXI_AWREADY)
+			r_lock_failed <= S_AXI_AWLOCK && !lock_active[S_AXI_AWID];
+		else if (S_AXI_BVALID && S_AXI_BREADY)
+			r_lock_failed <= 0;
+		// }}}
+
+		assign	lock_enabled = r_lock_enabled;
+		assign	lock_failed  = r_lock_failed;
+		// }}}
+	end else begin : NO_LOCK_ENABLE
+		// {{{
+		assign	lock_enabled = 0;
+		assign	lock_failed  = 0;
+		// }}}
+	end endgenerate
 
 	// waddr_valid
 	// {{{
@@ -424,7 +478,13 @@ module axisafety #(
 			r_awvalid <= 0;
 
 		if (!S_AXI_ARESETN)
+		begin
 			r_awvalid <= 0;
+			r_awlock  <= 0;
+		end
+
+		if (!OPT_EXCLUSIVE)
+			r_awlock <= 1'b0;
 	end
 	// }}}
 
@@ -454,7 +514,7 @@ module axisafety #(
 		m_awlen   = S_AXI_AWLEN;
 		m_awsize  = S_AXI_AWSIZE;
 		m_awburst = S_AXI_AWBURST;
-		m_awlock  = S_AXI_AWLOCK;
+		m_awlock  = S_AXI_AWLOCK && OPT_EXCLUSIVE;
 		m_awcache = S_AXI_AWCACHE;
 		m_awprot  = S_AXI_AWPROT;
 		m_awqos   = S_AXI_AWQOS;
@@ -481,12 +541,14 @@ module axisafety #(
 			M_AXI_AWLEN   <= m_awlen;
 			M_AXI_AWSIZE  <= m_awsize;
 			M_AXI_AWBURST <= m_awburst;
-			M_AXI_AWLOCK  <= m_awlock;
+			M_AXI_AWLOCK  <= m_awlock && lock_active[m_awid];
 			M_AXI_AWCACHE <= m_awcache;
 			M_AXI_AWPROT  <= m_awprot;
 			M_AXI_AWQOS   <= m_awqos;
 		end
 
+		if (!OPT_EXCLUSIVE)
+			M_AXI_AWLOCK  <= 0;
 		if (!M_AXI_ARESETN)
 			M_AXI_AWVALID <= 0;
 	end
@@ -519,15 +581,9 @@ module axisafety #(
 	// Keep track of the ID of the last transaction.  Since we only
 	// ever have one write transaction outstanding, this will need to be
 	// the ID of the returned value.
-	//
-	always @(posedge S_AXI_ACLK)
-	if (S_AXI_AWVALID && S_AXI_AWREADY)
-	begin
-		// {{{
-		wfifo_id   <= S_AXI_AWID;
-		wfifo_lock <= S_AXI_AWLOCK;
-		// }}}
-	end
+
+	assign	wfifo_id = r_awid;
+	assign	wfifo_lock = r_awlock;
 	// }}}
 
 	// m_wpending, m_wempty, m_wlastctr
@@ -707,6 +763,8 @@ module axisafety #(
 			M_AXI_WVALID <= m_wvalid;
 			M_AXI_WDATA  <= m_wdata;
 			M_AXI_WSTRB  <= m_wstrb;
+			if (OPT_EXCLUSIVE && lock_failed)
+				M_AXI_WSTRB <= 0;
 			M_AXI_WLAST  <= m_wlast;
 		end
 
@@ -798,8 +856,10 @@ module axisafety #(
 			if (M_AXI_BID != wfifo_id)
 				// An attempt to return the wrong ID
 				faulty_write_return = 1;
-			if (M_AXI_BRESP == EXOKAY && !wfifo_lock)
-				// An attempt to return the wrong ID
+			if (M_AXI_BRESP == EXOKAY && (!OPT_EXCLUSIVE
+					|| !lock_enabled))
+				// An attempt to return a valid lock, without
+				// a prior request
 				faulty_write_return = 1;
 		end
 	end
@@ -937,7 +997,7 @@ module axisafety #(
 	begin
 		if (S_AXI_ARVALID && S_AXI_ARREADY)
 		begin
-			r_arvalid <= (M_AXI_ARVALID && !M_AXI_ARREADY);
+			r_arvalid <= 0; // (M_AXI_ARVALID && !M_AXI_ARREADY);
 			r_arid    <= S_AXI_ARID;
 			r_araddr  <= S_AXI_ARADDR;
 			r_arlen   <= S_AXI_ARLEN;
@@ -952,6 +1012,8 @@ module axisafety #(
 
 		if (!M_AXI_ARESETN)
 			r_arvalid <= 0;
+		if (!OPT_EXCLUSIVE || !S_AXI_ARESETN)
+			r_arlock <= 1'b0;
 	end
 	// }}}
 
@@ -977,7 +1039,7 @@ module axisafety #(
 		m_arlen   = S_AXI_ARLEN;
 		m_arsize  = S_AXI_ARSIZE;
 		m_arburst = S_AXI_ARBURST;
-		m_arlock  = S_AXI_ARLOCK;
+		m_arlock  = S_AXI_ARLOCK && OPT_EXCLUSIVE;
 		m_arcache = S_AXI_ARCACHE;
 		m_arprot  = S_AXI_ARPROT;
 		m_arqos   = S_AXI_ARQOS;
@@ -1005,7 +1067,7 @@ module axisafety #(
 			M_AXI_ARLEN   <= m_arlen;
 			M_AXI_ARSIZE  <= m_arsize;
 			M_AXI_ARBURST <= m_arburst;
-			M_AXI_ARLOCK  <= m_arlock;
+			M_AXI_ARLOCK  <= m_arlock && OPT_EXCLUSIVE;
 			M_AXI_ARCACHE <= m_arcache;
 			M_AXI_ARPROT  <= m_arprot;
 			M_AXI_ARQOS   <= m_arqos;
@@ -1082,8 +1144,14 @@ module axisafety #(
 				faulty_read_return = 1;
 			if (rfifo_penultimate && S_AXI_RVALID && (r_rvalid || !M_AXI_RLAST))
 				faulty_read_return = 1;
-			if (M_AXI_RRESP == EXOKAY && !rfifo_lock)
-				// An attempt to return the wrong ID
+			if (M_AXI_RRESP == EXOKAY && (!OPT_EXCLUSIVE || !rfifo_lock))
+				faulty_read_return = 1;
+			if (OPT_EXCLUSIVE && exread && M_AXI_RRESP == OKAY)
+				// Can't switch from EXOKAY to OKAY
+				faulty_read_return = 1;
+			if ((!OPT_EXCLUSIVE || (!rfifo_first && !exread))
+						&& M_AXI_RRESP == EXOKAY)
+				// Can't switch from OKAY to EXOKAY
 				faulty_read_return = 1;
 		end
 	end
@@ -1113,6 +1181,23 @@ module axisafety #(
 	//
 	// Read return/acknowledgment processing
 	// {{{
+
+
+	// exread
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (!M_AXI_ARESETN || !OPT_EXCLUSIVE)
+		exread <= 0;
+	else if (M_AXI_RVALID && M_AXI_RREADY)
+	begin
+		if (!M_AXI_RRESP[1])
+			exread <= (M_AXI_RRESP == EXOKAY);
+	end else if (S_AXI_RVALID && S_AXI_RREADY)
+	begin
+		if (S_AXI_RLAST)
+			exread <= 1'b0;
+	end
+	// }}}
 
 	// r_rvalid
 	// {{{
@@ -1172,12 +1257,10 @@ module axisafety #(
 	// rfifo_id, rfifo_lock
 	// {{{
 	// Copy the ID for later comparisons on the return
-	always @(posedge S_AXI_ACLK)
-	if (S_AXI_ARVALID && S_AXI_ARREADY)
-	begin
-		rfifo_id   <= S_AXI_ARID;
-		rfifo_lock <= S_AXI_ARLOCK;
-	end
+	always @(*)
+		rfifo_id = r_arid;
+	always @(*)
+		rfifo_lock = r_arlock;
 	// }}}
 
 	// rfifo_[counter|empty|last|penultimate
@@ -1214,6 +1297,62 @@ module axisafety #(
 			rfifo_penultimate <= (rfifo_counter == 3);
 		end
 	end
+	// }}}
+
+	// lock_active
+	// {{{
+	generate if (OPT_EXCLUSIVE)
+	begin : CALC_LOCK_ACTIVE
+		// {{{
+		genvar	gk;
+
+		for(gk=0; gk<(1<<IW); gk=gk+1)
+		begin : LOCK_PER_ID
+			reg	r_lock_active;
+
+			initial	r_lock_active = 0;
+			always @(posedge S_AXI_ACLK)
+			if (!S_AXI_ARESETN || !M_AXI_ARESETN
+				|| faulty_read_return || faulty_write_return)
+				r_lock_active <= 0;
+			else if (M_AXI_RVALID && M_AXI_RREADY && rfifo_lock
+					&& !S_AXI_ARREADY
+					&& r_arid == gk[IW-1:0]
+					&&(!faulty_read_return && !o_read_fault)
+					&& M_AXI_RRESP == EXOKAY)
+				r_lock_active <= 1;
+			else if (M_AXI_BVALID && M_AXI_BREADY && wfifo_lock
+					&& r_awid == gk[IW-1:0]
+					&& (S_AXI_ARREADY
+						|| r_arid != gk[IW-1:0]
+						|| !r_arlock)
+					&& M_AXI_BRESP == OKAY)
+				r_lock_active <= 0;
+			else if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLOCK
+					&& S_AXI_ARID == gk[IW-1:0])
+				r_lock_active <= 0;
+
+			assign	lock_active[gk] = r_lock_active;
+		end
+		// }}}
+	end else begin : LOCK_NEVER_ACTIVE
+		// {{{
+		assign	lock_active = 0;
+		// }}}
+	end endgenerate
+	// }}}
+
+	// rfifo_first
+	// {{{
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || !OPT_EXCLUSIVE)
+		rfifo_first <= 1'b0;
+	else if (S_AXI_ARVALID && S_AXI_ARREADY)
+		rfifo_first <= 1'b1;
+	else if (M_AXI_RVALID && M_AXI_RREADY)
+		rfifo_first <= 1'b0;
+	else if (o_read_fault)
+		rfifo_first <= 1'b0;
 	// }}}
 
 	// m_rvalid, m_rresp
@@ -1416,14 +1555,13 @@ module axisafety #(
 		.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
 		// ...
 		// }}}
-		)
-		f_slave(
+	) f_slave(
+		// {{{
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
-		// {{{
 		//
 		// Address write channel
-		//
+		// {{{
 		.i_axi_awid(S_AXI_AWID),
 		.i_axi_awaddr(S_AXI_AWADDR),
 		.i_axi_awlen(S_AXI_AWLEN),
@@ -1435,30 +1573,24 @@ module axisafety #(
 		.i_axi_awqos(S_AXI_AWQOS),
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
-	//
-	//
-		//
+		// }}}
 		// Write Data Channel
-		//
-		// Write Data
+		// {{{
 		.i_axi_wdata(S_AXI_WDATA),
 		.i_axi_wstrb(S_AXI_WSTRB),
 		.i_axi_wlast(S_AXI_WLAST),
 		.i_axi_wvalid(S_AXI_WVALID),
 		.i_axi_wready(S_AXI_WREADY),
-	//
-	//
-		// Response ID tag. This signal is the ID tag of the
-		// write response.
+		// }}}
+		// Write response channel
+		// {{{
 		.i_axi_bid(S_AXI_BID),
 		.i_axi_bresp(S_AXI_BRESP),
 		.i_axi_bvalid(S_AXI_BVALID),
 		.i_axi_bready(S_AXI_BREADY),
-	//
-	//
-		//
+		// }}}
 		// Read address channel
-		//
+		// {{{
 		.i_axi_arid(S_AXI_ARID),
 		.i_axi_araddr(S_AXI_ARADDR),
 		.i_axi_arlen(S_AXI_ARLEN),
@@ -1470,22 +1602,18 @@ module axisafety #(
 		.i_axi_arqos(S_AXI_ARQOS),
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
-	//
-	//
-		//
+		// }}}
 		// Read data return channel
-		//
+		// {{{
+		.i_axi_rvalid(S_AXI_RVALID),
+		.i_axi_rready(S_AXI_RREADY),
 		.i_axi_rid(S_AXI_RID),
 		.i_axi_rdata(S_AXI_RDATA),
 		.i_axi_rresp(S_AXI_RRESP),
 		.i_axi_rlast(S_AXI_RLAST),
-		.i_axi_rvalid(S_AXI_RVALID),
-		// Read ready. This signal indicates that the master can
-		// accept the read data and response information.
-		.i_axi_rready(S_AXI_RREADY),
-		//
-		// Formal outputs
-		//
+		// }}}
+		// Formal induction values
+		// {{{
 		.f_axi_awr_nbursts(f_axi_awr_nbursts),
 		.f_axi_wr_pending(f_axi_wr_pending),
 		.f_axi_rd_nbursts(f_axi_rd_nbursts),
@@ -1493,16 +1621,16 @@ module axisafety #(
 		//
 		// ...
 		// }}}
+		// }}}
 	);
 
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Write induction properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	// {{{
 
 	// 1. We will only ever handle a single burst--never any more
 	always @(*)
@@ -1527,8 +1655,9 @@ module axisafety #(
 		assert(s_wbursts == 0);
 		assert(!S_AXI_WREADY);
 		if (OPT_SELF_RESET)
+		begin
 			assert(1 || S_AXI_AWREADY || !M_AXI_ARESETN || !S_AXI_ARESETN);
-		else
+		end else
 			assert(S_AXI_AWREADY);
 	end
 
@@ -1540,22 +1669,28 @@ module axisafety #(
 	// AWREADY will always be low mid-burst
 	always @(posedge S_AXI_ACLK)
 	if (!f_past_valid || $past(!S_AXI_ARESETN))
+	begin
 		assert(S_AXI_AWREADY == !OPT_SELF_RESET);
-	else if (f_axi_wr_pending > 0)
+	end else if (f_axi_wr_pending > 0)
+	begin
 		assert(!S_AXI_AWREADY);
-	else if (s_wbursts)
+	end else if (s_wbursts)
+	begin
 		assert(!S_AXI_AWREADY);
-	else if (!OPT_SELF_RESET)
+	end else if (!OPT_SELF_RESET)
+	begin
 		assert(S_AXI_AWREADY);
-	else if (!o_write_fault && !o_read_fault)
+	end else if (!o_write_fault && !o_read_fault)
 		assert(S_AXI_AWREADY || OPT_SELF_RESET);
 
 	always @(*)
 	if (f_axi_wr_pending > 0)
+	begin
 		assert(s_wbursts == 0);
-	else if (f_axi_awr_nbursts > 0)
-		assert(s_wbursts == f_axi_awr_nbursts);
-	else
+	end else if (f_axi_awr_nbursts > 0)
+	begin
+		assert((s_wbursts ? 1:0) == f_axi_awr_nbursts);
+	end else
 		assert(s_wbursts == 0);
 
 	always @(*)
@@ -1573,8 +1708,9 @@ module axisafety #(
 
 	always @(*)
 	if (S_AXI_WREADY)
+	begin
 		assert(waddr_valid);
-	else if (f_axi_wr_pending > 0)
+	end else if (f_axi_wr_pending > 0)
 	begin
 		if (!o_write_fault)
 			assert(M_AXI_WVALID && r_wvalid);
@@ -1582,14 +1718,15 @@ module axisafety #(
 
 	always @(*)
 	if (!OPT_SELF_RESET)
+	begin
 		assert(waddr_valid == !S_AXI_AWREADY);
-	else begin
+	end else begin
 		// ...
 		assert(waddr_valid == (f_axi_awr_nbursts > 0));
 	end
 
 	always @(*)
-	if (S_AXI_ARESETN && !o_write_fault && f_axi_wr_pending && !S_AXI_WREADY)
+	if (S_AXI_ARESETN && !o_write_fault && f_axi_wr_pending > 0 && !S_AXI_WREADY)
 		assert(M_AXI_WVALID);
 
 	always @(*)
@@ -1603,8 +1740,9 @@ module axisafety #(
 	if (S_AXI_ARESETN && M_AXI_AWVALID)
 	begin
 		if (!o_write_fault && !M_AXI_AWVALID)
+		begin
 			assert(f_axi_wr_pending + (M_AXI_WVALID ? 1:0) + (r_wvalid ? 1:0) == m_wpending);
-		else if (!o_write_fault)
+		end else if (!o_write_fault)
 		begin
 			assert(f_axi_wr_pending == M_AXI_AWLEN + 1 - (M_AXI_WVALID ? 1:0) - (r_wvalid ? 1:0));
 			assert(m_wpending == 0);
@@ -1628,7 +1766,7 @@ module axisafety #(
 		end
 
 		if (!M_AXI_AWVALID)
-			assert(f_axi_wr_pending 
+			assert(f_axi_wr_pending
 					+(M_AXI_WVALID ? 1:0)
 					+ (r_wvalid ? 1:0)
 				== m_wpending);
@@ -1670,8 +1808,9 @@ module axisafety #(
 
 	always @(*)
 	if (!OPT_SELF_RESET)
+	begin
 		assert(waddr_valid == !S_AXI_AWREADY);
-	else if (waddr_valid)
+	end else if (waddr_valid)
 		assert(!S_AXI_AWREADY);
 
 	always @(*)
@@ -1682,14 +1821,12 @@ module axisafety #(
 	if (f_axi_wr_pending == 0)
 		assert(!S_AXI_WREADY);
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Read induction properties
-	//
+	// {{{
 	////////////////////////////////////////////////////////////////////////
 	//
-	// {{{
 	//
 
 	always @(*)
@@ -1698,8 +1835,9 @@ module axisafety #(
 		assert(raddr_valid == (f_axi_rd_nbursts>0));
 	always @(*)
 	if (f_axi_rdid_nbursts > 0)
+	begin
 		assert(rfifo_id == f_axi_rd_checkid);
-	else if (f_axi_rd_nbursts > 0)
+	end else if (f_axi_rd_nbursts > 0)
 		assert(rfifo_id != f_axi_rd_checkid);
 
 	always @(*)
@@ -1712,8 +1850,9 @@ module axisafety #(
 
 	always @(*)
 	if (!OPT_SELF_RESET)
+	begin
 		assert(raddr_valid == !S_AXI_ARREADY);
-	else begin
+	end else begin
 		// ...
 		assert(raddr_valid == (f_axi_rd_nbursts > 0));
 	end
@@ -1776,9 +1915,15 @@ module axisafety #(
 			assert(o_read_fault || o_write_fault /* ... */ );
 	end
 	// }}}
-
-
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Exclusive access property checking
 	// {{{
+	//
+	////////////////////////////////////////////////////////////////////////
+	//
+	// ...
+	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Cover properties
@@ -1795,118 +1940,123 @@ module axisafety #(
 	//
 	//
 	generate if (F_OPT_FAULTLESS)
-	begin
+	begin : ASSUME_FAULTLESS
+		// {{{
 		//
 		// ...
 		//
 
-		faxi_master	#(
+		faxi_master #(
 			// {{{
 			.C_AXI_ID_WIDTH(C_S_AXI_ID_WIDTH),
 			.C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
-			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH))
+			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
 			// ...
 			// }}}
-		f_master(
-		.i_clk(S_AXI_ACLK),
-		.i_axi_reset_n(M_AXI_ARESETN),
-		// {{{
-		//
-		// Address write channel
-		//
-		.i_axi_awid(M_AXI_AWID),
-		.i_axi_awaddr(M_AXI_AWADDR),
-		.i_axi_awlen(M_AXI_AWLEN),
-		.i_axi_awsize(M_AXI_AWSIZE),
-		.i_axi_awburst(M_AXI_AWBURST),
-		.i_axi_awlock(M_AXI_AWLOCK),
-		.i_axi_awcache(M_AXI_AWCACHE),
-		.i_axi_awprot(M_AXI_AWPROT),
-		.i_axi_awqos(M_AXI_AWQOS),
-		.i_axi_awvalid(M_AXI_AWVALID),
-		.i_axi_awready(M_AXI_AWREADY),
-	//
-	//
-		//
-		// Write Data Channel
-		//
-		// Write Data
-		.i_axi_wdata(M_AXI_WDATA),
-		.i_axi_wstrb(M_AXI_WSTRB),
-		.i_axi_wlast(M_AXI_WLAST),
-		.i_axi_wvalid(M_AXI_WVALID),
-		.i_axi_wready(M_AXI_WREADY),
-	//
-	//
-		// Response ID tag. This signal is the ID tag of the
-		// write response.
-		.i_axi_bid(M_AXI_BID),
-		.i_axi_bresp(M_AXI_BRESP),
-		.i_axi_bvalid(M_AXI_BVALID),
-		.i_axi_bready(M_AXI_BREADY),
-	//
-	//
-		//
-		// Read address channel
-		//
-		.i_axi_arid(M_AXI_ARID),
-		.i_axi_araddr(M_AXI_ARADDR),
-		.i_axi_arlen(M_AXI_ARLEN),
-		.i_axi_arsize(M_AXI_ARSIZE),
-		.i_axi_arburst(M_AXI_ARBURST),
-		.i_axi_arlock(M_AXI_ARLOCK),
-		.i_axi_arcache(M_AXI_ARCACHE),
-		.i_axi_arprot(M_AXI_ARPROT),
-		.i_axi_arqos(M_AXI_ARQOS),
-		.i_axi_arvalid(M_AXI_ARVALID),
-		.i_axi_arready(M_AXI_ARREADY),
-	//
-	//
-		//
-		// Read data return channel
-		//
-		.i_axi_rid(M_AXI_RID),
-		.i_axi_rdata(M_AXI_RDATA),
-		.i_axi_rresp(M_AXI_RRESP),
-		.i_axi_rlast(M_AXI_RLAST),
-		.i_axi_rvalid(M_AXI_RVALID),
-		.i_axi_rready(M_AXI_RREADY),
-		//
-		// Formal outputs
-		//
-		.f_axi_awr_nbursts(fm_axi_awr_nbursts),
-		.f_axi_wr_pending(fm_axi_wr_pending),
-		.f_axi_rd_nbursts(fm_axi_rd_nbursts),
-		.f_axi_rd_outstanding(fm_axi_rd_outstanding)
-		//
-		// ...
-		//
-		// }}}
+		) f_master(
+			// {{{
+			.i_clk(S_AXI_ACLK),
+			.i_axi_reset_n(M_AXI_ARESETN),
+			//
+			// Address write channel
+			// {{{
+			.i_axi_awid(M_AXI_AWID),
+			.i_axi_awaddr(M_AXI_AWADDR),
+			.i_axi_awlen(M_AXI_AWLEN),
+			.i_axi_awsize(M_AXI_AWSIZE),
+			.i_axi_awburst(M_AXI_AWBURST),
+			.i_axi_awlock(M_AXI_AWLOCK),
+			.i_axi_awcache(M_AXI_AWCACHE),
+			.i_axi_awprot(M_AXI_AWPROT),
+			.i_axi_awqos(M_AXI_AWQOS),
+			.i_axi_awvalid(M_AXI_AWVALID),
+			.i_axi_awready(M_AXI_AWREADY),
+			// }}}
+			// Write Data Channel
+			// {{{
+			.i_axi_wvalid(M_AXI_WVALID),
+			.i_axi_wready(M_AXI_WREADY),
+			.i_axi_wdata(M_AXI_WDATA),
+			.i_axi_wstrb(M_AXI_WSTRB),
+			.i_axi_wlast(M_AXI_WLAST),
+			// }}}
+			// Write response channel
+			// {{{
+			.i_axi_bvalid(M_AXI_BVALID),
+			.i_axi_bready(M_AXI_BREADY),
+			.i_axi_bid(M_AXI_BID),
+			.i_axi_bresp(M_AXI_BRESP),
+			// }}}
+			// Read address channel
+			// {{{
+			.i_axi_arid(M_AXI_ARID),
+			.i_axi_araddr(M_AXI_ARADDR),
+			.i_axi_arlen(M_AXI_ARLEN),
+			.i_axi_arsize(M_AXI_ARSIZE),
+			.i_axi_arburst(M_AXI_ARBURST),
+			.i_axi_arlock(M_AXI_ARLOCK),
+			.i_axi_arcache(M_AXI_ARCACHE),
+			.i_axi_arprot(M_AXI_ARPROT),
+			.i_axi_arqos(M_AXI_ARQOS),
+			.i_axi_arvalid(M_AXI_ARVALID),
+			.i_axi_arready(M_AXI_ARREADY),
+			// }}}
+			// Read data return channel
+			// {{{
+			.i_axi_rvalid(M_AXI_RVALID),
+			.i_axi_rready(M_AXI_RREADY),
+			.i_axi_rid(M_AXI_RID),
+			.i_axi_rdata(M_AXI_RDATA),
+			.i_axi_rresp(M_AXI_RRESP),
+			.i_axi_rlast(M_AXI_RLAST),
+			// }}}
+			// Formal outputs
+			// {{{
+			.f_axi_awr_nbursts(fm_axi_awr_nbursts),
+			.f_axi_wr_pending(fm_axi_wr_pending),
+			.f_axi_rd_nbursts(fm_axi_rd_nbursts),
+			.f_axi_rd_outstanding(fm_axi_rd_outstanding)
+			//
+			// ...
+			// }}}
+			// }}}
 		);
 
+		////////////////////////////////////////////////////////////////
+		//
+		// Contract: If the downstream has no faults, then we
+		//	shouldn't detect any here.
 		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
 		always @(*)
 		if (OPT_SELF_RESET)
+		begin
 			assert(!o_write_fault || !M_AXI_ARESETN);
-		else
+		end else
 			assert(!o_write_fault);
 
 		always @(*)
 		if (OPT_SELF_RESET)
+		begin
 			assert(!o_read_fault || !M_AXI_ARESETN);
-		else
+		end else
 			assert(!o_read_fault);
 
 		always @(*)
 		if (OPT_SELF_RESET)
+		begin
 			assert(!read_timeout || !M_AXI_ARESETN);
-		else
+		end else
 			assert(!read_timeout);
 
 		always @(*)
 		if (OPT_SELF_RESET)
+		begin
 			assert(!write_timeout || !M_AXI_ARESETN);
-		else
+		end else
 			assert(!write_timeout);
 
 		always @(*)
@@ -1951,11 +2101,36 @@ module axisafety #(
 			// ...
 			//
 		end
+		// }}}
+		////////////////////////////////////////////////////////////////
+		//
+		// Exclusive address checking
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
 
+		//
 		//
 		// ...
 		//
 
+		////////////////////////////////////////////////////////////////
+		//
+		// Cover checks
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
+
+		// }}}
+		////////////////////////////////////////////////////////////////
+		//
+		// "Careless" assumptions
+		// {{{
+		////////////////////////////////////////////////////////////////
+		//
+		//
 	end endgenerate
 
 	//
@@ -1994,7 +2169,12 @@ module axisafety #(
 
 	always @(posedge S_AXI_ACLK)
 	if (S_AXI_ARESETN && !o_write_fault && M_AXI_ARESETN && M_AXI_WVALID)
-		assert({ M_AXI_WDATA, M_AXI_WSTRB } != fc_never_write_data);
+	begin
+		if (lock_failed)
+			assert(M_AXI_WSTRB == 0);
+		else
+			assert({ M_AXI_WDATA, M_AXI_WSTRB } != fc_never_write_data);
+	end
 	// }}}
 
 	// Read address
@@ -2034,49 +2214,111 @@ module axisafety #(
 	// can achieve
 	//
 	reg	[4:0]	f_dbl_rd_count, f_dbl_wr_count;
+	reg	[4:0]	f_rd_count, f_wr_count;
 
-	initial	f_dbl_wr_count = 0;
+	// f_wr_count
+	// {{{
+	initial	f_wr_count = 0;
 	always @(posedge S_AXI_ACLK)
 	if (!S_AXI_ARESETN || o_write_fault)
-		f_dbl_wr_count = 0;
-	else if (S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN == 3)
+		f_wr_count <= 0;
+	else if (S_AXI_BVALID && S_AXI_BREADY)
+	begin
+		if (!(&f_wr_count))
+			f_wr_count <= f_wr_count + 1;
+	end
+	// }}}
+
+	// f_dbl_wr_count
+	// {{{
+	initial	f_dbl_wr_count = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || o_write_fault||(S_AXI_AWVALID && S_AXI_AWLEN < 3))
+		f_dbl_wr_count <= 0;
+	else if (S_AXI_BVALID && S_AXI_BREADY)
 	begin
 		if (!(&f_dbl_wr_count))
 			f_dbl_wr_count <= f_dbl_wr_count + 1;
 	end
+	// }}}
+
+	// f_rd_count
+	// {{{
+	initial	f_rd_count = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || o_read_fault)
+		f_rd_count <= 0;
+	else if (S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
+	begin
+		if (!(&f_rd_count))
+			f_rd_count <= f_rd_count + 1;
+	end
+	// }}}
+
+	// f_dbl_rd_count
+	// {{{
+	initial	f_dbl_rd_count = 0;
+	always @(posedge S_AXI_ACLK)
+	if (!S_AXI_ARESETN || o_read_fault||(S_AXI_ARVALID && S_AXI_ARLEN < 3))
+		f_dbl_rd_count <= 0;
+	else if (S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
+	begin
+		if (!(&f_dbl_rd_count))
+			f_dbl_rd_count <= f_dbl_rd_count + 1;
+	end
+	// }}}
+
+	// Can we complete a single write burst without fault?
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN)
+		cover((f_wr_count > 1) && (!o_write_fault));
 
 	always @(*)
-		cover(!S_AXI_ARESETN && (f_dbl_wr_count > 3)
-			&& (!o_write_fault)
+	if (S_AXI_ARESETN)
+		cover((f_dbl_wr_count > 1) && (!o_write_fault));
+	// }}}
+
+	// Can we complete four write bursts without fault? (and return to idle)
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN)
+		cover((f_wr_count > 3) && (!o_write_fault)
 			&&(!S_AXI_AWVALID && !S_AXI_WVALID
 					&& !S_AXI_BVALID)
 			&& (f_axi_awr_nbursts == 0)
 			&& (f_axi_wr_pending == 0));
 
 	always @(*)
-		cover(!S_AXI_ARESETN && (f_dbl_wr_count > 1)
-			&& (!o_write_fault)
-			);
+	if (S_AXI_ARESETN)
+		cover((f_dbl_wr_count > 3) && (!o_write_fault)
+			&&(!S_AXI_AWVALID && !S_AXI_WVALID
+					&& !S_AXI_BVALID)
+			&& (f_axi_awr_nbursts == 0)
+			&& (f_axi_wr_pending == 0));
+	// }}}
+
+	// Can we complete a single read burst without fault?
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN)
+		cover((f_rd_count > 1) && (!o_read_fault));
 
 	always @(*)
-		cover(S_AXI_AWVALID && S_AXI_AWREADY);
+	if (S_AXI_ARESETN)
+		cover((f_dbl_rd_count > 1) && (!o_read_fault));
+	// }}}
+
+	// Can we complete four read bursts without fault?
+	// {{{
+	always @(*)
+	if (S_AXI_ARESETN)
+		cover((f_rd_count > 3) && (f_axi_rd_nbursts == 0)
+			&& !S_AXI_ARVALID && !S_AXI_RVALID);
 
 	always @(*)
-		cover(S_AXI_AWVALID && S_AXI_AWREADY && S_AXI_AWLEN == 3);
-
-	initial	f_dbl_rd_count = 0;
-	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_ARESETN || o_read_fault)
-		f_dbl_rd_count = 0;
-	else if (S_AXI_ARVALID && S_AXI_ARREADY && S_AXI_ARLEN == 3)
-	begin
-		if (!(&f_dbl_rd_count))
-			f_dbl_rd_count <= f_dbl_rd_count + 1;
-	end
-
-	always @(*)
-		cover(!S_AXI_ARESETN && (f_dbl_rd_count > 3)
-			&& (f_axi_rd_nbursts == 0)
+	if (S_AXI_ARESETN)
+		cover((f_dbl_rd_count > 3) && (f_axi_rd_nbursts == 0)
 			&& !S_AXI_ARVALID && !S_AXI_RVALID);
 	// }}}
 `endif
