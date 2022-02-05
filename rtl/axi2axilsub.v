@@ -762,6 +762,8 @@ module axi2axilsub #(
 			.i_rd(read_from_wrfifo),
 			.o_data({ wfifo_bid, wfifo_wlast,wfifo_subcount }),
 			.o_empty(wfifo_empty)
+			// }}}
+		);
 		// }}}
 
 		// read_from_wrfifo
@@ -922,7 +924,7 @@ module axi2axilsub #(
 		initial	s_axi_bresp = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			s_axi_bresp <= 0;
+			s_axi_bresp <= OKAY;
 		else if (!S_AXI_BVALID || S_AXI_BREADY)
 		begin
 			if (skidm_bvalid && skidm_bready)
