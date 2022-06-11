@@ -77,7 +77,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// Copyright (C) 2019-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -111,21 +111,21 @@ module	axildouble #(
 		parameter	NS = 8,
 		//
 		//
-		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
-			{ 3'b111, {(AW-3){1'b0}} },
-			{ 3'b110, {(AW-3){1'b0}} },
-			{ 3'b101, {(AW-3){1'b0}} },
-			{ 3'b100, {(AW-3){1'b0}} },
-			{ 3'b011, {(AW-3){1'b0}} },
-			{ 3'b010, {(AW-3){1'b0}} },
-			{ 4'b0001,{(AW-4){1'b0}} },
-			{ 4'b0000,{(AW-4){1'b0}} } },
+		parameter	[NS*C_AXI_ADDR_WIDTH-1:0]	SLAVE_ADDR = {
+			{ 3'b111, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 3'b110, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 3'b101, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 3'b100, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 3'b011, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 3'b010, {(C_AXI_ADDR_WIDTH-3){1'b0}} },
+			{ 4'b0001,{(C_AXI_ADDR_WIDTH-4){1'b0}} },
+			{ 4'b0000,{(C_AXI_ADDR_WIDTH-4){1'b0}} } },
 		//
 		//
-		parameter	[NS*AW-1:0]	SLAVE_MASK =
+		parameter	[NS*C_AXI_ADDR_WIDTH-1:0]	SLAVE_MASK =
 			(NS <= 1) ? 0
-			: {	{(NS-2){ 3'b111, {(AW-3){1'b0}} }},
-				{(2){   4'b1111, {(AW-4){1'b0}} }}
+			: {	{(NS-2){ 3'b111,{(C_AXI_ADDR_WIDTH-3){1'b0}} }},
+				{(2){   4'b1111,{(C_AXI_ADDR_WIDTH-4){1'b0}} }}
 			},
 		//
 		//

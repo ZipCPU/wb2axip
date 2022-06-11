@@ -59,13 +59,28 @@
 //	This can also be used to help identify relevant values within any
 //	trace.
 //
+// Known issues: This module can be a challenge to wire up.
+//
+//	In order to keep the build lint clean, it's important that every
+//	port be connected.  In order to be flexible regarding the number of
+//	ports that can be connected, the various AXI signals, whether input
+//	or output, have been concatenated together across either all masters
+//	or all slaves.  This can make the design a lesson in tediousness to
+//	wire up.
+//
+//	I commonly wire this crossbar up using AutoFPGA--just to make certain
+//	that I do it right and don't make mistakes when wiring it up.  This
+//	also handles the tediousness involved.
+//
+//	I have also done this by hand.
+//
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 // }}}
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// Copyright (C) 2019-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -92,16 +107,12 @@ module	axixbar #(
 		parameter integer C_AXI_ADDR_WIDTH = 32,
 		parameter integer C_AXI_ID_WIDTH = 2,
 		//
-		// NM is the number of masters driving incoming slave channels
+		// NM is the number of masters driving the incoming slave chnls
 		parameter	NM = 4,
 		//
-		// NS is the number of slaves connected to the crossbar
+		// NS is the number of slaves connected to the crossbar, driven
+		// by the master channels output from this IP.
 		parameter	NS = 8,
-		//
-		// IW, AW, and DW, are short-hand abbreviations used locally.
-		localparam	IW = C_AXI_ID_WIDTH,
-		localparam	AW = C_AXI_ADDR_WIDTH,
-		localparam	DW = C_AXI_DATA_WIDTH,
 		//
 		// SLAVE_ADDR is an array of addresses, describing each of
 		// {{{
@@ -116,15 +127,19 @@ module	axixbar #(
 		// Any attempt to access an address that is a hole in this
 		// address list will result in a returned xRESP value of
 		// INTERCONNECT_ERROR (2'b11)
-		parameter	[NS*AW-1:0]	SLAVE_ADDR = {
-			3'b111,  {(AW-3){1'b0}},
-			3'b110,  {(AW-3){1'b0}},
-			3'b101,  {(AW-3){1'b0}},
-			3'b100,  {(AW-3){1'b0}},
-			3'b011,  {(AW-3){1'b0}},
-			3'b010,  {(AW-3){1'b0}},
-			4'b0001, {(AW-4){1'b0}},
-			4'b0000, {(AW-4){1'b0}} },
+		//
+		// NOTE: This is only a nominal address set.  I expect that
+		// any design using the crossbar will need to adjust both
+		// SLAVE_ADDR and SLAVE_MASK, if not also NM and NS.
+		parameter	[NS*C_AXI_ADDR_WIDTH-1:0]	SLAVE_ADDR = {
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b110,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b101,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b100,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b011,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b010,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			4'b0001, {(C_AXI_ADDR_WIDTH-4){1'b0}},
+			4'b0000, {(C_AXI_ADDR_WIDTH-4){1'b0}} },
 		// }}}
 		//
 		// SLAVE_MASK: is an array, much like SLAVE_ADDR, describing
@@ -132,11 +147,18 @@ module	axixbar #(
 		// which of the bits in SLAVE_ADDR are relevant.  It is
 		// important to maintain for every slave that
 		// 	(~SLAVE_MASK[i] & SLAVE_ADDR[i]) == 0.
+		//
+		// NOTE: This value should be overridden by any implementation.
 		// Verilator lint_off WIDTH
-		parameter	[NS*AW-1:0]	SLAVE_MASK =
-			(NS <= 1) ? { 4'b1111, {(AW-4){1'b0}} }
-			: { {(NS-2){ 3'b111, {(AW-3){1'b0}} }},
-				{(2){ 4'b1111, {(AW-4){1'b0}} } } },
+		parameter	[NS*C_AXI_ADDR_WIDTH-1:0]	SLAVE_MASK = {
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			3'b111,  {(C_AXI_ADDR_WIDTH-3){1'b0}},
+			4'b1111, {(C_AXI_ADDR_WIDTH-4){1'b0}},
+			4'b1111, {(C_AXI_ADDR_WIDTH-4){1'b0}} },
 		// Verilator lint_on  WIDTH
 		// }}}
 		//
@@ -273,9 +295,15 @@ module	axixbar #(
 		// }}}
 		// }}}
 	);
-	//
+
 	// Local parameters, derived from those above
 	// {{{
+	// IW, AW, and DW, are short-hand abbreviations used locally.
+	localparam	IW = C_AXI_ID_WIDTH;
+	localparam	AW = C_AXI_ADDR_WIDTH;
+	localparam	DW = C_AXI_DATA_WIDTH;
+	// LGLINGER tells us how many bits we need for counting how long
+	// to keep an udle channel open.
 	localparam	LGLINGER = (OPT_LINGER>1) ? $clog2(OPT_LINGER+1) : 1;
 	//
 	localparam	LGNM = (NM>1) ? $clog2(NM) : 1;
@@ -308,7 +336,6 @@ module	axixbar #(
 	// combinatorial path length
 	localparam	OPT_AWW = 1'b1;
 	// }}}
-
 	////////////////////////////////////////////////////////////////////////
 	//
 	// Internal signal declarations and definitions
