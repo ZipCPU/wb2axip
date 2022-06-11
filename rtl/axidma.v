@@ -40,7 +40,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// Copyright (C) 2020-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -560,11 +560,11 @@ module	axidma #(
 		// {{{
 		case(awskd_addr)
 		CTRL_ADDR: begin
-				if (wskd_strb[2])
-				begin
-					r_prot <= wskd_data[22:20];
-					r_qos  <= wskd_data[19:16];
-				end
+			if (wskd_strb[2])
+			begin
+				r_prot <= wskd_data[22:20];
+				r_qos  <= wskd_data[19:16];
+			end
 			if (wskd_strb[0])
 				r_int_enable <= wskd_data[CTRL_INTEN_BIT];
 			end
@@ -781,7 +781,7 @@ module	axidma #(
 		M_AXI_ARADDR <= 0;
 	else if (!r_busy)
 	begin
-		if (!OPT_LOWPOWER || w_start_read)
+		if (!OPT_LOWPOWER || w_start)
 			M_AXI_ARADDR <= r_src_addr;
 		else
 			M_AXI_ARADDR <= 0;
@@ -1633,7 +1633,7 @@ module	axidma #(
 	generate if (OPT_CLKGATE)
 	begin : CLK_GATING
 		// {{{
-		reg	gatep, r_clk_active;
+		reg	r_clk_active;
 		reg	gaten /* verilator clock_enable */;
 
 		// clk_active
@@ -1656,17 +1656,11 @@ module	axidma #(
 		// }}}
 		// Gate the clock here locally
 		// {{{
-		always @(posedge S_AXI_ACLK)
-		if (!S_AXI_ARESETN)
-			gatep <= 1'b1;
-		else
-			gatep <= clk_active;
-
 		always @(negedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gaten <= 1'b1;
 		else
-			gaten <= gatep;
+			gaten <= r_clk_active;
 
 		assign	gated_clk = S_AXI_ACLK && gaten;
 
@@ -1680,7 +1674,6 @@ module	axidma #(
 		// }}}
 	end endgenerate
 	// }}}
-
 	// Keep Verilator happy
 	// {{{
 	// Verilator lint_off UNUSED
