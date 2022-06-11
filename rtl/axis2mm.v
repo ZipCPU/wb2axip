@@ -188,7 +188,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// Copyright (C) 2019-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -499,13 +499,6 @@ module	axis2mm #(
 	//
 	//
 
-`ifdef	FORMAL
-	assign	sskd_valid    = S_AXIS_TVALID;
-	assign	S_AXIS_TREADY = sskd_ready;
-	assign	sskd_user     = (C_AXIS_TUSER_WIDTH > 0) ? S_AXIS_TUSER : 0;
-	assign	sskd_data     = S_AXIS_TDATA;
-	assign	sskd_last     = S_AXIS_TLAST;
-`else
 	skidbuffer #(
 		// {{{
 		.OPT_OUTREG(OPT_AXIS_SKIDREGISTER),
@@ -523,7 +516,6 @@ module	axis2mm #(
 			.o_data({ sskd_user, sskd_data, sskd_last })
 		// }}}
 	);
-`endif
 
 	// }}}
 	////////////////////////////////////////////////////////////////////////
@@ -1146,7 +1138,7 @@ module	axis2mm #(
 			// {{{
 			.i_clk(i_clk), .i_reset(reset_fifo),
 			.i_wr(write_to_fifo),
-				.i_data({ S_AXIS_TUSER, S_AXIS_TDATA }),
+				.i_data({ sskd_user, sskd_data }),
 				.o_full(fifo_full), .o_fill(fifo_fill),
 			.i_rd(read_from_fifo), .o_data(fifo_data),
 				.o_empty(fifo_empty)
@@ -1165,7 +1157,7 @@ module	axis2mm #(
 		) u_sfifo (
 			// {{{
 			.i_clk(i_clk), .i_reset(reset_fifo),
-			.i_wr(write_to_fifo), .i_data(S_AXIS_TDATA),
+			.i_wr(write_to_fifo), .i_data(sskd_data),
 				.o_full(fifo_full), .o_fill(fifo_fill),
 			.i_rd(read_from_fifo), .o_data(fifo_data),
 				.o_empty(fifo_empty)
@@ -1648,6 +1640,7 @@ module	axis2mm #(
 
 		// clk_active
 		// {{{
+		initial	r_clk_active = 1'b1;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			r_clk_active <= 1'b1;
@@ -1674,12 +1667,14 @@ module	axis2mm #(
 		// }}}
 		// Gate the clock here locally
 		// {{{
+		initial	gatep = 1'b1;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gatep <= 1'b1;
 		else
 			gatep <= clk_active;
 
+		initial	gaten = 1'b1;
 		always @(negedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			gaten <= 1'b1;
