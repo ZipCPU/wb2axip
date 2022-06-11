@@ -1,13 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Filename: 	axivcamera
-//
+// {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	Reads a video frame from a source and writes the result to
-// {{{
 //		memory.
-// }}}
+//
 // Registers:
 // {{{
 //   0:	FBUF_CONTROL and status
@@ -92,8 +91,8 @@
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// }}}
+// Copyright (C) 2020-2022, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -111,12 +110,10 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 //
-// }}}
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype none
-//
+// }}}
 module	axivcamera #(
 		// {{{
 		parameter	C_AXI_ADDR_WIDTH = 32,
