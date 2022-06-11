@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// Copyright (C) 2019-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -223,7 +223,7 @@ module afifo #(
 			o_rd_empty <= 1'b1;
 		else if (lcl_read)
 			o_rd_empty <= lcl_rd_empty;
-			
+
 		always @(posedge i_rclk)
 		if (lcl_read)
 			o_rd_data <= lcl_rd_data;

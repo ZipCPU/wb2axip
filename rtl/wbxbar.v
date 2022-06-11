@@ -52,7 +52,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2021, Gisselquist Technology, LLC
+// Copyright (C) 2019-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -1739,7 +1739,7 @@ module	wbxbar #(
 
 	initial	f_m_ackd = 0;
 	generate for (N=0; N<NM; N=N+1)
-	begin
+	begin : GEN_FM_ACKD
 
 		always @(posedge i_clk)
 		if (i_reset)
@@ -1762,7 +1762,7 @@ module	wbxbar #(
 
 	initial	f_s_ackd = 0;
 	generate for (M=0; M<NS; M=M+1)
-	begin
+	begin : GEN_FS_ACKD
 
 		always @(posedge i_clk)
 		if (i_reset)

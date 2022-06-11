@@ -314,7 +314,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// Copyright (C) 2020-2022, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -1359,7 +1359,7 @@ module	axiperf #(
 	// achieve the desired performance measures.
 	// }}}
 	task	report;
-	logic [31:0]	num, dnm;
+	reg [31:0]	num, dnm;
 
 	if (perf_err)
 		$display("PERF: BUS ERROR.  INVALID RESULTS.  RESET BUS TO CLEAR.");

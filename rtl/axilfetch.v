@@ -12,7 +12,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2021, Gisselquist Technology, LLC
+// Copyright (C) 2020-2022, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -354,6 +354,12 @@ module	axilfetch #(
 		always @(posedge S_AXI_ACLK)
 		if (M_AXI_RVALID)
 			cache_data <= { M_AXI_RRESP[1], endian_swapped_rdata };
+
+		// Make Verilator happy
+		// {{{
+		wire	unused_dblfetch;
+		assign	unused_dblfetch = &{ 1'b0, fifo_wr };
+		// }}}
 		// }}}
 	end else begin : FIFO_FETCH
 		// {{{
