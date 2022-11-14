@@ -437,6 +437,12 @@ throughput capabilities.
 
   *This core has been formally verified.*
 
+- [APBXCLK](rtl/apxclk.v) can be used to cross clock domains on an APB bus.
+  Unlike other solutions in this repository, this implementation is not
+  pipelined--simply because the APB bus specification will not let it be so.
+
+  *This core has been formally verified.*
+
 - [AXIVFIFO](rtl/axivfifo.v) implements a virtual FIFO.  A virtual FIFO is
   basically a memory backed FIFO.  Hence, after data gets written to this
   core it is then burst across an AXI bus to the whatever memory device is

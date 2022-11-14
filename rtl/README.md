@@ -170,4 +170,6 @@ bus errors.
 
 - [AXI4 cross-clock domains](axixclk.v)
 
+- [APB cross-clock domains](apbxclk.v)
+
 - [Asynchronous FIFO](afifo.v) -- support function
