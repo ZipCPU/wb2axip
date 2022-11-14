@@ -37,7 +37,7 @@
 ## }}}
 HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
-CROSSCLOCK:= wbxclk
+CROSSCLOCK:= wbxclk apbxclk
 BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
 AXISTREAM := xlnxstream_2018_3 axisswitch axisrandom axisbroadcast axispacker
 AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty axilgpio # demofull xlnxfull axiempty
@@ -120,6 +120,7 @@ WBC2PIPELIN:= wbc2pipeline
 # Cross clock
 ## {{{
 WBXCLK     := wbxclk
+APBXCLK    := apbxclk
 # AXIXCLK -- no formal proof
 ## }}}
 #
@@ -417,6 +418,15 @@ $(WBXCLK)_prf/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby prf
 $(WBXCLK)_cvr/PASS: $(RTL)/$(WBXCLK).v $(RTL)/afifo.v $(WBXCLK).sby $(WB)
 	sby -f $(WBXCLK).sby cvr
+## }}}
+
+.PHONY: $(APBXCLK)
+## {{{
+$(APBXCLK): $(APBXCLK)_prf/PASS $(APBXCLK)_cvr/PASS
+$(APBXCLK)_prf/PASS: $(RTL)/$(APBXCLK).v $(APBXCLK).sby $(APB)
+	sby -f $(APBXCLK).sby prf
+$(APBXCLK)_cvr/PASS: $(RTL)/$(APBXCLK).v $(APBXCLK).sby $(APB)
+	sby -f $(APBXCLK).sby cvr
 ## }}}
 
 ## }}}

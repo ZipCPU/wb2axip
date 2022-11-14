@@ -1,0 +1,24 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+prf: depth 11
+cvr: mode cover
+cvr: depth 90	# 72 should be sufficient
+multiclock on
+
+[engines]
+smtbmc
+
+[script]
+read -formal apbxclk.v
+read -formal fapb_slave.v
+read -formal fapb_master.v
+prep -top apbxclk
+
+[files]
+../../rtl/apbxclk.v
+fapb_slave.v
+fapb_master.v
