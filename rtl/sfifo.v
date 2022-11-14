@@ -40,13 +40,13 @@ module sfifo #(
 		// Write interface
 		input	wire		i_wr,
 		input	wire [(BW-1):0]	i_data,
-		output	reg 		o_full,
+		output	wire 		o_full,
 		output	reg [LGFLEN:0]	o_fill,
 		//
 		// Read interface
 		input	wire		i_rd,
 		output	reg [(BW-1):0]	o_data,
-		output	reg		o_empty	// True if FIFO is empty
+		output	wire		o_empty	// True if FIFO is empty
 `ifdef	FORMAL
 `ifdef	F_PEEK
 		, output wire	[LGFLEN:0]	f_first_addr,
@@ -73,6 +73,13 @@ module sfifo #(
 	wire	w_wr = (i_wr && !o_full);
 	wire	w_rd = (i_rd && !o_empty);
 	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Write half
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	// o_fill
 	// {{{
@@ -99,11 +106,7 @@ module sfifo #(
 	default: r_full <= (o_fill == { 1'b1, {(LGFLEN){1'b0}} });
 	endcase
 
-	always @(*)
-	if (OPT_WRITE_ON_FULL && i_rd)
-		o_full = 1'b0;
-	else
-		o_full = r_full;
+	assign	o_full = (i_rd && OPT_WRITE_ON_FULL) ? 1'b0 : r_full;
 	// }}}
 
 	// wr_addr, the write address pointer
@@ -122,6 +125,14 @@ module sfifo #(
 	if (w_wr)
 		mem[wr_addr[(LGFLEN-1):0]] <= i_data;
 	// }}}
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// Read half
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 
 	// rd_addr, the read address pointer
 	// {{{
@@ -148,11 +159,7 @@ module sfifo #(
 	default: begin end
 	endcase
 
-	always @(*)
-	if (OPT_READ_ON_EMPTY && i_wr)
-		o_empty = 1'b0;
-	else
-		o_empty = r_empty;
+	assign	o_empty = (OPT_READ_ON_EMPTY && i_wr) ? 1'b0 : r_empty;
 	// }}}
 
 	// Read from the FIFO
@@ -186,21 +193,18 @@ module sfifo #(
 		always @(posedge i_clk)
 		if (i_reset)
 			bypass_valid <= 0;
-		else begin
-			bypass_valid <= 1'b0;
-			if (!i_wr)
-				bypass_valid <= 1'b0;
-			else if (r_empty || (i_rd && (o_fill == 1)))
-				bypass_valid <= 1'b1;
-		end
+		else if (r_empty || i_rd)
+			bypass_valid <= i_wr && (r_empty || (i_rd && o_fill == 1));
 
 		always @(posedge i_clk)
+		if (r_empty || i_rd)
 			bypass_data <= i_data;
 
 		initial mem[0] = 0;
 		initial rd_data = 0;
 		always @(posedge i_clk)
-			rd_data <= mem[(w_rd)?rd_next : rd_addr[LGFLEN-1:0]];
+		if (w_rd)
+			rd_data <= mem[rd_next];
 
 		always @(*)
 		if (OPT_READ_ON_EMPTY && r_empty)
@@ -215,11 +219,13 @@ module sfifo #(
 	// }}}
 
 	// Make Verilator happy
+	// {{{
 	// verilator lint_off UNUSED
 	wire	[LGFLEN-1:0]	unused;
 	assign	unused = rd_next;
 	// verilator lint_on  UNUSED
 
+	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -372,6 +378,14 @@ module sfifo #(
 
 	always @(*)
 		f_second_in_fifo = (f_second_addr_in_fifo && (mem[f_second_addr[LGFLEN-1:0]] == f_second_data));
+
+	always @(*)
+	if (f_first_in_fifo && (o_fill == 1 || f_distance_to_first == 0))
+		assert(o_data == f_first_data);
+
+	always @(*)
+	if (f_second_in_fifo && (o_fill == 1 || f_distance_to_second == 0))
+		assert(o_data == f_second_data);
 
 	always @(posedge i_clk)
 	if (f_past_valid && !$past(i_reset))
