@@ -51,6 +51,7 @@ module axim2wbsp #(
 		localparam DW			= C_AXI_DATA_WIDTH,
 		localparam AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,
 		parameter  LGFIFO		= 5,
+		parameter [0:0]	OPT_SWAP_ENDIANNESS = 1'b0,
 		parameter [0:0]	OPT_READONLY	= 1'b0,
 		parameter [0:0]	OPT_WRITEONLY	= 1'b0
 		// }}}
@@ -151,6 +152,7 @@ module axim2wbsp #(
 			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 			.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
+			.OPT_SWAP_ENDIANNESS(OPT_SWAP_ENDIANNESS),
 			.LGFIFO(LGFIFO)
 			// }}}
 		) axi_write_decoder(
@@ -214,6 +216,7 @@ module axim2wbsp #(
 			.C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
 			.C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_AXI_ADDR_WIDTH),
+			.OPT_SWAP_ENDIANNESS(OPT_SWAP_ENDIANNESS),
 			.LGFIFO(LGFIFO)
 			// }}}
 		) axi_read_decoder(
