@@ -68,13 +68,13 @@ module demofull #(
 		//	    for(k=0; k<C_S_AXI_DATA_WIDTH/8; k=k+1)
 		//	    begin
 		//		if (o_wstrb[k])
-		//		mem[o_waddr][k*8+:8] <= o_wdata[k*8+:8]
+		//		mem[o_waddr[AW-1:LSB]][k*8+:8] <= o_wdata[k*8+:8]
 		//	    end
 		//	end
 		//
 		//	always @(posedge S_AXI_ACLK)
 		//	if (o_rd)
-		//		i_rdata <= mem[o_raddr];
+		//		i_rdata <= mem[o_raddr[AW-1:LSB]];
 		//
 		// 4. The rule on the input is that i_rdata must be registered,
 		//    and that it must only change if o_rd is true.  Violating
@@ -918,8 +918,10 @@ module demofull #(
 			if (w_valid_lock_request)
 			begin
 				lock_start <= S_AXI_ARADDR[C_S_AXI_ADDR_WIDTH-1:LSB];
+				// Verilator lint_off WIDTH
 				lock_end <= S_AXI_ARADDR[C_S_AXI_ADDR_WIDTH-1:LSB]
-					+ ((S_AXI_ARBURST == 2'b00) ? 0 : S_AXI_ARLEN[3:0]);
+					+ ((S_AXI_ARBURST == 2'b00) ? 4'h0 : S_AXI_ARLEN[3:0]);
+				// Verilator lint_on  WIDTH
 				lock_len   <= S_AXI_ARLEN[3:0];
 				lock_size  <= S_AXI_ARSIZE;
 				lock_burst <= S_AXI_ARBURST;
