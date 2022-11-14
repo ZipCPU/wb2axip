@@ -40,8 +40,9 @@ module axiempty #(
 		parameter integer C_AXI_ID_WIDTH	= 2,
 		parameter integer C_AXI_DATA_WIDTH	= 32,
 		// Verilator lint_off UNUSED
-		parameter integer C_AXI_ADDR_WIDTH	= 6
+		parameter integer C_AXI_ADDR_WIDTH	= 6,
 		// Verilator lint_on  UNUSED
+		parameter [0:0]	OPT_LOWPOWER = 0
 		// Some useful short-hand definitions
 		// localparam	AW = C_AXI_ADDR_WIDTH,
 		// localparam	DW = C_AXI_DATA_WIDTH
@@ -190,8 +191,12 @@ module axiempty #(
 	// rid
 	// {{{
 	always @(posedge S_AXI_ACLK)
-	if (S_AXI_ARREADY)
-		rid      <= S_AXI_ARID;
+	if (!S_AXI_ARESETN && OPT_LOWPOWER)
+		rid <= 0;
+	else if (S_AXI_ARREADY && (!OPT_LOWPOWER || S_AXI_ARVALID))
+		rid <= S_AXI_ARID;
+	else if (OPT_LOWPOWER && S_AXI_RVALID && S_AXI_RREADY && S_AXI_RLAST)
+		rid <= 0;
 	// }}}
 
 	// axi_rvalid
@@ -209,10 +214,15 @@ module axiempty #(
 	// axi_rid
 	// {{{
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_RVALID || S_AXI_RREADY)
+	if (!S_AXI_ARESETN && OPT_LOWPOWER)
+		axi_rid <= 0;
+	else if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
 		if (S_AXI_ARVALID && S_AXI_ARREADY)
 			axi_rid <= S_AXI_ARID;
+		else if (OPT_LOWPOWER && S_AXI_RVALID && S_AXI_RREADY
+				&& S_AXI_RLAST)
+			axi_rid <= 0;
 		else
 			axi_rid <= rid;
 	end
@@ -222,7 +232,9 @@ module axiempty #(
 	// {{{
 	initial axi_rlast   = 0;
 	always @(posedge S_AXI_ACLK)
-	if (!S_AXI_RVALID || S_AXI_RREADY)
+	if (!S_AXI_ARESETN && OPT_LOWPOWER)
+		axi_rlast <= 0;
+	else if (!S_AXI_RVALID || S_AXI_RREADY)
 	begin
 		if (S_AXI_ARVALID && S_AXI_ARREADY)
 			axi_rlast <= (S_AXI_ARLEN == 0);
@@ -284,7 +296,7 @@ module axiempty #(
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
 		// Address write channel
-		//
+		// {{{
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
 		.i_axi_awid(   S_AXI_AWID),
@@ -296,30 +308,25 @@ module axiempty #(
 		.i_axi_awcache(4'h0),
 		.i_axi_awprot( 3'h0),
 		.i_axi_awqos(  4'h0),
-	//
-	//
-		//
+		// }}}
 		// Write Data Channel
-		//
+		// {{{
 		// Write Data
 		.i_axi_wdata({(C_AXI_DATA_WIDTH){1'b0}}),
 		.i_axi_wstrb({(C_AXI_DATA_WIDTH/8){1'b0}}),
 		.i_axi_wlast(S_AXI_WLAST),
 		.i_axi_wvalid(S_AXI_WVALID),
 		.i_axi_wready(S_AXI_WREADY),
-	//
-	//
-		// Response ID tag. This signal is the ID tag of the
-		// write response.
+		// }}}
+		// Write response
+		// {{{
 		.i_axi_bvalid(S_AXI_BVALID),
 		.i_axi_bready(S_AXI_BREADY),
 		.i_axi_bid(   S_AXI_BID),
 		.i_axi_bresp( S_AXI_BRESP),
-	//
-	//
-		//
+		// }}}
 		// Read address channel
-		//
+		// {{{
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
 		.i_axi_arid(   S_AXI_ARID),
@@ -331,11 +338,9 @@ module axiempty #(
 		.i_axi_arcache(4'h0),
 		.i_axi_arprot( 3'h0),
 		.i_axi_arqos(  4'h0),
-	//
-	//
-		//
+		// }}}
 		// Read data return channel
-		//
+		// {{{
 		.i_axi_rvalid(S_AXI_RVALID),
 		.i_axi_rready(S_AXI_RREADY),
 		.i_axi_rid(S_AXI_RID),
