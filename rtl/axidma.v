@@ -362,7 +362,7 @@ module	axidma #(
 
 	always  @(*)
 	begin
-		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;;
+		axil_write_ready = !S_AXIL_BVALID || S_AXIL_BREADY;
 		if (!awskd_valid || !wskd_valid)
 			axil_write_ready = 0;
 		if (!clk_active)
