@@ -1338,6 +1338,12 @@ module axisafety #(
 	end else begin : LOCK_NEVER_ACTIVE
 		// {{{
 		assign	lock_active = 0;
+
+		// Keep Verilator happy
+		// Verilator lint_off UNUSED
+		wire	unused_lock;
+		assign	unused_lock = &{ 1'b0, wfifo_lock };
+		// Verilator lint_on  UNUSED
 		// }}}
 	end endgenerate
 	// }}}
@@ -1449,12 +1455,13 @@ module axisafety #(
 	//
 	//
 	generate if (OPT_SELF_RESET)
-	begin
+	begin : GEN_SELFRESET
 		// {{{
 		// Declarations
 		// {{{
 		reg	[4:0]	reset_counter;
-		reg		reset_timeout, r_clear_fault, w_clear_fault;
+		reg		r_clear_fault, w_clear_fault;
+		wire		reset_timeout;
 		// }}}
 
 		// M_AXI_ARESETN
@@ -1479,8 +1486,7 @@ module axisafety #(
 			reset_counter <= reset_counter+1;
 		// }}}
 
-		always @(*)
-			reset_timeout <= reset_counter[4];
+		assign	reset_timeout = reset_counter[4];
 
 		// r_clear_fault
 		// {{{
@@ -1512,7 +1518,7 @@ module axisafety #(
 		// }}}
 
 		// }}}
-	end else begin
+	end else begin : NO_SELFRESET
 		// {{{
 		always @(*)
 			M_AXI_ARESETN = S_AXI_ARESETN;
