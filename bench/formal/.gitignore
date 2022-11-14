@@ -5,6 +5,7 @@
 addrdecode_*/
 afifo_*/
 apbslave_*/
+apbxclk_*/
 axi2axilite_*/
 axi_addr_miter_*/
 axidma_*/

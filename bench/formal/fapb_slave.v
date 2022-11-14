@@ -185,7 +185,7 @@ module	fapb_slave #(
 	// "Recommended" that PSLVERR be low when any of PSEL, PENABLE, or
 	// PREADY are low
 	// Can't generate a slave error when not ready
-	always @(*)
+	always @(posedge PCLK)
 	if (f_past_valid || F_OPT_INITIAL)
 	begin
 		if (!PSEL || !PENABLE || !PREADY || !F_OPT_SLVERR)
