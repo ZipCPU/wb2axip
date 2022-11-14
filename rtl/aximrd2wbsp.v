@@ -55,7 +55,7 @@ module	aximrd2wbsp #(
 		localparam AXI_LSBS		= $clog2(C_AXI_DATA_WIDTH/8),
 		localparam AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,
 		parameter LGFIFO                =  3,
-		parameter [0:0] OPT_SWAP_ENDIANNESS = 0,
+		parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0,
 		parameter [0:0] OPT_SIZESEL	= 1
 		// parameter	WBMODE		= "B4PIPELINE"
 		// Could also be "BLOCK"
