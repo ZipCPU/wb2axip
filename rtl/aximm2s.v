@@ -1221,13 +1221,15 @@ module	aximm2s #(
 	// {{{
 	generate if (LGMAXBURST >= 8)
 	begin : GEN_BIG_AWLEN
+		// Verilator lint_off WIDTH
 
 		always @(posedge i_clk)
 		if (!r_busy)
 			axi_arlen <= initial_burstlen - 1;
 		else if (!M_AXI_ARVALID || M_AXI_ARREADY)
-			axi_arlen  <= r_max_burst - 8'd1;
+			axi_arlen  <= r_max_burst - 1;
 
+		// Verilator lint_on  WIDTH
 	end else begin : GEN_SHORT_AWLEN
 
 		always @(posedge i_clk)
