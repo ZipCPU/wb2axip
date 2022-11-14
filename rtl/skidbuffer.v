@@ -114,6 +114,14 @@ module skidbuffer #(
 			o_data = i_data;
 
 		assign	w_data = 0;
+
+		// Keep Verilator happy
+		// Verilator lint_off UNUSED
+		// {{{
+		wire	unused_passthrough;
+		assign	unused_passthrough = &{ 1'b0, i_clk, i_reset };
+		// }}}
+		// Verilator lint_on  UNUSED
 		// }}}
 	end else begin : LOGIC
 		// We'll start with skid buffer itself
