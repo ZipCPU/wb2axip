@@ -1118,8 +1118,9 @@ module	axivfifo #(
 
 	always @(*)
 	if (M_AXI_WVALID && M_AXI_WREADY)
+	begin
 		assert(read_from_fifo);
-	else if (!skd_valid && !ififo_empty)
+	end else if (!skd_valid && !ififo_empty)
 		assert(read_from_fifo);
 	// }}}
 
