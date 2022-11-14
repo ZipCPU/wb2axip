@@ -501,6 +501,40 @@ There are now two APB cores in this repository:
   *This core has been formally verified.*
 
 
+# Frequently Asked Questions and Common Issues
+
+- `default_nettype none`
+
+  It is my practice to set all of my design modules to `default_nettype none`.
+  This tells the synthesis tool to generate an error any time I reference a
+  signal which hasn't yet been defined.  The default value, `default_nettype
+  wire`, instructs the synthesis tool to instead generate a value, which will
+  be a single bit of type wire, any time it sees an undefind value.  The
+  default also creates an opportunity for a misspelling to quickly turn into
+  a design bug in many, many ways.
+
+  The annoying part of `default_nettype none` is that all inputs must be
+  declared as wires.  `input signal_name;` is not good enough, it must be
+  `input wire signal_name;`.  I find this to be a small nuisance to pay for
+  the tremendous benefit `default_nettype none` offers.
+
+  Where this becomes a problem is when interfacing with other tools or other
+  IP.  Vivado HLS is known for producing logic which is not compatible with
+  `default_nettype none`.  I know of at least one ASIC foundary which produces
+  simulation models for its components that are not `default_nettype none` safe.
+  It's a common problem.
+
+  One solution to this problem is to remove the `default_nettype none` line.
+  This defeats the whole purpose of using the flag.  Another solution is to
+  place `default_nettype wire` at the bottom of the file at issue.  For some
+  tools (Yosys), this will also defeat the benefits of `default_nettype none`.
+
+  A better solution is to fix the offending logic.
+
+  An easier solution is to adjust the synthesis file order.  Because Verilog
+  directives are processed as though all of the files were concatenated
+  together, a change of file order can often fix this issue.
+
 # Licensing
 
 This repository is licensed under the [Apache 2
