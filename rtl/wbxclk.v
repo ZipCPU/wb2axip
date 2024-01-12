@@ -37,7 +37,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -63,9 +63,7 @@ module	wbxclk #(
 		// {{{
 		parameter	AW=32,
 				DW=32,
-				DELAY_STALL = 0,
-				LGFIFO = 5,
-		parameter [(LGFIFO-1):0] THRESHOLD = {{(LGFIFO-4){1'b0}},4'h8}
+				LGFIFO = 5
 		// }}}
 	) (
 		// {{{
@@ -114,7 +112,6 @@ module	wbxclk #(
 	reg		xclk_err_state, ign_ackfifo_stall;
 	reg		xck_reset;
 	reg [NFF-2:0]	xck_reset_pipe;
-	reg		r_we;
 	wire		req_we;
 	wire [AW-1:0]	req_addr;
 	wire [DW-1:0]	req_data;
@@ -317,7 +314,8 @@ module	wbxclk #(
 	// {{{
 	// Verilator lint_off UNUSED
 	wire	unused;
-	assign	unused = &{ 1'b0, req_fifo_stall, ign_ackfifo_stall };
+	assign	unused = &{ 1'b0, req_fifo_stall, ign_ackfifo_stall,
+			ackfifo_single };
 	// Verilator lint_on  UNUSED
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////

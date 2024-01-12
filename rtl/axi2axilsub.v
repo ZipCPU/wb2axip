@@ -24,7 +24,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This digital logic component is the proprietary property of Gisselquist
 // Technology, LLC.  It may only be distributed and/or re-distributed by the
@@ -345,8 +345,8 @@ module axi2axilsub #(
 		reg	[SLVDW/8-1:0]	slv_wstrb;
 
 		reg	[IW-1:0]			slv_awid;
-		reg	[AW-1:0]			slv_awaddr,
-							slv_next_awaddr;
+		reg	[AW-1:0]			slv_awaddr;
+		wire	[AW-1:0]			slv_next_awaddr;
 		reg	[2:0]				slv_awsize;
 		reg	[1:0]				slv_awburst;
 		reg	[7:0]				slv_awlen;
@@ -354,8 +354,9 @@ module axi2axilsub #(
 		reg					slv_awlast;
 
 		// Write registers
-		reg				m_axi_awvalid;
-		reg				bfifo_write, wfifo_wlast;
+		reg				m_awvalid;
+		reg				bfifo_write;
+		wire				wfifo_wlast;
 		reg	[IW+1+SLVSZ-MSTSZ:0]	bfifo_wdata;
 		wire	[LGFIFO:0]		wfifo_count;
 		wire				wfifo_full;
@@ -380,7 +381,7 @@ module axi2axilsub #(
 		wire			skidm_bvalid, skidm_bready;
 		wire	[1:0]		skidm_bresp;
 
-		reg				m_axi_wvalid;
+		reg				m_wvalid;
 		reg	[AW-1:0]		mst_awaddr;
 		reg	[2:0]			mst_awprot;
 		reg	[SLVSZ-MSTSZ:0]		mst_awbeats,
@@ -525,7 +526,6 @@ module axi2axilsub #(
 		end
 		// }}}
 
-
 		// slv_next_awaddr
 		// {{{
 		axi_addr #(
@@ -643,40 +643,39 @@ module axi2axilsub #(
 `endif
 		// }}}
 
-		// m_axi_awvalid
+		// m_awvalid
 		// {{{
 		initial	m_axi_awvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			m_axi_awvalid <= 0;
+			m_awvalid <= 0;
 		else if (!M_AXI_AWVALID || M_AXI_AWREADY)
 		begin
 			if (skids_wvalid && skids_wready)
-				m_axi_awvalid <= 1'b1;
+				m_awvalid <= 1'b1;
 			else if (mst_awbeats == 1)
-				m_axi_awvalid <= 1'b0;
+				m_awvalid <= 1'b0;
 		end
 		// }}}
 
-		assign	M_AXI_AWVALID = m_axi_awvalid;
-		assign	M_AXI_AWVALID = m_axi_awvalid;
+		assign	M_AXI_AWVALID = m_awvalid;
 		assign	M_AXI_AWADDR  = mst_awaddr;
 		assign	M_AXI_AWPROT  = mst_awprot;
 
 		// M_AXI_WVALID, mst_wbeats
 		// {{{
-		initial	m_axi_wvalid = 0;
+		initial	m_wvalid = 0;
 		initial	mst_wbeats   = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
-			m_axi_wvalid <= 0;
+			m_wvalid <= 0;
 			mst_wbeats   <= 0;
 		end else if (!M_AXI_WVALID || M_AXI_WREADY)
 		begin
 			if (skids_wvalid && skids_wready)
 			begin
-				m_axi_wvalid <= 1'b1;
+				m_wvalid <= 1'b1;
 				if (skids_awvalid && skids_awready)
 					mst_wbeats   <= next_slv_beats;
 				else if (slv_awsize <= MSTSZ[2:0])
@@ -685,7 +684,7 @@ module axi2axilsub #(
 					mst_wbeats <= (1<<(slv_awsize - MSTSZ[2:0]));
 			end else begin
 				if (mst_wbeats <= 1)
-					m_axi_wvalid <= 1'b0;
+					m_wvalid <= 1'b0;
 				if (mst_wbeats > 0)
 					mst_wbeats   <= mst_wbeats - 1;
 			end
@@ -697,15 +696,12 @@ module axi2axilsub #(
 `endif
 		// }}}
 
-		// M_AXI_WDATA, M_AXI_WSTRB
+		// M_AXI_W*
 		// {{{
-		assign	M_AXI_WDATA = slv_wdata[MSTDW-1:0];
-		assign	M_AXI_WSTRB = slv_wstrb[MSTDW/8-1:0];
-		// }}}
-
-		assign	M_AXI_WVALID = m_axi_wvalid;
+		assign	M_AXI_WVALID = m_wvalid;
 		assign	M_AXI_WDATA  = slv_wdata[MSTDW-1:0];
 		assign	M_AXI_WSTRB  = slv_wstrb[MSTDW/8-1:0];
+		// }}}
 		// }}}
 		////////////////////////////////////////
 		//
@@ -1382,7 +1378,7 @@ module axi2axilsub #(
 						rfifo_rlast;
 		wire	[4:0]			rfifo_count;
 		//
-		reg				m_axi_arvalid;
+		reg				m_arvalid;
 		wire				rfifo_full;
 		wire				rfifo_empty;
 		reg				s_axi_rvalid;
@@ -1617,18 +1613,16 @@ module axi2axilsub #(
 `endif
 		// }}}
 
-		// m_axi_arvalid
+		// m_arvalid
 		// {{{
-		initial	m_axi_arvalid = 0;
+		initial	m_arvalid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			m_axi_arvalid <= 0;
+			m_arvalid <= 0;
 		else if (slv_arvalid && slv_arready)
-			m_axi_arvalid <= 1;
+			m_arvalid <= 1;
 		else if (M_AXI_ARVALID && M_AXI_ARREADY)
-			m_axi_arvalid <= (mst_arbeats > 1);
-
-		assign	M_AXI_ARVALID = m_axi_arvalid;
+			m_arvalid <= (mst_arbeats > 1);
 `ifdef	FORMAL
 		always @(*)
 		if (S_AXI_ARESETN)
@@ -1748,7 +1742,7 @@ module axi2axilsub #(
 
 		// M_AXI_AR*
 		// {{{
-		assign	M_AXI_ARVALID= m_axi_arvalid;
+		assign	M_AXI_ARVALID= m_arvalid;
 		assign	M_AXI_ARADDR = mst_araddr;
 		assign	M_AXI_ARPROT = mst_arprot;
 		// }}}

@@ -52,7 +52,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -74,7 +74,6 @@
 `default_nettype none
 // }}}
 module	wbxbar #(
-		// i_sstall, i_sack, i_sdata, i_serr);
 		// {{{
 		parameter	NM = 4, NS=8,
 		parameter	AW = 32, DW=32,
@@ -561,6 +560,7 @@ module	wbxbar #(
 
 			// r_reindex
 			// {{{
+			// Verilator lint_off BLKSEQ
 			always @(r_regrant, regrant)
 			begin
 				r_reindex = 0;
@@ -570,6 +570,7 @@ module	wbxbar #(
 				if (regrant == 0)
 					r_reindex = r_mindex;
 			end
+			// Verilator lint_on  BLKSEQ
 			// }}}
 
 			always @(posedge i_clk)
@@ -809,7 +810,8 @@ module	wbxbar #(
 			end
 		end
 		// }}}
-	end else for(M=0; M<NS; M=M+1)
+	end else begin : J
+	for(M=0; M<NS; M=M+1)
 	begin : GEN_DOWNSTREAM
 		// {{{
 		always @(posedge i_clk)
@@ -832,7 +834,7 @@ module	wbxbar #(
 
 		end
 		// }}}
-	end endgenerate
+	end end endgenerate
 	// }}}
 	////////////////////////////////////////////////////////////////////////
 	//

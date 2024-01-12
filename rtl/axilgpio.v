@@ -64,7 +64,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2021-2022, Gisselquist Technology, LLC
+// Copyright (C) 2021-2024, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -463,7 +463,7 @@ module	axilgpio #(
 		// Verilator lint_on  UNUSED
 		// }}}
 		// }}}
-	end else begin
+	end else begin : NO_INPUTS
 		// {{{
 		assign	ck_gpio     = 32'h0;
 		assign	ck_toggled  = 32'h0;

@@ -108,7 +108,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -302,7 +302,7 @@ module	axidouble #(
 	// Signal declarations
 	// {{{
 	localparam DW = C_AXI_DATA_WIDTH;
-	// localparam IW = C_AXI_ID_WIDTH;
+	localparam IW = C_AXI_ID_WIDTH;
 	// LGNS is the number of bits required in a slave index
 	localparam	LGNS = (NS <= 1) ? 1 : $clog2(NS);
 	//

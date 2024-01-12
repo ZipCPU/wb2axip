@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -67,9 +67,12 @@ module sfifothresh(i_clk, i_reset,
 	wire	w_wr = (i_wr && !o_full);
 	wire	w_rd = (i_rd && !o_empty);
 
-	sfifo #(.BW(BW), .LGFLEN(LGFLEN), .OPT_ASYNC_READ(OPT_ASYNC_READ))
-	sfifoi(i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd,
-		o_data, o_empty);
+	sfifo #(
+		.BW(BW), .LGFLEN(LGFLEN), .OPT_ASYNC_READ(OPT_ASYNC_READ)
+	) sfifoi(
+		i_clk, i_reset, i_wr, i_data, o_full, o_fill, i_rd,
+		o_data, o_empty
+	);
 
 	initial	o_int = 0;
 	always @(posedge i_clk)

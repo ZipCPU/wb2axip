@@ -21,7 +21,6 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype	none
 // }}}
 module sfifo #(
@@ -68,7 +67,6 @@ module sfifo #(
 	reg			r_full, r_empty;
 	reg	[(BW-1):0]	mem[0:(FLEN-1)];
 	reg	[LGFLEN:0]	wr_addr, rd_addr;
-	reg	[LGFLEN-1:0]	rd_next;
 
 	wire	w_wr = (i_wr && !o_full);
 	wire	w_rd = (i_rd && !o_empty);
@@ -144,9 +142,6 @@ module sfifo #(
 		rd_addr <= rd_addr + 1;
 	// }}}
 
-	always @(*)
-		rd_next = rd_addr[LGFLEN-1:0] + 1;
-
 	// r_empty, o_empty
 	// {{{
 	initial	r_empty = 1'b1;
@@ -186,6 +181,10 @@ module sfifo #(
 		// {{{
 		reg		bypass_valid;
 		reg [BW-1:0]	bypass_data, rd_data;
+		reg [LGFLEN-1:0]	rd_next;
+
+		always @(*)
+			rd_next = rd_addr[LGFLEN-1:0] + 1;
 
 		// Memory read, bypassing it if we must
 		// {{{
@@ -194,7 +193,14 @@ module sfifo #(
 		if (i_reset)
 			bypass_valid <= 0;
 		else if (r_empty || i_rd)
-			bypass_valid <= i_wr && (r_empty || (i_rd && o_fill == 1));
+		begin
+			if (!i_wr)
+				bypass_valid <= 1'b0;
+			else if (r_empty || (i_rd && (o_fill == 1)))
+				bypass_valid <= 1'b1;
+			else
+				bypass_valid <= 1'b0;
+		end
 
 		always @(posedge i_clk)
 		if (r_empty || i_rd)
@@ -217,14 +223,6 @@ module sfifo #(
 		// }}}
 	end endgenerate
 	// }}}
-
-	// Make Verilator happy
-	// {{{
-	// verilator lint_off UNUSED
-	wire	[LGFLEN-1:0]	unused;
-	assign	unused = rd_next;
-	// verilator lint_on  UNUSED
-
 	// }}}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -275,7 +273,6 @@ module sfifo #(
 
 		assert(r_full  == (f_fill == {1'b1, {(LGFLEN){1'b0}} }));
 		assert(r_empty == (f_fill == 0));
-		assert(rd_next == f_next[LGFLEN-1:0]);
 
 		if (!OPT_WRITE_ON_FULL)
 		begin

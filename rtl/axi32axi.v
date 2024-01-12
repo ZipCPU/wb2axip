@@ -35,7 +35,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -200,7 +200,7 @@ module	axi32axi #(
 	// AW Skid buffer
 	// {{{
 	generate if (OPT_TRANSFORM_AXCACHE)
-	begin
+	begin : GEN_AWCACHE
 		// {{{
 		skidbuffer #(
 			.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH
@@ -225,7 +225,7 @@ module	axi32axi #(
 		assign	M_AXI_AWLEN[7:4] = 4'h0;
 		assign	S_AXI_AWREADY = awskd_ready && wid_reorder_awready;
 		// }}}
-	end else begin
+	end else begin : IGN_AWCACHE
 		// {{{
 		assign	M_AXI_AWVALID = S_AXI_AWVALID && wid_reorder_awready;
 		assign	S_AXI_AWREADY = M_AXI_AWREADY;
@@ -308,7 +308,7 @@ module	axi32axi #(
 	// AR Skid buffer
 	// {{{
 	generate if (OPT_TRANSFORM_AXCACHE)
-	begin
+	begin : GEN_ARCACHE
 		// {{{
 		skidbuffer #(
 			.DW(C_AXI_ADDR_WIDTH + C_AXI_ID_WIDTH
@@ -328,7 +328,7 @@ module	axi32axi #(
 
 		assign	M_AXI_ARLEN[7:4] = 4'h0;
 		// }}}
-	end else begin
+	end else begin : IGN_ARCACHE
 		// {{{
 		assign	M_AXI_ARVALID = S_AXI_ARVALID;
 		assign	S_AXI_ARREADY = M_AXI_ARREADY;

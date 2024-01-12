@@ -4,14 +4,45 @@
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
-// Purpose:	
+// Purpose:	Supports bus crossbars by answering the question, which slave
+//		does the current address need to be routed to?  Requests are
+//	pipelined using valid/!stall handshaking.  For those familiar with
+//	AXI, READY=!STALL.  The outgoing stream is identical to the incoming
+//	one, save for the (new) o_decode field.  This is a bitmask containing
+//	one bit for each slave that the request might be routed to, and one
+//	extra bit to indicate no slaves matched.
+//
+//	The keys to the operation of this module are found in the two
+//	parameters, SLAVE_ADDR and SLAVE_MASK.
+//
+//	SLAVE_ADDR specifies the address of the slave in question.  It's a large
+//		array, with one address (i.e. one set of AW bits) for each
+//		potential slave address region.
+//
+//	SLAVE_MASK specifies which of the bits in SLAVE_ADDR need to match in
+//		order to route a request to a that slave.
+//
+//	It's important to guarantee that no two slaves will ever map to the
+//	same address, and likewise any given slave may only map to a single
+//	address region.
+//
+//	Incidentally, the algorithm forces all slaves to have an address
+//	aligned with their memory size.  Hence a 2GB memory must have an
+//	address (range) of either 0-2GB, 2GB-4GB, 4GB-6GB, etc.  However, a
+//	second slave having only 8kB of memory may be placed at 0-8kB,
+//	8-16kB, 16-24kB, etc.  For logic minimization purposes, it is often to
+//	the advantage of the bus compositor to minimize the number of mask
+//	bits, and hence 8kB slaves may be aliased to many places in memory.
+//	Bus composition and address assignment, however, are both outside of
+//	the scope of the operation of this module.
+//	
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -143,7 +174,7 @@ module	addrdecode #(
 		// {{{
 		assign request[0] = i_valid;
 		// }}}
-	end else begin
+	end else begin : GENERAL_CASE
 		// {{{
 		reg	[NS-1:0]	r_request;
 
@@ -163,7 +194,7 @@ module	addrdecode #(
 	// request[NS]
 	// {{{
 	generate if (OPT_NONESEL)
-	begin
+	begin : GENERATE_NONSEL_SLAVE
 		reg	r_request_NS, r_none_sel;
 
 		always @(*)
@@ -184,7 +215,7 @@ module	addrdecode #(
 		end
 
 		assign request[NS] = r_request_NS;
-	end else begin
+	end else begin : NO_NONESEL_SLAVE
 		assign request[NS] = 1'b0;
 	end endgenerate
 	// }}}
@@ -192,7 +223,7 @@ module	addrdecode #(
 	// o_valid, o_addr, o_data, o_decode, o_stall
 	// {{{
 	generate if (OPT_REGISTERED)
-	begin
+	begin : GEN_REG_OUTPUTS
 
 		// o_valid
 		// {{{
@@ -243,7 +274,7 @@ module	addrdecode #(
 		always @(*)
 			o_stall = (o_valid && i_stall);
 		// }}}
-	end else begin
+	end else begin : GEN_COMBINATORIAL_OUTPUTS
 
 		always @(*)
 		begin
@@ -403,7 +434,7 @@ module	addrdecode #(
 	generate if (!OPT_NONESEL && ACCESS_ALLOWED[0]
 			&& SLAVE_MASK == 0 && NS == 1)
 	begin
-		
+
 		always @(*)
 			cover(f_reached[0]);
 

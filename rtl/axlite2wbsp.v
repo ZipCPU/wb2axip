@@ -16,7 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2016-2022, Gisselquist Technology, LLC
+// Copyright (C) 2016-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -202,7 +202,7 @@ module axlite2wbsp #(
 			// }}}
 		);
 		// }}}
-	end else begin
+	end else begin : EMPTY_WRITES
 		// {{{
 		assign	w_wb_cyc  = 0;
 		assign	w_wb_stb  = 0;
@@ -274,7 +274,7 @@ module axlite2wbsp #(
 			// }}}
 		);
 		// }}}
-	end else begin
+	end else begin : EMPTY_READS
 		// {{{
 		assign	r_wb_cyc  = 0;
 		assign	r_wb_stb  = 0;

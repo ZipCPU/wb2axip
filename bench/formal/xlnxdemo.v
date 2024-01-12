@@ -750,14 +750,18 @@ module xlnxdemo #
 	//
 	// Connect our slave to the AXI-lite property set
 	//
-	faxil_slave #(// .C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
+	faxil_slave #(
+		// {{{
+		// .C_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
 			.C_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH),
-			.F_LGDEPTH(F_LGDEPTH)) properties(
+			.F_LGDEPTH(F_LGDEPTH)
+		// }}}
+	) properties(
+		// {{{
 		.i_clk(S_AXI_ACLK),
 		.i_axi_reset_n(S_AXI_ARESETN),
 		//
 		.i_axi_awaddr(S_AXI_AWADDR),
-		.i_axi_awcache(4'h0),
 		.i_axi_awprot(S_AXI_AWPROT),
 		.i_axi_awvalid(S_AXI_AWVALID),
 		.i_axi_awready(S_AXI_AWREADY),
@@ -773,7 +777,6 @@ module xlnxdemo #
 		//
 		.i_axi_araddr(S_AXI_ARADDR),
 		.i_axi_arprot(S_AXI_ARPROT),
-		.i_axi_arcache(4'h0),
 		.i_axi_arvalid(S_AXI_ARVALID),
 		.i_axi_arready(S_AXI_ARREADY),
 		//
@@ -784,7 +787,9 @@ module xlnxdemo #
 		//
 		.f_axi_rd_outstanding(f_axi_rd_outstanding),
 		.f_axi_wr_outstanding(f_axi_wr_outstanding),
-		.f_axi_awr_outstanding(f_axi_awr_outstanding));
+		.f_axi_awr_outstanding(f_axi_awr_outstanding)
+		// }}}
+	);
 
 	reg	f_past_valid;
 	initial	f_past_valid = 1'b0;

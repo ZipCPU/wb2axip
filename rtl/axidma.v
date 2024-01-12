@@ -40,7 +40,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -1665,6 +1665,7 @@ module	axidma #(
 		assign	gated_clk = S_AXI_ACLK && gaten;
 
 		assign	clk_active = r_clk_active;
+		// }}}
 		// }}}
 	end else begin : NO_CLK_GATING
 		// {{{

@@ -13,7 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2017-2022, Gisselquist Technology, LLC
+// Copyright (C) 2017-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -118,7 +118,9 @@ module faxi_master #(
 	input	wire	[DW-1:0]	i_axi_rdata,    // Read data
 	input	wire			i_axi_rlast,    // Read last
 	input	wire			i_axi_rready,  // Read Response ready
-	//
+	// }}}
+	// Induction information
+	// {{{
 	output	reg	[F_LGDEPTH-1:0]		f_axi_awr_nbursts,
 	output	reg	[9-1:0]			f_axi_wr_pending,
 	output	reg	[F_LGDEPTH-1:0]		f_axi_rd_nbursts,

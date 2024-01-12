@@ -64,7 +64,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -172,13 +172,13 @@ module	axil2axis #(
 		// AXI stream slave (sink) signals
 		// {{{
 		input	wire				S_AXIS_TVALID,
-		output	reg				S_AXIS_TREADY,
+		output	wire				S_AXIS_TREADY,
 		input	wire	[C_AXIS_DATA_WIDTH-1:0]	S_AXIS_TDATA,
 		input	wire				S_AXIS_TLAST,
 		// }}}
 		// AXI stream master (source) signals
 		// {{{
-		output	reg				M_AXIS_TVALID,
+		output	wire				M_AXIS_TVALID,
 		input	wire				M_AXIS_TREADY,
 		output	reg	[C_AXIS_DATA_WIDTH-1:0]	M_AXIS_TDATA,
 		output	reg				M_AXIS_TLAST
@@ -219,13 +219,13 @@ module	axil2axis #(
 	wire	[LGFIFO:0]	wfifo_fill;
 	reg			write_timeout;
 
-	reg			read_timeout;
+	wire			read_timeout;
 	reg			axil_rerr;
 	reg	[3:0]		read_bursts_completed;
 	reg	[11:0]		reads_completed;
 
-	reg	[3:0]	write_bursts_completed;
-	reg	[11:0]	writes_completed;
+	wire	[3:0]	write_bursts_completed;
+	wire	[11:0]	writes_completed;
 
 
 	// }}}
@@ -271,39 +271,39 @@ module	axil2axis #(
 	//
 	// {{{
 	generate if ((OPT_TIMEOUT > 1) && OPT_SOURCE)
-	begin
-
+	begin : GEN_WRITE_TIMEOUT
+		reg				r_write_timeout;
 		reg [$clog2(OPT_TIMEOUT)-1:0] write_timer;
 
 		initial	write_timer = OPT_TIMEOUT-1;
-		initial	write_timeout = 0;
+		initial	r_write_timeout = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			write_timer <= OPT_TIMEOUT-1;
-			write_timeout<= 1'b0;
+			r_write_timeout<= 1'b0;
 		end else if (!awskd_valid || !wfifo_full || !wskd_valid
 				|| (awskd_addr[1] != ADDR_SOURCE[1])
 				|| (S_AXI_BVALID && !S_AXI_BREADY))
 		begin
 			write_timer <= OPT_TIMEOUT-1;
-			write_timeout<= 1'b0;
+			r_write_timeout<= 1'b0;
 		end else begin
 			if (write_timer > 0)
 				write_timer <= write_timer - 1;
-			write_timeout <= (write_timer <= 1);
+			r_write_timeout <= (write_timer <= 1);
 		end
 
+		assign	write_timeout = r_write_timeout;
 `ifdef	FORMAL
 		always @(*)
 			assert(write_timer <= OPT_TIMEOUT-1);
 		always @(*)
 			assert(write_timeout == (write_timer == 0));
 `endif
-	end else begin
+	end else begin : NO_WRITE_TIMEOUT
 
-		always @(*)
-			write_timeout<= 1'b1;
+		assign	write_timeout = 1'b1;
 
 	end endgenerate
 	// }}}
@@ -340,7 +340,7 @@ module	axil2axis #(
 			&& wskd_strb != 0 && !wfifo_full;
 
 	generate if (OPT_SOURCE)
-	begin
+	begin : GEN_SOURCE_FIFO
 
 		sfifo #(.BW(SW+1), .LGFLEN(LGFIFO))
 		source(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
@@ -352,17 +352,13 @@ module	axil2axis #(
 				.o_data({ M_AXIS_TLAST, M_AXIS_TDATA }),
 				.o_empty(wfifo_empty));
 
-		always @(*)
-			M_AXIS_TVALID = !wfifo_empty;
+		assign	M_AXIS_TVALID = !wfifo_empty;
 
-	end else begin
+	end else begin : NO_SOURCE_FIFO
 
-		always @(*)
-		begin
-			M_AXIS_TVALID = 1'b0;
-			M_AXIS_TDATA  = 0;
-			M_AXIS_TLAST  = 0;
-		end
+		assign	M_AXIS_TVALID = 1'b0;
+		assign	M_AXIS_TDATA  = 0;
+		assign	M_AXIS_TLAST  = 0;
 
 		assign	wfifo_full = 1'b0;
 		assign	wfifo_fill = 0;
@@ -379,7 +375,7 @@ module	axil2axis #(
 	wire	[SW-1:0]	rfifo_data;
 
 	generate if (OPT_SINK)
-	begin
+	begin : GEN_SINK_FIFO
 
 		sfifo #(.BW(SW+1), .LGFLEN(LGFIFO))
 		sink(.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
@@ -390,15 +386,13 @@ module	axil2axis #(
 				.o_data({ rfifo_last, rfifo_data }),
 				.o_empty(rfifo_empty));
 
-		always @(*)
-			S_AXIS_TREADY = !rfifo_full;
+		assign	S_AXIS_TREADY = !rfifo_full;
 		assign	read_rfifo =(axil_read_ready && arskd_addr== ADDR_SINK)
 				&& !rfifo_empty;
 
-	end else begin
+	end else begin : NO_SINK
 
-		always @(*)
-			S_AXIS_TREADY = 1'b1;
+		assign	S_AXIS_TREADY = 1'b1;
 
 		assign rfifo_empty = 1'b1;
 		assign rfifo_data  = 0;
@@ -413,27 +407,30 @@ module	axil2axis #(
 	//
 	// {{{
 	generate if (OPT_SINK && OPT_TIMEOUT > 1)
-	begin
-		reg [$clog2(OPT_TIMEOUT)-1:0] read_timer;
+	begin : GEN_READ_TIMEOUT
+		reg [$clog2(OPT_TIMEOUT)-1:0]	read_timer;
+		reg				r_read_timeout;
 
 		initial	read_timer = OPT_TIMEOUT-1;
-		initial	read_timeout = 1'b0;
+		initial	r_read_timeout = 1'b0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
 			read_timer <= OPT_TIMEOUT-1;
-			read_timeout<= 1'b0;
+			r_read_timeout<= 1'b0;
 		end else if (!arskd_valid || (S_AXI_RVALID && !S_AXI_RREADY)
 				||!rfifo_empty
 				||(arskd_addr[1] != ADDR_SINK[1]))
 		begin
 			read_timer <= OPT_TIMEOUT-1;
-			read_timeout<= 1'b0;
+			r_read_timeout<= 1'b0;
 		end else begin
 			if (read_timer > 0)
 				read_timer <= read_timer - 1;
-			read_timeout <= (read_timer <= 1);
+			r_read_timeout <= (read_timer <= 1);
 		end
+
+		assign	read_timeout = r_read_timeout;
 
 `ifdef	FORMAL
 		always @(*)
@@ -441,10 +438,9 @@ module	axil2axis #(
 		always @(*)
 			assert(read_timeout == (read_timer == 0));
 `endif
-	end else begin
+	end else begin : NO_READ_TIMEOUT
 
-		always @(*)
-			read_timeout = 1'b1;
+		assign	read_timeout = 1'b1;
 
 	end endgenerate
 	// }}}
@@ -533,29 +529,32 @@ module	axil2axis #(
 	// Write data counting
 	// {{{
 	generate if (OPT_SOURCE)
-	begin
+	begin : GEN_WRITES_COMPLETED
 		// {{{
-		initial	writes_completed = 0;
-		initial	write_bursts_completed = 0;
+		reg	[3:0]	r_write_bursts_completed;
+		reg	[11:0]	r_writes_completed;
+
+		initial	r_writes_completed = 0;
+		initial	r_write_bursts_completed = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
-			writes_completed <= 0;
-			write_bursts_completed <= 0;
+			r_writes_completed <= 0;
+			r_write_bursts_completed <= 0;
 		end else if (M_AXIS_TVALID && M_AXIS_TREADY)
 		begin
-			writes_completed <= writes_completed + 1;
-			write_bursts_completed <= write_bursts_completed
+			r_writes_completed <= writes_completed + 1;
+			r_write_bursts_completed <= write_bursts_completed
 					+ (M_AXIS_TLAST ? 1:0);
 		end
+
+		assign	writes_completed = r_writes_completed;
+		assign	write_bursts_completed = r_write_bursts_completed;
 		// }}}
-	end else begin // No AXI-stream source logic
+	end else begin : NO_COMPLETION_COUNTERS // No AXI-stream source logic
 		// {{{
-		always @(*)
-		begin
-			writes_completed = 0;
-			write_bursts_completed = 0;
-		end
+		assign	writes_completed = 0;
+		assign	write_bursts_completed = 0;
 		// }}}
 	end endgenerate
 	// }}}

@@ -13,7 +13,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -271,7 +271,7 @@ module	axil2apb #(
 	reg	[DW-1:0]	r_apb_data;
 
 	generate if (OPT_OUTGOING_SKIDBUFFER)
-	begin
+	begin : GEN_OSKID
 		// {{{
 		// r_apb_bvalid, r_apb_rvalid, r_apb_error, r_apb_data
 		// {{{
@@ -336,7 +336,7 @@ module	axil2apb #(
 		always @(*)
 			out_skid_full = r_apb_bvalid || r_apb_rvalid;
 		// }}}
-	end else begin
+	end else begin : NO_OSKID
 		// {{{
 
 		initial	r_apb_bvalid = 1'b0;

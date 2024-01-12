@@ -129,7 +129,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -368,7 +368,7 @@ module axisafety #(
 	reg	[0:0]	s_wbursts;
 	reg	[8:0]	m_wpending;
 	reg		m_wempty, m_wlastctr;
-	reg		waddr_valid, raddr_valid;
+	wire		waddr_valid, raddr_valid;
 
 	wire			lock_enabled, lock_failed;
 	wire	[(1<<IW)-1:0]	lock_active;
@@ -392,10 +392,10 @@ module axisafety #(
 		S_AXI_AWREADY <= !OPT_SELF_RESET;
 	else if (S_AXI_AWVALID && S_AXI_AWREADY)
 		S_AXI_AWREADY <= 0;
-	else if (clear_fault)
-		S_AXI_AWREADY <= 1;
+	// else if (clear_fault)
+	//	S_AXI_AWREADY <= 1;
 	else if (!S_AXI_AWREADY)
-		S_AXI_AWREADY <= !S_AXI_AWREADY && S_AXI_BVALID && S_AXI_BREADY;
+		S_AXI_AWREADY <= S_AXI_BVALID && S_AXI_BREADY;
 	// }}}
 
 	generate if (OPT_EXCLUSIVE)
@@ -440,18 +440,21 @@ module axisafety #(
 	// waddr_valid
 	// {{{
 	generate if (OPT_SELF_RESET)
-	begin
-		initial	waddr_valid = 0;
+	begin : GEN_LCL_RESET
+		reg	r_waddr_valid;
+
+		initial	r_waddr_valid = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
-			waddr_valid <= 0;
+			r_waddr_valid <= 0;
 		else if (S_AXI_AWVALID && S_AXI_AWREADY)
-			waddr_valid <= 1;
+			r_waddr_valid <= 1;
 		else if (waddr_valid)
-			waddr_valid <= !S_AXI_BVALID || !S_AXI_BREADY;
-	end else begin
-		always @(*)
-			waddr_valid = !S_AXI_AWREADY;
+			r_waddr_valid <= !S_AXI_BVALID || !S_AXI_BREADY;
+
+		assign	waddr_valid = r_waddr_valid;
+	end else begin : NO_LCL_RESET
+		assign	waddr_valid = !S_AXI_AWREADY;
 	end endgenerate
 	// }}}
 
@@ -973,19 +976,20 @@ module axisafety #(
 		S_AXI_ARREADY <= !OPT_SELF_RESET;
 	else if (S_AXI_ARVALID && S_AXI_ARREADY)
 		S_AXI_ARREADY <= 0;
-	else if (clear_fault)
-		S_AXI_ARREADY <= 1;
+	// else if (clear_fault)
+	//	S_AXI_ARREADY <= 1;
 	else if (!S_AXI_ARREADY)
 		S_AXI_ARREADY <= (S_AXI_RVALID && S_AXI_RLAST && S_AXI_RREADY);
 	// }}}
 
 	// raddr_valid
 	// {{{
-	always @(*)
-	if (OPT_SELF_RESET)
-		raddr_valid = !rfifo_empty;
-	else
-		raddr_valid = !S_AXI_ARREADY;
+	generate if (OPT_SELF_RESET)
+	begin : GEN_READ_RESET
+		assign	raddr_valid = !rfifo_empty;
+	end else begin : SIMPLE_RADDR_VALID
+		assign	raddr_valid = !S_AXI_ARREADY;
+	end endgenerate
 	// }}}
 
 	// r_ar*

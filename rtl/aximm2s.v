@@ -116,7 +116,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -869,7 +869,7 @@ module	aximm2s #(
 			pre_tlast = rd_last_remaining;
 
 		if (OPT_UNALIGNED)
-		begin
+		begin : GEN_UNALIGNED_TLAST
 			reg	r_tlast;
 
 			// REALIGN delays the data by one clock period.  We'll
@@ -881,7 +881,7 @@ module	aximm2s #(
 
 			assign	tlast = r_tlast;
 
-		end else begin
+		end else begin : NO_UNALIGNED_TLAST
 
 			assign	tlast = pre_tlast;
 		end
@@ -1122,7 +1122,7 @@ module	aximm2s #(
 	// Count the number of uncommited spaces in the FIFO
 	// {{{
 	generate if (OPT_UNALIGNED)
-	begin
+	begin : GEN_UNALIGNED_BREQ_COUNT
 		reg	r_partial_burst_requested;
 
 		initial	r_partial_burst_requested = 1'b1;
@@ -1133,7 +1133,7 @@ module	aximm2s #(
 			r_partial_burst_requested <= 1'b1;
 
 		assign	partial_burst_requested = r_partial_burst_requested;
-	end else begin
+	end else begin : NO_UNALIGNED_BREQ_COUNT
 
 		assign	partial_burst_requested = 1'b1;
 	end endgenerate

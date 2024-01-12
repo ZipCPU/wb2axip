@@ -81,7 +81,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -258,13 +258,13 @@ module	axilsingle #(
 		write_bindex <= write_windex;
 
 	generate if (LGNS == $clog2(NS+1))
-	begin
+	begin : GEN_WRITE_ERR
 		always @(posedge S_AXI_ACLK)
 		if (write_bindex >= NS)
 			write_resp <= INTERCONNECT_ERROR;
 		else
 			write_resp <= M_AXI_BRESP[2*write_bindex +: 2];
-	end else begin
+	end else begin : NO_WRITE_ERR
 		always @(posedge S_AXI_ACLK)
 			write_resp <= M_AXI_BRESP[2*write_bindex +: 2];
 	end endgenerate
@@ -385,13 +385,13 @@ module	axilsingle #(
 		read_rdata <= M_AXI_RDATA[DW*last_read_index +: DW];
 
 	generate if (LGNS == $clog2(NS+1))
-	begin
+	begin : GEN_READ_ERR
 		always @(posedge S_AXI_ACLK)
 		if (last_read_index >= NS)
 			read_resp <= INTERCONNECT_ERROR;
 		else
 			read_resp <= M_AXI_RRESP[2*last_read_index +: 2];
-	end else begin
+	end else begin : NO_READ_ERR
 		always @(posedge S_AXI_ACLK)
 			read_resp <= M_AXI_RRESP[2*last_read_index +: 2];
 	end endgenerate

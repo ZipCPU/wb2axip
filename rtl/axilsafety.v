@@ -39,7 +39,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -946,11 +946,12 @@ module axilsafety #(
 	generate if (OPT_SELF_RESET)
 	begin : SELF_RESET_GENERATION
 		// {{{
-		reg		min_reset;
+		wire		min_reset;
 
 		if (OPT_MIN_RESET > 1)
 		begin : MIN_RESET
 			// {{{
+			reg	r_min_reset;
 			reg	[$clog2(OPT_MIN_RESET+1):0]	reset_counter;
 
 			//
@@ -961,12 +962,12 @@ module axilsafety #(
 			//
 
 			initial reset_counter = OPT_MIN_RESET-1;
-			initial	min_reset = 1'b0;
+			initial	r_min_reset = 1'b0;
 			always @(posedge S_AXI_ARESETN)
 			if (M_AXI_ARESETN)
 			begin
 				reset_counter <= OPT_MIN_RESET-1;
-				min_reset <= 1'b0;
+				r_min_reset <= 1'b0;
 			end else if (!M_AXI_ARESETN)
 			begin
 				if (reset_counter > 0)
@@ -974,6 +975,7 @@ module axilsafety #(
 				min_reset <= (reset_counter <= 1);
 			end
 
+			assign	min_reset = r_min_reset;
 `ifdef	FORMAL
 			always @(*)
 				assert(reset_counter < OPT_MIN_RESET);
@@ -981,10 +983,9 @@ module axilsafety #(
 				assert(min_reset == (reset_counter == 0));
 `endif
 			// }}}
-		end else begin
+		end else begin : NO_MIN_RESET
 			// {{{
-			always @(*)
-				min_reset = 1'b1;
+			assign	min_reset = 1'b1;
 			// }}}
 		end
 

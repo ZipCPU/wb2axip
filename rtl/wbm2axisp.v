@@ -24,7 +24,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2016-2022, Gisselquist Technology, LLC
+// Copyright (C) 2016-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -264,13 +264,21 @@ module wbm2axisp #(
 	////////////////////////////////////////////////////////////////////////
 	//
 	//
-	skidbuffer #(.DW(1+AW+DW+(DW/8)),
-		.OPT_OUTREG(1'b0))
-	skid (i_clk, i_reset || !i_wb_cyc,
-		i_wb_stb, skid_ready,
-			{ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel },
-		m_valid, m_ready,
-			{ m_we, m_addr, m_data, m_sel });
+
+	skidbuffer #(
+		// {{{
+		.DW(1+AW+DW+(DW/8)),
+		.OPT_OUTREG(1'b0)
+		// }}}
+	) skid (
+		// {{{
+		.i_clk(i_clk), .i_reset(i_reset || !i_wb_cyc),
+		.i_valid(i_wb_stb), .o_ready(skid_ready),
+			.i_data({ i_wb_we, i_wb_addr, i_wb_data, i_wb_sel }),
+		.o_valid(m_valid), .i_ready(m_ready),
+			.o_data({ m_we, m_addr, m_data, m_sel })
+		// }}}
+	);
 
 	always @(*)
 		o_wb_stall = !skid_ready;
@@ -385,7 +393,7 @@ module wbm2axisp #(
 	// awaddr, araddr
 	// {{{
 	generate if (OPT_LITTLE_ENDIAN || DW == C_AXI_DATA_WIDTH)
-	begin
+	begin : GEN_ADDR_LSBS
 		// {{{
 		always @(posedge i_clk)
 		if (!o_axi_awvalid || i_axi_awready)
@@ -539,7 +547,7 @@ module wbm2axisp #(
 	wire	unused;
 	assign	unused = &{ 1'b0, full, i_axi_bid, i_axi_bresp[0], i_axi_rid, i_axi_rresp[0], i_axi_rlast, m_data, m_sel };
 	generate if (C_AXI_DATA_WIDTH > DW)
-	begin
+	begin : GEN_UNUSED_DW
 		wire	[C_AXI_DATA_WIDTH-1:DW] unused_data;
 		assign	unused_data = i_axi_rdata[C_AXI_DATA_WIDTH-1:DW];
 	end endgenerate

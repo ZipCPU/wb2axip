@@ -21,7 +21,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -56,7 +56,7 @@ module	axi_addr #(
 		input	wire	[2:0]		i_size, // 1b, 2b, 4b, 8b, etc
 		input	wire	[1:0]		i_burst, // fixed, incr, wrap, reserved
 		input	wire	[LENB-1:0]	i_len,
-		output	reg	[AW-1:0]	o_next_addr
+		output	wire	[AW-1:0]	o_next_addr
 		// }}}
 	);
 
@@ -66,37 +66,31 @@ module	axi_addr #(
 	localparam [1:0]	FIXED     = 2'b00;
 	// localparam [1:0]	INCREMENT = 2'b01;
 	// localparam [1:0]	WRAP      = 2'b10;
+	localparam		IN_AW = (AW >= 12) ? 12 : AW;
+	localparam [IN_AW-1:0]	ONE = 1;
 
-	reg	[AW-1:0]	wrap_mask, increment;
+	reg	[IN_AW-1:0]	wrap_mask, increment;
+	reg	[IN_AW-1:0]	crossblk_addr, aligned_addr, unaligned_addr;
 	// }}}
 
 	// Address increment
 	// {{{
 	always @(*)
-	begin
-		increment = 0;
-		if (i_burst != 0)
-		begin
-			// Addresses increment from one beat to the next
-			// {{{
-			if (DSZ == 0)
-				increment = 1;
-			else if (DSZ == 1)
-				increment = (i_size[0]) ? 2 : 1;
-			else if (DSZ == 2)
-				increment = (i_size[1]) ? 4 : ((i_size[0]) ? 2 : 1);
-			else if (DSZ == 3)
-				case(i_size[1:0])
-				2'b00: increment = 1;
-				2'b01: increment = 2;
-				2'b10: increment = 4;
-				2'b11: increment = 8;
-				endcase
-			else
-				increment = (1<<i_size);
-			// }}}
-		end
-	end
+	if (DSZ == 0)
+		increment = 1;
+	else if (DSZ == 1)
+		increment = (i_size[0]) ? 2 : 1;
+	else if (DSZ == 2)
+		increment = (i_size[1]) ? 4 : ((i_size[0]) ? 2 : 1);
+	else if (DSZ == 3)
+		case(i_size[1:0])
+		2'b00: increment = 1;
+		2'b01: increment = 2;
+		2'b10: increment = 4;
+		2'b11: increment = 8;
+		endcase
+	else
+		increment = (1<<i_size);
 	// }}}
 
 	// wrap_mask
@@ -107,7 +101,6 @@ module	axi_addr #(
 	always @(*)
 	begin
 		// Start with the default, minimum mask
-		wrap_mask = 1;
 
 		/*
 		// Here's the original code.  It works, but it's
@@ -139,94 +132,96 @@ module	axi_addr #(
 		// We could simplify this to
 		//
 		// wrap_mask = wrap_mask | (i_len[3:0] << (i_size));
-		//
-		// But verilator complains about the left-hand side of
-		// the shift having only 3 bits.
-		//
+		// Verilator lint_off WIDTH
 		if (DSZ < 2)
-			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size[0]));
+			wrap_mask = ONE | ({{(IN_AW-4){1'b0}},i_len[3:0]} << (i_size[0]));
 		else if (DSZ < 4)
-			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size[1:0]));
+			wrap_mask = ONE | ({{(IN_AW-4){1'b0}},i_len[3:0]} << (i_size[1:0]));
 		else
-			wrap_mask = wrap_mask | ({{(AW-4){1'b0}},i_len[3:0]} << (i_size));
-
-		if (AW > 12)
-			wrap_mask[(AW-1):((AW>12)? 12:(AW-1))] = 0;
+			wrap_mask = ONE | ({{(IN_AW-4){1'b0}},i_len[3:0]} << (i_size));
+		// Verilator lint_on  WIDTH
 	end
 	// }}}
 
-	// o_next_addr
+	// unaligned_addr
+	always @(*)
+		unaligned_addr = i_last_addr[IN_AW-1:0] + increment[IN_AW-1:0];
+
+	// aligned_addr
 	// {{{
 	always @(*)
+	if (i_burst != FIXED)
 	begin
-		o_next_addr = i_last_addr + increment;
-		if (i_burst != FIXED)
+		// Align subsequent beats in any burst
+		// {{{
+		aligned_addr = unaligned_addr;
+		// We use the bus size here to simplify the logic
+		// required in case the bus is smaller than the
+		// maximum.  This depends upon AxSIZE being less than
+		// $clog2(DATA_WIDTH/8).
+		if (DSZ < 2)
 		begin
-			// Align subsequent beats in any burst
 			// {{{
-			//
-			// We use the bus size here to simplify the logic
-			// required in case the bus is smaller than the
-			// maximum.  This depends upon AxSIZE being less than
-			// $clog2(DATA_WIDTH/8).
-			if (DSZ < 2)
-			begin
-				// {{{
-				// Align any subsequent address
-				if (i_size[0])
-					o_next_addr[0] = 0;
-				// }}}
-			end else if (DSZ < 4)
-			begin
-				// {{{
-				// Align any subsequent address
-				case(i_size[1:0])
-				2'b00:  o_next_addr = o_next_addr;
-				2'b01:  o_next_addr[  0] = 0;
-				2'b10:  o_next_addr[(AW-1>1) ? 1 : (AW-1):0]= 0;
-				2'b11:  o_next_addr[(AW-1>2) ? 2 : (AW-1):0]= 0;
-				endcase
-				// }}}
-			end else begin
-				// {{{
-				// Align any subsequent address
-				case(i_size)
-				3'b001:  o_next_addr[  0] = 0;
-				3'b010:  o_next_addr[(AW-1>1) ? 1 : (AW-1):0]=0;
-				3'b011:  o_next_addr[(AW-1>2) ? 2 : (AW-1):0]=0;
-				3'b100:  o_next_addr[(AW-1>3) ? 3 : (AW-1):0]=0;
-				3'b101:  o_next_addr[(AW-1>4) ? 4 : (AW-1):0]=0;
-				3'b110:  o_next_addr[(AW-1>5) ? 5 : (AW-1):0]=0;
-				3'b111:  o_next_addr[(AW-1>6) ? 6 : (AW-1):0]=0;
-				default: o_next_addr = o_next_addr;
-				endcase
-				// }}}
-			end
+			// Align any subsequent address
+			if (i_size[0])
+				aligned_addr[0] = 0;
+			// }}}
+		end else if (DSZ < 4)
+		begin
+			// {{{
+			// Align any subsequent address
+			case(i_size[1:0])
+			2'b00:  aligned_addr = unaligned_addr;
+			2'b01:  aligned_addr[  0] = 0;
+			2'b10:  aligned_addr[(AW-1>1) ? 1 : (AW-1):0]= 0;
+			2'b11:  aligned_addr[(AW-1>2) ? 2 : (AW-1):0]= 0;
+			endcase
+			// }}}
+		end else begin
+			// {{{
+			// Align any subsequent address
+			case(i_size)
+			3'b001: aligned_addr[  0] = 0;
+			3'b010: aligned_addr[(AW-1>1) ? 1 : (AW-1):0]=0;
+			3'b011: aligned_addr[(AW-1>2) ? 2 : (AW-1):0]=0;
+			3'b100: aligned_addr[(AW-1>3) ? 3 : (AW-1):0]=0;
+			3'b101: aligned_addr[(AW-1>4) ? 4 : (AW-1):0]=0;
+			3'b110: aligned_addr[(AW-1>5) ? 5 : (AW-1):0]=0;
+			3'b111: aligned_addr[(AW-1>6) ? 6 : (AW-1):0]=0;
+			default: aligned_addr = unaligned_addr;
+			endcase
 			// }}}
 		end
-
-		// WRAP addressing
-		// {{{
-		if (i_burst[1])
-		begin
-			// WRAP!
-			o_next_addr[AW-1:0] = (i_last_addr & ~wrap_mask)
-					| (o_next_addr & wrap_mask);
-		end
 		// }}}
+	end else
+		aligned_addr = i_last_addr[IN_AW-1:0];
+	// }}}
 
-		// Guarantee only the bottom 12 bits change
-		// {{{
-		// This is really a logic simplification.  AXI bursts aren't
-		// allowed to cross 4kB boundaries.  Given that's the case,
-		// we don't have to suffer from the propagation across all
-		// AW bits, and can limit any address propagation to just the
-		// lower 12 bits
-		if (AW > 12)
-			o_next_addr[AW-1:((AW>12)? 12:(AW-1))]
-				= i_last_addr[AW-1:((AW>12) ? 12:(AW-1))];
-		// }}}
-	end
+	// crossblk_addr from aligned_addr, for WRAP addressing
+	// {{{
+	always @(*)
+	if (i_burst[1])
+	begin
+		// WRAP!
+		crossblk_addr[IN_AW-1:0] = (i_last_addr[IN_AW-1:0] & ~wrap_mask)
+				| (aligned_addr & wrap_mask);
+	end else
+		crossblk_addr[IN_AW-1:0] = aligned_addr;
+	// }}}
+
+	// o_next_addr: Guarantee only the bottom 12 bits change
+	// {{{
+	// This is really a logic simplification.  AXI bursts aren't allowed
+	// to cross 4kB boundaries.  Given that's the case, we don't have to
+	// suffer from the propagation across all AW bits, and can limit any
+	// address propagation to just the lower 12 bits
+	generate if (AW > 12)
+	begin : WIDE_ADDRESS
+		assign	o_next_addr = { i_last_addr[AW-1:12],
+						crossblk_addr[11:0] };
+	end else begin : NARROW_ADDRESS
+		assign	o_next_addr = crossblk_addr[AW-1:0];
+	end endgenerate
 	// }}}
 
 	// Make Verilator happy

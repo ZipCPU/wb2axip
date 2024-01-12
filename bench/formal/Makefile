@@ -15,7 +15,7 @@
 ##
 ################################################################################
 ## }}}
-## Copyright (C) 2017-2021, Gisselquist Technology, LLC
+## Copyright (C) 2017-2024, Gisselquist Technology, LLC
 ## {{{
 ## This file is part of the WB2AXIP project.
 ##
@@ -38,7 +38,8 @@
 HELPERS   := sfifo afifo addrdecode wbarbiter skidbuffer
 CROSSBARS := axilxbar wbxbar # axixbar
 CROSSCLOCK:= wbxclk apbxclk
-BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axim2wbsp
+BRIDGES   := wbm2axilite axlite2wbsp wbp2classic wbc2pipeline axilsingle axildouble axil2apb axilupsz # wbm2axisp axi2axilite axilite2axi axidouble axi2axilsub
+# axim2wbsp
 AXISTREAM := xlnxstream_2018_3 axisswitch axisrandom axisbroadcast axispacker
 AXISLAVES := demoaxi easyaxil axil2axis axiperf axilempty axilgpio # demofull xlnxfull axiempty
 AXIMASTERS := # axidma aximm2s axis2mm axisgfsm axivfifo axivcamera axivdisplay
@@ -943,15 +944,19 @@ clean:
 	rm -rf  $(DEMOAXI)_*/
 	rm -rf  $(WBARB)_*/
 	rm -rf  $(WB2LITE)_*/
+	rm -rf  $(AXILEMPTY)_*/  $(AXILUPSZ)_*/
+	rm -rf  $(AXILGPIO)_*/
 	rm -rf  $(RDLITE)_*/     $(WRLITE)_*/
 	rm -rf  $(WBC2PIPELIN)_*/ $(WBP2CLASSIC)_*/
-	rm -rf  $(AXLITE)_*/     $(WBXCLK)_*/
+	rm -rf  $(AXLITE)_*/
+	rm -rf  $(WBXCLK)_*/     $(APBXCLK)_*/
 	rm -rf  $(SFIFO)_*/      $(AFIFO)_*/
 	rm -rf  $(SKIDBUFFER)_*/ $(DECODER)_*/
 	rm -rf  $(WBXBAR)_*/     $(AXILXBAR)_*/
 	rm -rf  $(AXILSINGLE)_*/ $(AXILDOUBLE)_*/
 	rm -rf  $(EASYAXIL)_*/
 	rm -rf  $(WBSAFETY)_*/   $(AXILSAFETY)_*/
+	rm -rf  $(AXISSAFETY)_*/
 	rm -rf  $(AXIPERF)_*/    $(AXIL2AXIS)_*/
 	rm -rf  $(AXIL2APB)_*/   $(APBSLAVE)_*/
 	rm -rf	$(AXISRANDOM)_*/ $(AXISSWITCH)_*/

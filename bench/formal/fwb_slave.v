@@ -37,7 +37,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2017-2022, Gisselquist Technology, LLC
+// Copyright (C) 2017-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -76,7 +76,7 @@ module	fwb_slave #(
 		// add.
 		parameter [0:0]		F_OPT_RMW_BUS_OPTION = 1,
 		//
-		// 
+		//
 		// If true, allow the bus to issue multiple discontinuous
 		// requests.
 		// Unlike F_OPT_RMW_BUS_OPTION, these requests may be issued

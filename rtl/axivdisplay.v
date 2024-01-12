@@ -94,7 +94,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2020-2022, Gisselquist Technology, LLC
+// Copyright (C) 2020-2024, Gisselquist Technology, LLC
 // {{{
 //
 // This file is part of the WB2AXIP project.
@@ -469,13 +469,13 @@ module	axivdisplay #(
 			wskd_data, wskd_strb);
 
 	generate if (C_AXI_ADDR_WIDTH > 32)
-	begin
+	begin : GEN_LARGE_AW
 
 		assign	new_cmdaddrhi = apply_wstrb(
 			wide_address[2*C_AXIL_DATA_WIDTH-1:C_AXIL_DATA_WIDTH],
 			wskd_data, wskd_strb);
 
-	end else begin
+	end else begin : GEN_SINGLE_WORD_AW
 
 		assign	new_cmdaddrhi = 0;
 

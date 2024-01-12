@@ -188,7 +188,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -645,7 +645,7 @@ module	axis2mm #(
 	// last_tdata -- used for overflow checking
 	// {{{
 	always @(posedge i_clk)
-		last_tdata <= sskd_data;
+		last_tdata <= S_AXIS_TDATA;
 	// }}}
 
 	// overflow
@@ -1085,7 +1085,7 @@ module	axis2mm #(
 				|| !reset_fifo || !tlast_syncd);
 
 	generate if (OPT_TLAST_SYNC)
-	begin
+	begin : GEN_TLAST_SYNC
 		reg	r_tlast_syncd;
 		// If the user has set OPT_TLAST_SYNC, then he wants to make
 		// certain that we don't start writing until the first stream
@@ -1111,7 +1111,7 @@ module	axis2mm #(
 		end
 
 		assign	tlast_syncd = r_tlast_syncd;
-	end else begin
+	end else begin : NO_TLAST_SYNC
 
 		//
 		// If the option isn't set, then we are always synchronized.

@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (C) 2016-2020, Gisselquist Technology, LLC
+// Copyright (C) 2016-2024, Gisselquist Technology, LLC
 //
 // This file is part of the WB2AXIP project.
 //

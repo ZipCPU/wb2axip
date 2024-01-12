@@ -21,7 +21,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2022, Gisselquist Technology, LLC
+// Copyright (C) 2019-2024, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -987,7 +987,9 @@ module demofull #(
 	//
 	// The following properties are only some of the properties used
 	// to verify this core
-	//
+	//	
+	// Local (formal) register declarations
+	// {{{
 	reg	f_past_valid;
 	initial	f_past_valid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -997,6 +999,14 @@ module demofull #(
 	if (!f_past_valid)
 		assume(!S_AXI_ARESETN);
 
+	// }}}
+	////////////////////////////////////////////////////////////////////////
+	//
+	// AXI slave properties
+	// {{{
+	////////////////////////////////////////////////////////////////////////
+	//
+	//
 	faxi_slave	#(
 		// {{{
 		.C_AXI_ID_WIDTH(C_S_AXI_ID_WIDTH),
