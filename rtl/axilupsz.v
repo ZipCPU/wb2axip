@@ -267,7 +267,7 @@ module	axilupsz #(
 
 			if (!OPT_LOWPOWER || wskd_valid)
 				wstrb <= (wskd_strb)
-					<< (awskd_addr[MLSB-1:SLSB] *  SDW);
+					<< (awskd_addr[MLSB-1:SLSB] *(SDW/8));
 			// Verilator lint_on WIDTH
 		end
 		// }}}
