@@ -82,6 +82,7 @@ cmd += " -chparam OPT_TIMEOUT   %d" % (20 if "opt_timeout"   in tags else 0)
 cmd += " -chparam OPT_STARVATION_TIMEOUT %d" % (1 if "opt_starvation" in tags else 0)
 output(cmd)
 --pycode-end--
+proc -norom
 prep -top wbxbar
 
 [files]
