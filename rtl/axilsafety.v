@@ -972,7 +972,7 @@ module axilsafety #(
 			begin
 				if (reset_counter > 0)
 					reset_counter <= reset_counter-1;
-				min_reset <= (reset_counter <= 1);
+				r_min_reset <= (reset_counter <= 1);
 			end
 
 			assign	min_reset = r_min_reset;
