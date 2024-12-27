@@ -145,10 +145,10 @@ module	wbxbar #(
 		//
 		// Here are the output ports, used to control each of the
 		// various slave ports that we are connected to
-		output	reg	[NS-1:0]	o_scyc, o_sstb, o_swe,
-		output	reg	[NS*AW-1:0]	o_saddr,
-		output	reg	[NS*DW-1:0]	o_sdata,
-		output	reg	[NS*DW/8-1:0]	o_ssel,
+		output	wire	[NS-1:0]	o_scyc, o_sstb, o_swe,
+		output	wire	[NS*AW-1:0]	o_saddr,
+		output	wire	[NS*DW-1:0]	o_sdata,
+		output	wire	[NS*DW/8-1:0]	o_ssel,
 		//
 		// ... and their return data back to us.
 		input	wire	[NS-1:0]	i_sstall, i_sack,
@@ -192,14 +192,14 @@ module	wbxbar #(
 	// These definitions work with both
 	wire	[NS:0]			request		[0:NM-1];
 	reg	[NS-1:0]		requested	[0:NM-1];
-	reg	[NS:0]			grant		[0:NM-1];
-	reg	[NM-1:0]		mgrant;
-	reg	[NS-1:0]		sgrant;
+	wire	[NS:0]			grant		[0:NM-1];
+	wire	[NM-1:0]		mgrant;
+	wire	[NS-1:0]		sgrant;
 
 	// Verilator lint_off UNUSED
 	wire	[LGMAXBURST-1:0]	w_mpending [0:NM-1];
 	// Verilator lint_on  UNUSED
-	reg	[NM-1:0]		mfull, mnearfull, mempty;
+	wire	[NM-1:0]		mfull, mnearfull, mempty;
 	wire	[NM-1:0]		timed_out;
 
 	localparam	NMFULL = (NM > 1) ? (1<<LGNM) : 1;
@@ -371,29 +371,37 @@ module	wbxbar #(
 
 		// sgrant
 		// {{{
-		initial	sgrant[M] = 0;
+		reg	r_sgrant;
+
+		initial	r_sgrant = 0;
 		always @(posedge i_clk)
 		begin
-			sgrant[M] <= sgrant[M];
+			r_sgrant <= sgrant[M];
 			for(iN=0; iN<NM; iN=iN+1)
 			if (request[iN][M] && (!mgrant[iN] || mempty[iN]))
-				sgrant[M] <= 1;
+				r_sgrant <= 1;
 			if (drop_sgrant)
-				sgrant[M] <= 0;
+				r_sgrant <= 0;
 		end
+
+		assign	sgrant[M] = r_sgrant;
 		// }}}
 		// }}}
 `else
 		// {{{
 		// sgrant
 		// {{{
+		reg	r_sgrant;
+
 		always @(*)
 		begin
-			sgrant[M] = 0;
+			r_sgrant = 0;
 			for(iN=0; iN<NM; iN=iN+1)
 			if (grant[iN][M])
-				sgrant[M] = 1;
+				r_sgrant = 1;
 		end
+
+		assign	sgrant[M] = r_sgrant;
 		// }}}
 		// }}}
 `endif
@@ -493,25 +501,31 @@ module	wbxbar #(
 
 		// grant, mgrant
 		// {{{
-		initial	grant[N] = 0;
-		initial	mgrant[N] = 0;
+		reg		r_mgrant;
+		reg	[NS:0]	r_grant;
+
+		initial	r_grant = 0;
+		initial	r_mgrant = 0;
 		always @(posedge i_clk)
 		if (i_reset || !i_mcyc[N])
 		begin
-			grant[N] <= 0;
-			mgrant[N] <= 0;
+			r_grant  <= 0;
+			r_mgrant <= 0;
 		end else if (!stay_on_channel)
 		begin
 			if (requested_channel_is_available)
 			begin
-				mgrant[N] <= 1'b1;
-				grant[N] <= request[N];
+				r_mgrant <= 1'b1;
+				r_grant  <= request[N];
 			end else if (m_stb[N])
 			begin
-				mgrant[N] <= 1'b0;
-				grant[N]  <= 0;
+				r_mgrant <= 1'b0;
+				r_grant  <= 0;
 			end
 		end
+
+		assign	mgrant[N] = r_mgrant;
+		assign	grant[N]  = r_grant;
 		// }}}
 
 		if (NS == 1)
@@ -520,6 +534,10 @@ module	wbxbar #(
 			assign	mindex[N] = 0;
 			assign	regrant = 0;
 			assign	reindex = 0;
+
+			// Verilator lint_off UNUSED
+			wire	unused_regrant = &{ 1'b0, regrant, reindex };
+			// Verialtor lint_on  UNUSED
 			// }}}
 		end else begin : MINDEX_MULTIPLE_SLAVES
 			// {{{
@@ -723,8 +741,10 @@ module	wbxbar #(
 	generate for(M=0; M<NS; M=M+1)
 	begin : GEN_CYC_STB
 		// {{{
-		initial	o_scyc[M] = 0;
-		initial	o_sstb[M] = 0;
+		reg	r_scyc, r_sstb;
+
+		initial	r_scyc = 0;
+		initial	r_sstb = 0;
 		always @(posedge i_clk)
 		begin
 			if (sgrant[M])
@@ -732,26 +752,29 @@ module	wbxbar #(
 
 				if (!i_mcyc[sindex[M]])
 				begin
-					o_scyc[M] <= 1'b0;
-					o_sstb[M] <= 1'b0;
+					r_scyc <= 1'b0;
+					r_sstb <= 1'b0;
 				end else begin
-					o_scyc[M] <= 1'b1;
+					r_scyc <= 1'b1;
 
-					if (!o_sstb[M] || !s_stall[M])
-						o_sstb[M]<=request[sindex[M]][M]
+					if (!r_sstb || !s_stall[M])
+						r_sstb <=request[sindex[M]][M]
 						  && !mfull[sindex[M]];
 				end
 			end else begin
-				o_scyc[M]  <= 1'b0;
-				o_sstb[M]  <= 1'b0;
+				r_scyc  <= 1'b0;
+				r_sstb  <= 1'b0;
 			end
 
 			if (i_reset || s_err[M])
 			begin
-				o_scyc[M] <= 1'b0;
-				o_sstb[M] <= 1'b0;
+				r_scyc <= 1'b0;
+				r_sstb <= 1'b0;
 			end
 		end
+
+		assign	o_scyc[M] = r_scyc;
+		assign	o_sstb[M] = r_sstb;
 		// }}}
 	end endgenerate
 
@@ -781,7 +804,7 @@ module	wbxbar #(
 			r_swe   <= o_swe[0];
 			r_saddr <= o_saddr[0+:AW];
 			r_sdata <= o_sdata[0+:DW];
-			r_ssel  <=o_ssel[0+:DW/8];
+			r_ssel  <= o_ssel[0+:DW/8];
 
 			// Verilator lint_off WIDTH
 			if (sgrant[mindex[0]] && !s_stall[mindex[0]])
@@ -801,38 +824,43 @@ module	wbxbar #(
 		// here.
 		for(M=0; M<NS; M=M+1)
 		begin : FOREACH_SLAVE_PORT
-			always @(*)
-			begin
-				o_swe[M]            = r_swe;
-				o_saddr[M*AW +: AW] = r_saddr[AW-1:0];
-				o_sdata[M*DW +: DW] = r_sdata[DW-1:0];
-				o_ssel[M*DW/8+:DW/8]= r_ssel[DW/8-1:0];
-			end
+			assign	o_swe[M] = r_swe;
+			assign	o_saddr[M*AW +: AW] = r_saddr;
+			assign	o_sdata[M*DW +: DW] = r_sdata;
+			assign	o_ssel[M*DW/8+:DW/8]= r_ssel;
 		end
+
 		// }}}
 	end else begin : J
 	for(M=0; M<NS; M=M+1)
 	begin : GEN_DOWNSTREAM
 		// {{{
-		always @(posedge i_clk)
-		begin
-			if (OPT_LOWPOWER && !sgrant[M])
-			begin
-				o_swe[M]              <= 1'b0;
-				o_saddr[M*AW   +: AW] <= 0;
-				o_sdata[M*DW   +: DW] <= 0;
-				o_ssel[M*(DW/8)+:DW/8]<= 0;
-			end else if (!s_stall[M]) begin
-				o_swe[M]              <= m_we[sindex[M]];
-				o_saddr[M*AW   +: AW] <= m_addr[sindex[M]];
-				if (OPT_LOWPOWER && !m_we[sindex[M]])
-					o_sdata[M*DW   +: DW] <= 0;
-				else
-					o_sdata[M*DW   +: DW] <= m_data[sindex[M]];
-				o_ssel[M*(DW/8)+:DW/8]<= m_sel[sindex[M]];
-			end
+		reg			r_swe;
+		reg	[AW-1:0]	r_saddr;
+		reg	[DW-1:0]	r_sdata;
+		reg	[DW/8-1:0]	r_ssel;
 
+		always @(posedge i_clk)
+		if (OPT_LOWPOWER && !sgrant[M])
+		begin
+			r_swe   <= 1'b0;
+			r_saddr <= 0;
+			r_sdata <= 0;
+			r_ssel  <= 0;
+		end else if (!s_stall[M]) begin
+			r_swe   <= m_we[sindex[M]];
+			r_saddr <= m_addr[sindex[M]];
+			if (OPT_LOWPOWER && !m_we[sindex[M]])
+				r_sdata <= 0;
+			else
+				r_sdata <= m_data[sindex[M]];
+			r_ssel<= m_sel[sindex[M]];
 		end
+
+		assign	o_swe[M] = r_swe;
+		assign	o_saddr[M*AW   +: AW] = r_saddr;
+		assign	o_sdata[M*DW   +: DW] = r_sdata;
+		assign	o_ssel[M*(DW/8)+:DW/8]= r_ssel;
 		// }}}
 	end end endgenerate
 	// }}}
@@ -846,13 +874,13 @@ module	wbxbar #(
 	generate if (OPT_DBLBUFFER)
 	begin : DOUBLE_BUFFERRED_STALL
 		// {{{
-		reg	[NM-1:0]	r_mack, r_merr;
-
 		for(N=0; N<NM; N=N+1)
 		begin : FOREACH_MASTER_PORT
 			// m_stall isn't buffered, since it depends upon
 			// the already existing buffer within the address
 			// decoder
+			reg	r_mack, r_merr;
+
 			always @(*)
 			begin
 				if (grant[N][NS])
@@ -866,15 +894,15 @@ module	wbxbar #(
 					m_stall[N] = 0;
 			end
 
-			initial	r_mack[N]   = 0;
-			initial	r_merr[N]   = 0;
+			initial	r_mack   = 0;
+			initial	r_merr   = 0;
 			always @(posedge i_clk)
 			begin
 				// Verilator lint_off WIDTH
 				iM = mindex[N];
 				// Verilator lint_on  WIDTH
-				r_mack[N]   <= mgrant[N] && s_ack[mindex[N]];
-				r_merr[N]   <= mgrant[N] && s_err[mindex[N]];
+				r_mack   <= mgrant[N] && s_ack[mindex[N]];
+				r_merr   <= mgrant[N] && s_err[mindex[N]];
 				if (OPT_LOWPOWER && !mgrant[N])
 					o_mdata[N*DW +: DW] <= 0;
 				else
@@ -882,20 +910,20 @@ module	wbxbar #(
 
 				if (grant[N][NS]||(timed_out[N] && !o_mack[N]))
 				begin
-					r_mack[N]   <= 1'b0;
-					r_merr[N]   <= !o_merr[N];
+					r_mack   <= 1'b0;
+					r_merr   <= !o_merr[N];
 				end
 
 				if (i_reset || !i_mcyc[N] || o_merr[N])
 				begin
-					r_mack[N]   <= 1'b0;
-					r_merr[N]   <= 1'b0;
+					r_mack   <= 1'b0;
+					r_merr   <= 1'b0;
 				end
 			end
 
-			assign	o_mack[N] = r_mack[N];
+			assign	o_mack[N] = r_mack;
 
-			assign	o_merr[N] = (!OPT_STARVATION_TIMEOUT || i_mcyc[N]) && r_merr[N];
+			assign	o_merr[N] = (!OPT_STARVATION_TIMEOUT || i_mcyc[N]) && r_merr;
 
 		end
 		// }}}
@@ -995,34 +1023,39 @@ module	wbxbar #(
 	begin : COUNT_PENDING_TRANSACTIONS
 		// {{{
 		reg	[LGMAXBURST-1:0]	lclpending;
+		reg				r_empty, r_nearfull, r_full;
+
 		initial	lclpending  = 0;
-		initial	mempty[N]    = 1;
-		initial	mnearfull[N] = 0;
-		initial	mfull[N]     = 0;
+		initial	r_empty    = 1;
+		initial	r_nearfull = 0;
+		initial	r_full     = 0;
 		always @(posedge i_clk)
 		if (i_reset || !i_mcyc[N] || o_merr[N])
 		begin
 			lclpending <= 0;
-			mfull[N]    <= 0;
-			mempty[N]   <= 1'b1;
-			mnearfull[N]<= 0;
+			r_full    <= 0;
+			r_empty   <= 1'b1;
+			r_nearfull<= 0;
 		end else case({ (m_stb[N] && !m_stall[N]), o_mack[N] })
 		2'b01: begin
 			lclpending <= lclpending - 1'b1;
-			mnearfull[N]<= mfull[N];
-			mfull[N]    <= 1'b0;
-			mempty[N]   <= (lclpending == 1);
+			r_nearfull<= mfull[N];
+			r_full    <= 1'b0;
+			r_empty   <= (lclpending == 1);
 			end
 		2'b10: begin
 			lclpending <= lclpending + 1'b1;
-			mnearfull[N]<= (&lclpending[LGMAXBURST-1:2])&&(lclpending[1:0] != 0);
-			mfull[N]    <= mnearfull[N];
-			mempty[N]   <= 1'b0;
+			r_nearfull<= (&lclpending[LGMAXBURST-1:2])&&(lclpending[1:0] != 0);
+			r_full    <= mnearfull[N];
+			r_empty   <= 1'b0;
 			end
 		default: begin end
 		endcase
 
-		assign w_mpending[N] = lclpending;
+		assign w_mpending[N]= lclpending;
+		assign mempty[N]    = r_empty;
+		assign mfull[N]     = r_full;
+		assign mnearfull[N] = r_nearfull;
 		// }}}
 	end endgenerate
 
