@@ -121,7 +121,7 @@ module	axivfifo #(
 		// The outgoing stream
 		output	wire				M_AXIS_TVALID,
 		input	wire				M_AXIS_TREADY,
-		output	reg	[C_AXIS_DATA_WIDTH-1:0]	M_AXIS_TDATA,
+		output	wire	[C_AXIS_DATA_WIDTH-1:0]	M_AXIS_TDATA,
 		// }}}
 		//
 		// The AXI Master (DMA) interface
