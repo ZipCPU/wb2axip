@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axisbroadcast
+// Filename:	rtl/axisbroadcast.v
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
@@ -16,7 +16,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2021-2024, Gisselquist Technology, LLC
+// Copyright (C) 2019-2025, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -24,9 +24,9 @@
 // Apache License, Version 2.0 (the "License").  You may not use this project,
 // or this file, except in compliance with the License.  You may obtain a copy
 // of the License at
-//
+// }}}
 //	http://www.apache.org/licenses/LICENSE-2.0
-//
+// {{{
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -38,10 +38,13 @@
 `default_nettype	none
 // }}}
 module	axisbroadcast #(
+		// {{{
 		parameter	C_AXIS_DATA_WIDTH = 16,
 		parameter	NM = 4,	// Number of (outgoing) master ports
 		parameter	LGFIFO = 4	// Size of outgoing FIFOs
+		// }}}
 	) (
+		// {{{
 		input	wire	S_AXI_ACLK, S_AXI_ARESETN,
 		input	wire					S_AXIS_TVALID,
 		output	wire					S_AXIS_TREADY,
@@ -49,6 +52,7 @@ module	axisbroadcast #(
 		output	wire	[NM-1:0]			M_AXIS_TVALID,
 		input	wire	[NM-1:0]			M_AXIS_TREADY,
 		output	wire	[NM*C_AXIS_DATA_WIDTH-1:0]	M_AXIS_TDATA
+		// }}}
 	);
 
 	// Local declarations

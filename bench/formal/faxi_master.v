@@ -1,19 +1,23 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	faxi_master.v (Formal properties of an AXI4 (full) master)
+// Filename:	bench/formal/faxi_master.v
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
 // Purpose:	This file contains a subset of the formal properties which I've
-//		used to formally verify that a core truly follows the full
-//	AXI4 specification.
+//		used to formally verify that an AXI master truly follows the
+//	full AXI4 specification.
+//
+//	This subset is not intended to be functional.  Do not be surprised if
+//	it fails to build when you attempt to use it.  The full set of AXI
+//	properties may be purchased from Gisselquist Technology, LLC.
 //
 // Creator:	Dan Gisselquist, Ph.D.
 //		Gisselquist Technology, LLC
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2017-2024, Gisselquist Technology, LLC
+// Copyright (C) 2017-2025, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -21,9 +25,9 @@
 // Apache License, Version 2.0 (the "License").  You may not use this project,
 // or this file, except in compliance with the License.  You may obtain a copy
 // of the License at
-//
+// }}}
 //	http://www.apache.org/licenses/LICENSE-2.0
-//
+// {{{
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
@@ -31,7 +35,6 @@
 // under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-//
 //
 `default_nettype	none
 // }}}
@@ -1007,7 +1010,7 @@ module faxi_master #(
 		always @(posedge i_clk)
 		begin
 			if (i_axi_arvalid && i_axi_arready && i_axi_arlock
-				&& /* ... */)
+				/* && ... */)
 			begin // Make a read lock request
 				// {{{
 				exfsm_state <= EXFSM_REQUESTED;
@@ -1017,14 +1020,14 @@ module faxi_master #(
 				exreq_size  <= i_axi_arsize;
 				// }}}
 			end else if (i_axi_rvalid && i_axi_rready && i_axi_rlast
-				&& // ...
+				// && ...
 				&& i_axi_rresp == EXOKAY)
 			begin // Get a response from our last read lock request
 				// {{{
 				exfsm_state <= EXFSM_READY;
 				// }}}
 			end else if (i_axi_rvalid && i_axi_rready && i_axi_rlast
-				&& // ...
+				// && ...
 				&& i_active_lock)
 			begin // Locking of this address isn't supported
 				// {{{
@@ -1037,14 +1040,14 @@ module faxi_master #(
 				exreq_size  <= i_exlock_size;
 				// }}}
 			end else if (i_axi_rvalid && i_axi_rready && i_axi_rlast
-				&& // ...
+				// && ...
 				&& !i_active_lock)
 			begin // Nothing locked, go back to idle
 				// {{{
 				exfsm_state <= EXFSM_IDLE;
 				// }}}
 			end else if (i_axi_awvalid && i_axi_awready
-					&& // ...
+					// ...
 					&& i_axi_awlock)
 			begin // Request an exclusive write
 			// {{{
@@ -1052,7 +1055,7 @@ module faxi_master #(
 					exfsm_state <= EXFSM_WRITING;
 			// }}}
 			end else if (i_axi_bvalid && i_axi_bready
-					&& // ...
+					// && ...
 					)
 			begin
 				// BRESP may or may not be EXOKAY, depending
@@ -1090,13 +1093,13 @@ module faxi_master #(
 		EXFSM_IDLE: begin
 			// {{{
 			`SLAVE_ASSUME(!i_axi_awvalid
-					|| // ...
+					// || ...
 					|| !i_axi_awlock);
 			`SLAVE_ASSERT(!i_axi_rvalid
-					|| // ...
+					// || ...
 					|| i_axi_rresp != EXOKAY);
 			`SLAVE_ASSERT(!i_axi_bvalid
-				|| // ...
+				// || ...
 				|| i_axi_bresp != EXOKAY);
 			`SLAVE_ASSERT(!i_active_lock);
 			// ...
@@ -1105,7 +1108,7 @@ module faxi_master #(
 		EXFSM_REQUESTED: begin
 			// {{{
 			`SLAVE_ASSUME(!i_axi_awvalid || !i_axi_awlock
-					|| /* ... */);
+					/* || ... */);
 			// ...
 
 			`SLAVE_ASSERT(!i_axi_bvalid
@@ -1114,7 +1117,7 @@ module faxi_master #(
 
 			if (rdid_bursts_to_lock == 1
 				&& i_axi_rvalid && i_axi_rready && i_axi_rlast
-				&& // ...
+				// && ...
 				&& i_axi_rresp == EXOKAY)
 			begin // EXOKAY return--a lock address has now been set
 				if (check_this_return && i_active_lock)
@@ -1141,19 +1144,19 @@ module faxi_master #(
 			// An address has been set, and is valid, but ..
 			// no exclusive write has been requested
 			`SLAVE_ASSERT(!i_axi_rvalid
-				|| // ...
+				// || ...
 				|| i_axi_rresp != EXOKAY);
 			`SLAVE_ASSERT(!i_axi_bvalid
-				|| // ...
+				// || ...
 				|| i_axi_bresp != EXOKAY);
 
 			// ...
 
 			`SLAVE_ASSUME(
 				!(i_axi_arvalid && i_axi_arlock
-					&& /* ... */)
+					/* && ... */)
 				|| !(i_axi_awvalid && i_axi_awlock
-					&&  /* ... */));
+					/* &&  ... */));
 
 			if (i_active_lock)
 			begin
@@ -1180,17 +1183,17 @@ module faxi_master #(
 			// Can't request a new read lock while an exclusive
 			// write request is in progress
 			`SLAVE_ASSUME(!i_axi_arvalid || !i_axi_arlock
-				|| /* ... */);
+				/* || ... */);
 
 			// Slave shouldnever produce an exclusive read
 			// response here--since none should be active
 			`SLAVE_ASSERT(!i_axi_rvalid || i_axi_rresp != EXOKAY
-				|| /* ... */);
+				/* || ... */);
 
 			// Can't request a second exclusive write until this
 			// one completes
 			`SLAVE_ASSUME(!i_axi_awvalid || !i_axi_awlock
-				|| /* ... */);
+				/* || ... */);
 
 			if (i_active_lock)
 			begin
@@ -1238,7 +1241,7 @@ module faxi_master #(
 		always @(posedge i_clk)
 		if (!i_axi_reset_n)
 			exreq_return <= 0;
-		else if (i_axi_rvalid && i_axi_rready && /* ... */)
+		else if (i_axi_rvalid && i_axi_rready /* && ... */)
 		begin
 			if (i_axi_rlast)
 				exreq_return <= 0;

@@ -3,7 +3,7 @@
 // Filename: 	xlnxfull.v
 //
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
-//
+// {{{
 // Purpose:	To test the formal tools on an AXI4 (full) core that is "known"
 //		to work.  (Only this one doesn't, but at least that was my
 //	initial purpose.) Most of this code comes directly from Vivado's core
@@ -16,18 +16,17 @@
 //	FORMAL) for things that should've had them in the first place, etc.
 //	I may have even swapped an always @(somevalue) for an always @(*), but
 //	that's as far as I've gone.
-//
+// }}}
 //	I was surprised to learn that this core passed, and would always pass,
 //	a Xilinx VIP check as is.  It does not pass a formal verification check.
 //
 // Creator:	Vivado, 2018.3
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
-//
 //
 `default_nettype none	// Added to the raw demo
 `timescale 1 ns / 1 ps
-//
+// }}}
 module xlnxfull_2018_3 #(
 	// Users to add parameters here
 

@@ -3,24 +3,22 @@
 // Filename: 	xlnxstream_2018_3
 //
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
-//
+// {{{
 // Purpose:	To test the formal tools on an AXI stream master core that is
 //		"known" to work.  This core was generated via the IP packager
 //	in Vivado 2018.3.  Sadly, it's broken in a couple of ways, one which
 //	is prominently the TLAST signal which may be set even through the
 //	channel is stalled.  Feel free to try it out.
-//
+// }}}
 //	This core will fail a verification check.
 //
 // Creator:	Vivado, 2018.3
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype none
-//
 `timescale 1 ns / 1 ps
-
+// }}}
 module xlnxstream_2018_3 #
 	(
 		// Users to add parameters here

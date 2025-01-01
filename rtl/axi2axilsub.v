@@ -1,6 +1,6 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //
-// Filename: 	axi2axilsub.v
+// Filename:	rtl/axi2axilsub.v
 // {{{
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
 //
@@ -24,28 +24,22 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2024, Gisselquist Technology, LLC
+// Copyright (C) 2019-2025, Gisselquist Technology, LLC
 // {{{
-// This digital logic component is the proprietary property of Gisselquist
-// Technology, LLC.  It may only be distributed and/or re-distributed by the
-// express permission of Gisselquist Technology.
+// This file is part of the WB2AXIP project.
 //
-// Permission has been granted to the Patreon sponsors of the ZipCPU blog
-// to use this logic component as they see fit, but not to redistribute it
-// beyond their individual personal or commercial use.
-//
-// This component is distributed in the hope that it will be useful, but
-// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY
-// or FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Please feel free to contact me should you have any questions, or even if you
-// just want to ask about what you find within here.
-//
-// Yours,
-//
-// Dan Gisselquist
-// Owner
-// Gisselquist Technology, LLC
+// The WB2AXIP project contains free software and gateware, licensed under the
+// Apache License, Version 2.0 (the "License").  You may not use this project,
+// or this file, except in compliance with the License.  You may obtain a copy
+// of the License at
+// }}}
+//	http://www.apache.org/licenses/LICENSE-2.0
+// {{{
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+// License for the specific language governing permissions and limitations
+// under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
 //

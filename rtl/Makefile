@@ -1,6 +1,6 @@
 ################################################################################
 ##
-## Filename:	Makefile
+## Filename:	rtl/Makefile
 ## {{{
 ## Project:	WB2AXIPSP: bus bridges and other odds and ends
 ##
@@ -17,7 +17,7 @@
 ##
 ################################################################################
 ## }}}
-## Copyright (C) 2016-2023, Gisselquist Technology, LLC
+## Copyright (C) 2016-2025, Gisselquist Technology, LLC
 ## {{{
 ## This file is part of the WB2AXIP project.
 ##

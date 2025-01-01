@@ -3,7 +3,7 @@
 // Filename: 	xlnxdemo.v
 //
 // Project:	WB2AXIPSP: bus bridges and other odds and ends
-//
+// {{{
 // Purpose:	To test the formal tools on an AXI-lite core that is "known"
 //		to work.  (Only this one doesn't--at least that was my purpose.
 //	Most of this code comes directly from Vivado's core generator--starting
@@ -18,17 +18,17 @@
 //
 //	Since 2016, Vivado has made updates to their core.  The last time I
 //	checked, however, it still failed to pass a formal verification check.
-//
+// }}}
 //	This core will fail a verification check.
 //
 // Creator:	Vivado, 2016 (I think it was 2016.1)
-//
+// {{{
 ////////////////////////////////////////////////////////////////////////////////
 //
 //
 `default_nettype none	// Added to the raw demo
 `timescale 1 ns / 1 ps
-//
+// }}}
 module xlnxdemo #
 	(
 		// Users to add parameters here
