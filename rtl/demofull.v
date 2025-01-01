@@ -1193,7 +1193,7 @@ module demofull #(
 
 	always @(*)
 		cover(!S_AXI_BVALID && axi_awready && !m_awvalid
-			&& f_wr_cvr_valid /* && ... */));
+			&& f_wr_cvr_valid /* && ... */);
 
 	initial	f_rd_cvr_valid = 0;
 	always @(posedge S_AXI_ACLK)
@@ -1222,10 +1222,10 @@ module demofull #(
 	end
 
 	always @(*)
-		cover(S_AXI_ARESETN && (f_dbl_wr_count > 1));	//!
+		cover(S_AXI_ARESETN && (f_dbl_wr_count > 1));
 
 	always @(*)
-		cover(S_AXI_ARESETN && (f_dbl_wr_count > 3));	//!
+		cover(S_AXI_ARESETN && (f_dbl_wr_count > 3));
 
 	always @(*)
 		cover(S_AXI_ARESETN && (f_dbl_wr_count > 3) && !m_awvalid

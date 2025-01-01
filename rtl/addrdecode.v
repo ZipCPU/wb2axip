@@ -61,7 +61,6 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-//
 `default_nettype	none
 // }}}
 module	addrdecode #(
@@ -173,6 +172,11 @@ module	addrdecode #(
 	begin : SINGLE_SLAVE
 		// {{{
 		assign request[0] = i_valid;
+
+		// Verilator lint_off UNUSED
+		wire	unused;
+		assign	unused = &{ 1'b0, prerequest };
+		// Verilator lint_on  UNUSED
 		// }}}
 	end else begin : GENERAL_CASE
 		// {{{
