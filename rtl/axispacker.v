@@ -196,78 +196,48 @@ module	axispacker #(
 	);
 `endif
 
-	function [DW+DW/8+DW/8-1:0] pack; // (i_data, i_strb, i_keep)
+	function automatic [DW+DW/8+DW/8-1:0] pack; // (i_data, i_strb, i_keep)
 	// {{{
 		input	[DW-1:0]	i_data;
 		input	[DW/8-1:0]	i_strb;
 		input	[DW/8-1:0]	i_keep;
 
-		reg	[DW-1:0]	p_data;
-		reg	[DW/8-1:0]	p_strb;
-		reg	[DW/8-1:0]	p_keep;
+		reg	[DW-1:0]	p_data, s_data;
+		reg	[DW/8-1:0]	p_strb, s_strb;
+		reg	[DW/8-1:0]	p_keep, s_keep;
 
-		integer	rounds, ik;
+		integer	ik, jk;
 	begin
-		p_data = i_data;
-		p_strb = i_strb;
-		p_keep = i_keep;
+		s_data = i_data;
+		s_strb = i_strb;
+		s_keep = i_keep;
+
+		p_data = {(DW){1'b0}};
+		p_strb = {(DW/8){1'b0}};
+		p_keep = {(DW/8){1'b0}};
+
 		for(ik=0; ik < DW/8; ik=ik+1)
 		begin
-			if (!p_keep[ik])
+			for(jk=ik; jk<DW/8; jk=jk+1)
 			begin
-				p_data[ik*8 +: 8]= 8'h00;
-				p_strb[ik] = 1'b0;
-			end
-		end
-		for(rounds = 0; rounds < DW/8; rounds = rounds+1)
-		begin
-			for(ik=0; ik < DW/8-1; ik=ik+1)
-			begin
-				if (!p_keep[ik])
+				if (!s_keep[0])
 				begin
-					p_data[ik*8 +: 8]=p_data[(ik+1)*8 +: 8];
-					p_keep[ik] = p_keep[ik+1];
-					p_strb[ik] = p_strb[ik+1];
-
-					p_keep[ik+1] = 0;
-					p_data[(ik+1)*8 +: 8] = 0;
-					p_strb[ik+1] = 0;
+					s_data = s_data >> 8;
+					s_strb = s_strb >> 1;
+					s_keep = s_keep >> 1;
 				end
 			end
+
+			p_data[ik*8 +: 8] = s_data[7:0];
+			p_keep[ik] = s_keep[0];
+			p_strb[ik] = s_strb[0];
+
+			s_data = s_data >> 8;
+			s_strb = s_strb >> 1;
+			s_keep = s_keep >> 1;
 		end
 
 		pack = { p_data, p_strb, p_keep };
-/*
-		p_data = 0;
-		p_strb = 0;
-		p_keep = 0;
-
-		for(fill=0; fill<2*DW; fill=fill+1)
-		begin
-			p_data[(fill *8) +: 8] = i_data[fill*8 +: 8];
-			p_strb[ fill         ] = i_strb[fill];
-			p_keep[ fill         ] = i_keep[fill];
-			if (fill != 0)
-				p_keep[ fill         ] = i_keep[fill]
-					&& $countones(i_keep[((fill > 0)?(fill-1):0):0]) == fill;
-			for(ik=fill; ik<2*DW; ik=ik+1)
-			if (i_keep[ik] && $countones(i_keep[ik-1:0]) == fill)
-			begin
-				p_data[fill*8 +: 8] = i_data[ik*8 +: 8];
-				p_strb[fill       ] = i_strb[ik];
-				p_keep[fill       ] = i_keep[ik];
-			end
-
-			if (!p_keep[fill])
-			begin
-				p_strb[fill] = 1'b0;
-				if (OPT_LOWPOWER)
-					p_data[(fill *8) +: 8] = 8'h00;
-			end
-		end
-
-		pack = { p_data, p_strb, p_keep };
-*/
 	end endfunction
 	// }}}
 
@@ -301,7 +271,7 @@ module	axispacker #(
 	else if (mid_last && (!M_AXIS_TVALID || M_AXIS_TREADY))
 		mid_fill <= (axis_ready) ? skd_count : 0;
 	else if (skd_valid && skd_last && (!M_AXIS_TVALID || M_AXIS_TREADY))
-		mid_fill <= (skd_count + mid_fill <= TRIM_MAX) ? 0 : skd_count + mid_fill - TRIM_MAX;
+		mid_fill <= (skd_count + mid_fill <= TRIM_MAX) ? 0 : (skd_count + mid_fill - TRIM_MAX);
 	else
 		mid_fill <= mid_fill + (axis_ready ? skd_count : 0)
 			- ((next_valid && (!M_AXIS_TVALID || M_AXIS_TREADY))
