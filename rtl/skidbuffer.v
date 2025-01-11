@@ -404,7 +404,7 @@ module skidbuffer #(
 	// }}}
 
 	always @(posedge i_clk)
-	if (!i_reset && !o_ready)
+	if (!OPT_PASSTHROUGH && !i_reset && !o_ready)
 		assert(o_valid);
 
 	////////////////////////////////////////////////////////////////////////
