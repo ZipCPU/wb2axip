@@ -1521,7 +1521,7 @@ module	axis2mm #(
 	if (|aw_requests_remaining[LGLENW-1:LGMAXBURST])
 		sufficiently_filled = |data_available[LGFIFO:LGMAXBURST];
 	else
-		sufficiently_filled = (data_available[LGMAXBURST-1:0]
+		sufficiently_filled = (data_available
 				>= aw_requests_remaining[LGMAXBURST-1:0]);
 
 	//
