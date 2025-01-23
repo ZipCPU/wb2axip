@@ -45,7 +45,7 @@
 //
 //	[28]	r_continuous
 //		Normally the FIFO gets cleared and reset between operations.
-//		However, if you set r_continuous, the core will then expectt
+//		However, if you set r_continuous, the core will then expect
 //		a second operation to take place following the first one.
 //		In this case, the FIFO doesn't get cleared.  However, if the
 //		FIFO fills and the incoming data is both valid and changing,
@@ -1520,9 +1520,12 @@ module	axis2mm #(
 	always @(*)
 	if (|aw_requests_remaining[LGLENW-1:LGMAXBURST])
 		sufficiently_filled = |data_available[LGFIFO:LGMAXBURST];
-	else
-		sufficiently_filled = (data_available[LGMAXBURST-1:0]
+	else begin
+		// Verilator lint_off WIDTH
+		sufficiently_filled = (data_available[LGFIFO:0]
 				>= aw_requests_remaining[LGMAXBURST-1:0]);
+		// Verilator lint_on  WIDTH
+	end
 
 	//
 	// axi_awlen
@@ -1865,6 +1868,7 @@ module	axis2mm #(
 		//
 		.i_axi_rvalid(1'b0),
 		.i_axi_rready(1'b0),
+		.i_axi_rid({(C_AXI_ID_WIDTH){1'b0}}),
 		.i_axi_rdata({(C_AXI_DATA_WIDTH){1'b0}}),
 		.i_axi_rlast(1'b0),
 		.i_axi_rresp(2'b00)
@@ -2067,7 +2071,8 @@ module	axis2mm #(
 	always @(posedge i_clk)
 	if (phantom_start)
 	begin
-		assert(axi_awlen == $past(r_max_burst[7:0]) - 8'd1);
+		assert(axi_awlen[LGMAXBURST-1:0] + 1
+			== $past(r_max_burst[LGMAXBURST:0]));
 		if (r_increment && (cmd_length_w > axi_awlen + 1)
 			&&(aw_requests_remaining != cmd_length_w))
 			assert(M_AXI_AWADDR[ADDRLSB +: LGMAXBURST] == 0);
@@ -2228,6 +2233,3 @@ module	axis2mm #(
 `endif
 	// }}}
 endmodule
-`ifndef	YOSYS
-`default_nettype wire
-`endif
