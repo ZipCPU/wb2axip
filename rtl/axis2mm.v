@@ -805,10 +805,10 @@ module	axis2mm #(
 
 	// r_continuous
 	// {{{
-	initial	r_continuous = 0;
+	initial	r_continuous = !OPT_TREADY_WHILE_IDLE;
 	always @(posedge i_clk)
 	if (i_reset)
-		r_continuous <= 0;
+		r_continuous <= !OPT_TREADY_WHILE_IDLE;
 	else begin
 		if (r_continuous && overflow)
 			r_continuous <= 1'b0;
