@@ -188,7 +188,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 // }}}
-// Copyright (C) 2019-2025, Gisselquist Technology, LLC
+// Copyright (C) 2019-2026, Gisselquist Technology, LLC
 // {{{
 // This file is part of the WB2AXIP project.
 //
@@ -1000,7 +1000,7 @@ module	axis2mm #(
 		w_status_word[26] = !tlast_syncd;
 		w_status_word[25:23] = r_errcode;
 		w_status_word[22] = cmd_abort;
-		w_status_word[20:16] = LGFIFO;
+		w_status_word[20:16] = LGFIFO[4:0];
 	end
 	// }}}
 
@@ -1530,7 +1530,7 @@ module	axis2mm #(
 	//
 	// axi_awlen
 	// {{{
-	generate if (LGMAXBURST >= 8)
+	generate if (LGMAXBURST >= 7)
 	begin : GEN_BIG_AWLEN
 
 		always @(posedge i_clk)
@@ -1542,7 +1542,7 @@ module	axis2mm #(
 		always @(posedge i_clk)
 		if (!M_AXI_AWVALID || M_AXI_AWREADY)
 		begin
-			axi_awlen  <= { {(8-LGMAXBURST){1'b0}}, r_max_burst } - 8'd1;
+			axi_awlen  <= { {(8-LGMAXBURST-1){1'b0}}, r_max_burst } - 8'd1;
 			axi_awlen[7:LGMAXBURST] <= 0;
 		end
 
