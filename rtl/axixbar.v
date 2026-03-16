@@ -363,20 +363,20 @@ module	axixbar #(
 	reg	[NSFULL-1:0]	rrequested		[0:NM];
 	reg	[NS:0]		wgrant			[0:NM-1];
 	reg	[NS:0]		rgrant			[0:NM-1];
-	reg	[NM-1:0]	mwgrant;
-	reg	[NM-1:0]	mrgrant;
-	reg	[NS-1:0]	swgrant;
-	reg	[NS-1:0]	srgrant;
+	reg	[NM-1:0]	mwgrant = 0;
+	reg	[NM-1:0]	mrgrant = 0;
+	reg	[NS-1:0]	swgrant = 0;
+	reg	[NS-1:0]	srgrant = 0;
 
 	// verilator lint_off UNUSED
 	wire	[LGMAXBURST-1:0]	w_mawpending	[0:NM-1];
 	wire	[LGMAXBURST-1:0]	wlasts_pending	[0:NM-1];
 	wire	[LGMAXBURST-1:0]	w_mrpending	[0:NM-1];
 	// verilator lint_on  UNUSED
-	reg	[NM-1:0]		mwfull;
-	reg	[NM-1:0]		mrfull;
-	reg	[NM-1:0]		mwempty;
-	reg	[NM-1:0]		mrempty;
+	reg	[NM-1:0]		mwfull = 0;
+	reg	[NM-1:0]		mrfull = 0;
+	reg	[NM-1:0]		mwempty = {NM{1'b1}};
+	reg	[NM-1:0]		mrempty = {NM{1'b1}};
 	//
 	wire	[LGNS-1:0]		mwindex	[0:NMFULL-1];
 	wire	[LGNS-1:0]		mrindex	[0:NMFULL-1];
@@ -415,11 +415,11 @@ module	axixbar #(
 	wire	[3:0]				m_arqos		[0:NMFULL-1];
 	//
 	//
-	reg	[NM-1:0]			berr_valid;
+	reg	[NM-1:0]			berr_valid = 0;
 	reg	[IW-1:0]			berr_id		[0:NM-1];
 	//
-	reg	[NM-1:0]			rerr_none;
-	reg	[NM-1:0]			rerr_last;
+	reg	[NM-1:0]			rerr_none = {NM{1'b1}};
+	reg	[NM-1:0]			rerr_last = 0;
 	reg	[8:0]				rerr_outstanding [0:NM-1];
 	reg	[IW-1:0]			rerr_id		 [0:NM-1];
 
@@ -1185,8 +1185,6 @@ module	axixbar #(
 		// {{{
 		// Now that we've done our homework, we can switch grants
 		// if necessary
-		initial	wgrant[N]  = 0;
-		initial	mwgrant[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
@@ -1366,8 +1364,6 @@ module	axixbar #(
 
 		// READ GRANT ALLOCATION
 		// {{{
-		initial	rgrant[N]  = 0;
-		initial	mrgrant[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
@@ -1510,7 +1506,6 @@ module	axixbar #(
 		// has won arbitration and so has a grant to that slave.
 
 		// swgrant: write arbitration
-		initial	swgrant = 0;
 		always @(*)
 		begin
 			swgrant[M] = 0;
@@ -1519,7 +1514,6 @@ module	axixbar #(
 				swgrant[M] = 1;
 		end
 
-		initial	srgrant = 0;
 		// srgrant: read arbitration
 		always @(*)
 		begin
@@ -1830,7 +1824,6 @@ module	axixbar #(
 
 		// Write error (no slave selected) state machine
 		// {{{
-		initial	berr_valid[N] = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 			berr_valid[N] <= 0;
@@ -1968,8 +1961,6 @@ module	axixbar #(
 		// and mwfull, are there to keep us from checking awempty==0
 		// and &awempty respectively.
 		initial	awpending    = 0;
-		initial	mwempty[N]   = 1;
-		initial	mwfull[N]    = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
@@ -2052,8 +2043,6 @@ module	axixbar #(
 		// analogous definitions to mwempty and mwfull, being equal to
 		// rpending == 0 and (&rpending) respectfully.
 		initial	rpending     = 0;
-		initial	mrempty[N]   = 1;
-		initial	mrfull[N]    = 0;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
@@ -2086,9 +2075,6 @@ module	axixbar #(
 		// rerr_last is true on the last of these read beats,
 		// equivalent to rerr_outstanding == 1, and rerr_none is true
 		// when the error state machine is idle
-		initial	rerr_outstanding[N] = 0;
-		initial	rerr_last[N] = 0;
-		initial	rerr_none[N] = 1;
 		always @(posedge S_AXI_ACLK)
 		if (!S_AXI_ARESETN)
 		begin
