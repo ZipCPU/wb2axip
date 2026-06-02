@@ -1,0 +1,23 @@
+[tasks]
+prf
+cvr
+
+[options]
+prf: mode prove
+cvr: mode cover
+
+[engines]
+smtbmc
+
+[script]
+read -formal faxil_slave.v
+read -formal axilgpt.v
+--pycode-begin--
+cmd = "hierarchy -top axilgpt"
+output(cmd)
+--pycode-end--
+prep -top axilgpt
+
+[files]
+axilgpt.v
+faxil_slave.v

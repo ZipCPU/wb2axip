@@ -1,0 +1,224 @@
+<HTML><HEAD><TITLE>Formal Verification Report</TITLE></HEAD>
+<BODY>
+<TABLE border>
+<TR><TH>Status</TH><TH>Component</TD><TH>Proof</TH><TH>Component description</TH></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>addrdecode</TD><TD>_prfr</TD><TD rowspan=6>Address decoder, used in bus crossbars</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>addrdecode</TD><TD>_cvrr</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>addrdecode</TD><TD>_cvrc</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>addrdecode</TD><TD>_cvrrlp</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>addrdecode</TD><TD>_prfc</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>addrdecode</TD><TD>_prfrlp</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>afifo</TD><TD>_prfopt</TD><TD rowspan=4>Asynchronous FIFO</TD></TR>
+<TR><TD bgcolor=#caeec8>8 Cover points</TD><TD>afifo</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>10 Cover points</TD><TD>afifo</TD><TD>_cvropt</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>afifo</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>apbslave</TD><TD>_prf</TD><TD rowspan=2>APB Slave</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>apbslave</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>apbxclk</TD><TD>_prf</TD><TD rowspan=2>APB Clock crossing bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>apbxclk</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>axil2apb</TD><TD>_cvr</TD><TD rowspan=3>AXI-Lite to APB bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2apb</TD><TD>_prfskd</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2apb</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2axis</TD><TD>_prfsink</TD><TD rowspan=6>AXI-Lite to AXI stream bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2axis</TD><TD>_prflps</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2axis</TD><TD>_prfsource</TD></TR>
+<TR><TD bgcolor=#caeec8>8 Cover points</TD><TD>axil2axis</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2axis</TD><TD>_prf</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axil2axis</TD><TD>_prflpu</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>30 Cover points</TD><TD>axildouble</TD><TD>_cvr</TD><TD rowspan=2>AXI-Lite to DOUBLE interface bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axildouble</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilempty</TD><TD>_prfreglp</TD><TD rowspan=6>Empty AXI-Lite slave implementation</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilempty</TD><TD>_prfreg</TD></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>axilempty</TD><TD>_cvrreg</TD></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>axilempty</TD><TD>_cvrskd</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilempty</TD><TD>_prfskdlp</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilempty</TD><TD>_prfskd</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilgpio</TD><TD>_prfreglp</TD><TD rowspan=6>AXI-Lite slave, controlling GPIO peripheral</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axilgpio</TD><TD>_cvrreg</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axilgpio</TD><TD>_cvrskd</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilgpio</TD><TD>_prfreg</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilgpio</TD><TD>_prfskd</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilgpio</TD><TD>_prfskdlp</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilrd2wbsp</TD><TD>_prf</TD><TD rowspan=2>AXI-Lite (read-only) to Wishbone bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axilrd2wbsp</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_fault</TD><TD rowspan=7>AXI-Lite firewall</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_faultr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_prfr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_prlong</TD></TR>
+<TR><TD bgcolor=#caeec8>8 Cover points</TD><TD>axilsafety</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_prf</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsafety</TD><TD>_longr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>38 Cover points</TD><TD>axilsingle</TD><TD>_cvr</TD><TD rowspan=2>AXI-Lite to SINGLE interface bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilsingle</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilupsz</TD><TD>_prfz</TD><TD rowspan=3>AXI-Lite to larger bus bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilupsz</TD><TD>_prf</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axilupsz</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axilwr2wbsp</TD><TD>_prf</TD><TD rowspan=2>AXI-Lite (write-only) to Wishbone bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axilwr2wbsp</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf4x8_lp</TD><TD rowspan=12>AXI-Lite Crossbar</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr1x3</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr4x8_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf4x8</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf1x8</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr4x1_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr4x1</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf4x1_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf4x1</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr1x3_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_prf1x8_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axilxbar</TD><TD>_cvr4x8</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>axiperf</TD><TD>_cvr</TD><TD rowspan=2>AXI Performance monitor</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axiperf</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axisbroadcast</TD><TD>_prf</TD><TD rowspan=1>AXI stream broadcaster</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axisgfsm</TD><TD>_cvr</TD><TD rowspan=3>AXI Scatter-gather demonstrator</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axisgfsm</TD><TD>_prf-broken</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>axisgfsm</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axispacker</TD><TD>_prf</TD><TD rowspan=2>AXI Stream byte packer</TD></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>axispacker</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axisrandom</TD><TD>_prf</TD><TD rowspan=1>AXI stream random number generator</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfpkt</TD><TD rowspan=18>AXI Stream firewall</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultrpkt</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prf</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>axissafety</TD><TD>_cvrnopkt</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faults</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultrs</TD></TR>
+<TR><TD bgcolor=#caeec8>6 Cover points</TD><TD>axissafety</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfpkts</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfrpkt</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultpkts</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultrpkts</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfrpkts</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfrs</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfs</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_faultpkt</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_fault</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axissafety</TD><TD>_prfr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axisswitch</TD><TD>_prf</TD><TD rowspan=1>AXI Stream switch</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>18 Cover points</TD><TD>axlite2wbsp</TD><TD>_cvr</TD><TD rowspan=2>AXI-Lite to Wishbone (pipelined) bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>axlite2wbsp</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>40 Cover points</TD><TD>demoaxi</TD><TD>_cvr</TD><TD rowspan=2>AXI-Lite demonstrator</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>demoaxi</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>easyaxil</TD><TD>_prfskdlp</TD><TD rowspan=6>Simple AXI-Lite demonstrator</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>easyaxil</TD><TD>_prfskd</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>easyaxil</TD><TD>_cvrskd</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>easyaxil</TD><TD>_prfreg</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>easyaxil</TD><TD>_prfreglp</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>easyaxil</TD><TD>_cvrreg</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_w</TD><TD rowspan=9>A Basic synchronous FIFO</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_ar</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_aw</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_r</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_a</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_wr</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>sfifo</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>sfifo</TD><TD>_prf_awr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>skidbuffer</TD><TD>_lpo</TD><TD rowspan=5>Skidbuffer</TD></TR>
+<TR><TD bgcolor=#caeec8>0 Cover points</TD><TD>skidbuffer</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>skidbuffer</TD><TD>_prfc</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>skidbuffer</TD><TD>_lpc</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>skidbuffer</TD><TD>_prfo</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbarbiter</TD><TD>_prf</TD><TD rowspan=2>A basic Wishbone 2-way arbiter</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>wbarbiter</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>wbc2pipeline</TD><TD>_cvr</TD><TD rowspan=2>Wishbone classic to pipeline bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbc2pipeline</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>10 Cover points</TD><TD>wbm2axilite</TD><TD>_cvr</TD><TD rowspan=2>Wishbone to AXI-Lite bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbm2axilite</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbp2classic</TD><TD>_prf</TD><TD rowspan=2>Wishbone pipeline to classic bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>wbp2classic</TD><TD>_cvr</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbsafety</TD><TD>_fault</TD><TD rowspan=5>Wishbone firewall</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbsafety</TD><TD>_prfr</TD></TR>
+<TR><TD bgcolor=#caeec8>4 Cover points</TD><TD>wbsafety</TD><TD>_cvr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbsafety</TD><TD>_faultr</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbsafety</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_buflpkos</TD><TD rowspan=48>Wishbone crossbar</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x1_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x8_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_buflpkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_buflpko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_bufko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_cheapkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_bufko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_bufkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_lpko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_cheapkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr1x3_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x8_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_buflpkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_bufkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_bufko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x8_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_buflpko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x1_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_cheapko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_lpkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x1_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_cheapkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr1x3_cheap</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x8_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr4x1_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_lpko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_lpko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_bufkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr1x3_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_cvr1x3_buf</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_buflp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x8_cheapko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_lp</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_cheapko</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_lpkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf1x8_lpkos</TD></TR>
+<TR><TD bgcolor=#ffa4a4>ERROR</TD><TD>wbxbar</TD><TD>_prf4x1_buflpko</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#caeec8>22 Cover points</TD><TD>wbxclk</TD><TD>_cvr</TD><TD rowspan=2>Wishbone clock domain crossing bridge</TD></TR>
+<TR><TD bgcolor=#caeec8>Pass</TD><TD>wbxclk</TD><TD>_prf</TD></TR>
+<TR></TR>
+<TR><TD bgcolor=#ffa4a4>FAIL</TD><TD>xlnxdemo</TD><TD>_2024_2_prf</TD><TD rowspan=3>Xilinx's (broken) AXI-Lite slave template</TD></TR>
+<TR><TD bgcolor=#caeec8>2 Cover points</TD><TD>xlnxdemo</TD><TD>_2024_2_cvr</TD></TR>
+<TR><TD bgcolor=#e5e5e5>No log file found</TD><TD>xlnxdemo</TD><TD>_2024_2</TD></TR>
+</TABLE>
+</BODY></HTML>
