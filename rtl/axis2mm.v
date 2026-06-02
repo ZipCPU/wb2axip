@@ -292,43 +292,72 @@ module	axis2mm #(
 		// }}}
 	) (
 		// {{{
+        (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF S_AXIS:S_AXIL:M_AXI" *)
+        (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 S_AXI_ACLK CLK" *)
+        (* gated_clock = OPT_CLKGATE ? "yes" : "no" *)
 		input	wire					S_AXI_ACLK,
+        (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_LOW" *)
+        (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 S_AXI_ARESETN RST" *)
 		input	wire					S_AXI_ARESETN,
 		//
 		// The stream interface
 		// {{{
+        (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 S_AXIS TVALID" *)
 		input	wire					S_AXIS_TVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 S_AXIS TREADY" *)
 		output	wire					S_AXIS_TREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 S_AXIS TDATA" *)
 		input	wire	[C_AXI_DATA_WIDTH-1:0]		S_AXIS_TDATA,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 S_AXIS TLAST" *)
 		input	wire					S_AXIS_TLAST,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 S_AXIS TUSER" *)
 		input wire [((C_AXIS_TUSER_WIDTH>0) ? C_AXIS_TUSER_WIDTH-1:0):0]
 								S_AXIS_TUSER,
 		// }}}
 		//
 		// The control interface
 		// {{{
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL AWVALID" *)
 		input	wire					S_AXIL_AWVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL AWREADY" *)
 		output	wire					S_AXIL_AWREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL AWADDR" *)
 		input	wire	[C_AXIL_ADDR_WIDTH-1:0]		S_AXIL_AWADDR,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL AWPROT" *)
 		input	wire	[2:0]				S_AXIL_AWPROT,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL WVALID" *)
 		input	wire					S_AXIL_WVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL WREADY" *)
 		output	wire					S_AXIL_WREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL WDATA" *)
 		input	wire	[C_AXIL_DATA_WIDTH-1:0]		S_AXIL_WDATA,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL WSTRB" *)
 		input	wire	[C_AXIL_DATA_WIDTH/8-1:0]	S_AXIL_WSTRB,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL BVALID" *)
 		output	wire					S_AXIL_BVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL BREADY" *)
 		input	wire					S_AXIL_BREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL BRESP" *)
 		output	wire	[1:0]				S_AXIL_BRESP,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL ARVALID" *)
 		input	wire					S_AXIL_ARVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL ARREADY" *)
 		output	wire					S_AXIL_ARREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL ARADDR" *)
 		input	wire	[C_AXIL_ADDR_WIDTH-1:0]		S_AXIL_ARADDR,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL ARPROT" *)
 		input	wire	[2:0]				S_AXIL_ARPROT,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL RVALID" *)
 		output	wire					S_AXIL_RVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL RREADY" *)
 		input	wire					S_AXIL_RREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL RDATA" *)
 		output	wire	[C_AXIL_DATA_WIDTH-1:0]		S_AXIL_RDATA,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXIL RRESP" *)
 		output	wire	[1:0]				S_AXIL_RRESP,
 		// }}}
 		//
@@ -336,34 +365,57 @@ module	axis2mm #(
 		//
 		// The AXI (full) write interface
 		// {{{
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWVALID" *)
 		output	wire				M_AXI_AWVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWREADY" *)
 		input	wire				M_AXI_AWREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWID" *)
 		output	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_AWID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWADDR" *)
 		output	wire	[C_AXI_ADDR_WIDTH-1:0]	M_AXI_AWADDR,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWLEN" *)
 		output	wire	[7:0]			M_AXI_AWLEN,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWSIZE" *)
 		output	wire	[2:0]			M_AXI_AWSIZE,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWBURST" *)
 		output	wire	[1:0]			M_AXI_AWBURST,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWLOCK" *)
 		output	wire				M_AXI_AWLOCK,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWCACHE" *)
 		output	wire	[3:0]			M_AXI_AWCACHE,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWPROT" *)
 		output	wire	[2:0]			M_AXI_AWPROT,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI AWQOS" *)
 		output	wire	[3:0]			M_AXI_AWQOS,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WVALID" *)
 		output	wire				M_AXI_WVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WREADY" *)
 		input	wire				M_AXI_WREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WDATA" *)
 		output	wire	[C_AXI_DATA_WIDTH-1:0]	M_AXI_WDATA,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WSTRB" *)
 		output	wire	[C_AXI_DATA_WIDTH/8-1:0] M_AXI_WSTRB,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WLAST" *)
 		output	wire				M_AXI_WLAST,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI WUSER" *)
 		output wire [(C_AXIS_TUSER_WIDTH>0 ? C_AXIS_TUSER_WIDTH-1:0):0]
 							M_AXI_WUSER,
 		//
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BVALID" *)
 		input	wire				M_AXI_BVALID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BREADY" *)
 		output	wire				M_AXI_BREADY,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BID" *)
 		input	wire	[C_AXI_ID_WIDTH-1:0]	M_AXI_BID,
+        (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 M_AXI BRESP" *)
 		input	wire	[1:0]			M_AXI_BRESP,
 		// }}}
 		//
 		//
 		// Create an output signal to indicate that we've finished
+		(* X_INTERFACE_INFO = "xilinx.com:signal:interrupt:1.0 irq INTERRUPT" *)
+		(* X_INTERFACE_PARAMETER = "SENSITIVITY EDGE_RISING" *)
 		output	reg				o_int
 		// }}}
 	);
