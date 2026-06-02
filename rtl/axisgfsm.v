@@ -612,11 +612,16 @@ module	axisgfsm #(
 
 	// Prefetch properties
 
-	assume property (@(posedge S_AXI_ACLK)
-		S_AXI_ARESETN && i_pf_valid && !o_pf_ready
-			&& !o_pf_clear_cache && !o_new_pc
-		|=> i_pf_valid && $stable({
-				i_pf_insn, i_pf_pc, i_pf_illegal }));
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $past(S_AXI_ARESETN)
+		&& $past(i_pf_valid && !o_pf_ready)
+		&& !$past(o_pf_clear_cache) && !$past(o_new_pc))
+	begin
+		assume(i_pf_valid);
+		assume($stable(i_pf_insn));
+		assume($stable(i_pf_pc));
+		assume($stable(i_pf_illegal));
+	end
 
 	always @(*)
 	if (o_new_pc)
@@ -719,21 +724,28 @@ module	axisgfsm #(
 		assert(fdma_rd_outstanding <= 1);
 	end
 
-	assert property (@(posedge S_AXI_ACLK)
-		!S_AXI_ARESETN
-		|=> sgstate == SG_IDLE && !o_dmac_wvalid);
+	always @(posedge S_AXI_ACLK)
+	if (!f_past_valid || !$past(S_AXI_ARESETN))
+	begin
+		assert(sgstate == SG_IDLE);
+		assert(!o_dmac_wvalid);
+	end
 
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $past(S_AXI_ARESETN)
+			&& $past(o_dmac_wvalid && !i_dmac_wready))
+	begin
+		assert(o_dmac_wvalid);
+		assert($stable(o_dmac_waddr));
+		assert($stable(o_dmac_wdata));
+		assert($stable(o_dmac_wstrb));
+	end
 
-	assert property (@(posedge S_AXI_ACLK)
-		S_AXI_ARESETN && o_dmac_wvalid && !i_dmac_wready
-		|=> o_dmac_wvalid && $stable({
-			o_dmac_waddr, o_dmac_wdata, o_dmac_wstrb }));
+	always @(posedge S_AXI_ACLK)
+		assert(fdma_wr_outstanding == fdma_awr_outstanding);
 
-	assert property (@(posedge S_AXI_ACLK)
-		fdma_wr_outstanding == fdma_awr_outstanding);
-
-	assert property (@(posedge S_AXI_ACLK)
-		fdma_wr_outstanding == (f_dma_bvalid ? 1:0));
+	always @(posedge S_AXI_ACLK)
+		assert(fdma_wr_outstanding == (f_dma_bvalid ? 1:0));
 
 	initial	f_dma_bvalid = 1'b0;
 	always @(posedge S_AXI_ACLK)
@@ -795,27 +807,33 @@ module	axisgfsm #(
 	if (!f_dma_busy)
 		assume(!f_dma_complete);
 
-	assume property (@(posedge S_AXI_ACLK)
-		disable iff (!S_AXI_ARESETN)
-		!dma_busy ##1 !dma_busy |-> !$rose(dma_err)
-	);
+	always @(posedge S_AXI_ACLK)
+	if (f_past_valid && $past(S_AXI_ARESETN) && S_AXI_ARESETN)
+	begin
+		if (!$past(dma_busy) && !dma_busy)
+		begin
+			assume(!$rose(dma_err));
+		end
 
-	assume property (@(posedge S_AXI_ACLK)
-		disable iff (!S_AXI_ARESETN)
-		$rose(dma_busy) |=> !dma_err);
+		if ($past($rose(dma_busy)))
+		begin
+			assume(!dma_err);
+		end
 
-	assume property (@(posedge S_AXI_ACLK)
-		disable iff (!S_AXI_ARESETN)
-		o_dmac_wvalid && i_dmac_wready && o_dmac_wstrb[0]
-				&& o_dmac_wdata[4]
-		|=> ##1 !dma_err);
+		if ($past(f_past_valid && o_dmac_wvalid && i_dmac_wready
+			&& o_dmac_wstrb[0] && o_dmac_wdata[4], 2))
+		begin
+			assume(!dma_err);
+		end
 
-	assume property (@(posedge S_AXI_ACLK)
-		disable iff (!S_AXI_ARESETN)
-		!o_dmac_wvalid || !i_dmac_wready || !o_dmac_wstrb[0]
-				|| !o_dmac_wdata[4]
-		|=> ##1 !$fell(dma_err));
-
+		if ($past(f_past_valid) && (!$past(o_dmac_wvalid,2)
+			|| !$past(i_dmac_wready,2)
+			|| !$past(o_dmac_wstrb[0],2)
+			|| !$past(o_dmac_wdata[4],2)))
+		begin
+			assume(!$fell(dma_err));
+		end
+	end
 
 //	assume property (@(posedge S_AXI_ACLK)
 //		dma_busy |=> dma_busy [*0:$]
