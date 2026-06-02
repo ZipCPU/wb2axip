@@ -55,6 +55,8 @@ All three cores are supported by the (dev branch of)
   a continuous AXI-stream video source output.
 
 - [Synchronous FIFO](sfifo.v)
+  - [AXI-Stream FIFO](axisfifo.v) wraps the synchronous FIFO with AXI stream
+    TVALID and TREADY signals.
 - [Synchronous FIFO with threshold](sfifothresh.v)
 
 ## Bus Bridges
@@ -74,13 +76,18 @@ All three cores are supported by the (dev branch of)
 
   -- A following (optional) [arbiter](wbarbiter.v) will connect read and write sides together into the same WB bus.  Alternatively, each of the two sides can be submitted separately into a [WB Crossbar](wbxbar.v).
 
-- [AXI-Lite to APB](axil2apb.v)
+- [AXI-Lite to APB](axisxil2apb.v)
 
-- [AXI4 Master to Wishbone](axim2wbsp.v)
+- [AXI4 Master to Wishbone](axim2wbsp.v): Converts AXI to Wishbone.  As with the
+  AXI-Lite to Wishbone converter, an [arbiter](wbarbiter.v) is required.  This
+  IP is most notably used with [Angelo's UberDDR3
+  controller](https://github.com/AngeloJacobo/UberDDR3).  Upgrades now expand
+  this IP to include AXI exclusive access, and early write returns.  (Read
+  buffering is still under investigation.)
 
   -- [Read side](aximrd2wbsp.v)
 
-  -- [AXI4 Master to Wishbone](aximwr2wbsp.v)
+  -- [Write side](aximwr2wbsp.v)
 
 - [Wishbone classic to pipelined](wbc2pipeline.v)
 
@@ -100,10 +107,7 @@ All three cores are supported by the (dev branch of)
   [AXI3 write deinterleaver](axi3reorder.v) for the details of the write
   deinterleaving algorithm.
 
-- The AXI4 to AXI3 bridge is still missing.
-  This will be more difficult than its [AXI3 to AXI4 sister](axi32axi.v) above,
-  since it will need to break apart large AXI4 burst requests into smaller AXI3
-  bursts, sort of like the [AXI4 to AXI4-lite bridge](axi2axilite.v) does.
+- [AXI4 to AXI3](axi2axi3.v)
 
 ## AXI Simplifiers
 
@@ -173,3 +177,15 @@ bus errors.
 - [APB cross-clock domains](apbxclk.v)
 
 - [Asynchronous FIFO](afifo.v) -- support function
+
+## Bus Width Crossing
+
+- Upsizing, to increase the width of the data bus:
+  - [AXI Upsizer](axiupsz.v)
+  - [AXI-Lite Upsizer](axilupsz.v)
+  - [Wishbone upsizer](wbupsz.v)
+- Downsizing, to go from a wider bus to a smaller one:
+  - [AXI Downsizer](axi2axilsub.v): Converts AXI to burst-less AXI (nominally
+    AXI-Lite).  This less than full conversion minimizes the pain involved in
+    potentially needing to resize AXI bursts.
+  - [Wishbone downsizer](wbdown.v)

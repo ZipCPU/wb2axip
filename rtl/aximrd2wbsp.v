@@ -55,7 +55,11 @@ module	aximrd2wbsp #(
 		localparam AW			= C_AXI_ADDR_WIDTH - AXI_LSBS,
 		parameter LGFIFO                =  3,
 		parameter [0:0] OPT_SWAP_ENDIANNESS = 1'b0,
-		parameter [0:0] OPT_SIZESEL	= 1
+		parameter [0:0] OPT_SIZESEL	= 1,
+		parameter [0:0] OPT_SKIDBUFFER	= 1,
+		// Set OPT_LOCK to include exclusive access support
+		parameter [0:0] OPT_LOCK	= 1,
+		parameter [0:0] OPT_FAST_RETURN	= 1
 		// parameter	WBMODE		= "B4PIPELINE"
 		// Could also be "BLOCK"
 		// }}}
@@ -106,7 +110,8 @@ module	aximrd2wbsp #(
 	wire				w_reset;
 
 	wire				lastid_fifo_full, lastid_fifo_empty,
-					resp_fifo_full, resp_fifo_empty;
+					resp_fifo_full, resp_fifo_empty,
+					id_fifo_locked;
 	wire	[LGFIFO:0]		lastid_fifo_fill, resp_fifo_fill;
 
 
@@ -120,6 +125,8 @@ module	aximrd2wbsp #(
 	wire	[7:0]			skid_arlen;//   r_len;
 	wire	[2:0]			skid_arsize;//  r_size;
 	wire	[1:0]			skid_arburst;// r_burst;
+	wire				skid_arlock;
+	wire	[3:0]			skid_arcache;
 	reg				fifo_nearfull;
 	wire				accept_request;
 
@@ -131,7 +138,7 @@ module	aximrd2wbsp #(
 	wire	[C_AXI_ADDR_WIDTH-1:0]	next_addr;
 	wire				response_err;
 	wire				lastid_fifo_wr;
-	reg				midissue, wb_empty;
+	reg				midissue, wb_empty, axi_lockd;
 	reg	[LGFIFO+7:0]		acks_expected;
 
 	reg	[C_AXI_DATA_WIDTH-1:0]	read_data;
@@ -141,16 +148,36 @@ module	aximrd2wbsp #(
 
 	// incoming skidbuffer
 	// {{{
-	skidbuffer #(
-		.OPT_OUTREG(0),
-		.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + 8 + 3 + 2)
-	) axirqbuf(S_AXI_ACLK, !S_AXI_ARESETN,
-		S_AXI_ARVALID, S_AXI_ARREADY,
-			{ S_AXI_ARID, S_AXI_ARADDR, S_AXI_ARLEN,
-			  S_AXI_ARSIZE, S_AXI_ARBURST },
-		skid_arvalid, accept_request,
-			{ skid_arid, skid_araddr, skid_arlen,
-			  skid_arsize, skid_arburst });
+	generate if (OPT_SKIDBUFFER)
+	begin : GEN_ARSKID
+
+		skidbuffer #(
+			.OPT_OUTREG(0),
+			.DW(C_AXI_ID_WIDTH + C_AXI_ADDR_WIDTH + 8 + 3 + 2+5)
+		) u_arskid (
+			.i_clk(S_AXI_ACLK), .i_reset(!S_AXI_ARESETN),
+			.i_valid(S_AXI_ARVALID), .o_ready(S_AXI_ARREADY),
+			.i_data({ S_AXI_ARID, S_AXI_ARADDR, S_AXI_ARLEN,
+			  	S_AXI_ARSIZE, S_AXI_ARBURST,
+				S_AXI_ARLOCK, S_AXI_ARCACHE }),
+			.o_valid(skid_arvalid), .i_ready(accept_request),
+			.o_data({ skid_arid,skid_araddr, skid_arlen,
+			  	skid_arsize, skid_arburst,
+				skid_arlock, skid_arcache })
+		);
+	end else begin : NO_ARSKID
+
+		assign	skid_arvalid = S_AXI_ARVALID;
+		assign	S_AXI_ARREADY = accept_request;
+		assign	skid_arid   = S_AXI_ARID;
+		assign	skid_araddr = S_AXI_ARADDR;
+		assign	skid_arlen  = S_AXI_ARLEN;
+		assign	skid_arsize = S_AXI_ARSIZE;
+		assign	skid_arburst= S_AXI_ARBURST;
+		assign	skid_arlock = S_AXI_ARLOCK;
+		assign	skid_arcache= S_AXI_ARCACHE;
+
+	end endgenerate
 	// }}}
 
 	// accept_request
@@ -255,6 +282,7 @@ module	aximrd2wbsp #(
 		axi_burst <= skid_arburst;
 		axi_size  <= skid_arsize;
 		axi_len   <= skid_arlen;
+		axi_lockd <= skid_arlock;
 
 		if (OPT_SIZESEL)
 			axi_strb  <= (1<<(1<<(skid_arsize)))-1;
@@ -282,16 +310,16 @@ module	aximrd2wbsp #(
 	next_read_addr(axi_addr, axi_size, axi_burst, axi_len, next_addr);
 	// }}}
 
+	// o_wb_addr, axi_addr <= skid_araddr;
 	// {{{
 	always @(posedge S_AXI_ACLK)
 	if (accept_request)
 		axi_addr <= skid_araddr;
 	else if (!i_wb_stall)
 		axi_addr <= next_addr;
-	// }}}
 
-	always @(*)
-		o_wb_addr = axi_addr[(C_AXI_ADDR_WIDTH-1):C_AXI_ADDR_WIDTH-AW];
+	assign	o_wb_addr = axi_addr[(C_AXI_ADDR_WIDTH-1):C_AXI_ADDR_WIDTH-AW];
+	// }}}
 
 	// o_wb_sel
 	// {{{
@@ -315,14 +343,16 @@ module	aximrd2wbsp #(
 	assign	lastid_fifo_wr = (o_wb_stb && (i_wb_err || !i_wb_stall))
 			||(err_state && midissue && !lastid_fifo_full);
 
-	sfifo #(.BW(C_AXI_ID_WIDTH+1), .LGFLEN(LGFIFO))
-	lastid_fifo(S_AXI_ACLK, w_reset,
-		lastid_fifo_wr,
-		{ axi_id, last_stb },
-		lastid_fifo_full, lastid_fifo_fill,
-		S_AXI_RVALID && S_AXI_RREADY,
-		{ S_AXI_RID, S_AXI_RLAST },
-		lastid_fifo_empty);
+	sfifo #(
+		.BW(1+C_AXI_ID_WIDTH+1), .LGFLEN(LGFIFO)
+	) u_lastid_fifo(
+		.i_clk(S_AXI_ACLK), .i_reset(w_reset),
+		.i_wr(lastid_fifo_wr), .i_data({ axi_lockd, axi_id, last_stb }),
+			.o_full(lastid_fifo_full), .o_fill(lastid_fifo_fill),
+		.i_rd(S_AXI_RVALID && S_AXI_RREADY),
+			.o_data({ id_fifo_locked, S_AXI_RID, S_AXI_RLAST }),
+		.o_empty(lastid_fifo_empty)
+	);
 	// }}}
 
 	// read_data
@@ -350,13 +380,16 @@ module	aximrd2wbsp #(
 
 	// resp_fifo
 	// {{{
-	sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO))
-	resp_fifo(S_AXI_ACLK, w_reset,
-		o_wb_cyc && (i_wb_ack || i_wb_err), { read_data, i_wb_err },
-		resp_fifo_full, resp_fifo_fill,
-		S_AXI_RVALID && S_AXI_RREADY,
-		{ S_AXI_RDATA, response_err },
-		resp_fifo_empty);
+	sfifo #(.BW(C_AXI_DATA_WIDTH+1), .LGFLEN(LGFIFO)
+	) u_resp_fifo(
+		.i_clk(S_AXI_ACLK), .i_reset(w_reset),
+		.i_wr(o_wb_cyc && (i_wb_ack || i_wb_err)),
+			.i_data({ read_data, i_wb_err }),
+			.o_full(resp_fifo_full), .o_fill(resp_fifo_fill),
+		.i_rd(S_AXI_RVALID && S_AXI_RREADY),
+		.o_data({ S_AXI_RDATA, response_err }),
+		.o_empty(resp_fifo_empty)
+	);
 	// }}}
 
 	// acks_expected
@@ -422,8 +455,8 @@ module	aximrd2wbsp #(
 	// {{{
 	always @(*)
 	begin
-		S_AXI_RRESP[0] = 1'b0;
 		S_AXI_RRESP[1] = response_err || (resp_fifo_empty && err_state);
+		S_AXI_RRESP[0] = !S_AXI_RRESP[1] && id_fifo_locked && OPT_LOCK;
 
 
 		S_AXI_RVALID = !resp_fifo_empty
@@ -447,7 +480,8 @@ module	aximrd2wbsp #(
 	// {{{
 	// verilator lint_off UNUSED
 	wire	unused;
-	assign	unused = &{ 1'b0, S_AXI_ARLOCK, S_AXI_ARCACHE,
+	assign	unused = &{ 1'b0, skid_arlock, skid_arcache,
+			OPT_FAST_RETURN,
 			S_AXI_ARPROT, S_AXI_ARQOS, resp_fifo_full };
 	// verilator lint_on  UNUSED
 	// }}}
@@ -584,7 +618,8 @@ module	aximrd2wbsp #(
 		//
 		// ...
 		//
-			);
+		// }}}
+	);
 
 	//
 	// ...
