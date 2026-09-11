@@ -432,7 +432,6 @@ module	wbxbar #(
 		// Register declarations
 		// {{{
 		wire	[NS:0]		regrant;
-		wire	[LGNS-1:0]	reindex;
 
 		// This is done using a couple of variables.
 		//
@@ -533,19 +532,14 @@ module	wbxbar #(
 			// {{{
 			assign	mindex[N] = 0;
 			assign	regrant = 0;
-			assign	reindex = 0;
 
 			// Verilator lint_off UNUSED
-			wire	unused_regrant = &{ 1'b0, regrant, reindex };
+			wire	unused_regrant = &{ 1'b0, regrant };
 			// Verialtor lint_on  UNUSED
 			// }}}
 		end else begin : MINDEX_MULTIPLE_SLAVES
 			// {{{
 			reg	[LGNS-1:0]	r_mindex;
-
-`define	NEW_MINDEX_CODE
-`ifdef	NEW_MINDEX_CODE
-			// {{{
 			reg	[NS:0]		r_regrant;
 			reg	[LGNS-1:0]	r_reindex;
 
@@ -579,49 +573,21 @@ module	wbxbar #(
 			// r_reindex
 			// {{{
 			// Verilator lint_off BLKSEQ
-			always @(r_regrant, regrant)
+			always @(r_regrant)
 			begin
 				r_reindex = 0;
 				for(iM=0; iM<=NS; iM=iM+1)
 				if (r_regrant[iM])
 					r_reindex = r_reindex | iM[LGNS-1:0];
-				if (regrant == 0)
-					r_reindex = r_mindex;
 			end
 			// Verilator lint_on  BLKSEQ
 			// }}}
 
 			always @(posedge i_clk)
-				r_mindex <= reindex;
+			if (regrant != 0)
+				r_mindex <= r_reindex;
 
-			assign	reindex = r_reindex;
 			assign	regrant = r_regrant;
-			// }}}
-`else
-			// {{{
-			always @(posedge i_clk)
-			if (!mgrant[N] || mempty[N])
-			begin
-
-				for(iM=0; iM<NS; iM=iM+1)
-				begin
-					if (request[N][iM] && grant[N][iM])
-					begin
-						// Maintain any open channels
-						r_mindex <= iM;
-					end else if (request[N][iM]
-							&& !sgrant[iM]
-							&& !requested[N][iM])
-					begin
-						// Open a new channel
-						// if necessary
-						r_mindex <= iM;
-					end
-				end
-			end
-
-			// }}}
-`endif // NEW_MINDEX_CODE
 			assign	mindex[N] = r_mindex;
 			// }}}
 		end
@@ -650,9 +616,6 @@ module	wbxbar #(
 		end else begin : SINDEX_MORE_THAN_ONE_MASTER
 			// {{{
 			reg	[LGNM-1:0]	r_sindex;
-`define	NEW_SINDEX_CODE
-`ifdef	NEW_SINDEX_CODE
-			// {{{
 			reg	[NM-1:0]	regrant;
 			reg	[LGNM-1:0]	reindex;
 
@@ -675,42 +638,22 @@ module	wbxbar #(
 				end
 			end
 
-			always @(*)
+			always @(regrant)
 			begin
 				reindex = 0;
 				// Each bit in reindex depends upon all of the
 				// bits in regrant--should still be one LUT
 				// per bit though
-				if (regrant == 0)
-					reindex = sindex[M];
-				else for(iN=0; iN<NM; iN=iN+1)
-					if (regrant[iN])
-						reindex = reindex | iN[LGNM-1:0];
+				for(iN=0; iN<NM; iN=iN+1)
+				if (regrant[iN])
+					reindex = reindex | iN[LGNM-1:0];
 			end
 
 			always @(posedge i_clk)
+			if (regrant != 0)
 				r_sindex <= reindex;
 
 			assign	sindex[M] = r_sindex;
-			// }}}
-`else
-			// {{{
-			always @(posedge i_clk)
-			for (iN=0; iN<NM; iN=iN+1)
-			begin
-				if (!mgrant[iN] || mempty[iN])
-				begin
-					if (request[iN][M] && grant[iN][M])
-						r_sindex <= iN;
-					else if (request[iN][M] && !sgrant[M]
-							&& !requested[iN][M])
-						r_sindex <= iN;
-				end
-			end
-
-			assign	sindex[M] = r_sindex;
-			// }}}
-`endif
 			// }}}
 		end
 		// }}}
